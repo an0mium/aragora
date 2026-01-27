@@ -90,7 +90,7 @@ class BindingsHandler(BaseHandler):
 
         # Rate limit check
         client_ip = get_client_ip(request)
-        if not _bindings_limiter.check(client_ip):
+        if not _bindings_limiter.is_allowed(client_ip):
             return error_response(
                 "Rate limit exceeded for bindings endpoints",
                 429,
@@ -127,7 +127,7 @@ class BindingsHandler(BaseHandler):
 
         # Rate limit check
         client_ip = get_client_ip(request)
-        if not _bindings_limiter.check(client_ip):
+        if not _bindings_limiter.is_allowed(client_ip):
             return error_response(
                 "Rate limit exceeded for bindings endpoints",
                 429,
@@ -158,7 +158,7 @@ class BindingsHandler(BaseHandler):
 
         # Rate limit check
         client_ip = get_client_ip(request)
-        if not _bindings_limiter.check(client_ip):
+        if not _bindings_limiter.is_allowed(client_ip):
             return error_response(
                 "Rate limit exceeded for bindings endpoints",
                 429,

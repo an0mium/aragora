@@ -462,7 +462,7 @@ class BindingRouter:
 
         elif resolution.binding_type == BindingType.AGENT_POOL:
             # Select from pool
-            pool = self._agent_pools.get(agent_binding, [])
+            pool = self._agent_pools.get(agent_binding or "", [])
             for agent in available_agents:
                 if agent.name in pool:
                     return AgentSelection(

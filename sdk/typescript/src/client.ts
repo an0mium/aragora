@@ -184,6 +184,10 @@ import {
   DecisionsAPI,
   CritiquesAPI,
   BeliefNetworkAPI,
+  MomentsAPI,
+  IntrospectionAPI,
+  DocumentsAPI,
+  RetentionAPI,
 } from './namespaces';
 
 interface RequestOptions {

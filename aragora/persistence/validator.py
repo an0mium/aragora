@@ -117,7 +117,7 @@ def _get_table_count(db_path: Path) -> int:
     try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
-        count = cursor.fetchone()[0]
+        count: int = cursor.fetchone()[0]
         conn.close()
         return count
     except Exception:
