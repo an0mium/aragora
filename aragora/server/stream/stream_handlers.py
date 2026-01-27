@@ -249,7 +249,7 @@ class StreamAPIHandlersMixin:
             if tournaments_dir.exists():
                 for db_file in sorted(tournaments_dir.glob("*.db")):
                     try:
-                        from aragora.tournaments.tournament import TournamentManager
+                        from aragora.ranking.tournaments import TournamentManager
 
                         manager = TournamentManager(db_path=str(db_file))
 
@@ -313,7 +313,7 @@ class StreamAPIHandlersMixin:
                     headers=self._cors_headers(origin),
                 )
 
-            from aragora.tournaments.tournament import TournamentManager
+            from aragora.ranking.tournaments import TournamentManager
 
             manager = TournamentManager(db_path=str(tournament_db))
 

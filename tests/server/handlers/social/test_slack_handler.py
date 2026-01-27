@@ -168,7 +168,8 @@ class TestSSRFProtection:
 class TestStatusEndpoint:
     """Tests for GET /api/integrations/slack/status."""
 
-    def test_get_status_without_config(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_status_without_config(self, handler):
         """Status without config shows disabled."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
@@ -177,14 +178,15 @@ class TestStatusEndpoint:
         )
 
         with patch.dict(os.environ, {}, clear=True):
-            result = handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
 
         assert result is not None
         status_code, body = parse_result(result)
         assert status_code == 200
         assert "enabled" in body
 
-    def test_get_status_with_signing_secret(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_status_with_signing_secret(self, handler):
         """Status with signing secret configured."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
@@ -193,13 +195,14 @@ class TestStatusEndpoint:
         )
 
         with patch("aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", "secret123"):
-            result = handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
 
         status_code, body = parse_result(result)
         assert status_code == 200
         assert body.get("signing_secret_configured") is True
 
-    def test_get_status_with_bot_token(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_status_with_bot_token(self, handler):
         """Status with bot token configured."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
@@ -208,7 +211,7 @@ class TestStatusEndpoint:
         )
 
         with patch("aragora.server.handlers.social._slack_impl.SLACK_BOT_TOKEN", "xoxb-token"):
-            result = handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
 
         status_code, body = parse_result(result)
         assert status_code == 200

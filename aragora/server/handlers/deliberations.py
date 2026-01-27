@@ -62,8 +62,8 @@ class DeliberationsHandler(BaseHandler):
     Provides visibility into multi-agent vetted decisionmaking sessions across the system.
 
     RBAC Permissions:
-    - deliberation.read - View active deliberations, stats, individual deliberation details
-    - deliberation.create - Create new deliberations (via WebSocket stream)
+    - analytics.read - View active deliberations, stats, and details
+    - analytics.read - Subscribe to deliberation stream
     """
 
     ROUTES = [
@@ -130,29 +130,29 @@ class DeliberationsHandler(BaseHandler):
         path = request.path
         method = request.method
 
-        # Active deliberations - requires deliberation.read
+        # Active deliberations - requires analytics.read
         if path == "/api/v1/deliberations/active" and method == "GET":
-            if rbac_error := self._check_rbac_permission(request, "deliberation.read"):
+            if rbac_error := self._check_rbac_permission(request, "analytics.read"):
                 return rbac_error
             return await self._get_active_deliberations(request)
 
-        # Stats - requires deliberation.read
+        # Stats - requires analytics.read
         if path == "/api/v1/deliberations/stats" and method == "GET":
-            if rbac_error := self._check_rbac_permission(request, "deliberation.read"):
+            if rbac_error := self._check_rbac_permission(request, "analytics.read"):
                 return rbac_error
             return await self._get_stats(request)
 
-        # WebSocket stream - requires deliberation.create for subscribing to updates
+        # WebSocket stream - requires analytics.read for subscribing to updates
         if path == "/api/v1/deliberations/stream":
-            if rbac_error := self._check_rbac_permission(request, "deliberation.create"):
+            if rbac_error := self._check_rbac_permission(request, "analytics.read"):
                 return rbac_error
             return await self._handle_stream(request)
 
-        # Single deliberation - requires deliberation.read
+        # Single deliberation - requires analytics.read
         if path.startswith("/api/v1/deliberations/") and method == "GET":
             deliberation_id = path.split("/")[-1]
             if deliberation_id not in ("active", "stats", "stream"):
-                if rbac_error := self._check_rbac_permission(request, "deliberation.read"):
+                if rbac_error := self._check_rbac_permission(request, "analytics.read"):
                     return rbac_error
                 return await self._get_deliberation(request, deliberation_id)
 

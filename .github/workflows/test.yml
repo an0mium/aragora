@@ -131,10 +131,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,research]"
+          pip install -e ".[dev,research,test]"
           pip install pytest-timeout pytest-xdist
-          # Optional dependencies to reduce test skips
-          pip install httpx mcp z3-solver supabase asyncpg websockets PyJWT aiosqlite redis tiktoken || true
 
       - name: Run ${{ matrix.category.name }} tests
         run: |
