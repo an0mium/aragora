@@ -559,7 +559,7 @@ export {
   type Backup,
   type VerificationResult,
   type ComprehensiveVerificationResult,
-  type RetentionPolicy,
+  type RetentionPolicy as BackupRetentionPolicy,
   type BackupStats,
 } from './backups';
 
