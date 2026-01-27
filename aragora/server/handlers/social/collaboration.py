@@ -8,7 +8,7 @@ and collaboration features.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from aragora.server.collaboration import (
     CollaborationSession,
@@ -16,8 +16,38 @@ from aragora.server.collaboration import (
     SessionManager,
     get_session_manager,
 )
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
+
+
+def _check_permission(
+    user_id: str,
+    permission: str,
+    org_id: Optional[str] = None,
+    roles: Optional[set[str]] = None,
+) -> Optional[dict[str, Any]]:
+    """Check RBAC permission for collaboration operations.
+
+    Returns None if allowed, or error dict if denied.
+    """
+    try:
+        context = AuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles if roles else {"member"},
+            permissions=set(),
+        )
+        checker = get_permission_checker()
+        decision = checker.check_permission(context, permission)
+        if not decision.allowed:
+            logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+            return {"error": f"Permission denied: {decision.reason}", "status": 403}
+        return None
+    except Exception as e:
+        logger.error(f"RBAC check failed: {e}")
+        return {"error": "Authorization check failed", "status": 500}
 
 
 class CollaborationHandlers:
@@ -75,6 +105,10 @@ class CollaborationHandlers:
         if not user_id:
             return {"error": "user_id is required"}
 
+        # RBAC check
+        if denied := _check_permission(user_id, "collaboration:create", org_id):
+            return denied
+
         try:
             session = self.manager.create_session(
                 debate_id=debate_id,
@@ -96,7 +130,7 @@ class CollaborationHandlers:
             logger.error(f"Failed to create session: {e}")
             return {"error": f"Failed to create session: {e}"}
 
-    async def get_session(self, session_id: str) -> dict[str, Any]:
+    async def get_session(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """
         Get a collaboration session by ID.
 
@@ -104,6 +138,11 @@ class CollaborationHandlers:
         """
         if not session_id:
             return {"error": "session_id is required"}
+
+        # RBAC check (optional user_id for backward compatibility)
+        if user_id:
+            if denied := _check_permission(user_id, "collaboration:read"):
+                return denied
 
         session = self.manager.get_session(session_id)
         if not session:
@@ -116,6 +155,7 @@ class CollaborationHandlers:
         debate_id: str = "",
         user_id: str = "",
         include_closed: bool = False,
+        requesting_user_id: str = "",
     ) -> dict[str, Any]:
         """
         List collaboration sessions.
@@ -126,6 +166,11 @@ class CollaborationHandlers:
             user_id: Filter by participant (optional)
             include_closed: Include closed sessions (default: false)
         """
+        # RBAC check
+        if requesting_user_id:
+            if denied := _check_permission(requesting_user_id, "collaboration:read"):
+                return denied
+
         sessions: list[CollaborationSession] = []
 
         if debate_id:
@@ -169,6 +214,10 @@ class CollaborationHandlers:
         if not user_id:
             return {"error": "user_id is required"}
 
+        # RBAC check
+        if denied := _check_permission(user_id, "collaboration:join"):
+            return denied
+
         try:
             participant_role = ParticipantRole(role)
         except ValueError:
@@ -202,6 +251,10 @@ class CollaborationHandlers:
             return {"error": "session_id is required"}
         if not user_id:
             return {"error": "user_id is required"}
+
+        # RBAC check - users can leave their own sessions
+        if denied := _check_permission(user_id, "collaboration:leave"):
+            return denied
 
         success = self.manager.leave_session(session_id, user_id)
         return {
@@ -276,6 +329,10 @@ class CollaborationHandlers:
         if not changed_by:
             return {"error": "Moderator user_id required"}
 
+        # RBAC check - requires admin permission
+        if denied := _check_permission(changed_by, "collaboration:admin"):
+            return denied
+
         try:
             participant_role = ParticipantRole(new_role)
         except ValueError:
@@ -311,6 +368,10 @@ class CollaborationHandlers:
         if not approved_by:
             return {"error": "Moderator user_id required"}
 
+        # RBAC check - requires admin permission
+        if denied := _check_permission(approved_by, "collaboration:admin"):
+            return denied
+
         try:
             participant_role = ParticipantRole(role)
         except ValueError:
@@ -341,21 +402,30 @@ class CollaborationHandlers:
         if not closed_by:
             return {"error": "Moderator user_id required"}
 
+        # RBAC check - requires admin permission
+        if denied := _check_permission(closed_by, "collaboration:admin"):
+            return denied
+
         success = self.manager.close_session(session_id, closed_by)
         return {
             "success": success,
             "message": "Session closed" if success else "Failed to close session",
         }
 
-    async def get_stats(self) -> dict[str, Any]:
+    async def get_stats(self, user_id: str = "") -> dict[str, Any]:
         """
         Get collaboration statistics.
 
         GET /api/collaboration/stats
         """
+        # RBAC check for stats access
+        if user_id:
+            if denied := _check_permission(user_id, "collaboration:read"):
+                return denied
+
         return self.manager.get_stats()
 
-    async def get_participants(self, session_id: str) -> dict[str, Any]:
+    async def get_participants(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """
         Get participants for a session.
 
@@ -363,6 +433,11 @@ class CollaborationHandlers:
         """
         if not session_id:
             return {"error": "session_id is required"}
+
+        # RBAC check
+        if user_id:
+            if denied := _check_permission(user_id, "collaboration:read"):
+                return denied
 
         session = self.manager.get_session(session_id)
         if not session:
