@@ -296,6 +296,21 @@ export function DebateInput({ apiBase, onDebateStarted, onError, defaultFormat, 
     }
   }, [recommendations]);
 
+  const preflightAgents = useCallback(async (agentList: string[]) => {
+    try {
+      const response = await fetch(`${apiBase}/api/introspection/agents/availability`);
+      if (!response.ok) {
+        logger.warn('[DebateInput] Agent availability check failed', response.status);
+        return null;
+      }
+      const data = await response.json();
+      return data as { available?: string[]; missing?: string[] };
+    } catch (err) {
+      logger.warn('[DebateInput] Agent availability check error', err);
+      return null;
+    }
+  }, [apiBase]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -325,6 +340,23 @@ export function DebateInput({ apiBase, onDebateStarted, onError, defaultFormat, 
 
     try {
       const modeConfig = DEBATE_MODES[debateMode];
+      const requestedAgents = agents
+        .split(',')
+        .map(a => a.trim())
+        .filter(Boolean);
+      const availability = await preflightAgents(requestedAgents);
+      if (availability?.available?.length) {
+        const missingAgents = requestedAgents.filter(
+          agent => !availability.available?.includes(agent)
+        );
+        if (missingAgents.length > 0) {
+          const message = `Missing credentials for: ${missingAgents.join(', ')}`;
+          setLocalError(message);
+          onError?.(message);
+          setIsSubmitting(false);
+          return;
+        }
+      }
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${tokens.access_token}`,
@@ -345,7 +377,7 @@ export function DebateInput({ apiBase, onDebateStarted, onError, defaultFormat, 
         signal: controller.signal,
         body: JSON.stringify({
           question: trimmedQuestion,
-          agents: agents.split(',').map(a => a.trim()).filter(Boolean),
+          agents: requestedAgents,
           rounds,
           debate_format: debateFormat,
           vertical: selectedVertical !== 'general' ? selectedVertical : undefined,
