@@ -361,6 +361,28 @@ export {
   type ListPatternsOptions as LearningPatternsOptions,
 } from './learning';
 
+// Training (SFT/DPO exports, jobs)
+export {
+  TrainingAPI,
+  type ExportFormat,
+  type ExportType,
+  type JobStatus,
+  type GauntletPersona as TrainingGauntletPersona,
+  type SFTExportParams,
+  type DPOExportParams,
+  type GauntletExportParams,
+  type SFTRecord,
+  type DPORecord,
+  type TrainingExportResult,
+  type TrainingStats,
+  type TrainingFormats,
+  type TrainingJob,
+  type TrainingJobDetails,
+  type ListJobsParams,
+  type CompleteJobData,
+  type TrainingMetrics,
+} from './training';
+
 // Batch Operations
 export {
   BatchAPI,
@@ -443,6 +465,28 @@ export {
   type ListCustomersParams,
   type ListTransactionsParams,
 } from './accounting';
+
+// Payments
+export {
+  PaymentsAPI,
+  type PaymentProvider,
+  type PaymentStatus,
+  type SubscriptionInterval,
+  type BillingAddress,
+  type PaymentMethodDetails,
+  type ChargeRequest,
+  type AuthorizeRequest,
+  type RefundRequest,
+  type PaymentResult,
+  type TransactionDetails,
+  type CustomerProfile,
+  type PaymentMethodSummary,
+  type CreateCustomerRequest,
+  type UpdateCustomerRequest,
+  type Subscription as PaymentSubscription,
+  type CreateSubscriptionRequest,
+  type UpdateSubscriptionRequest,
+} from './payments';
 
 // Unified Inbox (Multi-Account Email)
 export {

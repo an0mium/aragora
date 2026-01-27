@@ -193,6 +193,9 @@ import {
   PoliciesAPI,
   CostManagementAPI,
   OnboardingAPI,
+  EmailPriorityAPI,
+  PaymentsAPI,
+  TrainingAPI,
 } from './namespaces';
 
 interface RequestOptions {

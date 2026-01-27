@@ -309,7 +309,7 @@ export class ARAutomationAPI {
     request: AddARCustomerRequest
   ): Promise<{ success: boolean; customer_id: string; message: string }> {
     return this.client.request('POST', '/api/v1/accounting/ar/customers', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
