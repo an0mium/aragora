@@ -259,7 +259,7 @@ class CanvasHandler(BaseHandler):
                 )
             )
 
-            return json_response(canvas.to_dict(), status_code=201)
+            return json_response(canvas.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Failed to create canvas: {e}")
             return error_response(f"Failed to create canvas: {e}", 500)
@@ -369,7 +369,7 @@ class CanvasHandler(BaseHandler):
             if not node:
                 return error_response("Canvas not found", 404)
 
-            return json_response(node.to_dict(), status_code=201)
+            return json_response(node.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Failed to add node: {e}")
             return error_response(f"Failed to add node: {e}", 500)
@@ -483,7 +483,7 @@ class CanvasHandler(BaseHandler):
             if not edge:
                 return error_response("Canvas or nodes not found", 404)
 
-            return json_response(edge.to_dict(), status_code=201)
+            return json_response(edge.to_dict(), status=201)
         except Exception as e:
             logger.error(f"Failed to add edge: {e}")
             return error_response(f"Failed to add edge: {e}", 500)
