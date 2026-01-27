@@ -37,10 +37,10 @@ class MockSkillCapability(str, Enum):
 
 
 class MockSkillStatus(str, Enum):
-    """Mock skill status."""
+    """Mock skill status (matches real SkillStatus enum)."""
 
     SUCCESS = "success"
-    ERROR = "error"
+    FAILURE = "failure"  # Changed from ERROR
     RATE_LIMITED = "rate_limited"
     PERMISSION_DENIED = "permission_denied"
 
@@ -56,19 +56,19 @@ class MockSkillManifest:
     input_schema: Optional[Dict] = None
     output_schema: Optional[Dict] = None
     rate_limit_per_minute: int = 60
-    timeout_seconds: float = 30.0
+    max_execution_time_seconds: float = 30.0  # Changed from timeout_seconds
     tags: List[str] = field(default_factory=list)
 
 
 @dataclass
 class MockSkillResult:
-    """Mock skill result for testing."""
+    """Mock skill result for testing (matches real SkillResult interface)."""
 
     status: MockSkillStatus
-    output: Any = None
-    error: Optional[str] = None
-    execution_time_ms: float = 0.0
+    data: Any = None  # Changed from output
+    error_message: Optional[str] = None  # Changed from error
     metadata: Optional[Dict] = None
+    duration_seconds: Optional[float] = None  # Changed from execution_time_ms
 
 
 @dataclass
@@ -102,8 +102,9 @@ class MockSkillRegistry:
     def get(self, name: str) -> Optional[MockSkill]:
         return self._skills.get(name)
 
-    def list_skills(self) -> List[MockSkill]:
-        return list(self._skills.values())
+    def list_skills(self) -> List[MockSkillManifest]:
+        """Return list of manifests (matches real SkillRegistry behavior)."""
+        return [skill.manifest for skill in self._skills.values()]
 
     def get_metrics(self, name: str) -> Optional[MockSkillMetrics]:
         return self._metrics.get(name)
@@ -120,14 +121,14 @@ class MockSkillRegistry:
         skill = self.get(name)
         if not skill:
             return MockSkillResult(
-                status=MockSkillStatus.ERROR,
+                status=MockSkillStatus.FAILURE,
                 error=f"Skill not found: {name}",
             )
         # Return success by default
         return MockSkillResult(
             status=MockSkillStatus.SUCCESS,
-            output={"result": f"Executed {name}"},
-            execution_time_ms=50.0,
+            data={"result": f"Executed {name}"},
+            duration_seconds=0.05,
             metadata={"skill": name},
         )
 
@@ -283,7 +284,7 @@ class TestSkillsHandlerListSkills:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     # Mock request with auth context
                     mock_request = MagicMock()
@@ -324,7 +325,7 @@ class TestSkillsHandlerListSkills:
         """List skills returns 429 when rate limited."""
         with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
             with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = MagicMock()
                 result = await handler.handle_get("/api/skills", mock_request)
@@ -340,7 +341,7 @@ class TestSkillsHandlerListSkills:
         with patch.object(handler, "_get_registry", return_value=None):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -369,7 +370,7 @@ class TestSkillsHandlerGetSkill:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -398,7 +399,7 @@ class TestSkillsHandlerGetSkill:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -427,7 +428,7 @@ class TestSkillsHandlerGetMetrics:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -455,7 +456,7 @@ class TestSkillsHandlerGetMetrics:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -483,7 +484,7 @@ class TestSkillsHandlerGetMetrics:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -514,7 +515,7 @@ class TestSkillsHandlerInvoke:
                 with patch("aragora.server.handlers.skills.SkillContext", MockSkillContext):
                     with patch("aragora.server.handlers.skills.SkillStatus", MockSkillStatus):
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                            limiter.check.return_value = True
+                            limiter.is_allowed.return_value = True
 
                             mock_request = create_async_request(
                                 {
@@ -540,7 +541,7 @@ class TestSkillsHandlerInvoke:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request(
                         {"input": {"query": "test"}}  # Missing "skill"
@@ -559,7 +560,7 @@ class TestSkillsHandlerInvoke:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request({"skill": "nonexistent", "input": {}})
 
@@ -583,7 +584,7 @@ class TestSkillsHandlerInvoke:
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills.SkillContext", MockSkillContext):
                     with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                        limiter.check.return_value = True
+                        limiter.is_allowed.return_value = True
 
                         mock_request = create_async_request(
                             {
@@ -606,9 +607,9 @@ class TestSkillsHandlerInvoke:
 
         async def error_invoke(*args, **kwargs):
             return MockSkillResult(
-                status=MockSkillStatus.ERROR,
-                error="Execution failed",
-                execution_time_ms=10.0,
+                status=MockSkillStatus.FAILURE,
+                error_message="Execution failed",
+                duration_seconds=0.01,
             )
 
         mock_registry.invoke = error_invoke
@@ -618,7 +619,7 @@ class TestSkillsHandlerInvoke:
                 with patch("aragora.server.handlers.skills.SkillContext", MockSkillContext):
                     with patch("aragora.server.handlers.skills.SkillStatus", MockSkillStatus):
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                            limiter.check.return_value = True
+                            limiter.is_allowed.return_value = True
 
                             mock_request = create_async_request(
                                 {"skill": "web_search", "input": {}}
@@ -639,7 +640,7 @@ class TestSkillsHandlerInvoke:
         async def rate_limited_invoke(*args, **kwargs):
             return MockSkillResult(
                 status=MockSkillStatus.RATE_LIMITED,
-                error="Too many requests",
+                error_message="Too many requests",
             )
 
         mock_registry.invoke = rate_limited_invoke
@@ -649,7 +650,7 @@ class TestSkillsHandlerInvoke:
                 with patch("aragora.server.handlers.skills.SkillContext", MockSkillContext):
                     with patch("aragora.server.handlers.skills.SkillStatus", MockSkillStatus):
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                            limiter.check.return_value = True
+                            limiter.is_allowed.return_value = True
 
                             mock_request = create_async_request(
                                 {"skill": "web_search", "input": {}}
@@ -669,7 +670,7 @@ class TestSkillsHandlerInvoke:
         async def permission_denied_invoke(*args, **kwargs):
             return MockSkillResult(
                 status=MockSkillStatus.PERMISSION_DENIED,
-                error="Insufficient permissions",
+                error_message="Insufficient permissions",
             )
 
         mock_registry.invoke = permission_denied_invoke
@@ -679,7 +680,7 @@ class TestSkillsHandlerInvoke:
                 with patch("aragora.server.handlers.skills.SkillContext", MockSkillContext):
                     with patch("aragora.server.handlers.skills.SkillStatus", MockSkillStatus):
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                            limiter.check.return_value = True
+                            limiter.is_allowed.return_value = True
 
                             mock_request = create_async_request(
                                 {"skill": "web_search", "input": {}}
@@ -705,7 +706,7 @@ class TestSkillsHandlerRateLimiting:
         """GET requests are rate limited."""
         with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
             with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = MagicMock()
                 result = await handler.handle_get("/api/skills", mock_request)
@@ -719,7 +720,7 @@ class TestSkillsHandlerRateLimiting:
         """POST requests are rate limited."""
         with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
             with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = MagicMock()
                 result = await handler.handle_post("/api/skills/invoke", mock_request)
@@ -742,7 +743,7 @@ class TestSkillsHandlerErrorCases:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     result = await handler.handle_get("/api/skills/foo/bar/baz", mock_request)
@@ -755,7 +756,7 @@ class TestSkillsHandlerErrorCases:
         """Unknown POST endpoint returns 404."""
         with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
             with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                limiter.check.return_value = True
+                limiter.is_allowed.return_value = True
 
                 mock_request = MagicMock()
                 result = await handler.handle_post("/api/skills/unknown", mock_request)
@@ -768,7 +769,7 @@ class TestSkillsHandlerErrorCases:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     # Mock request that raises on json()
                     mock_request = MagicMock()
@@ -792,7 +793,7 @@ class TestSkillsHandlerVersionPrefix:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {
@@ -811,7 +812,7 @@ class TestSkillsHandlerVersionPrefix:
         with patch.object(handler, "_get_registry", return_value=mock_registry):
             with patch("aragora.server.handlers.skills.SKILLS_AVAILABLE", True):
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.get.return_value = {

@@ -52,7 +52,7 @@ def mock_skill_registry():
         skill = registry._skills.get(name)
         if not skill:
             return SkillResult(
-                status=SkillStatus.ERROR,
+                status=SkillStatus.FAILURE,
                 error=f"Skill not found: {name}",
             )
 
@@ -65,7 +65,7 @@ def mock_skill_registry():
         except Exception as e:
             registry._metrics[name]["failed_invocations"] += 1
             return SkillResult(
-                status=SkillStatus.ERROR,
+                status=SkillStatus.FAILURE,
                 error=str(e),
             )
 
@@ -118,7 +118,7 @@ def web_search_skill():
         name="web_search",
         version="1.0.0",
         description="Search the web for information",
-        capabilities=[SkillCapability.SEARCH],
+        capabilities=[SkillCapability.WEB_SEARCH],
         input_schema={"query": "string"},
         output_schema={"results": "array"},
     )
@@ -148,7 +148,7 @@ def evidence_skill():
         name="evidence_collector",
         version="1.0.0",
         description="Collect evidence from multiple sources",
-        capabilities=[SkillCapability.SEARCH, SkillCapability.READ_FILES],
+        capabilities=[SkillCapability.WEB_SEARCH, SkillCapability.READ_LOCAL],
         input_schema={"topic": "string", "sources": "array"},
     )
 
@@ -196,8 +196,8 @@ class TestSkillsArenaIntegration:
         # Create skill context for debate
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
-            metadata={"debate_id": "debate-123"},
+            permissions=["skills:invoke"],
+            debate_id="debate-123",
         )
 
         # Invoke skill during debate
@@ -225,8 +225,9 @@ class TestSkillsArenaIntegration:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
-            metadata={"debate_id": "debate-456", "round": 1},
+            permissions=["skills:invoke"],
+            debate_id="debate-456",
+            debate_context={"round": 1},
         )
 
         # Collect evidence using skill
@@ -252,8 +253,9 @@ class TestSkillsArenaIntegration:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
-            metadata={"debate_id": "debate-789", "round": 2, "action": "refresh"},
+            permissions=["skills:invoke"],
+            debate_id="debate-789",
+            debate_context={"round": 2, "action": "refresh"},
         )
 
         # Initial evidence collection
@@ -289,8 +291,8 @@ class TestSkillsArenaIntegration:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
-            metadata={"debate_id": "debate-multi"},
+            permissions=["skills:invoke"],
+            debate_id="debate-multi",
         )
 
         # Round 1: Search for initial information
@@ -339,6 +341,7 @@ class TestSkillsArenaIntegration:
             version="1.0.0",
             description="A skill that always fails",
             capabilities=[],
+            input_schema={},
         )
 
         async def mock_fail(input_data, context):
@@ -349,7 +352,7 @@ class TestSkillsArenaIntegration:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
+            permissions=["skills:invoke"],
         )
 
         # Invocation should handle failure gracefully
@@ -359,7 +362,7 @@ class TestSkillsArenaIntegration:
             context,
         )
 
-        assert result.status == SkillStatus.ERROR
+        assert result.status == SkillStatus.FAILURE
         assert "Simulated skill failure" in result.error
 
         # Metrics should track failure
@@ -374,8 +377,8 @@ class TestSkillsArenaIntegration:
         # Context without invoke permission
         limited_context = SkillContext(
             user_id="limited_user",
-            permissions={"skills:read"},  # Missing skills:invoke
-            metadata={"debate_id": "debate-limited"},
+            permissions=["skills:read"],  # Missing skills:invoke
+            debate_id="debate-limited",
         )
 
         # Create skill that checks permissions
@@ -385,6 +388,7 @@ class TestSkillsArenaIntegration:
             version="1.0.0",
             description="Checks permissions",
             capabilities=[],
+            input_schema={},
             required_permissions=["skills:invoke"],
         )
 
@@ -422,7 +426,7 @@ class TestSkillsArenaIntegration:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
+            permissions=["skills:invoke"],
             metadata=metadata,
         )
 
@@ -446,8 +450,8 @@ class TestSkillsArenaIntegration:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
-            metadata={"debate_id": "concurrent-test"},
+            permissions=["skills:invoke"],
+            debate_id="concurrent-test",
         )
 
         # Simulate concurrent evidence gathering by multiple agents
@@ -484,8 +488,8 @@ class TestSkillsEvidenceFlow:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
-            metadata={"debate_id": "evidence-aggregation"},
+            permissions=["skills:invoke"],
+            debate_id="evidence-aggregation",
         )
 
         # Collect from web search
@@ -521,7 +525,7 @@ class TestSkillsEvidenceFlow:
             name="rate_limited_search",
             version="1.0.0",
             description="Rate limited search",
-            capabilities=[SkillCapability.SEARCH],
+            capabilities=[SkillCapability.WEB_SEARCH],
             rate_limit_per_minute=2,
         )
         rate_limited_skill._call_count = 0
@@ -543,7 +547,7 @@ class TestSkillsEvidenceFlow:
 
         context = SkillContext(
             user_id="debate_user",
-            permissions={"skills:invoke"},
+            permissions=["skills:invoke"],
         )
 
         # First two calls succeed
