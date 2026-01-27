@@ -347,7 +347,7 @@ class AgentChannel:
             return []
 
         mailbox = self._mailboxes[agent_name]
-        messages = []
+        messages: list[ChannelMessage] = []
 
         while len(messages) < max_messages and not mailbox.empty():
             try:

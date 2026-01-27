@@ -37,7 +37,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from aragora.nomic.beads import Bead, BeadStatus, BeadStore, BeadType
+from aragora.nomic.beads import Bead, BeadPriority, BeadStatus, BeadStore, BeadType
 
 logger = logging.getLogger(__name__)
 
@@ -328,11 +328,13 @@ class ConvoyManager:
 
             # First pass: create beads without dependencies
             for subtask in subtasks:
+                # Convert ConvoyPriority to BeadPriority (same underlying values)
+                bead_priority = BeadPriority(priority.value)
                 bead = Bead.create(
                     bead_type=BeadType.TASK,
                     title=subtask.get("title", "Untitled"),
                     description=subtask.get("description", ""),
-                    priority=priority,
+                    priority=bead_priority,
                     tags=subtask.get("tags", []),
                     metadata=subtask.get("metadata", {}),
                 )
@@ -512,7 +514,7 @@ class ConvoyManager:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about convoys."""
         convoys = list(self._convoys.values())
-        by_status = {}
+        by_status: Dict[str, int] = {}
         total_beads = 0
 
         for convoy in convoys:

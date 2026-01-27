@@ -453,7 +453,7 @@ class MoleculeTracker:
         if not molecules:
             return {"debate_id": debate_id, "total": 0, "progress": 0.0}
 
-        status_counts = {}
+        status_counts: dict[str, int] = {}
         for mol in molecules:
             status = mol.status.value
             status_counts[status] = status_counts.get(status, 0) + 1

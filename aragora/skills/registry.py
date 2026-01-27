@@ -252,7 +252,7 @@ class SkillRegistry:
             if self._enable_rate_limiting and manifest.rate_limit_per_minute:
                 is_allowed, wait_time = self._check_rate_limit(skill_name, manifest)
                 if not is_allowed:
-                    result = SkillResult.create_failure(
+                    result: SkillResult = SkillResult.create_failure(
                         f"Rate limit exceeded. Try again in {wait_time:.1f}s",
                         status=SkillStatus.RATE_LIMITED,
                     )

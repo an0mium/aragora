@@ -848,7 +848,7 @@ class MoleculeEngine:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about molecules."""
         molecules = list(self._molecules.values())
-        by_status = {}
+        by_status: Dict[str, int] = {}
         for m in molecules:
             by_status[m.status.value] = by_status.get(m.status.value, 0) + 1
 

@@ -201,12 +201,12 @@ class ProtocolHandlerRegistry:
 
         # Run type-specific class handlers
         if message.message_type in self._class_handlers:
-            for priority, handler in self._class_handlers[message.message_type]:
+            for priority, class_handler in self._class_handlers[message.message_type]:
                 try:
-                    await handler.handle(message)
+                    await class_handler.handle(message)
                     handlers_called += 1
                 except Exception as e:
-                    await handler.on_error(message, e)
+                    await class_handler.on_error(message, e)
 
         return handlers_called
 
@@ -234,8 +234,8 @@ class ProtocolHandlerRegistry:
                 tasks.append(self._safe_call(handler, message))
 
         if message.message_type in self._class_handlers:
-            for priority, handler in self._class_handlers[message.message_type]:
-                tasks.append(self._safe_call_class(handler, message))
+            for priority, class_handler in self._class_handlers[message.message_type]:
+                tasks.append(self._safe_call_class(class_handler, message))
 
         if not tasks:
             return 0

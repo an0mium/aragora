@@ -928,8 +928,8 @@ class AragoraClient:
             **kwargs,
         )
 
-        # Extract debate_id from response
-        debate_id = debate.debate_id if hasattr(debate, "debate_id") else debate.get("debate_id")
+        # Extract debate_id from response (may be DebateCreateResponse or dict)
+        debate_id = debate.debate_id if hasattr(debate, "debate_id") else debate.get("debate_id")  # type: ignore[union-attr]
         if not debate_id:
             raise ValueError("No debate_id in create_debate response")
 

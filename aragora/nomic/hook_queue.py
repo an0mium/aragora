@@ -443,7 +443,7 @@ class HookQueue:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about this hook queue."""
         entries = list(self._entries.values())
-        by_status = {}
+        by_status: Dict[str, int] = {}
         for entry in entries:
             by_status[entry.status.value] = by_status.get(entry.status.value, 0) + 1
 

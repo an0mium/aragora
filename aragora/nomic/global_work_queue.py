@@ -487,7 +487,7 @@ class GlobalWorkQueue:
             List of top items
         """
         async with self._lock:
-            items = []
+            items: list[WorkItem] = []
             temp_heap = list(self._heap)
 
             while temp_heap and len(items) < count:
@@ -636,7 +636,7 @@ class GlobalWorkQueue:
 
         async with self._lock:
             count = 0
-            beads = await self.bead_store.list_beads(status=BeadStatus.PENDING)
+            beads = await self.bead_store.list_by_status(status=BeadStatus.PENDING)
 
             for bead in beads:
                 if bead.id not in self._items:
