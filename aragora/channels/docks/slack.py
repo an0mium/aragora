@@ -219,7 +219,7 @@ class SlackDock(ChannelDock):
                 blocks.append(
                     {
                         "type": "actions",
-                        "elements": button_elements,
+                        "elements": button_elements,  # type: ignore[dict-item]
                     }
                 )
 
