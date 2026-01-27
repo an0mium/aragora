@@ -307,6 +307,7 @@ Skills provide specialized capabilities to agents during debates. See [SKILLS.md
 | `ARAGORA_SKILLS_RATE_LIMIT` | Optional | Skills API rate limit (req/min) | `30` |
 | `ARAGORA_SKILLS_TIMEOUT` | Optional | Default skill invocation timeout (seconds) | `30` |
 | `ARAGORA_SKILLS_MAX_TIMEOUT` | Optional | Maximum allowed skill timeout (seconds) | `60` |
+| `ARAGORA_MARKETPLACE_DB` | Optional | SQLite path for the skills marketplace | `:memory:` |
 | `GOOGLE_SEARCH_API_KEY` | Optional | Google Custom Search API key | - |
 | `GOOGLE_SEARCH_CX` | Optional | Google Custom Search engine ID | - |
 

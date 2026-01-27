@@ -1551,8 +1551,8 @@ class TeamsThreadManager:
         if not success or not data:
             raise ThreadNotFoundError(
                 thread_id=thread_id,
+                channel_id=channel_id,
                 platform="teams",
-                message=f"Thread not found: {error}",
             )
 
         # Get reply count
@@ -1641,15 +1641,23 @@ class TeamsThreadManager:
 
         messages = []
         for msg in data.get("value", []):
+            user_data = msg.get("from", {}).get("user", {})
             messages.append(
                 ChatMessage(
                     id=msg.get("id", ""),
                     platform="teams",
-                    channel_id=channel_id,
-                    thread_id=thread_id,
-                    user_id=msg.get("from", {}).get("user", {}).get("id", "unknown"),
-                    username=msg.get("from", {}).get("user", {}).get("displayName"),
+                    channel=ChatChannel(
+                        id=channel_id,
+                        platform="teams",
+                        name=channel_id,
+                    ),
+                    author=ChatUser(
+                        id=user_data.get("id", "unknown"),
+                        platform="teams",
+                        display_name=user_data.get("displayName"),
+                    ),
                     content=msg.get("body", {}).get("content", ""),
+                    thread_id=thread_id,
                     timestamp=datetime.fromisoformat(
                         msg.get("createdDateTime", "").replace("Z", "+00:00")
                     )
@@ -1760,13 +1768,22 @@ class TeamsThreadManager:
         if not success or not data:
             raise RuntimeError(f"Failed to reply to thread: {error}")
 
+        user_data = data.get("from", {}).get("user", {})
         return ChatMessage(
             id=data.get("id", ""),
             platform="teams",
-            channel_id=channel_id,
-            thread_id=thread_id,
-            user_id=data.get("from", {}).get("user", {}).get("id", "bot"),
+            channel=ChatChannel(
+                id=channel_id,
+                platform="teams",
+                name=channel_id,
+            ),
+            author=ChatUser(
+                id=user_data.get("id", "bot"),
+                platform="teams",
+                display_name=user_data.get("displayName", "Bot"),
+            ),
             content=message,
+            thread_id=thread_id,
             timestamp=datetime.now(),
         )
 

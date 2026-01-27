@@ -32,6 +32,19 @@ from aragora.config import DB_TIMEOUT_SECONDS, get_api_key, get_settings
 from aragora.core import Agent, Critique, Message
 from aragora.utils.error_sanitizer import sanitize_error_text as _sanitize_error_message
 
+# Distributed tracing support
+try:
+    from aragora.observability.tracing import build_trace_headers
+
+    TRACING_AVAILABLE = True
+except ImportError:
+    TRACING_AVAILABLE = False
+
+    def build_trace_headers() -> dict[str, str]:
+        """Fallback when tracing module not available."""
+        return {}
+
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -214,6 +227,23 @@ def create_client_session(
         connector_owner=False,  # Don't close connector when session closes
         timeout=client_timeout,
     )
+
+
+def get_trace_headers() -> dict[str, str]:
+    """Get trace headers for distributed tracing in agent API calls.
+
+    Returns W3C trace context headers (traceparent, tracestate) if tracing
+    is enabled, or an empty dict if tracing is not available.
+
+    These headers should be included in all outgoing API requests to
+    enable end-to-end trace correlation across Aragora → Agent → AI Model.
+
+    Returns:
+        Dictionary of trace headers to include in HTTP requests.
+    """
+    if TRACING_AVAILABLE:
+        return build_trace_headers()
+    return {}
 
 
 async def close_shared_connector() -> None:

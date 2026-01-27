@@ -99,6 +99,25 @@ loader.load_builtin_skills(register=True)
 registry.register(WebSearchSkill())
 ```
 
+## Skill Marketplace
+
+The skills marketplace provides publishing, discovery, and installation for
+skills across tenants.
+
+```python
+from aragora.skills import get_marketplace
+
+marketplace = get_marketplace()
+
+# Search for skills
+results = await marketplace.search("web search")
+
+# Install a skill for a tenant
+install = await marketplace.install("author:web_search", tenant_id="tenant-1", user_id="user-1")
+```
+
+**Storage:** `ARAGORA_MARKETPLACE_DB` controls the SQLite path (defaults to in‑memory).
+
 ## Arena Integration
 
 Debate arenas can enable skills for evidence collection and tool access:

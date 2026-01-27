@@ -31,6 +31,7 @@ from aragora.agents.api_agents.common import (
     _sanitize_error_message,
     create_client_session,
     create_openai_sse_parser,
+    get_trace_headers,
     handle_agent_errors,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
@@ -100,6 +101,7 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            **get_trace_headers(),  # Distributed tracing
         }
         extra = self._build_extra_headers()
         if extra:

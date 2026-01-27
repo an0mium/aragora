@@ -24,6 +24,7 @@ from aragora.agents.api_agents.common import (
     create_anthropic_sse_parser,
     create_client_session,
     get_api_key,
+    get_trace_headers,
     handle_agent_errors,
 )
 from aragora.agents.fallback import QuotaFallbackMixin
@@ -151,6 +152,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
+            **get_trace_headers(),  # Distributed tracing
         }
 
         # Add beta header for web search if enabled
@@ -293,6 +295,7 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             "x-api-key": self.api_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
+            **get_trace_headers(),  # Distributed tracing
         }
 
         # Add beta header for web search if enabled

@@ -22,6 +22,7 @@ from aragora.agents.api_agents.common import (
     create_client_session,
     create_openai_sse_parser,
     get_api_key,
+    get_trace_headers,
 )
 from aragora.agents.api_agents.rate_limiter import get_openrouter_limiter
 from aragora.agents.registry import AgentRegistry
@@ -165,6 +166,7 @@ class OpenRouterAgent(APIAgent):
             "Content-Type": "application/json",
             "HTTP-Referer": "https://aragora.ai",
             "X-Title": "Aragora Multi-Agent Debate",
+            **get_trace_headers(),  # Distributed tracing
         }
 
         messages = [{"role": "user", "content": full_prompt}]
@@ -334,6 +336,7 @@ class OpenRouterAgent(APIAgent):
             "Content-Type": "application/json",
             "HTTP-Referer": "https://aragora.ai",
             "X-Title": "Aragora Multi-Agent Debate",
+            **get_trace_headers(),  # Distributed tracing
         }
 
         messages = [{"role": "user", "content": full_prompt}]
@@ -769,6 +772,7 @@ class KimiLegacyAgent(APIAgent):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            **get_trace_headers(),  # Distributed tracing
         }
 
         payload = {

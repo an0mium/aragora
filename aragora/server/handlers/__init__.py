@@ -266,6 +266,7 @@ ALL_HANDLERS = [
     AnalyticsHandler,
     AnalyticsDashboardHandler,  # Enterprise analytics dashboard
     AnalyticsMetricsHandler,  # Debate metrics and agent performance analytics
+    EndpointAnalyticsHandler,  # API endpoint performance analytics
     CrossPlatformAnalyticsHandler,  # Cross-platform analytics aggregation
     MetricsHandler,
     SLOHandler,  # SLO tracking and monitoring
@@ -323,6 +324,7 @@ ALL_HANDLERS = [
     EvolutionHandler,
     PluginsHandler,
     AudioHandler,
+    DeviceHandler,
     TranscriptionHandler,  # Speech-to-text transcription API
     SocialMediaHandler,
     BroadcastHandler,

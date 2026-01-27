@@ -101,6 +101,22 @@ Results are stored in-memory by default.
 | GET | `/api/v1/code-review/history` | Review history |
 | POST | `/api/v1/code-review/security-scan` | Quick security scan |
 
+## Devices API
+
+Device registration and push notification endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/devices/register` | Register a device for push notifications |
+| GET | `/api/v1/devices/health` | Device connector health |
+| GET | `/api/v1/devices/user/{user_id}` | List user devices |
+| POST | `/api/v1/devices/user/{user_id}/notify` | Notify all user devices |
+| GET | `/api/v1/devices/{device_id}` | Get device info |
+| DELETE | `/api/v1/devices/{device_id}` | Unregister device |
+| POST | `/api/v1/devices/{device_id}/notify` | Notify a device |
+| POST | `/api/v1/devices/alexa/webhook` | Alexa skill webhook |
+| POST | `/api/v1/devices/google/webhook` | Google Home webhook |
+
 ## Platform APIs (Advertising, Analytics, CRM, Ecommerce, Support)
 
 These endpoints unify operational data across platforms. They are backed by
@@ -130,6 +146,16 @@ These endpoints unify operational data across platforms. They are backed by
 | POST | `/api/v1/analytics/reports/generate` | Generate report |
 | GET | `/api/v1/analytics/metrics` | Metrics overview |
 | GET | `/api/v1/analytics/realtime` | Real-time metrics |
+
+#### Endpoint Analytics
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/analytics/endpoints` | Aggregated endpoint metrics |
+| GET | `/api/analytics/endpoints/slowest` | Top N slowest endpoints |
+| GET | `/api/analytics/endpoints/errors` | Top N endpoints by error rate |
+| GET | `/api/analytics/endpoints/{endpoint}/performance` | Endpoint performance detail |
+| GET | `/api/analytics/endpoints/health` | Overall API health summary |
 
 ### CRM
 

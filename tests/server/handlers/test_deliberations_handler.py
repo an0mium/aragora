@@ -345,7 +345,7 @@ class TestRBAC:
         with patch.object(
             handler,
             "_check_rbac_permission",
-            return_value=({"error": "Permission denied: deliberation.read required"}, 403),
+            return_value=({"error": "Permission denied: analytics.read required"}, 403),
         ):
             result, status = await handler.handle_request(mock_request)
 

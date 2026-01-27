@@ -369,19 +369,18 @@ class TestTeamsThreadManager:
         """Create TeamsThreadManager with mock connector."""
         from aragora.connectors.chat.teams import TeamsThreadManager
 
-        return TeamsThreadManager(mock_connector)
+        return TeamsThreadManager(mock_connector, team_id="test-team-id")
 
     def test_platform_name(self, thread_manager):
         """Should return 'teams' as platform name."""
         assert thread_manager.platform_name == "teams"
 
-    @pytest.mark.asyncio
-    async def test_get_thread_requires_team_id(self, thread_manager):
-        """Should raise error when team_id is not provided."""
-        with pytest.raises(ValueError) as exc_info:
-            await thread_manager.get_thread("msg_123", "channel_456")
+    def test_team_id_required_at_init(self, mock_connector):
+        """Should require team_id at initialization."""
+        from aragora.connectors.chat.teams import TeamsThreadManager
 
-        assert "team_id is required" in str(exc_info.value)
+        with pytest.raises(TypeError):
+            TeamsThreadManager(mock_connector)  # Missing team_id
 
     @pytest.mark.asyncio
     async def test_get_thread_success(self, thread_manager, mock_connector):
@@ -414,7 +413,7 @@ class TestTeamsThreadManager:
             ),
         ]
 
-        thread = await thread_manager.get_thread("msg_123", "channel_456", team_id="team_789")
+        thread = await thread_manager.get_thread("msg_123", "channel_456")
 
         assert thread.id == "msg_123"
         assert thread.channel_id == "channel_456"
@@ -427,7 +426,7 @@ class TestTeamsThreadManager:
         mock_connector._graph_api_request.return_value = (False, None, "Not found")
 
         with pytest.raises(ThreadNotFoundError) as exc_info:
-            await thread_manager.get_thread("invalid_msg", "channel_456", team_id="team_789")
+            await thread_manager.get_thread("invalid_msg", "channel_456")
 
         assert exc_info.value.thread_id == "invalid_msg"
         assert exc_info.value.platform == "teams"
@@ -450,7 +449,6 @@ class TestTeamsThreadManager:
             "msg_123",
             "channel_456",
             "This is a reply",
-            team_id="team_789",
         )
 
         assert message.id == "reply_123"

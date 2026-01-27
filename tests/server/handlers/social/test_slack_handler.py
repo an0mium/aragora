@@ -226,7 +226,8 @@ class TestStatusEndpoint:
 class TestSignatureVerification:
     """Tests for Slack request signature verification."""
 
-    def test_signature_verification_success(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_signature_verification_success(self, handler, signing_secret):
         """Valid signature should be accepted."""
         body = "command=/aragora&text=help&user_id=U123"
         timestamp = str(int(time.time()))
@@ -251,13 +252,14 @@ class TestSignatureVerification:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         # Should not return 401 (signature valid)
         assert result is not None
         assert get_status_code(result) != 401
 
-    def test_signature_verification_failure(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_signature_verification_failure(self, handler, signing_secret):
         """Invalid signature should be rejected with 401."""
         body = "command=/aragora&text=help"
         timestamp = str(int(time.time()))
@@ -281,14 +283,15 @@ class TestSignatureVerification:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=False, error="Invalid signature")
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         assert result is not None
         status_code, body = parse_result(result)
         assert status_code == 401
         assert "Invalid signature" in body.get("error", "")
 
-    def test_signature_verification_logs_on_failure(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_signature_verification_logs_on_failure(self, handler, signing_secret):
         """Signature failure should trigger audit logging."""
         body = "command=/aragora&text=help&team_id=T123"
         timestamp = str(int(time.time()))
@@ -318,12 +321,13 @@ class TestSignatureVerification:
             ),
         ):
             mock_verify.return_value = MagicMock(verified=False, error="Invalid")
-            handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         # Audit logger should be called
         mock_audit.log_signature_failure.assert_called_once()
 
-    def test_signature_without_secret_skips_verification(self, handler):
+    @pytest.mark.asyncio
+    async def test_signature_without_secret_skips_verification(self, handler):
         """Without signing secret configured, verification is skipped."""
         body = "command=/aragora&text=help"
 
@@ -338,7 +342,7 @@ class TestSignatureVerification:
         )
 
         with patch("aragora.server.handlers.social._slack_impl.SLACK_SIGNING_SECRET", ""):
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         # Should not fail on signature (no secret to verify against)
         assert result is not None
@@ -353,7 +357,8 @@ class TestSignatureVerification:
 class TestRateLimiting:
     """Tests for rate limiting (user and workspace)."""
 
-    def test_workspace_rate_limit_applied(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_workspace_rate_limit_applied(self, handler, signing_secret):
         """Workspace rate limiting should be enforced."""
         body = urlencode(
             {
@@ -392,14 +397,15 @@ class TestRateLimiting:
             ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         # Should return rate limit message
         assert result is not None
         body_data = get_json(result)
         assert "workspace is sending commands too quickly" in body_data.get("text", "").lower()
 
-    def test_user_rate_limit_applied(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_user_rate_limit_applied(self, handler, signing_secret):
         """User rate limiting should be enforced."""
         body = urlencode(
             {
@@ -445,12 +451,13 @@ class TestRateLimiting:
             ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         assert "sending commands too quickly" in body_data.get("text", "").lower()
 
-    def test_rate_limit_logs_to_audit(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_rate_limit_logs_to_audit(self, handler, signing_secret):
         """Rate limit events should be logged for audit."""
         body = urlencode(
             {
@@ -494,7 +501,7 @@ class TestRateLimiting:
             ),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         mock_audit.log_rate_limit.assert_called()
 
@@ -507,7 +514,8 @@ class TestRateLimiting:
 class TestSlashCommandHelp:
     """Tests for /aragora help command."""
 
-    def test_help_command(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_help_command(self, handler, signing_secret):
         """Help command should return help text."""
         body = urlencode(
             {
@@ -539,7 +547,7 @@ class TestSlashCommandHelp:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
@@ -547,7 +555,8 @@ class TestSlashCommandHelp:
         assert "help" in text.lower() or "command" in text.lower()
         assert body_data.get("response_type") == "ephemeral"
 
-    def test_empty_command_shows_help(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_empty_command_shows_help(self, handler, signing_secret):
         """Empty command should default to help."""
         body = urlencode(
             {
@@ -579,7 +588,7 @@ class TestSlashCommandHelp:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         assert (
@@ -590,7 +599,8 @@ class TestSlashCommandHelp:
 class TestSlashCommandStatus:
     """Tests for /aragora status command."""
 
-    def test_status_command(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_status_command(self, handler, signing_secret):
         """Status command should return system status."""
         body = urlencode(
             {
@@ -629,7 +639,7 @@ class TestSlashCommandStatus:
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         # Should have blocks with status info
@@ -640,7 +650,8 @@ class TestSlashCommandStatus:
 class TestSlashCommandAgents:
     """Tests for /aragora agents command."""
 
-    def test_agents_command_with_agents(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_agents_command_with_agents(self, handler, signing_secret):
         """Agents command should list available agents."""
         body = urlencode(
             {
@@ -684,13 +695,14 @@ class TestSlashCommandAgents:
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
         assert "agent" in text.lower() or "claude" in text.lower() or "elo" in text.lower()
 
-    def test_agents_command_empty(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_agents_command_empty(self, handler, signing_secret):
         """Agents command with no agents registered."""
         body = urlencode(
             {
@@ -726,7 +738,7 @@ class TestSlashCommandAgents:
             patch("aragora.ranking.elo.EloSystem", return_value=mock_elo),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
@@ -736,7 +748,8 @@ class TestSlashCommandAgents:
 class TestSlashCommandAsk:
     """Tests for /aragora ask command."""
 
-    def test_ask_command_without_question(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_ask_command_without_question(self, handler, signing_secret):
         """Ask without question should show error."""
         body = urlencode(
             {
@@ -768,14 +781,15 @@ class TestSlashCommandAsk:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
         assert "provide" in text.lower() or "question" in text.lower()
         assert body_data.get("response_type") == "ephemeral"
 
-    def test_ask_command_too_short(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_ask_command_too_short(self, handler, signing_secret):
         """Ask with very short question should show error."""
         body = urlencode(
             {
@@ -807,13 +821,14 @@ class TestSlashCommandAsk:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
         assert "short" in text.lower()
 
-    def test_ask_command_too_long(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_ask_command_too_long(self, handler, signing_secret):
         """Ask with very long question should show error."""
         long_question = "x" * 600
         body = urlencode(
@@ -846,13 +861,14 @@ class TestSlashCommandAsk:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
         assert "long" in text.lower()
 
-    def test_ask_command_valid_question(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_ask_command_valid_question(self, handler, signing_secret):
         """Ask with valid question should acknowledge."""
         body = urlencode(
             {
@@ -886,7 +902,7 @@ class TestSlashCommandAsk:
             patch("aragora.server.handlers.social._slack_impl.create_tracked_task"),
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         # Should acknowledge with processing message
@@ -897,7 +913,8 @@ class TestSlashCommandAsk:
 class TestSlashCommandSearch:
     """Tests for /aragora search command."""
 
-    def test_search_without_query(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_search_without_query(self, handler, signing_secret):
         """Search without query should show error."""
         body = urlencode(
             {
@@ -929,13 +946,14 @@ class TestSlashCommandSearch:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
         assert "provide" in text.lower() or "query" in text.lower()
 
-    def test_search_with_short_query(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_search_with_short_query(self, handler, signing_secret):
         """Search with too-short query should show error."""
         body = urlencode(
             {
@@ -967,7 +985,7 @@ class TestSlashCommandSearch:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
@@ -977,7 +995,8 @@ class TestSlashCommandSearch:
 class TestSlashCommandUnknown:
     """Tests for unknown commands."""
 
-    def test_unknown_command(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_unknown_command(self, handler, signing_secret):
         """Unknown command should show error."""
         body = urlencode(
             {
@@ -1009,7 +1028,7 @@ class TestSlashCommandUnknown:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         body_data = get_json(result)
         text = body_data.get("text", "")
@@ -1025,7 +1044,8 @@ class TestSlashCommandUnknown:
 class TestInteractiveComponents:
     """Tests for Slack interactive components."""
 
-    def test_interactive_payload_parsed(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_interactive_payload_parsed(self, handler, signing_secret):
         """Interactive payload should be parsed correctly."""
         payload = {
             "type": "block_actions",
@@ -1058,7 +1078,7 @@ class TestInteractiveComponents:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/interactive", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/interactive", {}, mock_http)
 
         # Should return some response (not 401)
         assert result is not None
@@ -1073,7 +1093,8 @@ class TestInteractiveComponents:
 class TestEventsAPI:
     """Tests for Slack Events API."""
 
-    def test_url_verification_challenge(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_url_verification_challenge(self, handler, signing_secret):
         """URL verification challenge should be echoed."""
         payload = {
             "type": "url_verification",
@@ -1102,13 +1123,14 @@ class TestEventsAPI:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/events", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/events", {}, mock_http)
 
         assert result is not None
         body_data = get_json(result)
         assert body_data.get("challenge") == "test_challenge_token"
 
-    def test_event_callback_processed(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_event_callback_processed(self, handler, signing_secret):
         """Event callbacks should be processed."""
         payload = {
             "type": "event_callback",
@@ -1143,7 +1165,7 @@ class TestEventsAPI:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/events", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/events", {}, mock_http)
 
         assert result is not None
         # Should return OK (acknowledge event)
@@ -1158,7 +1180,8 @@ class TestEventsAPI:
 class TestMultiWorkspace:
     """Tests for multi-workspace support."""
 
-    def test_team_id_extracted_from_commands(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_team_id_extracted_from_commands(self, handler, signing_secret):
         """Team ID should be extracted from slash command body."""
         body = urlencode(
             {
@@ -1192,11 +1215,12 @@ class TestMultiWorkspace:
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
             mock_resolve.return_value = None
-            handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         mock_resolve.assert_called_with("T_WORKSPACE_123")
 
-    def test_workspace_specific_signing_secret(self, handler):
+    @pytest.mark.asyncio
+    async def test_workspace_specific_signing_secret(self, handler):
         """Workspace-specific signing secret should be used if available."""
         body = urlencode(
             {
@@ -1234,7 +1258,7 @@ class TestMultiWorkspace:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/commands", {}, mock_http)
 
         # verify_slack_signature should be called with custom secret
         mock_verify.assert_called_once()
@@ -1252,7 +1276,8 @@ class TestMultiWorkspace:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_method_not_allowed_for_status_post(self, handler):
+    @pytest.mark.asyncio
+    async def test_method_not_allowed_for_status_post(self, handler):
         """POST to status endpoint should not be allowed for GET-only."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
@@ -1262,11 +1287,12 @@ class TestErrorHandling:
         )
         # Note: Status endpoint returns via handle() which checks method
         # This is actually handled by handle() which routes to _get_status()
-        result = handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
+        result = await handler.handle("/api/v1/integrations/slack/status", {}, mock_http)
         # Status works for any method via handle() directly
         assert result is not None
 
-    def test_not_found_for_unknown_path(self, handler, signing_secret):
+    @pytest.mark.asyncio
+    async def test_not_found_for_unknown_path(self, handler, signing_secret):
         """Unknown path should return 404."""
         body = "test"
         timestamp = str(int(time.time()))
@@ -1291,7 +1317,7 @@ class TestErrorHandling:
             patch("aragora.connectors.chat.webhook_security.verify_slack_signature") as mock_verify,
         ):
             mock_verify.return_value = MagicMock(verified=True, error=None)
-            result = handler.handle("/api/v1/integrations/slack/unknown", {}, mock_http)
+            result = await handler.handle("/api/v1/integrations/slack/unknown", {}, mock_http)
 
         # Either None or 404
         if result is not None:

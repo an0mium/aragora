@@ -79,6 +79,15 @@ from .loader import (
     DeclarativeSkill,
     load_skills,
 )
+from .marketplace import (
+    SkillMarketplace,
+    SkillListing,
+    SkillVersion,
+    SkillDependency,
+    SkillRating,
+    InstallResult,
+    get_marketplace,
+)
 
 __all__ = [
     # Base types
@@ -99,4 +108,12 @@ __all__ = [
     "SkillLoadError",
     "DeclarativeSkill",
     "load_skills",
+    # Marketplace
+    "SkillMarketplace",
+    "SkillListing",
+    "SkillVersion",
+    "SkillDependency",
+    "SkillRating",
+    "InstallResult",
+    "get_marketplace",
 ]

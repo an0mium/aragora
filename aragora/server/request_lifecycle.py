@@ -158,10 +158,20 @@ def create_lifecycle_manager(handler: Any) -> RequestLifecycleManager:
     """
     from aragora.server.prometheus import record_http_request
 
+    try:
+        from aragora.server.handlers.endpoint_analytics import record_endpoint_request
+    except ImportError:
+        record_endpoint_request = None  # type: ignore[assignment]
+
+    def _record_metrics(method: str, endpoint: str, status: int, duration: float) -> None:
+        record_http_request(method, endpoint, status, duration)
+        if record_endpoint_request:
+            record_endpoint_request(endpoint, method, status, duration)
+
     return RequestLifecycleManager(
         handler=handler,
         tracing=getattr(handler, "tracing", None),
-        record_metrics_fn=record_http_request,
+        record_metrics_fn=_record_metrics,
         log_request_fn=getattr(handler, "_log_request", None),
         normalize_endpoint_fn=getattr(handler, "_normalize_endpoint", None),
     )

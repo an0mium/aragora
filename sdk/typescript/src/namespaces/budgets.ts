@@ -372,17 +372,13 @@ export class BudgetsAPI {
   }
 }
 
-// Re-export types for convenience
+// Re-export imported types for convenience
+// Note: BudgetTransaction, BudgetTransactionList, SpendingTrendPoint, SpendingTrends,
+// TransactionFilterOptions, and TrendsOptions are already exported above
 export type {
   Budget,
   BudgetAlert,
   BudgetSummary,
   CreateBudgetRequest,
   UpdateBudgetRequest,
-  BudgetTransaction,
-  BudgetTransactionList,
-  SpendingTrendPoint,
-  SpendingTrends,
-  TransactionFilterOptions,
-  TrendsOptions,
 };
