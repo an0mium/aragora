@@ -21,10 +21,9 @@ import argparse
 import asyncio
 import json
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +68,7 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
     try:
         from aragora.nomic.convoys import ConvoyManager, ConvoyStatus
 
-        manager = ConvoyManager()
+        manager = ConvoyManager()  # type: ignore[call-arg]
 
         # Filter by status if specified
         status_filter = None
@@ -89,16 +88,18 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
 
         headers = ["ID", "Title", "Status", "Beads", "Progress", "Created"]
         rows = []
-        for c in convoys[:args.limit]:
+        for c in convoys[: args.limit]:
             progress = f"{c.completed_beads}/{c.total_beads}"
-            rows.append([
-                c.id[:8],
-                c.title[:30] if c.title else "Untitled",
-                c.status.value,
-                str(c.total_beads),
-                progress,
-                _format_timestamp(c.created_at),
-            ])
+            rows.append(
+                [
+                    c.id[:8],
+                    c.title[:30] if c.title else "Untitled",
+                    c.status.value,
+                    str(c.total_beads),
+                    progress,
+                    _format_timestamp(c.created_at),
+                ]
+            )
 
         print(f"Found {len(convoys)} convoy(s):\n")
         _print_table(headers, rows, [10, 32, 12, 8, 10, 20])
@@ -115,8 +116,8 @@ def cmd_convoy_list(args: argparse.Namespace) -> int:
 def cmd_convoy_create(args: argparse.Namespace) -> int:
     """Create a new convoy."""
     try:
-        from aragora.nomic.convoys import ConvoyManager, ConvoySpec
-        from aragora.nomic.beads import BeadSpec, BeadPriority
+        from aragora.nomic.convoys import ConvoyManager, ConvoySpec  # type: ignore[attr-defined]
+        from aragora.nomic.beads import BeadSpec, BeadPriority  # type: ignore[attr-defined]
 
         manager = ConvoyManager()
 
@@ -126,10 +127,12 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
             for bead_title in args.beads.split(","):
                 bead_title = bead_title.strip()
                 if bead_title:
-                    bead_specs.append(BeadSpec(
-                        title=bead_title,
-                        priority=BeadPriority[args.priority.upper()],
-                    ))
+                    bead_specs.append(
+                        BeadSpec(
+                            title=bead_title,
+                            priority=BeadPriority[args.priority.upper()],
+                        )
+                    )
 
         if not bead_specs:
             print("Error: At least one bead is required (--beads task1,task2,...)")
@@ -143,7 +146,7 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
 
         convoy = _run_async(manager.create_convoy(spec))
 
-        print(f"Convoy created successfully!")
+        print("Convoy created successfully!")
         print(f"  ID: {convoy.id}")
         print(f"  Title: {convoy.title}")
         print(f"  Beads: {len(convoy.beads)}")
@@ -177,7 +180,7 @@ def cmd_convoy_status(args: argparse.Namespace) -> int:
         print(f"  Progress: {convoy.completed_beads}/{convoy.total_beads} beads")
 
         if convoy.beads:
-            print(f"\nBeads:")
+            print("\nBeads:")
             for bead in convoy.beads[:10]:
                 status_icon = {
                     "pending": "[ ]",
@@ -222,11 +225,13 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
                 print(f"Valid: {', '.join(s.value for s in BeadStatus)}")
                 return 1
 
-        beads = _run_async(manager.list_beads(
-            status=status_filter,
-            convoy_id=args.convoy,
-            limit=args.limit,
-        ))
+        beads = _run_async(
+            manager.list_beads(
+                status=status_filter,
+                convoy_id=args.convoy,
+                limit=args.limit,
+            )
+        )
 
         if not beads:
             print("No beads found")
@@ -235,14 +240,16 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
         headers = ["ID", "Title", "Status", "Priority", "Assigned", "Convoy"]
         rows = []
         for b in beads:
-            rows.append([
-                b.id[:8],
-                b.title[:30] if b.title else "Untitled",
-                b.status.value,
-                b.priority.value if hasattr(b, 'priority') else "normal",
-                b.assigned_to[:8] if b.assigned_to else "-",
-                b.convoy_id[:8] if b.convoy_id else "-",
-            ])
+            rows.append(
+                [
+                    b.id[:8],
+                    b.title[:30] if b.title else "Untitled",
+                    b.status.value,
+                    b.priority.value if hasattr(b, "priority") else "normal",
+                    b.assigned_to[:8] if b.assigned_to else "-",
+                    b.convoy_id[:8] if b.convoy_id else "-",
+                ]
+            )
 
         print(f"Found {len(beads)} bead(s):\n")
         _print_table(headers, rows, [10, 32, 12, 10, 10, 10])
@@ -268,7 +275,7 @@ def cmd_bead_assign(args: argparse.Namespace) -> int:
             print(f"Bead {args.bead_id} assigned to agent {args.agent_id}")
             return 0
         else:
-            print(f"Failed to assign bead")
+            print("Failed to assign bead")
             return 1
 
     except ImportError as e:
@@ -310,12 +317,14 @@ def cmd_agent_list(args: argparse.Namespace) -> int:
         headers = ["Agent ID", "Role", "Supervised By", "Registered"]
         rows = []
         for a in agents:
-            rows.append([
-                a.agent_id[:20],
-                a.role.value.upper(),
-                a.supervised_by[:10] if a.supervised_by else "-",
-                _format_timestamp(a.assigned_at),
-            ])
+            rows.append(
+                [
+                    a.agent_id[:20],
+                    a.role.value.upper(),
+                    a.supervised_by[:10] if a.supervised_by else "-",
+                    _format_timestamp(a.assigned_at),
+                ]
+            )
 
         print(f"Found {len(agents)} agent(s):\n")
         _print_table(headers, rows, [22, 10, 12, 20])
@@ -351,7 +360,7 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
             print(f"Agent {args.agent_id} promoted to {new_role.value.upper()}")
             return 0
         else:
-            print(f"Failed to promote agent (not found?)")
+            print("Failed to promote agent (not found?)")
             return 1
 
     except ImportError as e:
@@ -394,7 +403,7 @@ def cmd_witness_status(args: argparse.Namespace) -> int:
             print(f"  Active Alerts: {len(report.alerts)}")
 
             if report.recommendations:
-                print(f"\nRecommendations:")
+                print("\nRecommendations:")
                 for rec in report.recommendations[:5]:
                     print(f"  - {rec}")
         except Exception as e:
@@ -448,9 +457,9 @@ def cmd_workspace_init(args: argparse.Namespace) -> int:
 
     print(f"Gas Town workspace initialized at: {workspace_dir}")
     print(f"  Config: {config_file}")
-    print(f"\nNext steps:")
-    print(f"  aragora gt convoy create 'My First Convoy' --beads task1,task2")
-    print(f"  aragora gt agent list")
+    print("\nNext steps:")
+    print("  aragora gt convoy create 'My First Convoy' --beads task1,task2")
+    print("  aragora gt agent list")
     return 0
 
 
@@ -491,8 +500,9 @@ POLECAT (ephemeral worker), or CREW (persistent worker).
     convoy_create.add_argument("title", help="Convoy title")
     convoy_create.add_argument("--beads", "-b", required=True, help="Comma-separated bead titles")
     convoy_create.add_argument("--description", "-d", help="Convoy description")
-    convoy_create.add_argument("--priority", "-p", default="normal",
-                               choices=["low", "normal", "high", "critical"])
+    convoy_create.add_argument(
+        "--priority", "-p", default="normal", choices=["low", "normal", "high", "critical"]
+    )
     convoy_create.set_defaults(func=cmd_convoy_create)
 
     # convoy status
@@ -553,7 +563,7 @@ POLECAT (ephemeral worker), or CREW (persistent worker).
 
 def cmd_gt(args: argparse.Namespace) -> int:
     """Handle the 'gt' command group."""
-    if not hasattr(args, 'func') or args.func is None:
+    if not hasattr(args, "func") or args.func is None:
         # No subcommand specified - show help
         print("Gas Town CLI - Multi-agent orchestration")
         print("\nUsage: aragora gt <command> [options]")

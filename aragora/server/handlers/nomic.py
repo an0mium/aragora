@@ -579,10 +579,12 @@ class NomicHandler(SecureHandler):
 
             coordinator = get_mayor_coordinator()
             if not coordinator:
-                return json_response({
-                    "initialized": False,
-                    "message": "Mayor coordinator not initialized",
-                })
+                return json_response(
+                    {
+                        "initialized": False,
+                        "message": "Mayor coordinator not initialized",
+                    }
+                )
 
             response: dict[str, Any] = {
                 "initialized": True,
@@ -602,10 +604,12 @@ class NomicHandler(SecureHandler):
 
         except ImportError as e:
             logger.debug(f"Mayor coordinator not available: {e}")
-            return json_response({
-                "initialized": False,
-                "error": "Mayor coordinator module not available",
-            })
+            return json_response(
+                {
+                    "initialized": False,
+                    "error": "Mayor coordinator module not available",
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to get mayor info: {e}")
             return error_response(f"Failed to get mayor info: {e}", 500)
