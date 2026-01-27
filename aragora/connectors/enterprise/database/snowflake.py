@@ -78,8 +78,8 @@ class SnowflakeConnector(EnterpriseConnector):
         content_columns: Optional[List[str]] = None,
         use_change_tracking: bool = False,
         pool_size: int = 3,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Initialize Snowflake connector.
 
@@ -172,7 +172,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
         return params
 
-    def _get_connection(self):
+    def _get_connection(self) -> Any:
         """Get or create Snowflake connection."""
         if self._connection is not None:
             return self._connection
@@ -269,7 +269,7 @@ class SnowflakeConnector(EnterpriseConnector):
                 # Return actual column name (case-sensitive)
                 for col in columns:
                     if col["COLUMN_NAME"].lower() == candidate.lower():
-                        return col["COLUMN_NAME"]
+                        return str(col["COLUMN_NAME"])
         return None
 
     def _row_to_content(self, row: Dict[str, Any], columns: Optional[List[str]] = None) -> str:
@@ -434,7 +434,7 @@ class SnowflakeConnector(EnterpriseConnector):
         query: str,
         limit: int = 10,
         table: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> list:
         """
         Search across indexed tables.
@@ -570,7 +570,7 @@ class SnowflakeConnector(EnterpriseConnector):
 
         return await self._async_query(query)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close connection and executor."""
         if self._connection:
             self._connection.close()

@@ -750,6 +750,127 @@ class TeamSelector:
             },
         }
 
+    def _get_agent_cvs_batch(self, agent_names: list[str]) -> dict[str, "AgentCV"]:
+        """Get Agent CVs for multiple agents with caching.
+
+        Uses the CVBuilder to efficiently fetch CV data for multiple agents,
+        caching results to avoid repeated lookups.
+
+        Args:
+            agent_names: List of agent names to get CVs for
+
+        Returns:
+            Dict mapping agent names to their AgentCV instances
+        """
+        import time
+
+        if not self.cv_builder:
+            return {}
+
+        current_time = time.time()
+        result: dict[str, "AgentCV"] = {}
+        uncached_agents: list[str] = []
+
+        # Check cache first
+        for name in agent_names:
+            if name in self._cv_cache:
+                cached_time, cv = self._cv_cache[name]
+                if current_time - cached_time < self.config.cv_cache_ttl:
+                    result[name] = cv
+                else:
+                    uncached_agents.append(name)
+            else:
+                uncached_agents.append(name)
+
+        # Batch fetch uncached CVs
+        if uncached_agents:
+            try:
+                if hasattr(self.cv_builder, "build_cvs_batch"):
+                    new_cvs = self.cv_builder.build_cvs_batch(uncached_agents)
+                else:
+                    # Fall back to individual builds
+                    new_cvs = {name: self.cv_builder.build_cv(name) for name in uncached_agents}
+
+                # Update cache and result
+                for name, cv in new_cvs.items():
+                    self._cv_cache[name] = (current_time, cv)
+                    result[name] = cv
+
+                logger.debug(
+                    f"cv_batch_fetch cached={len(result) - len(new_cvs)} "
+                    f"fetched={len(new_cvs)} total={len(result)}"
+                )
+            except Exception as e:
+                logger.warning(f"CV batch fetch failed: {e}")
+
+        return result
+
+    def _compute_cv_score(
+        self,
+        cv: "AgentCV",
+        domain: Optional[str] = None,
+    ) -> float:
+        """Compute score bonus from Agent CV.
+
+        Uses the CV's composite selection score which incorporates:
+        - ELO ratings (overall + domain-specific)
+        - Calibration metrics (Brier score, ECE)
+        - Reliability stats (success rate)
+        - Domain expertise
+
+        Args:
+            cv: Agent's CV
+            domain: Optional domain for domain-weighted scoring
+
+        Returns:
+            Score bonus (0.0 to 1.0) based on CV data
+        """
+        if not cv.has_meaningful_data:
+            # Not enough data for reliable scoring
+            return 0.0
+
+        # Use CV's built-in selection score computation
+        # Adjust weights to complement existing scoring factors
+        selection_score = cv.compute_selection_score(
+            domain=domain,
+            elo_weight=0.25,  # Reduced since we also use direct ELO
+            calibration_weight=0.25,  # Reduced since we also use direct calibration
+            reliability_weight=0.30,  # Emphasized - unique to CV
+            domain_weight=0.20,
+        )
+
+        # Add reliability bonus for highly reliable agents
+        reliability_bonus = 0.0
+        if cv.reliability.is_reliable:
+            reliability_bonus = 0.1
+
+        # Add calibration bonus for well-calibrated agents
+        calibration_bonus = 0.0
+        if cv.is_well_calibrated:
+            calibration_bonus = 0.1
+
+        final_score = min(1.0, selection_score + reliability_bonus + calibration_bonus)
+
+        logger.debug(
+            f"cv_score agent={cv.agent_id} domain={domain} "
+            f"selection={selection_score:.3f} reliability_bonus={reliability_bonus:.1f} "
+            f"calibration_bonus={calibration_bonus:.1f} final={final_score:.3f}"
+        )
+
+        return final_score
+
+    def get_cv(self, agent_name: str) -> Optional["AgentCV"]:
+        """Get the CV for a single agent (for external use).
+
+        Args:
+            agent_name: Name of the agent
+
+        Returns:
+            AgentCV if available, None otherwise
+        """
+        cvs = self._get_agent_cvs_batch([agent_name])
+        return cvs.get(agent_name)
+
     def _compute_score(
         self,
         agent: "Agent",
@@ -757,6 +878,7 @@ class TeamSelector:
         task: str = "",
         context: Optional["DebateContext"] = None,
         calibration_scores: Optional[dict[str, float]] = None,
+        agent_cvs: Optional[dict[str, "AgentCV"]] = None,
     ) -> float:
         """Compute composite score for an agent.
 
@@ -766,6 +888,7 @@ class TeamSelector:
             task: Task description for delegation-based scoring
             context: Optional debate context for state-aware scoring
             calibration_scores: Pre-fetched calibration scores (for batch performance)
+            agent_cvs: Pre-fetched Agent CVs (for batch performance)
         """
         score = self.config.base_score
 
@@ -821,6 +944,11 @@ class TeamSelector:
         if self.pattern_matcher and self.config.enable_pattern_selection and task:
             pattern_score = self._compute_pattern_score(agent, task)
             score += pattern_score * self.config.pattern_weight
+
+        # CV-based contribution (unified capability profile scoring)
+        if self.config.enable_cv_selection and agent_cvs and agent.name in agent_cvs:
+            cv_score = self._compute_cv_score(agent_cvs[agent.name], domain)
+            score += cv_score * self.config.cv_weight
 
         return score
 

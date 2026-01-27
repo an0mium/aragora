@@ -20,6 +20,7 @@ from aragora.server.stream.arena_hooks import streaming_task_context
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
+    from aragora.debate.molecules import MoleculeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,8 @@ class RevisionGenerator:
         record_grounded_position: Optional[Callable] = None,
         rhetorical_observer: Optional[Any] = None,
         max_concurrent: int = MAX_CONCURRENT_REVISIONS,
+        # Molecule tracking for work unit management (Gastown pattern)
+        molecule_tracker: Optional["MoleculeTracker"] = None,
     ):
         """
         Initialize the revision generator.
@@ -99,6 +102,7 @@ class RevisionGenerator:
             record_grounded_position: Callback for grounded persona tracking
             rhetorical_observer: Rhetorical observer for pattern detection
             max_concurrent: Maximum concurrent revision generations
+            molecule_tracker: Optional MoleculeTracker for work unit tracking
         """
         self._generate_with_agent = generate_with_agent
         self._build_revision_prompt = build_revision_prompt
@@ -111,6 +115,10 @@ class RevisionGenerator:
         self._record_grounded_position = record_grounded_position
         self._rhetorical_observer = rhetorical_observer
         self._max_concurrent = max_concurrent
+
+        # Molecule tracking for work unit management
+        self._molecule_tracker = molecule_tracker
+        self._active_molecules: Dict[str, str] = {}  # agent_name -> molecule_id
 
     async def execute_revision_phase(
         self,

@@ -33,8 +33,8 @@ class TestDebateRequest:
         request = DebateRequest.from_dict(data)
 
         assert request.question == "What is the meaning of life?"
-        assert request.rounds == 3  # Default
-        assert request.consensus == "majority"  # Default
+        assert request.rounds == 8  # Default
+        assert request.consensus == "judge"  # Default
         assert request.auto_select is False
         assert request.auto_select_config == {}
 
@@ -63,17 +63,17 @@ class TestDebateRequest:
 
     def test_from_dict_missing_question_raises(self):
         """Should raise ValueError if question is missing."""
-        with pytest.raises(ValueError, match="question field is required"):
+        with pytest.raises(ValueError, match="question or task field is required"):
             DebateRequest.from_dict({})
 
     def test_from_dict_empty_question_raises(self):
         """Should raise ValueError if question is empty."""
-        with pytest.raises(ValueError, match="question field is required"):
+        with pytest.raises(ValueError, match="question or task field is required"):
             DebateRequest.from_dict({"question": ""})
 
     def test_from_dict_whitespace_question_raises(self):
         """Should raise ValueError if question is only whitespace."""
-        with pytest.raises(ValueError, match="question field is required"):
+        with pytest.raises(ValueError, match="question or task field is required"):
             DebateRequest.from_dict({"question": "   "})
 
     def test_from_dict_question_too_long_raises(self):
@@ -94,10 +94,10 @@ class TestDebateRequest:
         assert request.rounds == 10
 
     def test_from_dict_invalid_rounds_defaults(self):
-        """Invalid rounds value should default to 3."""
+        """Invalid rounds value should default to 8."""
         data = {"question": "Test?", "rounds": "invalid"}
         request = DebateRequest.from_dict(data)
-        assert request.rounds == 3
+        assert request.rounds == 8
 
     def test_post_init_sets_empty_config(self):
         """__post_init__ should initialize None config to empty dict."""
@@ -213,12 +213,18 @@ class TestDebateControllerStartDebate:
         self.factory = Mock()
         self.emitter = Mock()
         self.emitter.set_loop_id = Mock()
+        self.storage = Mock()
+        self._preflight_patch = patch.object(
+            DebateController, "_preflight_agents", return_value=None
+        )
+        self._preflight_patch.start()
 
         # Clean up any previous state
         reset_state_manager()
 
     def teardown_method(self):
         """Clean up after each test."""
+        self._preflight_patch.stop()
         DebateController.shutdown()
 
         # Clean up active debates
@@ -229,7 +235,9 @@ class TestDebateControllerStartDebate:
 
     def test_start_debate_returns_debate_id(self):
         """Should return response with debate_id."""
-        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        controller = DebateController(
+            factory=self.factory, emitter=self.emitter, storage=self.storage
+        )
 
         request = DebateRequest(question="Test question?")
         response = controller.start_debate(request)
@@ -243,7 +251,9 @@ class TestDebateControllerStartDebate:
         """Should register debate in active debates."""
         from aragora.server.debate_utils import _active_debates, _active_debates_lock
 
-        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        controller = DebateController(
+            factory=self.factory, emitter=self.emitter, storage=self.storage
+        )
 
         request = DebateRequest(question="Tracked question?")
         response = controller.start_debate(request)
@@ -256,7 +266,9 @@ class TestDebateControllerStartDebate:
 
     def test_start_debate_sets_emitter_loop_id(self):
         """Should set loop_id on emitter."""
-        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        controller = DebateController(
+            factory=self.factory, emitter=self.emitter, storage=self.storage
+        )
 
         request = DebateRequest(question="Test?")
         response = controller.start_debate(request)
@@ -270,6 +282,7 @@ class TestDebateControllerStartDebate:
             factory=self.factory,
             emitter=self.emitter,
             auto_select_fn=auto_select,
+            storage=self.storage,
         )
 
         request = DebateRequest(
@@ -288,6 +301,7 @@ class TestDebateControllerStartDebate:
             factory=self.factory,
             emitter=self.emitter,
             auto_select_fn=auto_select,
+            storage=self.storage,
         )
 
         request = DebateRequest(
@@ -303,7 +317,9 @@ class TestDebateControllerStartDebate:
     @patch("aragora.server.debate_controller.cleanup_stale_debates")
     def test_start_debate_triggers_cleanup(self, mock_cleanup):
         """Should trigger stale debate cleanup."""
-        controller = DebateController(factory=self.factory, emitter=self.emitter)
+        controller = DebateController(
+            factory=self.factory, emitter=self.emitter, storage=self.storage
+        )
 
         request = DebateRequest(question="Test?")
         controller.start_debate(request)
@@ -327,6 +343,11 @@ class TestDebateControllerRunDebate:
         self.mock_result.consensus_reached = True
         self.mock_result.confidence = 0.85
         self.mock_result.grounded_verdict = None
+        self.mock_result.status = "consensus_reached"
+        self.mock_result.agent_failures = {
+            "agent1": [{"phase": "proposal", "error_type": "timeout"}]
+        }
+        self.mock_result.participants = ["agent1", "agent2"]
 
         # Make arena.run() return async
         async def mock_run():
@@ -403,6 +424,12 @@ class TestDebateControllerRunDebate:
         calls = mock_update.call_args_list
         completed_calls = [c for c in calls if c[0][1] == "completed"]
         assert len(completed_calls) == 1
+        result_payload = completed_calls[0][1].get("result", {})
+        assert result_payload["status"] == "consensus_reached"
+        assert result_payload["agent_failures"] == {
+            "agent1": [{"phase": "proposal", "error_type": "timeout"}]
+        }
+        assert result_payload["participants"] == ["agent1", "agent2"]
 
     @patch("aragora.server.debate_controller.update_debate_status")
     def test_run_debate_handles_validation_error(self, mock_update):

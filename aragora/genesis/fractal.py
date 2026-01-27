@@ -9,7 +9,7 @@ results back into the parent debate.
 import logging
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from aragora.core import Agent, DebateResult, Environment
 from aragora.debate.consensus import UnresolvedTension
@@ -27,7 +27,7 @@ class SubDebateResult:
     debate_id: str
     parent_debate_id: str
     tension: UnresolvedTension
-    result: DebateResult
+    result: Optional[DebateResult]
     specialist_genomes: list[AgentGenome]
     depth: int
     resolution: str  # Summary of how the tension was resolved
@@ -94,7 +94,7 @@ class FractalOrchestrator:
         timeout_inheritance: float = 0.5,
         evolve_agents: bool = True,
         population_manager: Optional[PopulationManager] = None,
-        event_hooks: dict = None,
+        event_hooks: Optional[Dict[Any, Any]] = None,
     ):
         """
         Args:
@@ -327,7 +327,7 @@ class FractalOrchestrator:
         # Run sub-debate recursively
         sub_result = await self.run(
             task=focused_task,
-            agents=list(specialist_agents),  # type: ignore[arg-type]
+            agents=list(specialist_agents),
             population=population,
             depth=depth,
             parent_debate_id=parent_debate_id,

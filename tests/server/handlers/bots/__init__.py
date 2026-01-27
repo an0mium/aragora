@@ -1,1 +1,1 @@
-"""Tests for bot webhook handlers."""
+"""Tests for bot integration handlers."""

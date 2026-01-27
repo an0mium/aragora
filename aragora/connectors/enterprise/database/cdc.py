@@ -105,7 +105,7 @@ class ChangeEvent:
     user: Optional[str] = None  # User who made the change
     metadata: Dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.id:
             self.id = self._generate_id()
 
@@ -437,7 +437,7 @@ class KnowledgeMoundHandler(ChangeEventHandler):
         if self._mound is None:
             from aragora.knowledge.mound import KnowledgeMound
 
-            self._mound = KnowledgeMound(workspace_id=self.workspace_id)  # type: ignore[abstract]
+            self._mound = KnowledgeMound(workspace_id=self.workspace_id)
         return self._mound
 
     async def handle(self, event: ChangeEvent) -> bool:
@@ -536,8 +536,9 @@ class CallbackHandler(ChangeEventHandler):
     async def handle(self, event: ChangeEvent) -> bool:
         """Call the callback with the event."""
         if asyncio.iscoroutinefunction(self.callback):
-            return await self.callback(event)
-        return self.callback(event)
+            result = await self.callback(event)
+            return bool(result)
+        return bool(self.callback(event))
 
 
 class CompositeHandler(ChangeEventHandler):
