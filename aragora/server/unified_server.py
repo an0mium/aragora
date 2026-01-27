@@ -1120,7 +1120,7 @@ class UnifiedServer:
 
         # Initialize handlers eagerly at startup to avoid first-request latency
         # and ensure route index is built before accepting requests
-        self._init_handlers()
+        UnifiedHandler._init_handlers()
 
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
