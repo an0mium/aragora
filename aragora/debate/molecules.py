@@ -431,13 +431,14 @@ class MoleculeTracker:
         if molecule.status != MoleculeStatus.IN_PROGRESS:
             return False
 
+        # Store agent name before fail() clears it
+        agent_name = molecule.assigned_agent
+
         molecule.fail(error)
 
-        # Update workload
-        if molecule.assigned_agent:
-            self._agent_workload[molecule.assigned_agent] = max(
-                0, self._agent_workload.get(molecule.assigned_agent, 1) - 1
-            )
+        # Update workload (using stored agent name)
+        if agent_name:
+            self._agent_workload[agent_name] = max(0, self._agent_workload.get(agent_name, 1) - 1)
 
         logger.warning(
             f"Molecule {molecule_id} failed: {error} "
