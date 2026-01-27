@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any, Optional
 
 from ..base import (
     SAFE_AGENT_PATTERN,
@@ -22,6 +23,7 @@ from ..base import (
     safe_error_message,
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
+from ..versioning.compat import strip_version_prefix
 
 # Suspicious patterns for task sanitization
 _SUSPICIOUS_PATTERNS = [
@@ -61,7 +63,14 @@ class GraphDebatesHandler(SecureHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path.startswith("/api/v1/debates/graph")
+        normalized = strip_version_prefix(path)
+        return normalized.startswith("/api/debates/graph")
+
+    def handle(  # type: ignore[override]
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
+        """Route GET requests through the async handler."""
+        return self.handle_get(handler, path, query_params)
 
     @handle_errors("graph debates GET")
     async def handle_get(self, handler, path: str, query_params: dict) -> HandlerResult:
@@ -77,19 +86,20 @@ class GraphDebatesHandler(SecureHandler):
             return error_response(str(e), 403)
 
         # Extract debate ID from path if present
-        parts = path.rstrip("/").split("/")
+        normalized = strip_version_prefix(path)
+        parts = normalized.rstrip("/").split("/")
 
-        # GET /api/v1/debates/graph/{id} - Get specific graph debate
-        # Path structure: ['', 'api', 'v1', 'debates', 'graph', '{id}', ...]
-        if len(parts) >= 6 and parts[4] == "graph":
-            debate_id = parts[5]
+        # GET /api/debates/graph/{id} - Get specific graph debate
+        # Path structure: ['', 'api', 'debates', 'graph', '{id}', ...]
+        if len(parts) >= 5 and parts[3] == "graph":
+            debate_id = parts[4]
 
             # GET /api/v1/debates/graph/{id}/branches
-            if len(parts) >= 7 and parts[6] == "branches":
+            if len(parts) >= 6 and parts[5] == "branches":
                 return await self._get_branches(handler, debate_id)
 
             # GET /api/v1/debates/graph/{id}/nodes
-            if len(parts) >= 7 and parts[6] == "nodes":
+            if len(parts) >= 6 and parts[5] == "nodes":
                 return await self._get_nodes(handler, debate_id)
 
             return await self._get_graph_debate(handler, debate_id)
@@ -97,12 +107,39 @@ class GraphDebatesHandler(SecureHandler):
         return error_response("Not found", 404)
 
     @handle_errors("graph debates POST")
-    async def handle_post(self, handler, path: str, data: dict) -> HandlerResult:
+    async def handle_post(self, *args, **kwargs) -> HandlerResult:
         """Handle POST requests for graph debates with RBAC.
 
         POST /api/debates/graph - Run a new graph debate
         """
-        if not path.rstrip("/").endswith("/debates/graph"):
+        handler = None
+        path = ""
+        data: dict = {}
+
+        if len(args) >= 3:
+            if isinstance(args[0], str):
+                path = args[0]
+                handler = args[2]
+                data, error = self.read_json_body_validated(handler)
+                if error:
+                    return error
+            else:
+                handler = args[0]
+                path = args[1]
+                data = args[2] or {}
+        else:
+            handler = kwargs.get("handler")
+            path = kwargs.get("path", "")
+            data = kwargs.get("data") or kwargs.get("body") or {}
+            if handler is None:
+                return error_response("Invalid request", 400)
+            if not data:
+                data, error = self.read_json_body_validated(handler)
+                if error:
+                    return error
+
+        normalized = strip_version_prefix(path)
+        if not normalized.rstrip("/").endswith("/debates/graph"):
             return error_response("Not found", 404)
 
         # RBAC: Require authentication and debates:create permission
