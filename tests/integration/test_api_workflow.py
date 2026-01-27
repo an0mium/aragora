@@ -232,6 +232,16 @@ class TestLeaderboardWorkflow:
 
         handler = AgentsHandler(handler_context)
 
+        # Mock auth context to bypass authentication
+        mock_auth = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            roles={"admin"},
+            permissions={"agents.read", "leaderboard.read"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=mock_auth)
+        handler.check_permission = MagicMock(return_value=None)
+
         # AgentsHandler.handle is async
         result = await handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
@@ -253,6 +263,16 @@ class TestLeaderboardWorkflow:
             )
 
         handler = AgentsHandler(handler_context)
+
+        # Mock auth context to bypass authentication
+        mock_auth = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            roles={"admin"},
+            permissions={"agents.read", "leaderboard.read"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=mock_auth)
+        handler.check_permission = MagicMock(return_value=None)
 
         # AgentsHandler.handle is async
         result = await handler.handle("/api/v1/leaderboard", {"limit": "5"}, None)
@@ -379,6 +399,16 @@ class TestConcurrentRequests:
         """Test multiple sequential leaderboard requests."""
         handler = AgentsHandler(handler_context)
 
+        # Mock auth context to bypass authentication
+        mock_auth = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            roles={"admin"},
+            permissions={"agents.read", "leaderboard.read"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=mock_auth)
+        handler.check_permission = MagicMock(return_value=None)
+
         # Make 10 sequential requests (AgentsHandler is async)
         for _ in range(10):
             result = await handler.handle("/api/v1/leaderboard", {}, None)
@@ -400,6 +430,16 @@ class TestErrorHandling:
     async def test_invalid_query_params_handled(self, handler_context):
         """Test invalid query parameters are handled gracefully."""
         handler = AgentsHandler(handler_context)
+
+        # Mock auth context to bypass authentication
+        mock_auth = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            roles={"admin"},
+            permissions={"agents.read", "leaderboard.read"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=mock_auth)
+        handler.check_permission = MagicMock(return_value=None)
 
         # Pass invalid limit (AgentsHandler is async)
         result = await handler.handle("/api/v1/leaderboard", {"limit": "not-a-number"}, None)
