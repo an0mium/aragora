@@ -208,39 +208,79 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
         try:
             # Use shared connection pool for better resource management
             async with create_client_session(timeout=self.timeout) as session:
-                async with session.post(
-                    url,
-                    headers=headers,
-                    json=payload,
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        sanitized = _sanitize_error_message(error_text)
 
-                        # Record failure for circuit breaker (non-quota errors)
-                        if cb is not None and not self.is_quota_error(response.status, error_text):
-                            cb.record_failure()
+                async def _post_payload(request_payload: dict) -> tuple[dict | None, str | None]:
+                    async with session.post(
+                        url,
+                        headers=headers,
+                        json=request_payload,
+                    ) as response:
+                        if response.status != 200:
+                            error_text = await response.text()
+                            sanitized = _sanitize_error_message(error_text)
 
-                        if response.status in (401, 403):
-                            result = await self.fallback_generate(
-                                prompt, context, status_code=response.status
+                            # Record failure for circuit breaker (non-quota errors)
+                            if cb is not None and not self.is_quota_error(
+                                response.status, error_text
+                            ):
+                                cb.record_failure()
+
+                            if response.status in (401, 403):
+                                result = await self.fallback_generate(
+                                    prompt, context, status_code=response.status
+                                )
+                                if result is not None:
+                                    return None, result
+
+                            # Check for quota/billing errors and fallback
+                            if self.is_quota_error(response.status, error_text):
+                                result = await self.fallback_generate(
+                                    prompt, context, response.status
+                                )
+                                if result is not None:
+                                    return None, result
+
+                            raise AgentAPIError(
+                                f"{self._get_error_prefix()} API error {response.status}: {sanitized}",
+                                agent_name=self.name,
+                                status_code=response.status,
                             )
-                            if result is not None:
-                                return result
 
-                        # Check for quota/billing errors and fallback
-                        if self.is_quota_error(response.status, error_text):
-                            result = await self.fallback_generate(prompt, context, response.status)
-                            if result is not None:
-                                return result
+                        return await response.json(), None
 
+                data, fallback_result = await _post_payload(payload)
+                if fallback_result is not None:
+                    return fallback_result
+                if data is None:
+                    raise AgentAPIError(
+                        f"{self._get_error_prefix()} returned empty response",
+                        agent_name=self.name,
+                    )
+
+                message = None
+                try:
+                    message = data.get("choices", [{}])[0].get("message", {})
+                except (AttributeError, IndexError, TypeError):
+                    message = {}
+
+                tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+                content_hint = message.get("content") if isinstance(message, dict) else None
+                if tool_calls and (content_hint is None or not str(content_hint).strip()):
+                    logger.warning(
+                        "[%s] Tool call returned empty content; retrying without tools",
+                        getattr(self, "name", "agent"),
+                    )
+                    retry_payload = dict(payload)
+                    retry_payload.pop("tools", None)
+                    retry_payload["tool_choice"] = "none"
+                    data, fallback_result = await _post_payload(retry_payload)
+                    if fallback_result is not None:
+                        return fallback_result
+                    if data is None:
                         raise AgentAPIError(
-                            f"{self._get_error_prefix()} API error {response.status}: {sanitized}",
+                            f"{self._get_error_prefix()} returned empty response",
                             agent_name=self.name,
-                            status_code=response.status,
                         )
-
-                    data = await response.json()
 
                     # Record token usage for billing (OpenAI format)
                     usage = data.get("usage", {})
