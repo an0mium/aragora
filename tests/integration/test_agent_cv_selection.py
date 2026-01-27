@@ -30,14 +30,37 @@ from aragora.core import Agent
 @pytest.fixture
 def mock_elo_system():
     """Create a mock ELO system with agent ratings."""
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class MockAgentRating:
+        agent_name: str
+        elo: float = 1500.0
+        domain_elos: dict = field(default_factory=dict)
+        wins: int = 10
+        losses: int = 5
+        draws: int = 0
+        debates_count: int = 15
+
+        @property
+        def win_rate(self) -> float:
+            total = self.wins + self.losses + self.draws
+            return self.wins / total if total > 0 else 0.0
+
+    ratings_data = {
+        "claude-opus": MockAgentRating(
+            agent_name="claude-opus",
+            elo=1650.0,
+            domain_elos={"code": 1680.0, "legal": 1620.0, "general": 1650.0},
+        ),
+        "gpt-4": MockAgentRating(agent_name="gpt-4", elo=1580.0),
+        "gemini-pro": MockAgentRating(agent_name="gemini-pro", elo=1520.0),
+        "mistral-large": MockAgentRating(agent_name="mistral-large", elo=1480.0),
+    }
+
     elo = MagicMock()
     elo.get_rating = Mock(
-        side_effect=lambda name: {
-            "claude-opus": 1650.0,
-            "gpt-4": 1580.0,
-            "gemini-pro": 1520.0,
-            "mistral-large": 1480.0,
-        }.get(name, 1500.0)
+        side_effect=lambda name: ratings_data.get(name, MockAgentRating(agent_name=name))
     )
 
     elo.get_agent_stats = Mock(
@@ -53,6 +76,13 @@ def mock_elo_system():
             "code": 1680.0,
             "legal": 1620.0,
             "general": 1650.0,
+        }
+    )
+
+    elo.get_learning_efficiency = Mock(
+        return_value={
+            "learning_category": "fast_learner",
+            "elo_gain_rate": 5.0,
         }
     )
     return elo

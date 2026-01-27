@@ -348,6 +348,8 @@ class ResourcePermissionStore:
         org_id: str | None = None,
         conditions: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        inherit_to_children: bool = True,
+        max_inheritance_depth: int | None = None,
     ) -> ResourcePermission:
         """
         Grant a resource-level permission to a user.
@@ -362,6 +364,8 @@ class ResourcePermissionStore:
             org_id: Organization scope
             conditions: Optional ABAC conditions
             metadata: Optional metadata
+            inherit_to_children: If True, permission cascades to child resources
+            max_inheritance_depth: Max depth for inheritance (None = unlimited)
 
         Returns:
             The created ResourcePermission
@@ -385,6 +389,8 @@ class ResourcePermissionStore:
             # Update existing permission instead of creating duplicate
             existing.expires_at = expires_at
             existing.is_active = True
+            existing.inherit_to_children = inherit_to_children
+            existing.max_inheritance_depth = max_inheritance_depth
             if conditions:
                 existing.conditions = conditions
             if metadata:
@@ -403,6 +409,8 @@ class ResourcePermissionStore:
             org_id=org_id,
             conditions=conditions,
             metadata=metadata,
+            inherit_to_children=inherit_to_children,
+            max_inheritance_depth=max_inheritance_depth,
         )
 
         self._store_permission(permission)
