@@ -48,6 +48,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ class SelectionHandler(BaseHandler):
             return True
         return any(path.startswith(prefix) for prefix in self.PREFIX_ROUTES)
 
+    @require_permission("selection:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
@@ -115,6 +117,7 @@ class SelectionHandler(BaseHandler):
             return self._get_role_assigner(name)
         return None
 
+    @require_permission("selection:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         if path == "/api/v1/selection/score":

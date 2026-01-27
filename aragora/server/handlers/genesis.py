@@ -36,6 +36,7 @@ from .base import (
     json_response,
     safe_json_parse,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,7 @@ class GenesisHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("genesis:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route genesis requests to appropriate methods."""
         normalized = strip_version_prefix(path)
