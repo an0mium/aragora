@@ -356,16 +356,18 @@ class TeamSelector:
         self,
         agents: list["Agent"],
         required_roles: Optional[set[str]] = None,
+        debate_id: Optional[str] = None,
     ) -> list["Agent"]:
         """Filter agents by Gastown hierarchy role.
 
-        Uses the Gastown-inspired role system (Mayor, Witness, Polecat, Crew)
+        Uses the Gastown-inspired role system (orchestrator, monitor, worker)
         to filter agents based on their hierarchy role assignment.
 
         Args:
             agents: List of candidate agents
-            required_roles: Set of hierarchy roles to include (e.g., {"mayor", "crew"})
+            required_roles: Set of hierarchy roles to include (e.g., {"orchestrator", "worker"})
                            If None or empty, returns all agents (no filtering)
+            debate_id: Optional debate ID to look up role assignments from AgentHierarchy
 
         Returns:
             Filtered list of agents with matching hierarchy roles
@@ -378,8 +380,8 @@ class TeamSelector:
 
         matching_agents: list["Agent"] = []
         for agent in agents:
-            # Check if agent has hierarchy_role attribute (from AgentSpec)
-            hierarchy_role = self._get_agent_hierarchy_role(agent)
+            # Check hierarchy role using AgentHierarchy if available
+            hierarchy_role = self._get_agent_hierarchy_role(agent, debate_id)
             if hierarchy_role and hierarchy_role.lower() in required_roles_lower:
                 matching_agents.append(agent)
 
@@ -403,20 +405,112 @@ class TeamSelector:
         )
         return matching_agents
 
-    def _get_agent_hierarchy_role(self, agent: "Agent") -> Optional[str]:
+    def _assign_hierarchy_roles(
+        self,
+        agents: list["Agent"],
+        debate_id: str,
+        domain: str = "general",
+    ) -> None:
+        """Assign hierarchy roles to agents using AgentHierarchy.
+
+        Creates role assignments for the debate and caches them for lookup.
+
+        Args:
+            agents: List of agents to assign roles to
+            debate_id: Debate identifier
+            domain: Task domain for affinity matching
+        """
+        if not self.agent_hierarchy:
+            return
+
+        # Check if already assigned for this debate
+        if debate_id in self._hierarchy_assignments:
+            return
+
+        try:
+            # Convert agents to AgentProfile for hierarchy
+            from aragora.routing.selection import AgentProfile
+
+            profiles = []
+            for agent in agents:
+                profile = AgentProfile(
+                    name=agent.name,
+                    agent_type=getattr(agent, "agent_type", "unknown"),
+                    elo_rating=self._get_agent_elo(agent),
+                    capabilities=self._get_agent_capabilities(agent),
+                    task_affinity={domain: 0.5},  # Default affinity
+                )
+                profiles.append(profile)
+
+            # Assign roles using AgentHierarchy
+            assignments = self.agent_hierarchy.assign_roles(
+                debate_id=debate_id,
+                agents=profiles,
+                task_type=domain,
+            )
+
+            # Cache assignments
+            self._hierarchy_assignments[debate_id] = assignments
+
+            logger.info(
+                f"hierarchy_roles_assigned debate={debate_id} "
+                f"orchestrator={self.agent_hierarchy.get_orchestrator(debate_id)} "
+                f"monitors={self.agent_hierarchy.get_monitors(debate_id)} "
+                f"workers={self.agent_hierarchy.get_workers(debate_id)}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to assign hierarchy roles: {e}")
+
+    def _get_agent_elo(self, agent: "Agent") -> float:
+        """Get ELO rating for an agent."""
+        if self.elo_system:
+            try:
+                return self.elo_system.get_rating(agent.name)
+            except (KeyError, AttributeError):
+                pass
+        return 1000.0  # Default ELO
+
+    def _get_agent_capabilities(self, agent: "Agent") -> set[str]:
+        """Get capabilities for an agent."""
+        if hasattr(agent, "capabilities") and agent.capabilities:
+            return set(agent.capabilities)
+        # Infer basic capabilities from agent type/name
+        name_lower = agent.name.lower()
+        caps = {"reasoning"}
+        if "claude" in name_lower:
+            caps.update({"synthesis", "coordination", "analysis", "creativity"})
+        elif "gpt" in name_lower:
+            caps.update({"synthesis", "coordination", "analysis"})
+        elif "codex" in name_lower or "codestral" in name_lower:
+            caps.update({"coding", "analysis"})
+        elif "gemini" in name_lower:
+            caps.update({"analysis", "quality_assessment"})
+        return caps
+
+    def _get_agent_hierarchy_role(
+        self, agent: "Agent", debate_id: Optional[str] = None
+    ) -> Optional[str]:
         """Get the Gastown hierarchy role for an agent.
 
         Checks multiple sources for the hierarchy role:
-        1. Direct hierarchy_role attribute
-        2. AgentSpec.hierarchy_role if agent has spec
-        3. Agent metadata
+        1. AgentHierarchy assignments for this debate (if available)
+        2. Direct hierarchy_role attribute
+        3. AgentSpec.hierarchy_role if agent has spec
+        4. Agent metadata
 
         Args:
             agent: Agent to get role for
+            debate_id: Optional debate ID for hierarchy lookup
 
         Returns:
-            Hierarchy role string (mayor, witness, polecat, crew) or None
+            Hierarchy role string (orchestrator, monitor, worker) or None
         """
+        # First check AgentHierarchy assignments
+        if debate_id and self.agent_hierarchy:
+            role = self.agent_hierarchy.get_role(debate_id, agent.name)
+            if role:
+                return role.value
+
         # Try direct attribute
         if hasattr(agent, "hierarchy_role") and agent.hierarchy_role:
             return agent.hierarchy_role
@@ -430,6 +524,29 @@ class TeamSelector:
             return agent.metadata.get("hierarchy_role")
 
         return None
+
+    def get_hierarchy_status(self, debate_id: str) -> Optional[dict]:
+        """Get the hierarchy status for a debate.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Hierarchy status dict or None if not available
+        """
+        if not self.agent_hierarchy:
+            return None
+        return self.agent_hierarchy.get_hierarchy_status(debate_id)
+
+    def clear_hierarchy_cache(self, debate_id: str) -> None:
+        """Clear hierarchy cache for a completed debate.
+
+        Args:
+            debate_id: Debate identifier
+        """
+        self._hierarchy_assignments.pop(debate_id, None)
+        if self.agent_hierarchy:
+            self.agent_hierarchy.clear_debate(debate_id)
 
     def _agent_matches_capability(
         self,
