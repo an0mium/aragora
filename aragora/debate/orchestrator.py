@@ -1555,6 +1555,318 @@ class Arena:
             logger.warning(f"Failed to create debate bead: {e}")
             return None
 
+    async def _create_pending_debate_bead(self, debate_id: str, task: str) -> Optional[str]:
+        """Create a pending bead to track debate work in progress.
+
+        Called at debate START (unlike _create_debate_bead which is called at END).
+        This enables GUPP recovery by creating durable work tracking before execution.
+
+        Args:
+            debate_id: The debate ID
+            task: The debate task/question
+
+        Returns:
+            The bead ID if created, None otherwise
+        """
+        # Only create if hook tracking is enabled (bead tracking alone uses final bead)
+        enable_hooks = getattr(self.protocol, "enable_hook_tracking", False)
+        if not enable_hooks:
+            return None
+
+        try:
+            from aragora.nomic.beads import Bead, BeadPriority, BeadStore, BeadType
+
+            # Get or create bead store
+            bead_store = getattr(self, "_bead_store", None)
+            if bead_store is None:
+                bead_store = BeadStore(
+                    bead_dir=self.env.context.get("bead_dir", ".beads")
+                    if self.env.context
+                    else ".beads",
+                    git_enabled=True,
+                    auto_commit=getattr(self.protocol, "bead_auto_commit", False),
+                )
+                await bead_store.initialize()
+                self._bead_store = bead_store
+
+            # Create pending bead with minimal info
+            bead = Bead.create(
+                bead_type=BeadType.DEBATE_DECISION,
+                title=f"[Pending] Decision: {task[:50]}..."
+                if len(task) > 50
+                else f"[Pending] Decision: {task}",
+                description="Debate in progress...",
+                priority=BeadPriority.NORMAL,
+                tags=["debate", "pending", "gupp-tracked"],
+                metadata={
+                    "debate_id": debate_id,
+                    "participants": [a.name for a in self.agents],
+                    "status": "in_progress",
+                },
+            )
+
+            bead_id = await bead_store.create(bead)
+            logger.debug(f"Created pending debate bead: {bead_id[:8]} for debate {debate_id[:8]}")
+            return bead_id
+
+        except ImportError:
+            logger.debug("Bead tracking unavailable")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to create pending debate bead: {e}")
+            return None
+
+    async def _update_debate_bead(
+        self, bead_id: str, result: "DebateResult", success: bool
+    ) -> None:
+        """Update a pending debate bead with final results.
+
+        Args:
+            bead_id: The bead ID to update
+            result: The final debate result
+            success: Whether the debate completed successfully
+        """
+        if not bead_id:
+            return
+
+        try:
+            from aragora.nomic.beads import BeadPriority, BeadStatus
+
+            bead_store = getattr(self, "_bead_store", None)
+            if bead_store is None:
+                return
+
+            bead = await bead_store.get(bead_id)
+            if not bead:
+                return
+
+            # Update bead with final info
+            bead.title = (
+                f"Decision: {result.task[:50]}..."
+                if len(result.task) > 50
+                else f"Decision: {result.task}"
+            )
+            bead.description = result.final_answer[:500] if result.final_answer else ""
+
+            # Update priority based on confidence
+            if result.confidence >= 0.9:
+                bead.priority = BeadPriority.HIGH
+            elif result.confidence >= 0.7:
+                bead.priority = BeadPriority.NORMAL
+            else:
+                bead.priority = BeadPriority.LOW
+
+            # Update metadata
+            bead.metadata.update(
+                {
+                    "consensus_reached": result.consensus_reached,
+                    "confidence": result.confidence,
+                    "rounds_used": result.rounds_used,
+                    "winner": result.winner,
+                    "status": "completed" if success else "failed",
+                }
+            )
+
+            # Update tags
+            bead.tags = ["debate", result.status, f"confidence:{result.confidence:.0%}"]
+
+            # Update status
+            if success:
+                await bead_store.update_status(bead_id, BeadStatus.COMPLETED)
+            else:
+                await bead_store.update_status(bead_id, BeadStatus.FAILED)
+
+            logger.debug(
+                f"Updated debate bead: {bead_id[:8]} status={'completed' if success else 'failed'}"
+            )
+
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to update debate bead: {e}")
+
+    async def _init_hook_tracking(self, debate_id: str, bead_id: str) -> dict[str, str]:
+        """Initialize GUPP hook tracking for debate work.
+
+        Pushes the debate bead onto each participating agent's hook queue,
+        ensuring work recovery on crash via the GUPP principle:
+        "If there is work on your Hook, YOU MUST RUN IT."
+
+        Args:
+            debate_id: The debate ID
+            bead_id: The bead ID tracking this debate
+
+        Returns:
+            Dict mapping agent_id to hook_entry_id
+        """
+        enable_hooks = getattr(self.protocol, "enable_hook_tracking", False)
+        if not enable_hooks or not bead_id:
+            return {}
+
+        try:
+            from aragora.nomic.hook_queue import HookQueueRegistry
+
+            # Get or create hook registry
+            hook_registry = getattr(self, "_hook_registry", None)
+            if hook_registry is None:
+                bead_store = getattr(self, "_bead_store", None)
+                if bead_store is None:
+                    logger.debug("Hook tracking requires bead_store, skipping")
+                    return {}
+                hook_registry = HookQueueRegistry(bead_store)
+                self._hook_registry = hook_registry
+
+            # Push debate work onto each agent's hook
+            hook_entries = {}
+            for agent in self.agents:
+                agent_id = getattr(agent, "name", str(agent))
+                try:
+                    hook_queue = await hook_registry.get_queue(agent_id)
+                    entry = await hook_queue.push(
+                        bead_id=bead_id,
+                        priority=75,  # High priority for debate work
+                        max_attempts=3,
+                    )
+                    hook_entries[agent_id] = entry.id
+                    logger.debug(f"Pushed debate {debate_id[:8]} to hook for {agent_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to push hook for {agent_id}: {e}")
+
+            if hook_entries:
+                logger.info(
+                    f"GUPP: Tracked debate {debate_id[:8]} on {len(hook_entries)} agent hooks"
+                )
+
+            return hook_entries
+
+        except ImportError:
+            logger.debug("Hook tracking unavailable: aragora.nomic.hook_queue not found")
+            return {}
+        except Exception as e:
+            logger.warning(f"Failed to initialize hook tracking: {e}")
+            return {}
+
+    async def _complete_hook_tracking(
+        self, bead_id: str, hook_entries: dict[str, str], success: bool, error_msg: str = ""
+    ) -> None:
+        """Complete or fail hook entries for debate work.
+
+        Args:
+            bead_id: The bead ID tracking this debate
+            hook_entries: Dict mapping agent_id to hook_entry_id
+            success: Whether the debate completed successfully
+            error_msg: Error message if failed
+        """
+        if not hook_entries or not bead_id:
+            return
+
+        try:
+            hook_registry = getattr(self, "_hook_registry", None)
+            if hook_registry is None:
+                return
+
+            for agent_id, entry_id in hook_entries.items():
+                try:
+                    hook_queue = await hook_registry.get_queue(agent_id)
+                    if success:
+                        await hook_queue.complete(bead_id)
+                        logger.debug(f"Completed hook {entry_id[:8]} for {agent_id}")
+                    else:
+                        await hook_queue.fail(bead_id, error_msg or "Debate failed")
+                        logger.debug(f"Failed hook {entry_id[:8]} for {agent_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to complete hook for {agent_id}: {e}")
+
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to complete hook tracking: {e}")
+
+    @classmethod
+    async def recover_pending_debates(
+        cls,
+        bead_store=None,
+        max_age_hours: int = 24,
+    ) -> list[dict]:
+        """Recover pending debates from hook queues on startup.
+
+        GUPP Principle: "If there is work on your Hook, YOU MUST RUN IT."
+
+        This method should be called during server startup to identify
+        debates that were interrupted by crashes and need to be resumed.
+
+        Args:
+            bead_store: Optional BeadStore instance (creates default if None)
+            max_age_hours: Maximum age of recoverable work in hours
+
+        Returns:
+            List of dicts with debate recovery info:
+            [{"debate_id": str, "bead_id": str, "agents": list[str], "bead": Bead}, ...]
+        """
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from aragora.nomic.beads import BeadStatus, BeadStore, BeadType
+            from aragora.nomic.hook_queue import HookQueueRegistry
+
+            # Create bead store if not provided
+            if bead_store is None:
+                bead_store = BeadStore(bead_dir=".beads", git_enabled=False)
+                await bead_store.initialize()
+
+            # Recover all agent hooks
+            registry = HookQueueRegistry(bead_store)
+            recovered = await registry.recover_all()
+
+            if not recovered:
+                logger.info("GUPP recovery: No pending work found")
+                return []
+
+            # Group by debate (bead_id) and filter by age
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+            debates_to_resume = {}
+
+            for agent_id, beads in recovered.items():
+                for bead in beads:
+                    # Filter to debate decision beads
+                    if bead.bead_type != BeadType.DEBATE_DECISION:
+                        continue
+
+                    # Filter by age
+                    if bead.created_at < cutoff_time:
+                        logger.debug(f"Skipping stale bead {bead.id[:8]} (too old)")
+                        continue
+
+                    # Filter by status (only recover non-terminal)
+                    if bead.status in (BeadStatus.COMPLETED, BeadStatus.FAILED):
+                        continue
+
+                    debate_id = bead.metadata.get("debate_id", bead.id)
+                    if debate_id not in debates_to_resume:
+                        debates_to_resume[debate_id] = {
+                            "debate_id": debate_id,
+                            "bead_id": bead.id,
+                            "agents": [],
+                            "bead": bead,
+                        }
+                    debates_to_resume[debate_id]["agents"].append(agent_id)
+
+            result = list(debates_to_resume.values())
+            if result:
+                logger.info(
+                    f"GUPP recovery: Found {len(result)} debates to resume "
+                    f"across {sum(len(d['agents']) for d in result)} agent hooks"
+                )
+
+            return result
+
+        except ImportError as e:
+            logger.debug(f"GUPP recovery unavailable: {e}")
+            return []
+        except Exception as e:
+            logger.warning(f"GUPP recovery failed: {e}")
+            return []
+
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int
     ) -> int:
@@ -1764,6 +2076,18 @@ class Arena:
         # Check budget before starting debate (may raise BudgetExceededError)
         self._check_budget_before_debate(debate_id)
 
+        # Initialize GUPP hook tracking for crash recovery
+        # Creates pending bead and pushes work to agent hooks
+        gupp_bead_id: Optional[str] = None
+        gupp_hook_entries: dict[str, str] = {}
+        if getattr(self.protocol, "enable_hook_tracking", False):
+            try:
+                gupp_bead_id = await self._create_pending_debate_bead(debate_id, self.env.task)
+                if gupp_bead_id:
+                    gupp_hook_entries = await self._init_hook_tracking(debate_id, gupp_bead_id)
+            except Exception as e:
+                logger.debug(f"GUPP initialization failed (non-critical): {e}")
+
         # Initialize result early for timeout recovery
         ctx.result = DebateResult(
             task=self.env.task,
@@ -1906,9 +2230,26 @@ class Arena:
             except Exception as e:
                 logger.debug(f"Knowledge Mound ingestion failed (non-critical): {e}")
 
+        # Complete GUPP hook tracking for crash recovery
+        # Updates the pending bead and marks agent hooks as completed
+        if gupp_bead_id and gupp_hook_entries:
+            try:
+                success = debate_status == "completed"
+                await self._update_debate_bead(gupp_bead_id, ctx.result, success)
+                await self._complete_hook_tracking(
+                    gupp_bead_id,
+                    gupp_hook_entries,
+                    success,
+                    error_msg="" if success else f"Debate {debate_status}",
+                )
+                if success:
+                    ctx.result.bead_id = gupp_bead_id
+            except Exception as e:
+                logger.debug(f"GUPP completion failed (non-critical): {e}")
         # Create a Bead to track this debate decision with git-backed audit trail
         # This enables durable work tracking and audit history via the Gastown pattern
-        if ctx.result:
+        # (Skip if GUPP already created a bead)
+        elif ctx.result and not gupp_bead_id:
             try:
                 bead_id = await self._create_debate_bead(ctx.result)
                 if bead_id:

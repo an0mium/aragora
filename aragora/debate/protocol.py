@@ -347,6 +347,13 @@ class DebateProtocol:
     bead_min_confidence: float = 0.5  # Min confidence to create a bead (0.0-1.0)
     bead_auto_commit: bool = False  # Auto-commit beads to git after creation
 
+    # Hook tracking: GUPP (Guaranteed Unconditional Processing Priority) recovery
+    # When enabled, debate work is tracked via hook queues for crash recovery.
+    # If an agent crashes mid-debate, work is recovered on startup.
+    # Requires enable_bead_tracking=True for full functionality.
+    enable_hook_tracking: bool = False  # Enable GUPP-style hook tracking
+    hook_max_recovery_age_hours: int = 24  # Max age of recoverable debate work (hours)
+
     def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
         """Get the phase configuration for a specific round.
 

@@ -218,8 +218,14 @@ class AutonomicExecutor:
         suggestions = [s.strip() for s in result.suggestions if isinstance(s, str) and s.strip()]
         if not issues and not suggestions:
             return True
-        if len(issues) == 1 and issues[0].strip().lower() == "agent response was empty":
-            return not suggestions
+        if len(issues) == 1:
+            normalized = issues[0].strip().lower()
+            if normalized in (
+                "agent response was empty",
+                "(agent produced empty output)",
+                "agent produced empty output",
+            ):
+                return not suggestions
         return False
 
     def _emit_agent_telemetry(

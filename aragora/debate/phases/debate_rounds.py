@@ -52,6 +52,23 @@ def _calculate_phase_timeout(num_agents: int, agent_timeout: float) -> float:
     return max(calculated, REVISION_PHASE_BASE_TIMEOUT)
 
 
+def _is_effectively_empty_critique(critique: "Critique") -> bool:
+    """Return True if critique only contains placeholder/empty content."""
+    issues = [i.strip() for i in critique.issues if isinstance(i, str) and i.strip()]
+    suggestions = [s.strip() for s in critique.suggestions if isinstance(s, str) and s.strip()]
+    if not issues and not suggestions:
+        return True
+    if len(issues) == 1:
+        normalized = issues[0].strip().lower()
+        if normalized in (
+            "agent response was empty",
+            "(agent produced empty output)",
+            "agent produced empty output",
+        ):
+            return not suggestions
+    return False
+
+
 async def _with_callback_timeout(coro, timeout: float = DEFAULT_CALLBACK_TIMEOUT, default=None):
     """Execute coroutine with timeout, returning default on timeout.
 
@@ -628,6 +645,13 @@ class DebateRoundsPhase:
                     f"critique_round_{round_num}",
                     f"completed_{critique_count}_of_{total_critiques}",
                 )
+
+            if (
+                crit_result is not None
+                and not isinstance(crit_result, Exception)
+                and _is_effectively_empty_critique(crit_result)
+            ):
+                crit_result = None
 
             if isinstance(crit_result, Exception):
                 logger.error(

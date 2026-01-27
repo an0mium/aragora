@@ -36,6 +36,23 @@ class CritiqueResult:
         return self.critique is not None and self.error is None
 
 
+def _is_effectively_empty_critique(critique: "Critique") -> bool:
+    """Return True if critique only contains placeholder/empty content."""
+    issues = [i.strip() for i in critique.issues if isinstance(i, str) and i.strip()]
+    suggestions = [s.strip() for s in critique.suggestions if isinstance(s, str) and s.strip()]
+    if not issues and not suggestions:
+        return True
+    if len(issues) == 1:
+        normalized = issues[0].strip().lower()
+        if normalized in (
+            "agent response was empty",
+            "(agent produced empty output)",
+            "agent produced empty output",
+        ):
+            return not suggestions
+    return False
+
+
 class CritiqueGenerator:
     """
     Generates critiques in parallel with bounded concurrency.
@@ -256,6 +273,9 @@ class CritiqueGenerator:
 
         critic = crit_result.critic
         proposal_agent = crit_result.target_agent
+
+        if crit_result.critique and _is_effectively_empty_critique(crit_result.critique):
+            crit_result.critique = None
 
         if crit_result.error:
             logger.error(
