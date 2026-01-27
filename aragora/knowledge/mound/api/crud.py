@@ -19,6 +19,32 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol
 
+# Distributed tracing support
+try:
+    from aragora.server.middleware.tracing import trace_context
+
+    TRACING_AVAILABLE = True
+except ImportError:
+    TRACING_AVAILABLE = False
+
+    # Mock span for when tracing is not available
+    class _MockSpan:
+        def set_tag(self, key: str, value: Any) -> None:
+            pass
+
+        def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+            pass
+
+        def set_error(self, error: Exception) -> None:
+            pass
+
+    from contextlib import contextmanager
+
+    @contextmanager
+    def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
+        yield _MockSpan()
+
+
 from aragora.knowledge.mound.validation import (
     ValidationError,
     validate_content,
@@ -87,119 +113,138 @@ class CRUDOperationsMixin:
 
         self._ensure_initialized()
 
-        # Validate inputs
-        try:
-            validate_content(request.content)
-            validate_workspace_id(request.workspace_id)
-            request.topics = validate_topics(request.topics)
-            request.metadata = validate_metadata(request.metadata)
-        except ValidationError as e:
-            logger.warning(f"Validation failed for store request: {e.message}")
-            return IngestionResult(
-                node_id="",
-                success=False,
-                message=f"Validation error: {e.message}",
-            )
+        with trace_context("km.store") as span:
+            span.set_tag("workspace_id", request.workspace_id)
+            span.set_tag("node_type", request.node_type)
+            span.set_tag("source_type", request.source_type.value)
 
-        # Generate node ID
-        node_id = f"kn_{uuid.uuid4().hex[:16]}"
-
-        # Check for duplicates if enabled
-        if self.config.enable_deduplication:
-            content_hash = hashlib.sha256(request.content.encode()).hexdigest()[:32]
-            existing = await self._find_by_content_hash(content_hash, request.workspace_id)
-            if existing:
-                # Update existing node
-                await self._increment_update_count(existing)
+            # Validate inputs
+            try:
+                validate_content(request.content)
+                validate_workspace_id(request.workspace_id)
+                request.topics = validate_topics(request.topics)
+                request.metadata = validate_metadata(request.metadata)
+                span.add_event("validation_complete")
+            except ValidationError as e:
+                logger.warning(f"Validation failed for store request: {e.message}")
+                span.set_tag("error", "validation_failed")
                 return IngestionResult(
-                    node_id=existing,
-                    success=True,
-                    deduplicated=True,
-                    existing_node_id=existing,
-                    message="Merged with existing node",
+                    node_id="",
+                    success=False,
+                    message=f"Validation error: {e.message}",
                 )
 
-        # Create node data
-        node_data = {
-            "id": node_id,
-            "workspace_id": request.workspace_id,
-            "node_type": request.node_type,
-            "content": request.content,
-            "content_hash": hashlib.sha256(request.content.encode()).hexdigest()[:32],
-            "confidence": request.confidence,
-            "tier": request.tier,
-            "source_type": request.source_type.value,
-            "document_id": request.document_id,
-            "debate_id": request.debate_id,
-            "agent_id": request.agent_id,
-            "user_id": request.user_id,
-            "topics": request.topics,
-            "metadata": request.metadata,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-        }
+            # Generate node ID
+            node_id = f"kn_{uuid.uuid4().hex[:16]}"
+            span.set_tag("node_id", node_id)
 
-        # Save to store
-        await self._save_node(node_data)
-
-        # Index in semantic store for embedding-based search
-        if self._semantic_store:
-            try:
-                await self._semantic_store.index_item(
-                    source_type=request.source_type,
-                    source_id=node_id,
-                    content=request.content,
-                    tenant_id=request.workspace_id,
-                    domain=request.topics[0] if request.topics else "general",
-                    importance=request.confidence,
-                )
-            except Exception as e:
-                logger.warning(f"Failed to index in semantic store: {e}")
-
-        # Create relationships
-        relationships_created = 0
-        for target_id in request.supports:
-            await self._save_relationship(node_id, target_id, "supports")
-            relationships_created += 1
-        for target_id in request.contradicts:
-            await self._save_relationship(node_id, target_id, "contradicts")
-            relationships_created += 1
-        for target_id in request.derived_from:
-            await self._save_relationship(node_id, target_id, "derived_from")
-            relationships_created += 1
-
-        # Invalidate cache
-        if self._cache:
-            await self._cache.invalidate_queries(request.workspace_id)
-
-        logger.debug(f"Stored knowledge node: {node_id}")
-
-        # Emit KNOWLEDGE_INDEXED event for cross-subsystem tracking
-        if self.event_emitter:
-            try:
-                from aragora.events.types import StreamEvent, StreamEventType
-
-                self.event_emitter.emit(
-                    StreamEvent(
-                        type=StreamEventType.KNOWLEDGE_INDEXED,
-                        data={
-                            "node_id": node_id,
-                            "content": request.content[:200],
-                            "node_type": request.node_type,
-                            "workspace_id": request.workspace_id,
-                            "source_type": request.source_type.value,
-                            "confidence": request.confidence,
-                        },
+            # Check for duplicates if enabled
+            if self.config.enable_deduplication:
+                content_hash = hashlib.sha256(request.content.encode()).hexdigest()[:32]
+                existing = await self._find_by_content_hash(content_hash, request.workspace_id)
+                if existing:
+                    # Update existing node
+                    await self._increment_update_count(existing)
+                    span.set_tag("deduplicated", True)
+                    span.add_event("deduplication_found", {"existing_id": existing})
+                    return IngestionResult(
+                        node_id=existing,
+                        success=True,
+                        deduplicated=True,
+                        existing_node_id=existing,
+                        message="Merged with existing node",
                     )
-                )
-            except (ImportError, AttributeError, TypeError):
-                pass  # Events module not available
 
-        return IngestionResult(
-            node_id=node_id,
-            success=True,
-            relationships_created=relationships_created,
-        )
+            # Create node data
+            node_data = {
+                "id": node_id,
+                "workspace_id": request.workspace_id,
+                "node_type": request.node_type,
+                "content": request.content,
+                "content_hash": hashlib.sha256(request.content.encode()).hexdigest()[:32],
+                "confidence": request.confidence,
+                "tier": request.tier,
+                "source_type": request.source_type.value,
+                "document_id": request.document_id,
+                "debate_id": request.debate_id,
+                "agent_id": request.agent_id,
+                "user_id": request.user_id,
+                "topics": request.topics,
+                "metadata": request.metadata,
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+            }
+
+            # Save to store
+            await self._save_node(node_data)
+            span.add_event("node_saved")
+
+            # Index in semantic store for embedding-based search
+            if self._semantic_store:
+                try:
+                    await self._semantic_store.index_item(
+                        source_type=request.source_type,
+                        source_id=node_id,
+                        content=request.content,
+                        tenant_id=request.workspace_id,
+                        domain=request.topics[0] if request.topics else "general",
+                        importance=request.confidence,
+                    )
+                    span.add_event("semantic_indexed")
+                except Exception as e:
+                    logger.warning(f"Failed to index in semantic store: {e}")
+                    span.add_event("semantic_index_failed", {"error": str(e)})
+
+            # Create relationships
+            relationships_created = 0
+            for target_id in request.supports:
+                await self._save_relationship(node_id, target_id, "supports")
+                relationships_created += 1
+            for target_id in request.contradicts:
+                await self._save_relationship(node_id, target_id, "contradicts")
+                relationships_created += 1
+            for target_id in request.derived_from:
+                await self._save_relationship(node_id, target_id, "derived_from")
+                relationships_created += 1
+
+            if relationships_created > 0:
+                span.add_event("relationships_created", {"count": relationships_created})
+            span.set_tag("relationships_count", relationships_created)
+
+            # Invalidate cache
+            if self._cache:
+                await self._cache.invalidate_queries(request.workspace_id)
+                span.add_event("cache_invalidated")
+
+            logger.debug(f"Stored knowledge node: {node_id}")
+
+            # Emit KNOWLEDGE_INDEXED event for cross-subsystem tracking
+            if self.event_emitter:
+                try:
+                    from aragora.events.types import StreamEvent, StreamEventType
+
+                    self.event_emitter.emit(
+                        StreamEvent(
+                            type=StreamEventType.KNOWLEDGE_INDEXED,
+                            data={
+                                "node_id": node_id,
+                                "content": request.content[:200],
+                                "node_type": request.node_type,
+                                "workspace_id": request.workspace_id,
+                                "source_type": request.source_type.value,
+                                "confidence": request.confidence,
+                            },
+                        )
+                    )
+                except (ImportError, AttributeError, TypeError):
+                    pass  # Events module not available
+
+            span.set_tag("success", True)
+            return IngestionResult(
+                node_id=node_id,
+                success=True,
+                relationships_created=relationships_created,
+            )
 
     async def get(self: CRUDProtocol, node_id: str) -> Optional["KnowledgeItem"]:
         """Get a knowledge node by ID.
@@ -215,23 +260,33 @@ class CRUDOperationsMixin:
         """
         self._ensure_initialized()
 
-        # Validate input
-        validate_id(node_id, field_name="node_id")
+        with trace_context("km.get") as span:
+            span.set_tag("node_id", node_id)
 
-        # Check cache first
-        if self._cache:
-            cached = await self._cache.get_node(node_id)
-            if cached:
-                return cached
+            # Validate input
+            validate_id(node_id, field_name="node_id")
 
-        # Query store
-        node = await self._get_node(node_id)
+            # Check cache first
+            if self._cache:
+                cached = await self._cache.get_node(node_id)
+                if cached:
+                    span.set_tag("cache_hit", True)
+                    span.add_event("cache_hit")
+                    return cached
 
-        # Cache result
-        if self._cache and node:
-            await self._cache.set_node(node_id, node)
+            span.set_tag("cache_hit", False)
 
-        return node
+            # Query store
+            node = await self._get_node(node_id)
+            span.add_event("node_retrieved", {"found": node is not None})
+
+            # Cache result
+            if self._cache and node:
+                await self._cache.set_node(node_id, node)
+                span.add_event("node_cached")
+
+            span.set_tag("found", node is not None)
+            return node
 
     async def update(
         self: CRUDProtocol, node_id: str, updates: Dict[str, Any]
@@ -250,23 +305,32 @@ class CRUDOperationsMixin:
         """
         self._ensure_initialized()
 
-        # Validate inputs
-        validate_id(node_id, field_name="node_id")
-        if "content" in updates:
-            validate_content(updates["content"])
-        if "topics" in updates:
-            updates["topics"] = validate_topics(updates["topics"])
-        if "metadata" in updates:
-            updates["metadata"] = validate_metadata(updates["metadata"])
+        with trace_context("km.update") as span:
+            span.set_tag("node_id", node_id)
+            span.set_tag("update_fields", list(updates.keys()))
 
-        updates["updated_at"] = datetime.now().isoformat()
-        await self._update_node(node_id, updates)
+            # Validate inputs
+            validate_id(node_id, field_name="node_id")
+            if "content" in updates:
+                validate_content(updates["content"])
+            if "topics" in updates:
+                updates["topics"] = validate_topics(updates["topics"])
+            if "metadata" in updates:
+                updates["metadata"] = validate_metadata(updates["metadata"])
+            span.add_event("validation_complete")
 
-        # Invalidate cache
-        if self._cache:
-            await self._cache.invalidate_node(node_id)
+            updates["updated_at"] = datetime.now().isoformat()
+            await self._update_node(node_id, updates)
+            span.add_event("node_updated")
 
-        return await self.get(node_id)  # type: ignore[attr-defined]
+            # Invalidate cache
+            if self._cache:
+                await self._cache.invalidate_node(node_id)
+                span.add_event("cache_invalidated")
+
+            result = await self.get(node_id)  # type: ignore[attr-defined]
+            span.set_tag("success", result is not None)
+            return result
 
     async def delete(self: CRUDProtocol, node_id: str, archive: bool = True) -> bool:
         """Delete a knowledge node.
