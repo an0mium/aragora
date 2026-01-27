@@ -499,6 +499,24 @@ Governance endpoints under `/api/v1/knowledge/mound/governance`.
 | GET | `/api/v1/knowledge/mound/governance/audit/user/{user_id}` | User activity audit |
 | GET | `/api/v1/knowledge/mound/governance/stats` | Governance stats |
 
+## Knowledge Mound Maintenance API
+
+Maintenance endpoints under `/api/v1/knowledge/mound`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/knowledge/mound/dedup/clusters` | Find duplicate clusters |
+| GET | `/api/v1/knowledge/mound/dedup/report` | Generate dedup report |
+| POST | `/api/v1/knowledge/mound/dedup/merge` | Merge a duplicate cluster |
+| POST | `/api/v1/knowledge/mound/dedup/auto-merge` | Auto-merge exact duplicates |
+| POST | `/api/v1/knowledge/mound/federation/regions` | Register federated region (admin) |
+| GET | `/api/v1/knowledge/mound/federation/regions` | List federated regions |
+| DELETE | `/api/v1/knowledge/mound/federation/regions/:id` | Unregister federated region |
+| POST | `/api/v1/knowledge/mound/federation/sync/push` | Push sync to region |
+| POST | `/api/v1/knowledge/mound/federation/sync/pull` | Pull sync from region |
+| POST | `/api/v1/knowledge/mound/federation/sync/all` | Sync with all regions |
+| GET | `/api/v1/knowledge/mound/federation/status` | Federation health status |
+
 ## Threat Intelligence API
 
 Threat intelligence endpoints live under `/api/v1/threat`.
@@ -513,6 +531,27 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 | POST | `/api/v1/threat/hashes` | Batch hash lookup |
 | POST | `/api/v1/threat/email` | Scan email content |
 | GET | `/api/v1/threat/status` | Service status |
+
+### New Endpoints (2026-01-27)
+
+| Endpoint | Description | Status |
+|----------|-------------|--------|
+| `POST /api/debates/:id/intervention/pause` | Pause a debate | NEW |
+| `POST /api/debates/:id/intervention/resume` | Resume a debate | NEW |
+| `POST /api/debates/:id/intervention/inject` | Inject argument or follow‑up | NEW |
+| `POST /api/debates/:id/intervention/weights` | Adjust agent weight | NEW |
+| `POST /api/debates/:id/intervention/threshold` | Adjust consensus threshold | NEW |
+| `GET /api/debates/:id/intervention/state` | Get intervention state | NEW |
+| `GET /api/debates/:id/intervention/log` | Get intervention log | NEW |
+| `GET /api/v1/knowledge/mound/dedup/clusters` | Find duplicate clusters | NEW |
+| `GET /api/v1/knowledge/mound/dedup/report` | Generate dedup report | NEW |
+| `POST /api/v1/knowledge/mound/dedup/merge` | Merge a duplicate cluster | NEW |
+| `POST /api/v1/knowledge/mound/dedup/auto-merge` | Auto-merge exact duplicates | NEW |
+| `POST /api/v1/knowledge/mound/federation/regions` | Register federated region | NEW |
+| `POST /api/v1/knowledge/mound/federation/sync/push` | Push to region | NEW |
+| `POST /api/v1/knowledge/mound/federation/sync/pull` | Pull from region | NEW |
+| `POST /api/v1/knowledge/mound/federation/sync/all` | Sync all regions | NEW |
+| `GET /api/v1/knowledge/mound/federation/status` | Federation status | NEW |
 
 ### New Endpoints (2026-01-22)
 
@@ -1307,6 +1346,56 @@ Get all scenario results for a matrix debate.
 
 #### GET /api/debates/matrix/:id/conclusions
 Get conclusions (universal and conditional) for a matrix debate.
+
+### Debate Interventions
+
+Mid‑debate controls for pausing, resuming, injecting user input, and adjusting
+consensus parameters.
+
+#### POST /api/debates/{debate_id}/intervention/pause
+Pause an active debate.
+
+#### POST /api/debates/{debate_id}/intervention/resume
+Resume a paused debate.
+
+#### POST /api/debates/{debate_id}/intervention/inject
+Inject an argument or follow‑up into the next round.
+
+**Request Body:**
+```json
+{
+  "content": "What about rate limits for burst traffic?",
+  "type": "follow_up",
+  "source": "user"
+}
+```
+
+#### POST /api/debates/{debate_id}/intervention/weights
+Adjust an agent’s influence weight (0.0–2.0).
+
+**Request Body:**
+```json
+{
+  "agent": "anthropic-api",
+  "weight": 1.5
+}
+```
+
+#### POST /api/debates/{debate_id}/intervention/threshold
+Adjust consensus threshold (0.5–1.0).
+
+**Request Body:**
+```json
+{
+  "threshold": 0.85
+}
+```
+
+#### GET /api/debates/{debate_id}/intervention/state
+Get the current intervention state (pause, weights, threshold, pending injections).
+
+#### GET /api/debates/{debate_id}/intervention/log
+Get recent intervention log entries.
 
 ---
 

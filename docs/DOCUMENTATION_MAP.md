@@ -51,6 +51,7 @@ documents are archived in [deprecated/README.md](deprecated/README.md).
 - [MEMORY.md](MEMORY.md)
 - [DOCUMENTS.md](DOCUMENTS.md)
 - [AGENTS.md](AGENTS.md)
+- [SKILLS.md](SKILLS.md)
 
 ### Channels & Inbox
 
@@ -152,4 +153,4 @@ replacement docs. See [deprecated/README.md](deprecated/README.md).
 - API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
 - OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`
 
-Last updated: 2026-01-23
+Last updated: 2026-01-27

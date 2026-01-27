@@ -1,6 +1,6 @@
 # Knowledge Mound Operations Guide
 
-> **Last Updated:** 2026-01-25
+> **Last Updated:** 2026-01-27
 
 The Knowledge Mound is Aragora's unified knowledge storage system that accumulates insights from debates, documents, and external sources. It provides semantic querying, contradiction detection, and knowledge quality management.
 
@@ -18,6 +18,7 @@ The Knowledge Mound is Aragora's unified knowledge storage system that accumulat
   - [Governance](#governance)
   - [Analytics](#analytics)
   - [Federation](#federation)
+  - [Deduplication](#deduplication)
   - [Export](#export)
 - [Examples](#examples)
 - [Architecture](#architecture)
@@ -553,6 +554,8 @@ GET /api/v1/knowledge/mound/analytics/quality/trend?workspace_id=ws-001&period=9
 
 Sync knowledge across distributed deployments.
 
+**Permissions:** `federation:read` for status/list, admin role for region registration.
+
 #### Register Region
 
 ```http
@@ -561,8 +564,10 @@ Content-Type: application/json
 
 {
   "region_id": "eu-west",
-  "endpoint": "https://eu.aragora.example.com",
-  "api_key": "..."
+  "endpoint_url": "https://eu.aragora.example.com",
+  "api_key": "...",
+  "mode": "bidirectional",
+  "sync_scope": "summary"
 }
 ```
 
@@ -575,7 +580,8 @@ Content-Type: application/json
 {
   "region_id": "eu-west",
   "workspace_id": "ws-001",
-  "since": "2024-01-01T00:00:00Z"
+  "since": "2024-01-01T00:00:00Z",
+  "visibility_levels": ["public", "shared"]
 }
 ```
 
@@ -588,6 +594,52 @@ Content-Type: application/json
 {
   "region_id": "eu-west",
   "workspace_id": "ws-001"
+}
+```
+
+---
+
+### Deduplication
+
+Identify and merge duplicate knowledge nodes within a workspace.
+
+**Permissions:** `knowledge:read` for report/cluster/merge operations.
+
+#### List Duplicate Clusters
+
+```http
+GET /api/v1/knowledge/mound/dedup/clusters?workspace_id=ws-001&similarity_threshold=0.9&limit=50
+```
+
+#### Generate Dedup Report
+
+```http
+GET /api/v1/knowledge/mound/dedup/report?workspace_id=ws-001&similarity_threshold=0.9
+```
+
+#### Merge Duplicate Cluster
+
+```http
+POST /api/v1/knowledge/mound/dedup/merge
+Content-Type: application/json
+
+{
+  "workspace_id": "ws-001",
+  "cluster_id": "cluster-123",
+  "primary_node_id": "node-1",
+  "archive": true
+}
+```
+
+#### Auto-Merge Exact Duplicates
+
+```http
+POST /api/v1/knowledge/mound/dedup/auto-merge
+Content-Type: application/json
+
+{
+  "workspace_id": "ws-001",
+  "dry_run": true
 }
 ```
 

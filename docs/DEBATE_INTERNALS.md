@@ -143,6 +143,54 @@ Opening → Argumentation (rounds) → Rebuttal → Synthesis → Voting → Ver
               └──────── Repeat ────────┘
 ```
 
+## Debate Interventions
+
+Aragora supports mid‑debate controls for pausing, resuming, injecting user input,
+and adjusting consensus parameters. Interventions are audited and can be
+consumed by orchestration layers to alter the next round.
+
+**REST Endpoints:**
+- `POST /api/debates/{debate_id}/intervention/pause`
+- `POST /api/debates/{debate_id}/intervention/resume`
+- `POST /api/debates/{debate_id}/intervention/inject`
+- `POST /api/debates/{debate_id}/intervention/weights`
+- `POST /api/debates/{debate_id}/intervention/threshold`
+- `GET  /api/debates/{debate_id}/intervention/state`
+- `GET  /api/debates/{debate_id}/intervention/log`
+
+**Note:** The default handler stores intervention state in memory for simplicity.
+Production deployments should back this with Redis or a database to preserve
+state across restarts and allow horizontal scaling.
+
+## Hook Tracking (GUPP Recovery)
+
+When enabled in the debate protocol, the orchestrator records hook events and
+creates a **pending bead** at debate start. This supports GUPP‑style recovery
+(Guaranteed Unconditional Processing Priority) so incomplete debates can be
+recovered after crashes.
+
+**Protocol Flags:**
+- `enable_bead_tracking` – persist final decisions as beads
+- `enable_hook_tracking` – record hook queues and create pending beads
+- `hook_max_recovery_age_hours` – cap recovery window
+
+**Storage:** Hook queues and beads are stored in the `.beads/` directory when
+the Nomic bead store is available.
+
+## Propulsion Engine (Gastown Pattern)
+
+Aragora includes a propulsion engine for push‑based work assignment between
+stages. Propulsion handlers register for event types and the engine retries
+failed tasks with backoff.
+
+```python
+from aragora.debate.propulsion import propulsion_handler, PropulsionPayload
+
+@propulsion_handler("proposals_ready")
+async def on_proposals(payload: PropulsionPayload) -> None:
+    ...
+```
+
 ## Consensus Detection
 
 The `consensus.py` module detects agreement and generates cryptographic proofs.

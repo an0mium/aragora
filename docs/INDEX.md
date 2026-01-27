@@ -42,6 +42,7 @@ Use this index for fast navigation. For a fuller map, see
 - Memory overview: [MEMORY.md](MEMORY.md)
 - Document ingestion: [DOCUMENTS.md](DOCUMENTS.md)
 - Agent catalog: [AGENTS.md](AGENTS.md)
+- Skills system: [SKILLS.md](SKILLS.md)
 
 ## Control Plane & Operations
 
@@ -114,5 +115,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 266 (includes deprecated)
-- Last updated: 2026-01-23
+- Markdown files under `docs/`: 267 (includes deprecated)
+- Last updated: 2026-01-27

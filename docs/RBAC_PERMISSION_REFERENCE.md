@@ -19,6 +19,9 @@ Permissions use the format `resource.action`:
 
 Example: `debate.create` grants the ability to create new debates.
 
+Some handler permissions use a colon‑separated format (`resource:action`), e.g.
+`debates:read`. Both formats are supported by the permission checker.
+
 ---
 
 ## Core Permissions
@@ -34,6 +37,20 @@ Example: `debate.create` grants the ability to create new debates.
 | `debate.run` | Execute debates | Owner, Admin, Debate Creator, Team Lead, Member |
 | `debate.stop` | Stop running debates | Owner, Admin, Debate Creator, Team Lead, Member |
 | `debate.fork` | Fork debates | Owner, Admin, Debate Creator, Team Lead, Member |
+
+### Debate Service Permissions (colon format)
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `debates:read` | Read debate details and intervention state | Owner, Admin, Debate Creator, Team Lead, Member |
+| `debates:write` | Pause/resume debates, inject arguments, adjust weights/thresholds | Owner, Admin, Debate Creator, Team Lead |
+
+### Decision Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `decisions:create` | Create a decision request | Owner, Admin, Debate Creator, Team Lead, Member |
+| `decisions:read` | Read decision results/status | Owner, Admin, Debate Creator, Team Lead, Analyst, Member |
 
 ### Agent Permissions
 
@@ -66,6 +83,12 @@ Example: `debate.create` grants the ability to create new debates.
 | `organization.export` | Export organization data | Owner, Admin |
 | `organization.delete` | Delete organization | Owner |
 
+### Auth & SSO Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `auth:read` | Access SSO login, callback, refresh, logout, provider list | Owner, Admin |
+
 ### API Key Permissions
 
 | Permission | Description | Roles |
@@ -95,11 +118,32 @@ Example: `debate.create` grants the ability to create new debates.
 | `evidence.create` | Add evidence | Owner, Admin, Debate Creator, Team Lead, Member |
 | `evidence.delete` | Delete evidence | Owner |
 
+### Document & Upload Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `documents.read` | View document metadata and queries | Owner, Admin, Analyst |
+| `documents.create` | Upload documents | Owner, Admin |
+| `upload.create` | Create document folder uploads | Owner, Admin |
+
+### Speech Permissions
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `speech.create` | Generate speech transcripts | Owner, Admin |
+
 ### Knowledge Analytics Permissions
 
 | Permission | Description | Roles |
 |------------|-------------|-------|
 | `knowledge.analytics.read` | View knowledge mound statistics, sharing stats, federation stats | Owner, Admin, Analyst |
+
+### Knowledge Maintenance Permissions (colon format)
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `knowledge:read` | Read deduplication and maintenance reports | Owner, Admin, Analyst |
+| `federation:read` | View federation status and regions | Owner, Admin, Analyst |
 
 ### Knowledge Notifications Permissions
 
@@ -155,6 +199,14 @@ Example: `debate.create` grants the ability to create new debates.
 |------------|-------------|-------|
 | `training.read` | View training data | Owner, Admin, Analyst |
 | `training.create` | Create training data | Owner, Admin |
+
+## Billing & Accounting Permissions (colon format)
+
+| Permission | Description | Roles |
+|------------|-------------|-------|
+| `costs:read` | Read cost dashboards and recommendations | Owner, Admin, Analyst |
+| `ap:read` | Read accounts payable invoices/forecasts/discounts | Owner, Admin |
+| `ar:read` | Read accounts receivable invoices/reports/collections | Owner, Admin |
 
 ---
 

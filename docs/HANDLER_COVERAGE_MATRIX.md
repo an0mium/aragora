@@ -69,7 +69,7 @@ Auto-generated report of handler test coverage.
 | `fork` | ✗ | None | - | HIGH |
 | `graph_debates` | ✗ | None | - | HIGH |
 | `handler` | ✗ | None | - | HIGH |
-| `intervention` | ✗ | None | - | HIGH |
+| `intervention` | ✗ | Missing tests (handler exists) | - | HIGH |
 | `matrix_debates` | ✗ | None | - | HIGH |
 | `response_formatting` | ✗ | None | - | HIGH |
 | `search` | ✗ | None | - | HIGH |
@@ -134,10 +134,10 @@ Auto-generated report of handler test coverage.
 | `contradiction` | ✗ | None | - | HIGH |
 | `culture` | ✗ | None | - | HIGH |
 | `curation` | ✗ | None | - | HIGH |
-| `dedup` | ✗ | None | - | HIGH |
+| `dedup` | ✗ | Missing tests (handler exists) | - | HIGH |
 | `export` | ✗ | None | - | HIGH |
 | `extraction` | ✗ | None | - | HIGH |
-| `federation` | ✗ | None | - | HIGH |
+| `federation` | ✗ | Missing tests (handler exists) | - | HIGH |
 | `global_knowledge` | ✗ | None | - | HIGH |
 | `governance` | ✗ | None | - | HIGH |
 | `graph` | ✗ | None | - | HIGH |
