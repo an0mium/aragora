@@ -165,3 +165,14 @@ docs/investor/
 
 # Bead tracking data (has its own git repo)
 .beads/
+
+# Build tool caches
+.ruff_cache/
+.grok/
+
+# Approval testing artifacts
+.approvals/
+
+# Local data directories (runtime artifacts)
+data/
+consolidated/
