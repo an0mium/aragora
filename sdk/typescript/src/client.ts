@@ -437,6 +437,30 @@ export class AragoraClient {
    */
   readonly beliefNetwork: BeliefNetworkAPI;
 
+  /**
+   * Moments API namespace.
+   * Provides methods for accessing debate moments and highlights.
+   */
+  readonly moments: MomentsAPI;
+
+  /**
+   * Introspection API namespace.
+   * Provides methods for system introspection and agent information.
+   */
+  readonly introspection: IntrospectionAPI;
+
+  /**
+   * Documents API namespace.
+   * Provides methods for document management.
+   */
+  readonly documents: DocumentsAPI;
+
+  /**
+   * Retention API namespace.
+   * Provides methods for data retention policy management.
+   */
+  readonly retention: RetentionAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -484,6 +508,10 @@ export class AragoraClient {
     this.decisions = new DecisionsAPI(this);
     this.critiques = new CritiquesAPI(this);
     this.beliefNetwork = new BeliefNetworkAPI(this);
+    this.moments = new MomentsAPI(this);
+    this.introspection = new IntrospectionAPI(this);
+    this.documents = new DocumentsAPI(this);
+    this.retention = new RetentionAPI(this);
   }
 
   // ===========================================================================
