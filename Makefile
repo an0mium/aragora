@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test lint format typecheck clean docs serve docker
+.PHONY: help install dev test lint format typecheck clean clean-all clean-runtime clean-runtime-dry docs serve docker
 
 # Default target
 help:
@@ -45,6 +45,8 @@ help:
 	@echo "Cleanup:"
 	@echo "  make clean        Remove build artifacts"
 	@echo "  make clean-all    Remove all generated files"
+	@echo "  make clean-runtime Move runtime DB artifacts to ARAGORA_DATA_DIR"
+	@echo "  make clean-runtime-dry Preview runtime cleanup actions"
 
 # Setup
 install:
@@ -140,6 +142,12 @@ clean-all: clean
 	rm -rf node_modules/
 	rm -rf coverage.xml
 	rm -rf .coverage
+
+clean-runtime:
+	python3 scripts/cleanup_runtime_artifacts.py --apply
+
+clean-runtime-dry:
+	python3 scripts/cleanup_runtime_artifacts.py
 
 # Benchmarks
 bench:
