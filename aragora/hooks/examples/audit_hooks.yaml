@@ -1,0 +1,62 @@
+# Audit Event Hooks
+#
+# Hooks for audit-related events like findings, contradictions,
+# and evidence collection.
+
+hooks:
+  # Log critical findings
+  - name: log_critical_finding
+    trigger: on_finding
+    priority: high
+    tags:
+      - audit
+      - alerting
+    description: "Log and alert on critical audit findings"
+    conditions:
+      - field: finding.severity
+        operator: eq
+        value: critical
+    action:
+      handler: aragora.hooks.builtin.log_event
+      args:
+        message: "CRITICAL FINDING in debate {debate_id}: {finding.description}"
+        level: error
+        include_context: true
+
+  # Track contradiction rate
+  - name: metric_contradiction
+    trigger: on_contradiction
+    priority: low
+    tags:
+      - metrics
+    description: "Track contradiction occurrences as metrics"
+    action:
+      handler: aragora.hooks.builtin.log_metric
+      args:
+        metric_name: debate_contradiction
+        value: 1
+        tags:
+          type: contradiction
+
+  # Save evidence for compliance
+  - name: save_evidence
+    trigger: on_evidence
+    priority: normal
+    tags:
+      - compliance
+      - audit
+    description: "Persist evidence for compliance audit trail"
+    conditions:
+      - field: evidence.confidence
+        operator: gte
+        value: 0.7
+    action:
+      handler: aragora.hooks.builtin.save_checkpoint
+      args:
+        path: data/evidence
+        filename_template: "evidence_{debate_id}_{timestamp}.json"
+        include_fields:
+          - debate_id
+          - evidence
+          - source
+          - timestamp

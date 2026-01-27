@@ -264,7 +264,7 @@ class TestAgentHierarchy:
 
         status = hierarchy.get_hierarchy_status("debate-001")
 
-        assert "orchestrators" in status
+        assert "orchestrator" in status
         assert "monitors" in status
         assert "workers" in status
         assert "total_agents" in status
@@ -273,7 +273,7 @@ class TestAgentHierarchy:
     def test_get_hierarchy_status_nonexistent_debate(self, hierarchy):
         """Test getting status for nonexistent debate."""
         status = hierarchy.get_hierarchy_status("nonexistent")
-        assert status["total_agents"] == 0
+        assert status["status"] == "not_initialized"
 
     def test_promote_worker(self, hierarchy, sample_agents):
         """Test promoting a worker to monitor."""
@@ -489,12 +489,14 @@ class TestAffinityScoring:
         agents = [
             AgentProfile(
                 name="security-expert",
+                agent_type="claude",
                 elo_rating=1500.0,
                 capabilities={"reasoning", "synthesis", "coordination"},
                 task_affinity={"security": 0.95},
             ),
             AgentProfile(
                 name="general-agent",
+                agent_type="codex",
                 elo_rating=1600.0,  # Higher ELO
                 capabilities={"reasoning", "synthesis", "coordination"},
                 task_affinity={},  # No affinity

@@ -1,0 +1,102 @@
+# Example Hook Definitions for Debate Events
+#
+# These hooks demonstrate declarative configuration for common
+# debate automation scenarios.
+
+hooks:
+  # Log all debate completions
+  - name: log_debate_complete
+    trigger: post_debate
+    priority: low
+    description: "Log debate completion with key metrics"
+    action:
+      handler: aragora.hooks.builtin.log_event
+      args:
+        message: "Debate {debate_id} complete: consensus={consensus_reached}, confidence={confidence:.2%}"
+        level: info
+
+  # Save checkpoint on high-confidence consensus
+  - name: checkpoint_high_confidence
+    trigger: post_debate
+    priority: normal
+    description: "Save checkpoint for high-confidence debates"
+    conditions:
+      - field: consensus_reached
+        operator: eq
+        value: true
+      - field: confidence
+        operator: gte
+        value: 0.8
+    action:
+      handler: aragora.hooks.builtin.save_checkpoint
+      args:
+        path: data/checkpoints/high_confidence
+        include_fields:
+          - debate_id
+          - final_answer
+          - confidence
+          - participants
+
+  # Store consensus as fact in knowledge mound
+  - name: store_consensus_fact
+    trigger: post_debate
+    priority: normal
+    description: "Store consensus decisions as facts"
+    conditions:
+      - field: consensus_reached
+        operator: eq
+        value: true
+    action:
+      handler: aragora.hooks.builtin.store_fact
+      args:
+        fact_type: consensus
+        content_field: final_answer
+        confidence_field: confidence
+
+  # Log round progression
+  - name: log_round_complete
+    trigger: post_round
+    priority: low
+    description: "Log each round completion"
+    action:
+      handler: aragora.hooks.builtin.log_event
+      args:
+        message: "Round {round_num} complete"
+        level: debug
+
+  # Alert on low confidence outcomes
+  - name: alert_low_confidence
+    trigger: post_debate
+    priority: high
+    tags:
+      - alerting
+      - quality
+    description: "Alert when debate ends with low confidence"
+    conditions:
+      - field: confidence
+        operator: lt
+        value: 0.5
+    action:
+      handler: aragora.hooks.builtin.log_metric
+      args:
+        metric_name: low_confidence_debate
+        tags:
+          alert_level: warning
+
+  # Webhook on consensus
+  - name: webhook_on_consensus
+    trigger: post_debate
+    priority: normal
+    enabled: false  # Disabled by default - enable with webhook URL
+    description: "Send webhook when consensus is reached"
+    conditions:
+      - field: consensus_reached
+        operator: is_true
+    action:
+      handler: aragora.hooks.builtin.send_webhook
+      args:
+        url: "${DEBATE_WEBHOOK_URL}"  # Environment variable
+        payload_template:
+          event: consensus_reached
+          debate_id: "{debate_id}"
+          confidence: "{confidence}"

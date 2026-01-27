@@ -96,6 +96,14 @@ def mock_auth_for_handler_tests(request, monkeypatch):
             token_type="access",
             client_ip="127.0.0.1",
         )
+        # Add extra attributes that some handlers expect (roles plural, permissions)
+        # These are accessed via getattr in KnowledgeHandler._check_permission
+        object.__setattr__(mock_user_ctx, "roles", ["admin", "owner"])
+        object.__setattr__(
+            mock_user_ctx,
+            "permissions",
+            ["*", "admin", "knowledge.read", "knowledge.write", "knowledge.delete"],
+        )
 
         # Patch BaseHandler auth methods
         from aragora.server.handlers.base import BaseHandler
@@ -115,6 +123,21 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         monkeypatch.setattr(BaseHandler, "require_auth_or_error", mock_require_auth_or_error)
         monkeypatch.setattr(BaseHandler, "require_admin_or_error", mock_require_admin_or_error)
         monkeypatch.setattr(BaseHandler, "get_current_user", mock_get_current_user)
+
+        # Also patch _check_permission to bypass permission checks in tests
+        # This handles KnowledgeHandler and similar handlers that do inline permission checks
+        def mock_check_permission(self, handler, permission):
+            """Mock _check_permission that always allows access."""
+            return None  # None means no error, permission granted
+
+        # Patch KnowledgeHandler._check_permission if it exists
+        try:
+            from aragora.server.handlers.knowledge_base.handler import KnowledgeHandler
+
+            monkeypatch.setattr(KnowledgeHandler, "_check_permission", mock_check_permission)
+        except (ImportError, AttributeError):
+            pass
+
     except (ImportError, AttributeError):
         pass
 

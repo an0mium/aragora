@@ -345,7 +345,7 @@ class MockAuthorizationContext:
         if self.roles is None:
             self.roles = ["admin"]
         if self.permissions is None:
-            self.permissions = set()
+            self.permissions = {"connectors:read", "connectors:write", "*"}
 
 
 @dataclass

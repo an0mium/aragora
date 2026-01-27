@@ -559,14 +559,16 @@ class TestFactsGetOperation:
 class TestFactsCreateOperation:
     """Test POST /api/knowledge/facts - Create fact."""
 
+    @pytest.mark.no_auto_auth
     def test_create_fact_requires_auth(self, knowledge_handler):
-        """Test creating a fact requires authentication."""
+        """Test creating a fact requires authentication (raises PermissionDeniedError)."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
         handler = create_handler("POST", {"statement": "Test fact"})
 
-        result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
-
-        assert result is not None
-        assert result.status_code == 401
+        # Without auth context, the @require_permission decorator raises PermissionDeniedError
+        with pytest.raises(PermissionDeniedError):
+            knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
     def test_create_fact_success(self, knowledge_handler, mock_fact_store):
         """Test creating a fact with valid auth."""
@@ -637,14 +639,16 @@ class TestFactsCreateOperation:
 class TestFactsUpdateOperation:
     """Test PUT /api/knowledge/facts/:id - Update fact."""
 
+    @pytest.mark.no_auto_auth
     def test_update_fact_requires_auth(self, knowledge_handler):
-        """Test updating a fact requires authentication."""
+        """Test updating a fact requires authentication (raises PermissionDeniedError)."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
         handler = create_handler("PUT", {"confidence": 0.95})
 
-        result = knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
-
-        assert result is not None
-        assert result.status_code == 401
+        # Without auth context, the @require_permission decorator raises PermissionDeniedError
+        with pytest.raises(PermissionDeniedError):
+            knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
 
     def test_update_fact_success(self, knowledge_handler, mock_fact_store):
         """Test updating a fact with valid auth."""
@@ -684,14 +688,16 @@ class TestFactsUpdateOperation:
 class TestFactsDeleteOperation:
     """Test DELETE /api/knowledge/facts/:id - Delete fact."""
 
+    @pytest.mark.no_auto_auth
     def test_delete_fact_requires_auth(self, knowledge_handler):
-        """Test deleting a fact requires authentication."""
+        """Test deleting a fact requires authentication (raises PermissionDeniedError)."""
+        from aragora.rbac.decorators import PermissionDeniedError
+
         handler = create_handler("DELETE")
 
-        result = knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
-
-        assert result is not None
-        assert result.status_code == 401
+        # Without auth context, the @require_permission decorator raises PermissionDeniedError
+        with pytest.raises(PermissionDeniedError):
+            knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
 
     def test_delete_fact_success(self, knowledge_handler, mock_fact_store):
         """Test deleting a fact with valid auth."""

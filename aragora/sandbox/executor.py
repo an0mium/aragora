@@ -442,6 +442,7 @@ class SandboxExecutor:
     def update_policy(self, policy: ToolPolicy) -> None:
         """Update the execution policy."""
         self.policy = policy
+        self.config.policy = policy
         self.checker = ToolPolicyChecker(policy)
 
 
