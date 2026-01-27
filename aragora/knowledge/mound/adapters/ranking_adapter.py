@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 
 if TYPE_CHECKING:
     pass
@@ -306,7 +306,7 @@ class RankingAdapter:
             if time.time() - timestamp < self._cache_ttl_seconds:
                 self._cache_hits += 1
                 logger.debug(f"Cache hit for domain experts: {domain}")
-                return cached_results
+                return cast(List[AgentExpertise], cached_results)
             else:
                 # Cache expired, remove it
                 del self._domain_experts_cache[cache_key]

@@ -490,7 +490,7 @@ class PostgresStore:
                 content_hash,
                 workspace_id,
             )
-            return row["id"] if row else None
+            return cast(str, row["id"]) if row else None
 
     # =========================================================================
     # Relationship Operations

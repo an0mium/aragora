@@ -825,53 +825,55 @@ class ContextInitializer:
             # Create skill execution context
             skill_ctx = SkillContext(
                 user_id="debate-system",
-                permissions={"debate:evidence"},
-                metadata={"source": "context_initializer", "task": task[:200]},
+                permissions=["debate:evidence"],
+                config={"source": "context_initializer", "task": task[:200]},
             )
 
             # Find skills tagged for debate evidence collection
             debate_skills = []
-            for skill in self.skill_registry.list_skills():
-                manifest = skill.manifest
+            for manifest in self.skill_registry.list_skills():
                 # Check if skill has EXTERNAL_API capability and is debate-compatible
                 if SkillCapability.EXTERNAL_API in manifest.capabilities:
                     # Check for debate tag in tags list
-                    if hasattr(manifest, "tags") and "debate" in getattr(manifest, "tags", []):
-                        debate_skills.append(skill)
+                    if "debate" in manifest.tags:
+                        debate_skills.append(manifest)
                     # Or check if it's a web search skill (commonly useful for debates)
                     elif manifest.name in ("web_search", "search", "research"):
-                        debate_skills.append(skill)
+                        debate_skills.append(manifest)
 
             if not debate_skills:
                 logger.debug("[skills] No debate-compatible skills found")
                 return []
 
             # Invoke skills in parallel with timeout
-            async def invoke_skill(skill):
+            async def invoke_skill(skill_manifest):
                 try:
                     result = await asyncio.wait_for(
                         self.skill_registry.invoke(
-                            skill.manifest.name,
+                            skill_manifest.name,
                             {"query": task},
                             skill_ctx,
                         ),
                         timeout=10.0,
                     )
-                    if result.status == SkillStatus.SUCCESS and result.output:
+                    if result.status == SkillStatus.SUCCESS and result.data:
+                        exec_time_ms = (
+                            int(result.duration_seconds * 1000) if result.duration_seconds else None
+                        )
                         return EvidenceSnippet(
-                            content=str(result.output)[:2000],  # Limit size
-                            source=f"skill:{skill.manifest.name}",
+                            content=str(result.data)[:2000],  # Limit size
+                            source=f"skill:{skill_manifest.name}",
                             relevance=0.7,  # Base relevance for skill evidence
                             metadata={
-                                "skill": skill.manifest.name,
-                                "skill_version": skill.manifest.version,
-                                "execution_time_ms": result.execution_time_ms,
+                                "skill": skill_manifest.name,
+                                "skill_version": skill_manifest.version,
+                                "execution_time_ms": exec_time_ms,
                             },
                         )
                 except asyncio.TimeoutError:
-                    logger.debug(f"[skills] Timeout invoking {skill.manifest.name}")
+                    logger.debug(f"[skills] Timeout invoking {skill_manifest.name}")
                 except Exception as e:
-                    logger.debug(f"[skills] Error invoking {skill.manifest.name}: {e}")
+                    logger.debug(f"[skills] Error invoking {skill_manifest.name}: {e}")
                 return None
 
             results = await asyncio.gather(

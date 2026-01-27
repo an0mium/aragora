@@ -12,6 +12,7 @@ import json
 import time
 from collections import deque
 from functools import lru_cache
+from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -867,6 +868,7 @@ class Arena:
             for agent in ctx.agents:
                 profile = AgentProfile(
                     name=agent.name,
+                    agent_type=getattr(agent, "provider", "unknown"),
                     elo_rating=getattr(agent, "elo_rating", 1500.0),
                     capabilities=getattr(agent, "capabilities", set()),
                     task_affinity=getattr(agent, "task_affinity", {}),
@@ -1644,9 +1646,9 @@ class Arena:
             bead_store = getattr(self, "_bead_store", None)
             if bead_store is None:
                 bead_store = BeadStore(
-                    bead_dir=self.env.context.get("bead_dir", ".beads")
+                    bead_dir=Path(self.env.context.get("bead_dir", ".beads"))
                     if self.env.context
-                    else ".beads",
+                    else Path(".beads"),
                     git_enabled=True,
                     auto_commit=getattr(self.protocol, "bead_auto_commit", False),
                 )
@@ -1717,9 +1719,9 @@ class Arena:
             bead_store = getattr(self, "_bead_store", None)
             if bead_store is None:
                 bead_store = BeadStore(
-                    bead_dir=self.env.context.get("bead_dir", ".beads")
+                    bead_dir=Path(self.env.context.get("bead_dir", ".beads"))
                     if self.env.context
-                    else ".beads",
+                    else Path(".beads"),
                     git_enabled=True,
                     auto_commit=getattr(self.protocol, "bead_auto_commit", False),
                 )
@@ -1948,7 +1950,7 @@ class Arena:
 
             # Create bead store if not provided
             if bead_store is None:
-                bead_store = BeadStore(bead_dir=".beads", git_enabled=False)
+                bead_store = BeadStore(bead_dir=Path(".beads"), git_enabled=False)
                 await bead_store.initialize()
 
             # Recover all agent hooks

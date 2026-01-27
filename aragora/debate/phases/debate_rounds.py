@@ -1108,19 +1108,18 @@ class DebateRoundsPhase:
             # Create skill execution context
             skill_ctx = SkillContext(
                 user_id="debate-system",
-                permissions={"debate:evidence"},
-                metadata={"source": "evidence_refresh", "text_length": len(text)},
+                permissions=["debate:evidence"],
+                config={"source": "evidence_refresh", "text_length": len(text)},
             )
 
             # Find debate-compatible skills
             debate_skills = []
-            for skill in self._skill_registry.list_skills():
-                manifest = skill.manifest
+            for manifest in self._skill_registry.list_skills():
                 if SkillCapability.EXTERNAL_API in manifest.capabilities:
-                    if hasattr(manifest, "tags") and "debate" in getattr(manifest, "tags", []):
-                        debate_skills.append(skill)
+                    if "debate" in manifest.tags:
+                        debate_skills.append(manifest)
                     elif manifest.name in ("web_search", "search", "research"):
-                        debate_skills.append(skill)
+                        debate_skills.append(manifest)
 
             if not debate_skills:
                 return 0
@@ -1129,24 +1128,24 @@ class DebateRoundsPhase:
             query = text[:500] if len(text) > 500 else text
 
             snippets_added = 0
-            for skill in debate_skills[:2]:  # Limit to 2 skills per refresh
+            for skill_manifest in debate_skills[:2]:  # Limit to 2 skills per refresh
                 try:
                     result = await asyncio.wait_for(
                         self._skill_registry.invoke(
-                            skill.manifest.name,
+                            skill_manifest.name,
                             {"query": query},
                             skill_ctx,
                         ),
                         timeout=8.0,
                     )
 
-                    if result.status == SkillStatus.SUCCESS and result.output:
+                    if result.status == SkillStatus.SUCCESS and result.data:
                         snippet = EvidenceSnippet(
-                            content=str(result.output)[:2000],
-                            source=f"skill:{skill.manifest.name}",
+                            content=str(result.data)[:2000],
+                            source=f"skill:{skill_manifest.name}",
                             relevance=0.65,
                             metadata={
-                                "skill": skill.manifest.name,
+                                "skill": skill_manifest.name,
                                 "refresh": True,
                             },
                         )
@@ -1156,9 +1155,9 @@ class DebateRoundsPhase:
                             snippets_added += 1
 
                 except asyncio.TimeoutError:
-                    logger.debug(f"[skills] Refresh timeout for {skill.manifest.name}")
+                    logger.debug(f"[skills] Refresh timeout for {skill_manifest.name}")
                 except Exception as e:
-                    logger.debug(f"[skills] Refresh error for {skill.manifest.name}: {e}")
+                    logger.debug(f"[skills] Refresh error for {skill_manifest.name}: {e}")
 
             if snippets_added:
                 logger.info(f"[skills] Refreshed {snippets_added} evidence snippets from skills")

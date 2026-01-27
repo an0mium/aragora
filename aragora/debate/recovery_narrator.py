@@ -261,6 +261,9 @@ class RecoveryNarrator:
         self.broadcast_callback = broadcast_callback
         self.recent_narratives: list[RecoveryNarrative] = []
         self.used_templates: dict[str, set] = {}  # Track used templates to avoid repetition
+        self._checkpoint_handlers: dict[
+            str, Callable[..., Any]
+        ] = {}  # Handlers for checkpoint events
 
     def narrate(
         self,

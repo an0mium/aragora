@@ -325,6 +325,32 @@ class BudgetAlert:
         }
 
 
+@dataclass
+class BudgetTransaction:
+    """A recorded spending transaction against a budget."""
+
+    transaction_id: str
+    budget_id: str
+    amount_usd: float
+    description: str = ""
+    debate_id: Optional[str] = None
+    user_id: Optional[str] = None
+    created_at: float = field(default_factory=lambda: time.time())
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "transaction_id": self.transaction_id,
+            "budget_id": self.budget_id,
+            "amount_usd": self.amount_usd,
+            "description": self.description,
+            "debate_id": self.debate_id,
+            "user_id": self.user_id,
+            "created_at": self.created_at,
+            "created_at_iso": datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
+        }
+
+
 class BudgetManager:
     """
     Manages budget lifecycle and enforcement.
@@ -1028,6 +1054,216 @@ class BudgetManager:
             "exceeded_budgets": exceeded_count,
             "budgets": [b.to_dict() for b in budgets],
         }
+
+    # =========================================================================
+    # Transaction History
+    # =========================================================================
+
+    def get_transactions(
+        self,
+        budget_id: str,
+        limit: int = 50,
+        offset: int = 0,
+        date_from: Optional[float] = None,
+        date_to: Optional[float] = None,
+        user_id: Optional[str] = None,
+    ) -> List[BudgetTransaction]:
+        """Get transaction history for a budget.
+
+        Args:
+            budget_id: Budget ID to get transactions for
+            limit: Maximum transactions to return
+            offset: Pagination offset
+            date_from: Filter by created_at >= date_from (unix timestamp)
+            date_to: Filter by created_at <= date_to (unix timestamp)
+            user_id: Filter by user who recorded the spend
+
+        Returns:
+            List of BudgetTransaction objects
+        """
+        conn = self._get_connection()
+
+        query = "SELECT * FROM budget_transactions WHERE budget_id = ?"
+        params: List[Any] = [budget_id]
+
+        if date_from:
+            query += " AND created_at >= ?"
+            params.append(date_from)
+        if date_to:
+            query += " AND created_at <= ?"
+            params.append(date_to)
+        if user_id:
+            query += " AND user_id = ?"
+            params.append(user_id)
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor = conn.execute(query, params)
+
+        transactions = []
+        for row in cursor.fetchall():
+            transactions.append(
+                BudgetTransaction(
+                    transaction_id=row["transaction_id"],
+                    budget_id=row["budget_id"],
+                    amount_usd=row["amount_usd"],
+                    description=row["description"] or "",
+                    debate_id=row["debate_id"],
+                    user_id=row["user_id"],
+                    created_at=row["created_at"],
+                )
+            )
+
+        return transactions
+
+    def count_transactions(
+        self,
+        budget_id: str,
+        date_from: Optional[float] = None,
+        date_to: Optional[float] = None,
+        user_id: Optional[str] = None,
+    ) -> int:
+        """Count transactions matching filters."""
+        conn = self._get_connection()
+
+        query = "SELECT COUNT(*) FROM budget_transactions WHERE budget_id = ?"
+        params: List[Any] = [budget_id]
+
+        if date_from:
+            query += " AND created_at >= ?"
+            params.append(date_from)
+        if date_to:
+            query += " AND created_at <= ?"
+            params.append(date_to)
+        if user_id:
+            query += " AND user_id = ?"
+            params.append(user_id)
+
+        cursor = conn.execute(query, params)
+        row = cursor.fetchone()
+        return row[0] if row else 0
+
+    def get_spending_trends(
+        self,
+        budget_id: str,
+        period: str = "day",
+        limit: int = 30,
+    ) -> List[Dict[str, Any]]:
+        """Get spending trends aggregated by period.
+
+        Args:
+            budget_id: Budget ID
+            period: Aggregation period ("hour", "day", "week", "month")
+            limit: Number of periods to return
+
+        Returns:
+            List of dicts with period, total_spent, transaction_count
+        """
+        conn = self._get_connection()
+
+        # Build date truncation based on period
+        if period == "hour":
+            # SQLite: truncate to hour
+            date_trunc = "strftime('%Y-%m-%d %H:00:00', datetime(created_at, 'unixepoch'))"
+        elif period == "day":
+            date_trunc = "strftime('%Y-%m-%d', datetime(created_at, 'unixepoch'))"
+        elif period == "week":
+            # SQLite week: start of week (Sunday)
+            date_trunc = "strftime('%Y-%W', datetime(created_at, 'unixepoch'))"
+        elif period == "month":
+            date_trunc = "strftime('%Y-%m', datetime(created_at, 'unixepoch'))"
+        else:
+            date_trunc = "strftime('%Y-%m-%d', datetime(created_at, 'unixepoch'))"
+
+        query = f"""
+            SELECT
+                {date_trunc} as period,
+                SUM(amount_usd) as total_spent,
+                COUNT(*) as transaction_count,
+                AVG(amount_usd) as avg_transaction
+            FROM budget_transactions
+            WHERE budget_id = ?
+            GROUP BY period
+            ORDER BY period DESC
+            LIMIT ?
+        """  # nosec B608 - date_trunc is constructed from hardcoded values
+
+        cursor = conn.execute(query, (budget_id, limit))
+
+        trends = []
+        for row in cursor.fetchall():
+            trends.append(
+                {
+                    "period": row["period"],
+                    "total_spent_usd": row["total_spent"] or 0.0,
+                    "transaction_count": row["transaction_count"] or 0,
+                    "avg_transaction_usd": row["avg_transaction"] or 0.0,
+                }
+            )
+
+        # Return chronological order (oldest first) for charting
+        return list(reversed(trends))
+
+    def get_org_spending_trends(
+        self,
+        org_id: str,
+        period: str = "day",
+        limit: int = 30,
+    ) -> List[Dict[str, Any]]:
+        """Get spending trends for entire organization across all budgets.
+
+        Args:
+            org_id: Organization ID
+            period: Aggregation period ("hour", "day", "week", "month")
+            limit: Number of periods to return
+
+        Returns:
+            List of dicts with period, total_spent, transaction_count
+        """
+        conn = self._get_connection()
+
+        # Build date truncation based on period
+        if period == "hour":
+            date_trunc = "strftime('%Y-%m-%d %H:00:00', datetime(t.created_at, 'unixepoch'))"
+        elif period == "day":
+            date_trunc = "strftime('%Y-%m-%d', datetime(t.created_at, 'unixepoch'))"
+        elif period == "week":
+            date_trunc = "strftime('%Y-%W', datetime(t.created_at, 'unixepoch'))"
+        elif period == "month":
+            date_trunc = "strftime('%Y-%m', datetime(t.created_at, 'unixepoch'))"
+        else:
+            date_trunc = "strftime('%Y-%m-%d', datetime(t.created_at, 'unixepoch'))"
+
+        query = f"""
+            SELECT
+                {date_trunc} as period,
+                SUM(t.amount_usd) as total_spent,
+                COUNT(*) as transaction_count,
+                AVG(t.amount_usd) as avg_transaction
+            FROM budget_transactions t
+            JOIN budgets b ON t.budget_id = b.budget_id
+            WHERE b.org_id = ?
+            GROUP BY period
+            ORDER BY period DESC
+            LIMIT ?
+        """  # nosec B608 - date_trunc is constructed from hardcoded values
+
+        cursor = conn.execute(query, (org_id, limit))
+
+        trends = []
+        for row in cursor.fetchall():
+            trends.append(
+                {
+                    "period": row["period"],
+                    "total_spent_usd": row["total_spent"] or 0.0,
+                    "transaction_count": row["transaction_count"] or 0,
+                    "avg_transaction_usd": row["avg_transaction"] or 0.0,
+                }
+            )
+
+        # Return chronological order (oldest first) for charting
+        return list(reversed(trends))
 
 
 # Module-level singleton
