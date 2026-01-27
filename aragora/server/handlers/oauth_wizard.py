@@ -556,9 +556,9 @@ class OAuthWizardHandler(SecureHandler):
     async def _check_teams_connection(self) -> Dict[str, Any]:
         """Check Teams connection status."""
         try:
-            from aragora.storage.teams_workspace_store import get_teams_workspace_store
+            from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
-            store = get_teams_workspace_store()
+            store = get_teams_tenant_store()
             workspaces = store.list_active(limit=1)
 
             if workspaces:
@@ -676,9 +676,9 @@ class OAuthWizardHandler(SecureHandler):
     async def _test_teams_api(self) -> Dict[str, Any]:
         """Test Teams API connectivity with Graph API call."""
         try:
-            from aragora.storage.teams_workspace_store import get_teams_workspace_store
+            from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
-            store = get_teams_workspace_store()
+            store = get_teams_tenant_store()
             tenants = store.list_active(limit=1)
             if not tenants:
                 return {"success": False, "error": "No active tenants configured"}
@@ -782,9 +782,9 @@ class OAuthWizardHandler(SecureHandler):
 
     async def _get_teams_tenants(self) -> List[Dict[str, Any]]:
         """Get list of connected Teams tenants."""
-        from aragora.storage.teams_workspace_store import get_teams_workspace_store
+        from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
-        store = get_teams_workspace_store()
+        store = get_teams_tenant_store()
         tenants = store.list_active(limit=100)
         return [
             {
@@ -842,9 +842,9 @@ class OAuthWizardHandler(SecureHandler):
 
     async def _disconnect_teams_tenant(self, tenant_id: str) -> Dict[str, Any]:
         """Disconnect a Teams tenant."""
-        from aragora.storage.teams_workspace_store import get_teams_workspace_store
+        from aragora.storage.teams_tenant_store import get_teams_tenant_store
 
-        store = get_teams_workspace_store()
+        store = get_teams_tenant_store()
         store.deactivate(tenant_id)
         logger.info(f"Disconnected Teams tenant: {tenant_id}")
         return {"success": True, "message": f"Tenant {tenant_id} disconnected"}
