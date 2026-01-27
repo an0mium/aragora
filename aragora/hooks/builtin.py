@@ -309,7 +309,7 @@ async def store_fact(
         confidence = context.get(confidence_field, 0.5)
         debate_id = context.get("debate_id", "unknown")
 
-        await mound.store_verified_fact(
+        await mound.store_verified_fact(  # type: ignore[misc]
             content=str(content),
             source=f"{source}:{fact_type}",
             confidence=float(confidence),
