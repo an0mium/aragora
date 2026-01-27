@@ -1572,6 +1572,36 @@ All stabilization items addressed:
 | `qwen-max` | qwen/qwen-max | OpenRouter |
 | `kimi` | moonshot-v1-8k | Moonshot |
 
+### Recent Changes (2026-01-27)
+- **RBAC Permission Compatibility**:
+  - Added dot/colon notation compatibility layer (`debate.create` == `debate:create`)
+  - Wildcard support for both formats (`debate.*` and `debate:*`)
+  - Updated middleware to warn on legacy format usage
+  - Added 3 new compatibility tests
+- **WebSocket Health Endpoint**:
+  - Added `/api/health/ws` and `/api/v1/health/ws` endpoints
+  - Reports WebSocket manager availability and client count
+  - Added to public routes (no auth required)
+  - Added 3 new health tests
+- **GitHub App Webhooks**:
+  - Added GitHub App webhook handler (`/api/v1/webhooks/github`)
+  - HMAC-SHA256 signature verification
+  - Auto-triggers code review debates on PR events
+  - Supports PR, issues, push, and installation events
+  - Added 20 webhook handler tests
+- **Backup Monitoring**:
+  - Added Prometheus metrics for backup operations
+  - RPO/RTO compliance tracking per SLA tier
+  - Added backup verification CI workflow (weekly)
+  - Added 18 backup monitoring tests
+- **OpenAPI → SDK Gating**:
+  - Added CI gate to verify SDK types match OpenAPI spec
+  - Fails PR if generated types are out of sync
+- **Documentation Updates**:
+  - Updated RBAC_GUIDE.md with permission format compatibility
+  - Updated OPERATIONS.md with WebSocket health endpoint
+  - Updated GITHUB_PR_REVIEW.md with webhook integration
+
 ### Recent Changes (2026-01-10)
 - **Mistral API Integration**:
   - Added `MistralAPIAgent` for direct Mistral API access
