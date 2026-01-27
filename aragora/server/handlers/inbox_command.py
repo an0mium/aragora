@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, TypeVar
 
 from aiohttp import web
 
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 from aragora.services import (
     ServiceRegistry,
     EmailPrioritizer,
@@ -184,6 +186,41 @@ class InboxCommandHandler:
                 logger.debug("Resolved SenderHistoryService from registry")
 
         self._initialized = True
+
+    def _check_permission(self, request: web.Request, permission: str) -> None:
+        """Check if the request has the required permission.
+
+        Raises:
+            web.HTTPForbidden: If permission check fails
+            web.HTTPUnauthorized: If no authentication context
+        """
+        # Extract user info from request (set by auth middleware)
+        user_id = request.get("user_id") or request.headers.get("X-User-ID")
+        org_id = request.get("org_id") or request.headers.get("X-Org-ID")
+        roles_header = request.headers.get("X-User-Roles", "")
+        roles = set(roles_header.split(",")) if roles_header else {"member"}
+
+        if not user_id:
+            # Allow anonymous access in demo mode
+            user_id = "anonymous"
+
+        context = AuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles,
+        )
+
+        checker = get_permission_checker()
+        decision = checker.check_permission(context, permission)
+
+        if not decision.allowed:
+            logger.warning(
+                f"Permission denied: {permission} for user {user_id} - {decision.reason}"
+            )
+            raise web.HTTPForbidden(
+                text=f"Permission denied: {decision.reason}",
+                content_type="application/json",
+            )
 
     async def handle_get_inbox(self, request: web.Request) -> web.Response:
         """
