@@ -767,6 +767,31 @@ Coverage includes:
 - Compliance reporting
 - Due secrets detection and processing
 
+### Audit Retention E2E Tests
+
+**Location:** `tests/e2e/test_audit_retention_lifecycle.py`
+
+Tests audit log retention and compliance export for SOC 2 CC6.3 and CC7.1:
+
+```bash
+# Run audit retention tests
+pytest tests/e2e/test_audit_retention_lifecycle.py -v
+
+# Run specific areas
+pytest tests/e2e/test_audit_retention_lifecycle.py::TestRetentionEnforcement -v
+pytest tests/e2e/test_audit_retention_lifecycle.py::TestComplianceExport -v
+pytest tests/e2e/test_audit_retention_lifecycle.py::TestIntegrityVerification -v
+```
+
+Coverage includes:
+- Audit entry creation and hash computation
+- Retention policy management (90-day, 7-year SOC 2)
+- Retention enforcement (removal of expired entries)
+- Compliance export (SOC 2 Type II, ISO 27001, Syslog)
+- Audit query and filtering (action, actor, time range)
+- Hash chain integrity verification (tamper detection)
+- Sequence number continuity checks
+
 ### SOC 2 Test Organization
 
 Domain E2E tests map to SOC 2 controls:
@@ -774,9 +799,11 @@ Domain E2E tests map to SOC 2 controls:
 | Control | Test File | Key Areas |
 |---------|-----------|-----------|
 | CC6.2 Credential Management | `test_secrets_rotation_lifecycle.py` | Key rotation, grace periods |
+| CC6.3 Change Management | `test_audit_retention_lifecycle.py` | Config change audit trails |
+| CC7.1 System Monitoring | `test_audit_retention_lifecycle.py` | Audit retention, integrity |
+| CC7.2 Security Monitoring | `test_compliance_e2e.py` | Audit logs, SOC 2 reports |
 | P1-02 Data Subject Rights | `test_dsar_abac_lifecycle.py` | DSAR export, RTBF |
 | CC6.1 Access Control | `test_dsar_abac_lifecycle.py` | ABAC conditions |
-| CC7.2 Security Monitoring | `test_compliance_e2e.py` | Audit logs, SOC 2 reports |
 | P3-01 Privacy Notices | `test_privacy_e2e.py` | Consent management |
 
 ### Running All Domain E2E Tests
@@ -784,10 +811,11 @@ Domain E2E tests map to SOC 2 controls:
 ```bash
 # Run all domain-specific E2E tests
 pytest tests/e2e/test_compliance_e2e.py tests/e2e/test_privacy_e2e.py \
-       tests/e2e/test_dsar_abac_lifecycle.py tests/e2e/test_secrets_rotation_lifecycle.py -v
+       tests/e2e/test_dsar_abac_lifecycle.py tests/e2e/test_secrets_rotation_lifecycle.py \
+       tests/e2e/test_audit_retention_lifecycle.py -v
 
 # Quick compliance validation
-pytest tests/e2e/ -k "compliance or privacy or dsar or secrets" -v --tb=short
+pytest tests/e2e/ -k "compliance or privacy or dsar or secrets or audit" -v --tb=short
 
 # Full E2E suite (system + domain)
 pytest tests/e2e/ -v

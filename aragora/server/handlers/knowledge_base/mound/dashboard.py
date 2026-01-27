@@ -16,7 +16,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from typing import Optional
 from ...base import HandlerResult, error_response
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 if TYPE_CHECKING:
     from aiohttp.web import Request
@@ -26,6 +29,35 @@ logger = logging.getLogger(__name__)
 
 class DashboardOperationsMixin:
     """Mixin providing dashboard and metrics endpoints for Knowledge Mound."""
+
+    async def _check_knowledge_permission(
+        self, request: "Request", action: str = "read"
+    ) -> Optional[HandlerResult]:
+        """Check RBAC permission for knowledge operations."""
+        permission = f"knowledge.{action}"
+        try:
+            # Extract user from aiohttp request
+            user_id = request.get("user_id", "unknown")
+            org_id = request.get("org_id")
+            roles = request.get("roles", {"member"})
+            if isinstance(roles, list):
+                roles = set(roles)
+
+            context = AuthorizationContext(
+                user_id=str(user_id),
+                org_id=org_id,
+                roles=roles if roles else {"member"},
+                permissions=set(),
+            )
+            checker = get_permission_checker()
+            decision = checker.check_permission(context, permission)
+            if not decision.allowed:
+                logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+                return error_response(f"Permission denied: {decision.reason}", status=403)
+            return None
+        except Exception as e:
+            logger.error(f"RBAC check failed: {e}")
+            return error_response("Authorization check failed", status=500)
 
     async def handle_dashboard_health(self, request: "Request") -> HandlerResult:
         """
@@ -38,6 +70,11 @@ class DashboardOperationsMixin:
             - recommendations: suggested actions
             - timestamp: when check was performed
         """
+        # RBAC check for knowledge read permission
+        rbac_err = await self._check_knowledge_permission(request, "read")
+        if rbac_err:
+            return rbac_err
+
         try:
             from aragora.knowledge.mound.metrics import get_metrics
 
@@ -70,6 +107,11 @@ class DashboardOperationsMixin:
             - config: metrics configuration
             - uptime_seconds: time since metrics initialized
         """
+        # RBAC check for knowledge read permission
+        rbac_err = await self._check_knowledge_permission(request, "read")
+        if rbac_err:
+            return rbac_err
+
         try:
             from aragora.knowledge.mound.metrics import get_metrics
 
@@ -96,6 +138,18 @@ class DashboardOperationsMixin:
 
         Returns:
             JSON response with:
+            - adapters: list of registered adapters with status
+            - total: count of registered adapters
+
+        Note:
+            RBAC check for knowledge.read permission is performed.
+        """
+        # RBAC check for knowledge read permission
+        rbac_err = await self._check_knowledge_permission(request, "read")
+        if rbac_err:
+            return rbac_err
+
+        """Original docstring continued:
             - adapters: list of registered adapters with status
             - total: count of registered adapters
             - enabled: count of enabled adapters

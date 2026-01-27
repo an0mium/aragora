@@ -5,6 +5,7 @@ Provides REST APIs for device push notification management:
 - Device registration and unregistration
 - Push notification delivery
 - Device health monitoring
+- Voice assistant webhooks (Alexa, Google Home)
 
 Endpoints:
 - POST /api/v1/devices/register - Register a device for push notifications
@@ -13,6 +14,8 @@ Endpoints:
 - POST /api/v1/devices/user/{user_id}/notify - Send to all user devices
 - GET /api/v1/devices/user/{user_id} - List user's devices
 - GET /api/v1/devices/health - Get device connector health
+- POST /api/v1/devices/alexa/webhook - Alexa skill webhook
+- POST /api/v1/devices/google/webhook - Google Actions webhook
 """
 
 from __future__ import annotations
@@ -40,6 +43,8 @@ class DeviceHandler(SecureHandler):
     ROUTES = [
         "/api/v1/devices/register",
         "/api/v1/devices/health",
+        "/api/v1/devices/alexa/webhook",
+        "/api/v1/devices/google/webhook",
     ]
 
     # Pattern routes (handled via prefix matching)
@@ -97,6 +102,14 @@ class DeviceHandler(SecureHandler):
             except ForbiddenError:
                 return error_response("Permission denied: devices:write", 403)
             return await self._register_device(body or {}, auth_context)
+
+        # Alexa webhook (no auth required - uses Alexa signature verification)
+        if path == "/api/v1/devices/alexa/webhook" and method == "POST":
+            return await self._handle_alexa_webhook(body or {}, handler)
+
+        # Google webhook (no auth required - uses Google verification)
+        if path == "/api/v1/devices/google/webhook" and method == "POST":
+            return await self._handle_google_webhook(body or {}, handler)
 
         # User-specific endpoints
         if path.startswith("/api/v1/devices/user/"):

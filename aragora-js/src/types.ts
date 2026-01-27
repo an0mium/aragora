@@ -1452,3 +1452,279 @@ export interface ComplianceStats {
   violations_by_severity: Record<string, number>;
   risk_score: number;
 }
+
+// =============================================================================
+// Audit Types (Enterprise)
+// =============================================================================
+
+export interface AuditPreset {
+  name: string;
+  description: string;
+  audit_types: string[];
+}
+
+export interface AuditRule {
+  id: string;
+  name: string;
+  description: string;
+  severity: string;
+  condition: string;
+}
+
+export interface AuditPresetDetail extends AuditPreset {
+  custom_rules: AuditRule[];
+}
+
+export interface AuditTypeInfo {
+  type: string;
+  description: string;
+  capabilities: string[];
+}
+
+export type FindingWorkflowStatus =
+  | 'open'
+  | 'triaging'
+  | 'investigating'
+  | 'false_positive'
+  | 'duplicate'
+  | 'accepted_risk'
+  | 'remediating'
+  | 'resolved';
+
+export interface WorkflowEvent {
+  timestamp: string;
+  action: string;
+  user_id: string;
+  details: Record<string, unknown>;
+}
+
+export interface FindingWorkflow {
+  finding_id: string;
+  status: FindingWorkflowStatus;
+  assigned_to?: string;
+  priority: number;
+  history: WorkflowEvent[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface QuickAuditResult {
+  session_id: string;
+  findings_count: number;
+  top_issues: AuditFinding[];
+  duration_ms: number;
+}
+
+export interface BulkUpdateResult {
+  success_count: number;
+  failure_count: number;
+  failures: Array<{ finding_id: string; error: string }>;
+}
+
+// =============================================================================
+// Billing Types (SaaS)
+// =============================================================================
+
+export interface BillingPlan {
+  id: string;
+  name: string;
+  description: string;
+  price_monthly: number;
+  price_yearly: number;
+  features: string[];
+  limits: Record<string, number>;
+  is_active: boolean;
+}
+
+export interface Subscription {
+  id: string;
+  plan_id: string;
+  plan_name: string;
+  status: 'active' | 'past_due' | 'cancelled' | 'trialing';
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  trial_end?: string;
+}
+
+export interface Invoice {
+  id: string;
+  amount: number;
+  currency: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  created_at: string;
+  paid_at?: string;
+  pdf_url?: string;
+  line_items?: Array<{ description: string; amount: number }>;
+}
+
+export interface UsageMetrics {
+  debates_count: number;
+  api_calls: number;
+  storage_bytes: number;
+  bandwidth_bytes: number;
+  period_start: string;
+  period_end: string;
+}
+
+export interface UsageForecast {
+  projected_cost: number;
+  projected_debates: number;
+  projected_api_calls: number;
+  confidence: number;
+  based_on_days: number;
+}
+
+export interface PaymentMethod {
+  id: string;
+  type: 'card' | 'bank_account' | 'other';
+  last4?: string;
+  expiry_month?: number;
+  expiry_year?: number;
+  is_default: boolean;
+  brand?: string;
+}
+
+// =============================================================================
+// Notifications Types
+// =============================================================================
+
+export type NotificationFrequency = 'immediate' | 'digest' | 'daily' | 'weekly';
+export type NotificationStatus = 'pending' | 'sent' | 'delivered' | 'failed' | 'read';
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface NotificationPreference {
+  event_type: string;
+  enabled: boolean;
+  channels: string[];
+  frequency: NotificationFrequency;
+}
+
+export interface NotificationChannel {
+  type: 'email' | 'slack' | 'teams' | 'webhook';
+  enabled: boolean;
+  target?: string;
+  settings: Record<string, unknown>;
+  verified: boolean;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  status: NotificationStatus;
+  priority: NotificationPriority;
+  created_at: string;
+  sent_at?: string;
+  read_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NotificationStats {
+  total_sent: number;
+  total_delivered: number;
+  total_failed: number;
+  total_read: number;
+  delivery_rate: number;
+  read_rate: number;
+}
+
+// =============================================================================
+// Organizations Types (Multi-tenant)
+// =============================================================================
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  tier: 'free' | 'pro' | 'enterprise';
+  owner_id: string;
+  member_count: number;
+  debates_used: number;
+  debates_limit: number;
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  email: string;
+  name: string;
+  role: 'member' | 'admin' | 'owner';
+  is_active: boolean;
+  created_at: string;
+  last_login_at?: string;
+}
+
+export interface OrganizationInvitation {
+  id: string;
+  org_id: string;
+  email: string;
+  role: 'member' | 'admin';
+  status: 'pending' | 'accepted' | 'expired' | 'revoked';
+  invited_by: string;
+  expires_at: string;
+  created_at: string;
+  accepted_at?: string;
+}
+
+export interface UserOrganizationMembership {
+  user_id: string;
+  org_id: string;
+  organization: Organization;
+  role: 'member' | 'admin' | 'owner';
+  is_default: boolean;
+  joined_at: string;
+}
+
+// =============================================================================
+// Tenants Types (Enterprise Admin)
+// =============================================================================
+
+export type TenantStatus = 'active' | 'suspended' | 'pending';
+export type TenantTier = 'free' | 'pro' | 'enterprise';
+
+export interface TenantQuota {
+  debates_per_month: number;
+  users_per_org: number;
+  storage_gb: number;
+  api_calls_per_minute: number;
+  concurrent_debates: number;
+  knowledge_nodes: number;
+}
+
+export interface TenantSettings {
+  allow_external_agents: boolean;
+  enable_knowledge_sharing: boolean;
+  data_retention_days: number;
+  require_mfa: boolean;
+  allowed_domains: string[];
+  custom_branding?: Record<string, unknown>;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: TenantStatus;
+  tier: TenantTier;
+  owner_id: string;
+  quotas: TenantQuota;
+  settings: TenantSettings;
+  created_at: string;
+  updated_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TenantUsage {
+  tenant_id: string;
+  debates_this_month: number;
+  active_users: number;
+  storage_used_gb: number;
+  api_calls_today: number;
+  knowledge_nodes_count: number;
+  period_start: string;
+  period_end: string;
+}
