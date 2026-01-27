@@ -4,6 +4,11 @@ Knowledge Mound Adapters - Connect existing memory systems to the unified Knowle
 This module provides adapter classes that bridge Aragora's existing memory systems
 and subsystems to the Knowledge Mound's unified API.
 
+Base classes and mixins:
+- KnowledgeMoundAdapter: Base class with event/metrics/state utilities
+- SemanticSearchMixin: Unified semantic vector search
+- ReverseFlowMixin: Template for KM -> Source sync operations
+
 Core adapters (memory systems):
 - ContinuumAdapter: Multi-tier memory (fast/medium/slow/glacial)
 - ConsensusAdapter: Debate outcomes and agreements
@@ -26,17 +31,26 @@ The adapter pattern enables:
 
 Usage:
     from aragora.knowledge.mound.adapters import (
+        KnowledgeMoundAdapter,  # Base class for new adapters
+        SemanticSearchMixin,    # Add semantic search to any adapter
+        ReverseFlowMixin,       # Add reverse flow sync
         ContinuumAdapter,
         ConsensusAdapter,
-        CritiqueAdapter,
-        EvidenceAdapter,
-        BeliefAdapter,
-        InsightsAdapter,
-        EloAdapter,
-        PulseAdapter,
-        CostAdapter,
+        # ... etc
     )
 """
+
+# Base classes and mixins
+from ._base import KnowledgeMoundAdapter, EventCallback
+from ._types import (
+    SyncResult,
+    ValidationSyncResult as ValidationSyncResultType,
+    SearchResult,
+    ValidationResult,
+    BatchSyncResult,
+)
+from ._semantic_mixin import SemanticSearchMixin
+from ._reverse_flow_base import ReverseFlowMixin, ValidationSyncResult
 
 # Core memory adapters
 from .continuum_adapter import ContinuumAdapter, ContinuumSearchResult
@@ -76,6 +90,18 @@ from .receipt_adapter import (
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
 
 __all__ = [
+    # Base classes and mixins
+    "KnowledgeMoundAdapter",
+    "EventCallback",
+    "SemanticSearchMixin",
+    "ReverseFlowMixin",
+    # Shared types
+    "SyncResult",
+    "ValidationSyncResultType",
+    "SearchResult",
+    "ValidationResult",
+    "BatchSyncResult",
+    "ValidationSyncResult",
     # Core memory adapters
     "ContinuumAdapter",
     "ContinuumSearchResult",
