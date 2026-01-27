@@ -82,6 +82,71 @@ class SessionStoreConfig:
     key_prefix: str = "aragora:session:"
 
 
+@dataclass
+class DebateSession:
+    """Session tracking for debates across channels.
+
+    Enables multi-channel debate sessions (Slack, Telegram, API, WhatsApp)
+    with unified session isolation and channel handoff capability.
+
+    Attributes:
+        session_id: Unique session identifier (format: {channel}:{user_id}:{random})
+        channel: Source channel ("slack", "telegram", "api", "whatsapp", etc.)
+        user_id: User identifier from the channel
+        debate_id: Linked debate ID (None if no active debate)
+        context: Additional session context (e.g., channel-specific metadata)
+        created_at: Session creation timestamp (Unix epoch)
+        last_active: Last activity timestamp (Unix epoch)
+    """
+
+    session_id: str
+    channel: str
+    user_id: str
+    debate_id: Optional[str] = None
+    context: Dict[str, Any] = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+    last_active: float = field(default_factory=time.time)
+
+    def link_debate(self, debate_id: str) -> None:
+        """Link a debate to this session."""
+        self.debate_id = debate_id
+        self.last_active = time.time()
+
+    def unlink_debate(self) -> None:
+        """Unlink the current debate."""
+        self.debate_id = None
+        self.last_active = time.time()
+
+    def touch(self) -> None:
+        """Update last activity timestamp."""
+        self.last_active = time.time()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize session to dictionary."""
+        return {
+            "session_id": self.session_id,
+            "channel": self.channel,
+            "user_id": self.user_id,
+            "debate_id": self.debate_id,
+            "context": self.context,
+            "created_at": self.created_at,
+            "last_active": self.last_active,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DebateSession":
+        """Deserialize session from dictionary."""
+        return cls(
+            session_id=data["session_id"],
+            channel=data["channel"],
+            user_id=data["user_id"],
+            debate_id=data.get("debate_id"),
+            context=data.get("context", {}),
+            created_at=data.get("created_at", time.time()),
+            last_active=data.get("last_active", time.time()),
+        )
+
+
 class SessionStore(ABC):
     """Abstract base class for session stores."""
 
@@ -161,6 +226,34 @@ class SessionStore(ABC):
         """Clean up expired entries. Returns counts by type."""
         pass
 
+    # Debate session methods (for multi-channel session tracking)
+    @abstractmethod
+    def get_debate_session(self, session_id: str) -> Optional["DebateSession"]:
+        """Get a debate session by ID."""
+        pass
+
+    @abstractmethod
+    def set_debate_session(self, session: "DebateSession") -> None:
+        """Store or update a debate session."""
+        pass
+
+    @abstractmethod
+    def delete_debate_session(self, session_id: str) -> bool:
+        """Delete a debate session. Returns True if deleted."""
+        pass
+
+    @abstractmethod
+    def find_sessions_by_user(
+        self, user_id: str, channel: Optional[str] = None
+    ) -> list["DebateSession"]:
+        """Find sessions by user ID, optionally filtered by channel."""
+        pass
+
+    @abstractmethod
+    def find_sessions_by_debate(self, debate_id: str) -> list["DebateSession"]:
+        """Find all sessions linked to a debate."""
+        pass
+
 
 class InMemorySessionStore(SessionStore):
     """In-memory session store for single-server deployment."""
@@ -184,6 +277,10 @@ class InMemorySessionStore(SessionStore):
         # Event subscribers (for local pub/sub)
         self._subscribers: Dict[str, list] = {}
         self._sub_lock = threading.Lock()
+
+        # Debate sessions (for multi-channel session tracking)
+        self._debate_sessions: Dict[str, DebateSession] = {}
+        self._debate_sessions_lock = threading.Lock()
 
     @property
     def is_distributed(self) -> bool:
@@ -291,6 +388,41 @@ class InMemorySessionStore(SessionStore):
             if channel not in self._subscribers:
                 self._subscribers[channel] = []
             self._subscribers[channel].append(callback)
+
+    # Debate session methods
+    def get_debate_session(self, session_id: str) -> Optional[DebateSession]:
+        with self._debate_sessions_lock:
+            session = self._debate_sessions.get(session_id)
+            if session:
+                session.touch()
+            return session
+
+    def set_debate_session(self, session: DebateSession) -> None:
+        with self._debate_sessions_lock:
+            session.touch()
+            self._debate_sessions[session.session_id] = session
+
+    def delete_debate_session(self, session_id: str) -> bool:
+        with self._debate_sessions_lock:
+            if session_id in self._debate_sessions:
+                del self._debate_sessions[session_id]
+                return True
+            return False
+
+    def find_sessions_by_user(
+        self, user_id: str, channel: Optional[str] = None
+    ) -> list[DebateSession]:
+        with self._debate_sessions_lock:
+            results = []
+            for session in self._debate_sessions.values():
+                if session.user_id == user_id:
+                    if channel is None or session.channel == channel:
+                        results.append(session)
+            return results
+
+    def find_sessions_by_debate(self, debate_id: str) -> list[DebateSession]:
+        with self._debate_sessions_lock:
+            return [s for s in self._debate_sessions.values() if s.debate_id == debate_id]
 
     # Cleanup
     def cleanup_expired(self) -> Dict[str, int]:
@@ -554,6 +686,88 @@ class RedisSessionStore(SessionStore):
                     logger.warning(f"Pub/sub callback error: {e}")
         except Exception as e:
             logger.warning(f"Failed to handle pub/sub message: {e}")
+
+    # Debate session methods
+    def get_debate_session(self, session_id: str) -> Optional[DebateSession]:
+        try:
+            data = self._redis.get(self._key("dsession", session_id))
+            if data:
+                # Refresh TTL on access
+                self._redis.expire(self._key("dsession", session_id), self._config.debate_state_ttl)
+                session_dict = json.loads(data)
+                return DebateSession.from_dict(session_dict)
+            return None
+        except Exception as e:
+            logger.warning(f"Redis get_debate_session error: {e}")
+            return None
+
+    def set_debate_session(self, session: DebateSession) -> None:
+        try:
+            session.touch()
+            session_dict = session.to_dict()
+            # Store session with TTL
+            self._redis.setex(
+                self._key("dsession", session.session_id),
+                self._config.debate_state_ttl,
+                json.dumps(session_dict, default=str),
+            )
+            # Add to user index (for find_sessions_by_user)
+            self._redis.sadd(self._key("dsession_user", session.user_id), session.session_id)
+            # Add to debate index if linked (for find_sessions_by_debate)
+            if session.debate_id:
+                self._redis.sadd(
+                    self._key("dsession_debate", session.debate_id), session.session_id
+                )
+        except Exception as e:
+            logger.warning(f"Redis set_debate_session error: {e}")
+
+    def delete_debate_session(self, session_id: str) -> bool:
+        try:
+            # Get session to remove from indices
+            session = self.get_debate_session(session_id)
+            if session:
+                # Remove from user index
+                self._redis.srem(self._key("dsession_user", session.user_id), session_id)
+                # Remove from debate index if linked
+                if session.debate_id:
+                    self._redis.srem(self._key("dsession_debate", session.debate_id), session_id)
+            return self._redis.delete(self._key("dsession", session_id)) > 0
+        except Exception as e:
+            logger.warning(f"Redis delete_debate_session error: {e}")
+            return False
+
+    def find_sessions_by_user(
+        self, user_id: str, channel: Optional[str] = None
+    ) -> list[DebateSession]:
+        try:
+            session_ids = self._redis.smembers(self._key("dsession_user", user_id))
+            results = []
+            for sid in session_ids:
+                if isinstance(sid, bytes):
+                    sid = sid.decode()
+                session = self.get_debate_session(sid)
+                if session:
+                    if channel is None or session.channel == channel:
+                        results.append(session)
+            return results
+        except Exception as e:
+            logger.warning(f"Redis find_sessions_by_user error: {e}")
+            return []
+
+    def find_sessions_by_debate(self, debate_id: str) -> list[DebateSession]:
+        try:
+            session_ids = self._redis.smembers(self._key("dsession_debate", debate_id))
+            results = []
+            for sid in session_ids:
+                if isinstance(sid, bytes):
+                    sid = sid.decode()
+                session = self.get_debate_session(sid)
+                if session:
+                    results.append(session)
+            return results
+        except Exception as e:
+            logger.warning(f"Redis find_sessions_by_debate error: {e}")
+            return []
 
     def cleanup_expired(self) -> Dict[str, int]:
         """Redis handles expiry automatically via TTL."""
