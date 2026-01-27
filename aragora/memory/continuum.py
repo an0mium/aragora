@@ -1041,6 +1041,106 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
 
         return AwaitableList(entries)
 
+    async def hybrid_search(
+        self,
+        query: str,
+        limit: int = 10,
+        tiers: List[MemoryTier] | List[str] | None = None,
+        vector_weight: float | None = None,
+        min_importance: float = 0.0,
+    ) -> List[Any]:
+        """
+        Perform hybrid search combining vector and keyword retrieval.
+
+        Uses Reciprocal Rank Fusion (RRF) to combine results from vector
+        similarity search (via KM adapter) and keyword search (via FTS5).
+
+        Args:
+            query: Search query text
+            limit: Maximum results to return
+            tiers: Optional tier filter (e.g., [MemoryTier.SLOW, MemoryTier.GLACIAL])
+            vector_weight: Override default vector weight (0-1), rest goes to keyword
+            min_importance: Minimum importance threshold
+
+        Returns:
+            List of MemorySearchResult objects sorted by combined score
+
+        Example:
+            results = await memory.hybrid_search(
+                "circuit breaker pattern",
+                limit=10,
+                tiers=[MemoryTier.SLOW, MemoryTier.GLACIAL],
+            )
+            for result in results:
+                print(f"{result.memory_id}: {result.combined_score:.3f}")
+        """
+        from aragora.memory.hybrid_search import (
+            HybridMemorySearch,
+            HybridMemoryConfig,
+        )
+
+        # Lazily create hybrid search instance
+        if not hasattr(self, "_hybrid_search") or self._hybrid_search is None:
+            self._hybrid_search = HybridMemorySearch(
+                continuum_memory=self,
+                config=HybridMemoryConfig(),
+            )
+
+        # Convert MemoryTier enum values to strings for hybrid search
+        tier_strings: list[str] | None = None
+        if tiers:
+            tier_strings = [t.value if isinstance(t, MemoryTier) else t for t in tiers]
+
+        results = await self._hybrid_search.search(
+            query=query,
+            limit=limit,
+            tiers=tier_strings,
+            vector_weight=vector_weight,
+            min_importance=min_importance,
+        )
+
+        # Emit event for hybrid search
+        if results and self.event_emitter:
+            try:
+                from aragora.server.stream.events import StreamEvent, StreamEventType
+
+                self.event_emitter.emit(  # type: ignore[unused-coroutine]
+                    StreamEvent(  # type: ignore[arg-type]
+                        type=StreamEventType.MEMORY_RECALL,
+                        data={
+                            "count": len(results),
+                            "query": query[:100] if query else None,
+                            "search_type": "hybrid",
+                            "top_combined_score": max(r.combined_score for r in results),
+                        },
+                    )
+                )
+            except (ImportError, AttributeError, TypeError):
+                pass
+
+        return results
+
+    def rebuild_keyword_index(self) -> int:
+        """
+        Rebuild the FTS5 keyword index for hybrid search.
+
+        Call this after bulk data loading or if the index becomes out of sync.
+
+        Returns:
+            Number of entries indexed
+        """
+        from aragora.memory.hybrid_search import HybridMemorySearch, HybridMemoryConfig
+
+        if not hasattr(self, "_hybrid_search") or self._hybrid_search is None:
+            self._hybrid_search = HybridMemorySearch(
+                continuum_memory=self,
+                config=HybridMemoryConfig(),
+            )
+
+        count = self._hybrid_search.rebuild_keyword_index()
+        logger.info(f"Rebuilt keyword index: {count} entries")
+        return count
+
     def prewarm_for_query(
         self,
         query: str,
