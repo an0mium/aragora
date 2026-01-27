@@ -235,17 +235,12 @@ class TelegramDock(ChannelDock):
         if message.has_buttons():
             keyboard = []
             for button in message.buttons[:10]:  # Telegram limits
-                btn = button if hasattr(button, "label") else type("B", (), button)()
-                label = (
-                    getattr(btn, "label", btn.get("label", "Click"))
-                    if isinstance(button, dict)
-                    else btn.label
-                )
-                action = (
-                    getattr(btn, "action", btn.get("action", ""))
-                    if isinstance(button, dict)
-                    else btn.action
-                )
+                if isinstance(button, dict):
+                    label = button.get("label", "Click")
+                    action = button.get("action", "")
+                else:
+                    label = getattr(button, "label", "Click")
+                    action = getattr(button, "action", "")
 
                 if action.startswith("http"):
                     keyboard.append([{"text": label, "url": action}])
