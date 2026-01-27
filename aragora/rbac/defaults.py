@@ -161,6 +161,20 @@ PERM_INTROSPECTION_READ = _permission(
     "Access system introspection and agent status",
 )
 
+# Reasoning permissions
+PERM_REASONING_READ = _permission(
+    ResourceType.REASONING,
+    Action.READ,
+    "View Reasoning",
+    "Access belief networks and reasoning analysis",
+)
+PERM_REASONING_UPDATE = _permission(
+    ResourceType.REASONING,
+    Action.UPDATE,
+    "Update Reasoning",
+    "Modify belief networks and propagation",
+)
+
 # Training permissions
 PERM_TRAINING_READ = _permission(
     ResourceType.TRAINING, Action.READ, "View Training Data", "Access training data exports"
@@ -1102,6 +1116,9 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_ANALYTICS_EXPORT,
         # Introspection
         PERM_INTROSPECTION_READ,
+        # Reasoning
+        PERM_REASONING_READ,
+        PERM_REASONING_UPDATE,
         # Training
         PERM_TRAINING_READ,
         PERM_TRAINING_CREATE,
@@ -1141,6 +1158,8 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CHECKPOINT_READ,
         PERM_CHECKPOINT_CREATE,
         PERM_CHECKPOINT_DELETE,
+        # Replays
+        PERM_REPLAYS_READ,
         # Gauntlet (adversarial stress-testing)
         PERM_GAUNTLET_RUN,
         PERM_GAUNTLET_READ,
@@ -1646,6 +1665,8 @@ ROLE_MEMBER = Role(
         PERM_ANALYTICS_READ.key,
         # Introspection
         PERM_INTROSPECTION_READ.key,
+        # Reasoning
+        PERM_REASONING_READ.key,
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,

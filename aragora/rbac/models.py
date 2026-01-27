@@ -45,6 +45,7 @@ class ResourceType(str, Enum):
     FINDINGS = "findings"  # Audit findings management
     DECISION = "decisions"  # Unified decision routing
     INTROSPECTION = "introspection"  # System introspection and status
+    REASONING = "reasoning"  # Belief networks and reasoning analysis
 
     # Governance and orchestration
     POLICY = "policies"  # Governance policies
