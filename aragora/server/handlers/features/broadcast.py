@@ -121,6 +121,7 @@ class BroadcastHandler(BaseHandler):
                 )
         return self._pipeline
 
+    @require_permission("broadcast:create")
     @rate_limit(requests_per_minute=2, burst=1, limiter_name="broadcast_full_pipeline")
     def _run_full_pipeline(self, debate_id: str, query_params: dict, handler) -> HandlerResult:
         """Run the full broadcast pipeline with all options.
@@ -167,6 +168,7 @@ class BroadcastHandler(BaseHandler):
             logger.error(f"Pipeline failed for {debate_id}: {e}", exc_info=True)
             return error_response(_safe_error_message(e, "broadcast_pipeline"), status=500)
 
+    @require_permission("broadcast:create")
     @rate_limit(requests_per_minute=3, burst=2, limiter_name="broadcast_generation")
     def _generate_broadcast(self, debate_id: str, handler) -> HandlerResult:
         """Generate podcast audio from a debate trace.

@@ -144,8 +144,8 @@ class HookEntry:
         )
 
     def can_retry(self) -> bool:
-        """Check if entry can be retried."""
-        return self.status == HookEntryStatus.FAILED and self.attempt_count < self.max_attempts
+        """Check if entry can be retried based on attempt count."""
+        return self.attempt_count < self.max_attempts
 
 
 class HookQueue:

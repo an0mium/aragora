@@ -32,6 +32,7 @@ from ..base import (
     json_response,
     require_auth,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +379,7 @@ class PluginsHandler(BaseHandler):
             return json_response(manifest.to_dict())
 
     @require_auth
+    @require_permission("plugins:execute")
     @rate_limit(requests_per_minute=20, burst=5, limiter_name="plugin_run")
     @handle_errors("run plugin")
     def _run_plugin(self, plugin_name: str, handler) -> HandlerResult:
@@ -461,6 +463,7 @@ class PluginsHandler(BaseHandler):
         )
 
     @require_auth
+    @require_permission("plugins:install")
     @rate_limit(requests_per_minute=30, burst=10, limiter_name="plugin_install")
     @handle_errors("install plugin")
     def _install_plugin(self, plugin_name: str, handler) -> HandlerResult:
@@ -526,6 +529,7 @@ class PluginsHandler(BaseHandler):
         )
 
     @require_auth
+    @require_permission("plugins:uninstall")
     @handle_errors("uninstall plugin")
     def _uninstall_plugin(self, plugin_name: str, handler) -> HandlerResult:
         """Uninstall a plugin for the authenticated user.
@@ -553,6 +557,7 @@ class PluginsHandler(BaseHandler):
         )
 
     @require_auth
+    @require_permission("plugins:submit")
     @rate_limit(requests_per_minute=10, burst=3, limiter_name="plugin_submit")
     @handle_errors("submit plugin")
     def _submit_plugin(self, handler) -> HandlerResult:

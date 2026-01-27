@@ -385,10 +385,10 @@ class AgentHierarchy:
         Returns:
             The Polecat assignment
         """
+        from datetime import timedelta
+
         agent_id = f"polecat-{str(uuid.uuid4())[:8]}"
-        expires_at = datetime.now(timezone.utc).replace(
-            minute=datetime.now(timezone.utc).minute + ttl_minutes
-        )
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)
 
         assignment = await self.register_agent(
             agent_id=agent_id,
