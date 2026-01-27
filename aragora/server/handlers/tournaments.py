@@ -29,6 +29,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -98,6 +99,7 @@ class TournamentHandler(BaseHandler):
 
         return False
 
+    @require_permission("tournaments:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route tournament requests to appropriate handler methods."""
         path = strip_version_prefix(path)
@@ -146,6 +148,7 @@ class TournamentHandler(BaseHandler):
 
         return None
 
+    @require_permission("tournaments:create")
     def handle_post(self, path: str, body: dict[str, Any], handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for tournament creation and updates."""
         path = strip_version_prefix(path)

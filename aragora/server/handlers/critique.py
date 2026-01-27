@@ -29,6 +29,7 @@ from .base import (
     get_clamped_int_param,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ class CritiqueHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("critiques:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route critique requests to appropriate methods."""
         path = strip_version_prefix(path)
