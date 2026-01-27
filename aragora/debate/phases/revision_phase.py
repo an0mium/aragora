@@ -162,6 +162,8 @@ class RevisionGenerator:
             """Wrap revision generation with semaphore for bounded concurrency."""
             task_id = f"{agent.name}:revision:{round_num}"
             async with revision_semaphore:
+                # Mark molecule as in_progress
+                self._start_molecule(agent.name)
                 with streaming_task_context(task_id):
                     if self._with_timeout:
                         return await self._with_timeout(
@@ -192,6 +194,10 @@ class RevisionGenerator:
             )
             revision_tasks.append(generate_revision_bounded(agent, revision_prompt))
             revision_agents.append(agent)
+
+        # Create molecules for tracking if tracker is available
+        debate_id = getattr(ctx, "debate_id", None) or (ctx.env.task[:50] if ctx.env else "unknown")
+        self._create_revision_molecules(debate_id, round_num, revision_agents)
 
         # Calculate dynamic phase timeout
         phase_timeout = calculate_phase_timeout(len(revision_agents), timeout)
@@ -257,6 +263,8 @@ class RevisionGenerator:
                 logger.error(f"revision_error agent={agent.name} error={revised}")
                 if self.circuit_breaker:
                     self.circuit_breaker.record_failure(agent.name)
+                # Mark molecule as failed
+                self._fail_molecule(agent.name, str(revised))
                 continue
 
             # Process successful revision
@@ -315,6 +323,15 @@ class RevisionGenerator:
             loop_id = ctx.loop_id if hasattr(ctx, "loop_id") else ""
             self._observe_rhetorical_patterns(agent.name, revised_str, round_num, loop_id)
 
+            # Mark molecule as completed
+            self._complete_molecule(
+                agent.name,
+                {
+                    "chars": len(revised_str),
+                    "round": round_num,
+                },
+            )
+
         return updated_proposals
 
     def _observe_rhetorical_patterns(
@@ -345,3 +362,94 @@ class RevisionGenerator:
             )
         except Exception as e:
             logger.debug(f"Rhetorical observation error: {e}")
+
+    # Molecule tracking methods (Gastown pattern)
+
+    def _create_revision_molecules(
+        self,
+        debate_id: str,
+        round_num: int,
+        agents: List["Agent"],
+    ) -> None:
+        """Create revision molecules for all agents.
+
+        Args:
+            debate_id: ID of the current debate
+            round_num: Current round number
+            agents: List of agents generating revisions
+        """
+        if not self._molecule_tracker:
+            return
+
+        try:
+            from aragora.debate.molecules import MoleculeType
+
+            for agent in agents:
+                molecule = self._molecule_tracker.create_molecule(
+                    debate_id=debate_id,
+                    molecule_type=MoleculeType.REVISION,
+                    round_number=round_num,
+                    input_data={"agent": agent.name, "round": round_num},
+                )
+                self._active_molecules[agent.name] = molecule.molecule_id
+                logger.debug(
+                    f"[molecule] Created revision molecule {molecule.molecule_id} "
+                    f"for agent={agent.name} round={round_num}"
+                )
+        except ImportError:
+            logger.debug("[molecule] Molecule imports unavailable")
+        except Exception as e:
+            logger.debug(f"[molecule] Failed to create revision molecules: {e}")
+
+    def _start_molecule(self, agent_name: str) -> None:
+        """Mark a revision molecule as in_progress.
+
+        Args:
+            agent_name: Name of the agent whose molecule to start
+        """
+        if not self._molecule_tracker:
+            return
+
+        molecule_id = self._active_molecules.get(agent_name)
+        if molecule_id:
+            try:
+                self._molecule_tracker.start_molecule(molecule_id)
+                logger.debug(f"[molecule] Started revision molecule {molecule_id}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to start molecule: {e}")
+
+    def _complete_molecule(self, agent_name: str, output: Dict[str, Any]) -> None:
+        """Mark a revision molecule as completed.
+
+        Args:
+            agent_name: Name of the agent whose molecule to complete
+            output: Output data from the revision
+        """
+        if not self._molecule_tracker:
+            return
+
+        molecule_id = self._active_molecules.get(agent_name)
+        if molecule_id:
+            try:
+                self._molecule_tracker.complete_molecule(molecule_id, output)
+                logger.debug(f"[molecule] Completed revision molecule {molecule_id}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to complete molecule: {e}")
+
+    def _fail_molecule(self, agent_name: str, error: str) -> None:
+        """Mark a revision molecule as failed.
+
+        Args:
+            agent_name: Name of the agent whose molecule failed
+            error: Error message
+        """
+        if not self._molecule_tracker:
+            return
+
+        molecule_id = self._active_molecules.get(agent_name)
+        if molecule_id:
+            try:
+                self._molecule_tracker.fail_molecule(molecule_id, error)
+                logger.debug(f"[molecule] Failed revision molecule {molecule_id}: {error}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to record molecule failure: {e}")
