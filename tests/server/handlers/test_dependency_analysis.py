@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 from aragora.server.handlers.dependency_analysis import (
     handle_analyze_dependencies,
@@ -367,7 +367,7 @@ class TestHandlerIntegration:
                 "/api/v1/codebase/analyze-dependencies",
                 {"repo_path": "/test"},
             )
-            mock.assert_called_once_with({"repo_path": "/test"})
+            mock.assert_called_once_with(ANY, {"repo_path": "/test"})
 
     @pytest.mark.asyncio
     async def test_handle_post_unknown_route(self):
