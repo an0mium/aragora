@@ -609,6 +609,7 @@ class TestConnectionLifecycle:
 
         # Mock the connect methods
         mock_registry.connect = AsyncMock()
+        mock_registry.list_agents = AsyncMock(return_value=[])  # Required by watchdog
         mock_scheduler.connect = AsyncMock()
         mock_health_monitor.start = AsyncMock()
         mock_health_monitor.stop = AsyncMock()

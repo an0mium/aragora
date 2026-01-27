@@ -159,7 +159,7 @@ class TestRBACMiddleware:
 
         # Check some expected permissions exist
         debate_create = middleware.get_required_permission("/api/debates", "POST")
-        assert debate_create == "debates:create"
+        assert debate_create == "debates.create"
 
         admin_perm = middleware.get_required_permission("/api/admin/users", "GET")
         assert admin_perm == "admin.*"
