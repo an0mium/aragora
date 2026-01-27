@@ -7,7 +7,75 @@
  * - Budget management and alerts
  * - Usage timeline and forecasting
  * - Optimization recommendations
+ * - Pre-execution cost estimation
+ * - What-if scenario simulation
  */
+
+// =============================================================================
+// Enumerations
+// =============================================================================
+
+/**
+ * Cost data granularity
+ */
+export type CostGranularity = 'hourly' | 'daily' | 'weekly' | 'monthly';
+
+/**
+ * Cost trend direction
+ */
+export type TrendDirection = 'increasing' | 'decreasing' | 'stable';
+
+/**
+ * Seasonal cost pattern
+ */
+export type SeasonalPattern = 'daily' | 'weekly' | 'monthly' | 'none';
+
+/**
+ * Alert severity levels
+ */
+export type AlertSeverity = 'info' | 'warning' | 'critical';
+
+/**
+ * Budget alert levels
+ */
+export type BudgetAlertLevel = 'info' | 'warning' | 'critical' | 'exceeded';
+
+/**
+ * Recommendation types
+ */
+export type RecommendationType =
+  | 'model_downgrade'
+  | 'caching'
+  | 'batching'
+  | 'rate_limiting'
+  | 'prompt_optimization'
+  | 'provider_switch'
+  | 'time_shifting'
+  | 'quota_adjustment';
+
+/**
+ * Recommendation priority levels
+ */
+export type RecommendationPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * Recommendation status
+ */
+export type RecommendationStatus = 'pending' | 'applied' | 'dismissed' | 'expired' | 'partial';
+
+/**
+ * Cost enforcement modes
+ */
+export type CostEnforcementMode = 'hard' | 'soft' | 'throttle' | 'estimate';
+
+/**
+ * Throttle levels based on budget usage
+ */
+export type ThrottleLevel = 'none' | 'light' | 'medium' | 'heavy' | 'blocked';
+
+// =============================================================================
+// Core Types
+// =============================================================================
 
 /**
  * Cost breakdown item

@@ -579,3 +579,124 @@ export {
   type QuickAction,
   type QuickActionResult,
 } from './dashboard';
+
+// Payments
+export {
+  PaymentsAPI,
+  type PaymentProvider,
+  type PaymentStatus,
+  type SubscriptionInterval,
+  type BillingAddress,
+  type PaymentMethodDetails,
+  type ChargeRequest,
+  type AuthorizeRequest,
+  type RefundRequest,
+  type PaymentResult,
+  type TransactionDetails,
+  type CustomerProfile,
+  type PaymentMethodSummary,
+  type CreateCustomerRequest,
+  type UpdateCustomerRequest,
+  type Subscription as PaymentSubscription,
+  type CreateSubscriptionRequest,
+  type UpdateSubscriptionRequest,
+} from './payments';
+
+// Training (Model Fine-tuning)
+export {
+  TrainingAPI,
+  type ExportFormat,
+  type ExportType,
+  type JobStatus,
+  type GauntletPersona,
+  type SFTExportParams,
+  type DPOExportParams,
+  type GauntletExportParams,
+  type SFTRecord,
+  type DPORecord,
+  type TrainingExportResult,
+  type TrainingStats,
+  type TrainingFormats,
+  type TrainingJob,
+  type TrainingJobDetails,
+  type ListJobsParams,
+  type CompleteJobData,
+  type TrainingMetrics,
+  type TrainingArtifacts,
+} from './training';
+
+// Email Priority (Inbox Intelligence)
+export {
+  EmailPriorityAPI,
+  type ScoringTier,
+  type UserAction,
+  type EmailCategory,
+  type GmailScopes,
+  type EmailMessage,
+  type PriorityFactor,
+  type PriorityResult,
+  type CategoryResult,
+  type CategoryStats,
+  type EmailConfig as EmailPriorityConfig,
+  type FeedbackItem,
+  type InboxItem,
+  type InboxParams,
+  type CrossChannelContext,
+  type ContextBoost,
+} from './email-priority';
+
+// AP Automation (Accounts Payable)
+export {
+  APAutomationAPI,
+  type PaymentPriority,
+  type APPaymentMethod,
+  type APInvoiceStatus,
+  type APInvoice,
+  type AddAPInvoiceRequest,
+  type RecordAPPaymentRequest,
+  type ListAPInvoicesParams,
+  type OptimizePaymentsRequest,
+  type PaymentScheduleEntry,
+  type PaymentSchedule,
+  type BatchPaymentRequest,
+  type BatchPayment,
+  type CashFlowEntry,
+  type CashFlowForecast,
+  type DiscountOpportunity,
+} from './ap-automation';
+
+// AR Automation (Accounts Receivable)
+export {
+  ARAutomationAPI,
+  type ARInvoiceStatus,
+  type ReminderLevel,
+  type ARLineItem,
+  type ARInvoice,
+  type CreateARInvoiceRequest,
+  type ListARInvoicesParams,
+  type RecordARPaymentRequest,
+  type AgingBucket,
+  type AgingReport,
+  type CollectionActionType,
+  type CollectionSuggestion,
+  type AddARCustomerRequest,
+  type CustomerBalance,
+} from './ar-automation';
+
+// Invoice Processing (OCR & Approval Workflows)
+export {
+  InvoiceProcessingAPI,
+  type InvoiceProcessingStatus,
+  type AnomalySeverity as InvoiceAnomalySeverity,
+  type InvoiceLineItem,
+  type ProcessedInvoice,
+  type InvoiceAnomaly,
+  type CreateInvoiceRequest,
+  type ListInvoicesParams,
+  type POMatch,
+  type SchedulePaymentRequest,
+  type ScheduledPayment,
+  type InvoiceStats,
+  type PurchaseOrder,
+  type CreatePORequest,
+} from './invoice-processing';

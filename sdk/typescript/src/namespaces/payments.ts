@@ -268,7 +268,9 @@ export class PaymentsAPI {
   async charge(
     request: ChargeRequest
   ): Promise<{ success: boolean; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/charge', { json: request });
+    return this.client.request('POST', '/api/payments/charge', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -277,7 +279,9 @@ export class PaymentsAPI {
   async authorize(
     request: AuthorizeRequest
   ): Promise<{ success: boolean; transaction_id: string; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/authorize', { json: request });
+    return this.client.request('POST', '/api/payments/authorize', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -299,7 +303,9 @@ export class PaymentsAPI {
   async refund(
     request: RefundRequest
   ): Promise<{ success: boolean; refund_id?: string; transaction: PaymentResult }> {
-    return this.client.request('POST', '/api/payments/refund', { json: request });
+    return this.client.request('POST', '/api/payments/refund', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
