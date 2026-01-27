@@ -23,5 +23,5 @@
     "no-console": "warn",
     "prefer-const": "error"
   },
-  "ignorePatterns": ["dist/", "node_modules/", "*.js", "*.cjs", "*.mjs", "**/*.test.ts", "**/testests/**", "src/__tests__/"]
+  "ignorePatterns": ["dist/", "node_modules/", "*.js", "*.cjs", "*.mjs", "**/*.test.ts", "**/__tests__/**", "src/__tests__/"]
 }
