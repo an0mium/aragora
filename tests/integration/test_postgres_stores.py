@@ -46,29 +46,26 @@ pytestmark = [
     ),
 ]
 
-
-@pytest.fixture(scope="module")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+# Global pool to avoid recreating for each test
+_global_pool: Optional[asyncpg.Pool] = None
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    """Create PostgreSQL connection pool for tests."""
+    """Create PostgreSQL connection pool for tests (reuses global pool)."""
+    global _global_pool
     if not POSTGRES_DSN:
         pytest.skip("PostgreSQL DSN not configured")
 
-    pool = await asyncpg.create_pool(
-        POSTGRES_DSN,
-        min_size=1,
-        max_size=5,
-        command_timeout=30,
-    )
-    yield pool
-    await pool.close()
+    if _global_pool is None or _global_pool._closed:
+        _global_pool = await asyncpg.create_pool(
+            POSTGRES_DSN,
+            min_size=1,
+            max_size=5,
+            command_timeout=30,
+        )
+    yield _global_pool
+    # Don't close - reuse across tests
 
 
 @pytest.fixture
