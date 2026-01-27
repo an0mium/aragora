@@ -47,7 +47,7 @@ def mock_auth_for_handler_tests(request, monkeypatch):
         permissions={"*"},  # Wildcard grants all permissions
     )
 
-    async def mock_get_auth_context(request, require_auth=False):
+    async def mock_get_auth_context(self, request, require_auth=False):
         """Mock get_auth_context that returns admin context."""
         return mock_auth_ctx
 
