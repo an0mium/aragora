@@ -374,6 +374,204 @@ class ShellStepExecutor(StepExecutor):
             raise TimeoutError(f"Step {step.name} timed out after {step.timeout_seconds}s")
 
 
+class DebateStepExecutor(StepExecutor):
+    """
+    Execute steps by routing contested decisions to Arena debate.
+
+    Used when a step requires multiple perspectives or when there's
+    disagreement about the best approach.
+
+    Config options:
+        question: The question to debate
+        agents: List of agent names to participate
+        rounds: Number of debate rounds
+        consensus: Consensus requirement (majority, unanimous, etc.)
+    """
+
+    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+        """Execute step via Arena debate."""
+        question = step.config.get("question", step.name)
+        agents_config = step.config.get("agents", ["claude", "gpt4"])
+        rounds = step.config.get("rounds", 3)
+        consensus = step.config.get("consensus", "majority")
+
+        try:
+            from aragora.core import Environment, DebateProtocol
+            from aragora.debate.orchestrator import Arena
+            from aragora.agents.cli_agents import get_agent
+
+            # Get agents
+            agents = []
+            for agent_name in agents_config:
+                agent = get_agent(agent_name)
+                if agent:
+                    agents.append(agent)
+
+            if not agents:
+                return {"status": "skipped", "reason": "No agents available"}
+
+            # Create and run debate
+            env = Environment(task=question)
+            protocol = DebateProtocol(rounds=rounds, consensus=consensus)
+            arena = Arena(env, agents, protocol)
+            result = await arena.run()
+
+            return {
+                "status": "debated",
+                "decision": getattr(result, "decision", str(result)),
+                "consensus_reached": getattr(result, "consensus_reached", False),
+                "rounds_used": getattr(result, "rounds_used", rounds),
+            }
+        except ImportError as e:
+            logger.warning(f"Debate modules not available: {e}")
+            return {"status": "skipped", "reason": "Debate modules not available"}
+        except Exception as e:
+            logger.error(f"Debate execution failed: {e}")
+            raise
+
+
+class ParallelStepExecutor(StepExecutor):
+    """
+    Execute steps by fanning out to multiple agents in parallel.
+
+    Each agent receives the same task, and results are aggregated.
+
+    Config options:
+        agents: List of agent names to use
+        task: The task for all agents
+        aggregate: How to combine results (all, first, majority, custom)
+    """
+
+    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+        """Execute step across multiple agents in parallel."""
+        agents_config = step.config.get("agents", ["claude", "gpt4"])
+        task = step.config.get("task", step.name)
+        aggregate = step.config.get("aggregate", "all")
+
+        try:
+            from aragora.agents.cli_agents import get_agent
+
+            # Get agents
+            agents = []
+            for agent_name in agents_config:
+                agent = get_agent(agent_name)
+                if agent:
+                    agents.append(agent)
+
+            if not agents:
+                return {"status": "skipped", "reason": "No agents available"}
+
+            # Execute in parallel
+            async def run_agent(agent):
+                try:
+                    result = await agent.generate(task)
+                    return {"agent": agent.name, "result": result, "success": True}
+                except Exception as e:
+                    return {"agent": agent.name, "error": str(e), "success": False}
+
+            results = await asyncio.gather(*[run_agent(a) for a in agents])
+
+            # Aggregate results
+            successful = [r for r in results if r.get("success")]
+
+            return {
+                "status": "parallel_completed",
+                "total_agents": len(agents),
+                "successful": len(successful),
+                "results": results,
+                "aggregate": aggregate,
+            }
+        except ImportError as e:
+            logger.warning(f"Agent modules not available: {e}")
+            return {"status": "skipped", "reason": "Agent modules not available"}
+        except Exception as e:
+            logger.error(f"Parallel execution failed: {e}")
+            raise
+
+
+class ConditionalStepExecutor(StepExecutor):
+    """
+    Execute steps conditionally based on previous step results.
+
+    Enables branching logic in molecules.
+
+    Config options:
+        condition: Expression to evaluate (simple key lookup or callable name)
+        condition_key: Key in previous result to check
+        expected_value: Value to compare against
+        operator: Comparison operator (eq, ne, gt, lt, contains, exists)
+        if_true: Action if condition is true (continue, skip, branch)
+        if_false: Action if condition is false
+        branch_step: Step ID to branch to if branching
+    """
+
+    async def execute(self, step: MoleculeStep, context: Dict[str, Any]) -> Any:
+        """Execute step conditionally based on context."""
+        condition_key = step.config.get("condition_key", "status")
+        expected_value = step.config.get("expected_value", "success")
+        operator = step.config.get("operator", "eq")
+        if_true = step.config.get("if_true", "continue")
+        if_false = step.config.get("if_false", "skip")
+
+        # Get the value from context (previous step results)
+        previous_results = context.get("previous_results", {})
+        actual_value = None
+
+        # Try to find the value in context
+        for key, value in previous_results.items():
+            if isinstance(value, dict) and condition_key in value:
+                actual_value = value[condition_key]
+                break
+        if actual_value is None:
+            actual_value = previous_results.get(condition_key)
+
+        # Evaluate condition
+        condition_met = self._evaluate_condition(actual_value, expected_value, operator)
+
+        action = if_true if condition_met else if_false
+
+        result = {
+            "status": "conditional_evaluated",
+            "condition_key": condition_key,
+            "expected": expected_value,
+            "actual": actual_value,
+            "operator": operator,
+            "condition_met": condition_met,
+            "action": action,
+        }
+
+        if action == "skip":
+            result["should_skip"] = True
+        elif action == "branch":
+            result["branch_to"] = step.config.get("branch_step")
+
+        return result
+
+    def _evaluate_condition(self, actual: Any, expected: Any, operator: str) -> bool:
+        """Evaluate a condition."""
+        if operator == "eq":
+            return actual == expected
+        elif operator == "ne":
+            return actual != expected
+        elif operator == "gt":
+            return actual > expected
+        elif operator == "lt":
+            return actual < expected
+        elif operator == "gte":
+            return actual >= expected
+        elif operator == "lte":
+            return actual <= expected
+        elif operator == "contains":
+            return expected in str(actual)
+        elif operator == "exists":
+            return actual is not None
+        elif operator == "not_exists":
+            return actual is None
+        else:
+            logger.warning(f"Unknown operator: {operator}, defaulting to equality")
+            return actual == expected
+
+
 class MoleculeEngine:
     """
     Executes molecules with step-level persistence.
