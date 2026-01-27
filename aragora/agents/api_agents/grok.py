@@ -4,7 +4,7 @@ Grok agent for xAI's Grok API.
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole
-from aragora.agents.api_agents.common import get_api_key
+from aragora.agents.api_agents.common import get_primary_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
 
@@ -49,7 +49,12 @@ class GrokAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
             model=model,
             role=role,
             timeout=timeout,
-            api_key=api_key or get_api_key("XAI_API_KEY", "GROK_API_KEY"),
+            api_key=api_key
+            or get_primary_api_key(
+                "XAI_API_KEY",
+                "GROK_API_KEY",
+                allow_openrouter_fallback=True,
+            ),
             base_url="https://api.x.ai/v1",
         )
         self.agent_type = "grok"

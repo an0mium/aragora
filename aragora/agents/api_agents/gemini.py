@@ -25,7 +25,7 @@ from aragora.agents.api_agents.common import (
     Message,
     _sanitize_error_message,
     create_client_session,
-    get_api_key,
+    get_primary_api_key,
     get_stream_buffer_size,
     handle_agent_errors,
     iter_chunks_with_timeout,
@@ -96,7 +96,12 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
             model=model,
             role=role,
             timeout=timeout,
-            api_key=api_key or get_api_key("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+            api_key=api_key
+            or get_primary_api_key(
+                "GEMINI_API_KEY",
+                "GOOGLE_API_KEY",
+                allow_openrouter_fallback=True,
+            ),
             base_url="https://generativelanguage.googleapis.com/v1beta",
         )
         self.agent_type = "gemini"

@@ -246,6 +246,31 @@ def get_trace_headers() -> dict[str, str]:
     return {}
 
 
+def is_openrouter_fallback_available() -> bool:
+    """Check if OpenRouter fallback is enabled and credentials are available."""
+    try:
+        from aragora.agents.fallback import get_default_fallback_enabled
+    except ImportError:
+        return False
+
+    if not get_default_fallback_enabled():
+        return False
+
+    # Only consider fallback available if the OpenRouter key is set
+    return bool(get_api_key("OPENROUTER_API_KEY", required=False))
+
+
+def get_primary_api_key(*env_vars: str, allow_openrouter_fallback: bool = False) -> Optional[str]:
+    """Get primary provider API key, optionally allowing OpenRouter fallback.
+
+    When fallback is allowed and OpenRouter is configured, this returns None
+    instead of raising to allow agent instantiation with fallback-only mode.
+    """
+    if allow_openrouter_fallback and is_openrouter_fallback_available():
+        return get_api_key(*env_vars, required=False)
+    return get_api_key(*env_vars, required=True)
+
+
 async def close_shared_connector() -> None:
     """Close the shared connector, releasing all connections.
 
@@ -558,6 +583,9 @@ __all__ = [
     "handle_agent_errors",
     "DB_TIMEOUT_SECONDS",
     "get_api_key",
+    "get_primary_api_key",
+    "get_trace_headers",
+    "is_openrouter_fallback_available",
     "Agent",
     "Critique",
     "Message",

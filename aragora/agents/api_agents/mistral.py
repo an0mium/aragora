@@ -6,7 +6,7 @@ Uses Mistral's native OpenAI-compatible API at api.mistral.ai.
 
 from aragora.agents.api_agents.base import APIAgent
 from aragora.core_types import AgentRole
-from aragora.agents.api_agents.common import get_api_key
+from aragora.agents.api_agents.common import get_primary_api_key
 from aragora.agents.api_agents.openai_compatible import OpenAICompatibleMixin
 from aragora.agents.registry import AgentRegistry
 
@@ -63,7 +63,8 @@ class MistralAPIAgent(OpenAICompatibleMixin, APIAgent):  # type: ignore[misc]
             model=model,
             role=role,
             timeout=timeout,
-            api_key=api_key or get_api_key("MISTRAL_API_KEY"),
+            api_key=api_key
+            or get_primary_api_key("MISTRAL_API_KEY", allow_openrouter_fallback=True),
             base_url="https://api.mistral.ai/v1",
             circuit_breaker_threshold=circuit_breaker_threshold,
             circuit_breaker_cooldown=90.0,  # Standard cooldown (was 60s)

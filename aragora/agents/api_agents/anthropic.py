@@ -23,7 +23,7 @@ from aragora.agents.api_agents.common import (
     _sanitize_error_message,
     create_anthropic_sse_parser,
     create_client_session,
-    get_api_key,
+    get_primary_api_key,
     get_trace_headers,
     handle_agent_errors,
 )
@@ -90,7 +90,8 @@ class AnthropicAPIAgent(QuotaFallbackMixin, APIAgent):
             model=model,
             role=role,
             timeout=timeout,
-            api_key=api_key or get_api_key("ANTHROPIC_API_KEY"),
+            api_key=api_key
+            or get_primary_api_key("ANTHROPIC_API_KEY", allow_openrouter_fallback=True),
             base_url="https://api.anthropic.com/v1",
         )
         self.agent_type = "anthropic"
