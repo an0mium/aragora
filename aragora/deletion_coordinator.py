@@ -542,6 +542,224 @@ class UnifiedDeletionCoordinator:
 
         return certificate
 
+    # =========================================================================
+    # Higher-Level API for Compliance Handler
+    # =========================================================================
+
+    async def execute_coordinated_deletion(
+        self,
+        user_id: str,
+        reason: str,
+        delete_from_backups: bool = True,
+        dry_run: bool = False,
+    ) -> CascadeResult:
+        """
+        Execute a fully coordinated deletion for GDPR compliance.
+
+        This is the main entry point for the compliance handler, providing
+        a simpler API that handles the full deletion flow including:
+        - Pre-deletion checks
+        - Cascade deletion across all systems
+        - Backup purge coordination
+        - Verification
+        - Certificate generation
+
+        Args:
+            user_id: ID of the user to delete
+            reason: Reason for the deletion (for audit)
+            delete_from_backups: Whether to coordinate backup deletion
+            dry_run: If True, only simulate the deletion
+
+        Returns:
+            CascadeResult with full deletion details
+        """
+        if dry_run:
+            # Simulate deletion by returning what would happen
+            result = CascadeResult(
+                user_id=user_id,
+                status=CascadeStatus.PENDING,
+                started_at=datetime.now(timezone.utc),
+            )
+            result.metadata["dry_run"] = True
+            result.metadata["reason"] = reason
+            result.metadata["delete_from_backups"] = delete_from_backups
+
+            # List what would be deleted
+            for entity_type in self._deletion_order:
+                result.entities_deleted[entity_type] = -1  # -1 indicates "would delete"
+
+            if delete_from_backups and self._backup_coordinator:
+                backup_ids = self._backup_coordinator.get_backups_containing_user(user_id)
+                result.backup_status["affected_backups"] = backup_ids
+                result.backup_status["would_purge"] = True
+
+            return result
+
+        # Execute actual deletion
+        result = await self.execute_cascade(
+            user_id=user_id,
+            skip_backup_check=not delete_from_backups,
+        )
+
+        # Add metadata
+        result.metadata["reason"] = reason
+        result.metadata["delete_from_backups"] = delete_from_backups
+
+        # Add backup exclusion if deletion was successful
+        if result.status == CascadeStatus.COMPLETED:
+            self.add_to_backup_exclusion_list(user_id, reason)
+
+        return result
+
+    async def process_pending_deletions(
+        self,
+        include_backups: bool = True,
+        limit: int = 100,
+    ) -> list[CascadeResult]:
+        """
+        Process all pending scheduled deletions.
+
+        This method is designed to be called by a background job to
+        execute deletions that have passed their grace period.
+
+        Args:
+            include_backups: Whether to also purge from backups
+            limit: Maximum number of deletions to process
+
+        Returns:
+            List of CascadeResult for each processed deletion
+        """
+        results: list[CascadeResult] = []
+
+        try:
+            # Get pending deletions from the scheduler
+            from aragora.privacy.deletion import get_deletion_scheduler, DeletionStatus
+
+            scheduler = get_deletion_scheduler()
+            pending = scheduler.store.get_all_requests(
+                status=DeletionStatus.PENDING,
+                limit=limit,
+            )
+
+            # Filter to only those past their scheduled time
+            now = datetime.now(timezone.utc)
+            due_deletions = [req for req in pending if req.scheduled_for <= now]
+
+            logger.info(f"Processing {len(due_deletions)} due deletions")
+
+            for deletion_req in due_deletions:
+                try:
+                    result = await self.execute_coordinated_deletion(
+                        user_id=deletion_req.user_id,
+                        reason=deletion_req.reason or "Scheduled deletion",
+                        delete_from_backups=include_backups,
+                    )
+
+                    # Update the deletion request status
+                    if result.status == CascadeStatus.COMPLETED:
+                        scheduler.store.update_status(
+                            deletion_req.request_id,
+                            DeletionStatus.COMPLETED,
+                        )
+                    elif result.status == CascadeStatus.FAILED:
+                        scheduler.store.update_status(
+                            deletion_req.request_id,
+                            DeletionStatus.FAILED,
+                        )
+
+                    results.append(result)
+
+                except Exception as e:
+                    logger.error(f"Failed to process deletion for {deletion_req.user_id}: {e}")
+                    # Create a failed result
+                    failed_result = CascadeResult(
+                        user_id=deletion_req.user_id,
+                        status=CascadeStatus.FAILED,
+                        started_at=datetime.now(timezone.utc),
+                        completed_at=datetime.now(timezone.utc),
+                    )
+                    failed_result.errors.append(str(e))
+                    results.append(failed_result)
+
+        except ImportError:
+            logger.warning("Deletion scheduler not available")
+        except Exception as e:
+            logger.exception(f"Error processing pending deletions: {e}")
+
+        return results
+
+    # =========================================================================
+    # Backup Exclusion List Management
+    # =========================================================================
+
+    _backup_exclusion_list: dict[str, dict[str, Any]] = {}
+
+    def get_backup_exclusion_list(self, limit: int = 100) -> list[dict[str, Any]]:
+        """
+        Get the list of users excluded from backup restoration.
+
+        These are users whose data has been deleted and should NOT be
+        restored from backups.
+
+        Args:
+            limit: Maximum number of entries to return
+
+        Returns:
+            List of exclusion entries with user_id, reason, and added_at
+        """
+        exclusions = list(self._backup_exclusion_list.values())
+        return exclusions[:limit]
+
+    def add_to_backup_exclusion_list(
+        self,
+        user_id: str,
+        reason: str,
+    ) -> None:
+        """
+        Add a user to the backup exclusion list.
+
+        This should be called after GDPR deletion to ensure the user's
+        data is not restored from backups.
+
+        Args:
+            user_id: User ID to exclude
+            reason: Reason for exclusion
+        """
+        self._backup_exclusion_list[user_id] = {
+            "user_id": user_id,
+            "reason": reason,
+            "added_at": datetime.now(timezone.utc).isoformat(),
+        }
+        logger.info(f"Added user {user_id} to backup exclusion list")
+
+    def remove_from_backup_exclusion_list(self, user_id: str) -> bool:
+        """
+        Remove a user from the backup exclusion list.
+
+        Args:
+            user_id: User ID to remove
+
+        Returns:
+            True if user was removed, False if not found
+        """
+        if user_id in self._backup_exclusion_list:
+            del self._backup_exclusion_list[user_id]
+            logger.info(f"Removed user {user_id} from backup exclusion list")
+            return True
+        return False
+
+    def is_user_excluded_from_backups(self, user_id: str) -> bool:
+        """
+        Check if a user is on the backup exclusion list.
+
+        Args:
+            user_id: User ID to check
+
+        Returns:
+            True if user is excluded from backup restoration
+        """
+        return user_id in self._backup_exclusion_list
+
 
 # ============================================================================
 # Backup Manager Adapter
