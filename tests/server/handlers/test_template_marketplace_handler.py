@@ -496,7 +496,7 @@ class TestFeaturedAndTrending:
         result = parse_result(raw_result)
 
         assert result["success"] is True
-        assert "templates" in result["data"]
+        assert "featured" in result["data"]
 
     def test_get_trending_templates(self, mock_marketplace_state, marketplace_handler):
         """Test getting trending templates."""
@@ -504,7 +504,7 @@ class TestFeaturedAndTrending:
         result = parse_result(raw_result)
 
         assert result["success"] is True
-        assert "templates" in result["data"]
+        assert "trending" in result["data"]
 
     def test_get_trending_different_periods(self, mock_marketplace_state, marketplace_handler):
         """Test trending with different time periods."""
@@ -533,7 +533,7 @@ class TestCategories:
         assert result["success"] is True
         for category in result["data"]["categories"]:
             assert "name" in category
-            assert "count" in category
+            assert "template_count" in category
 
 
 class TestHandlerRouting:
