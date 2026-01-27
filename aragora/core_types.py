@@ -204,6 +204,8 @@ class DebateResult:
     total_tokens: int = 0
     per_agent_cost: dict[str, float] = field(default_factory=dict)
     budget_limit_usd: Optional[float] = None
+    # Bead tracking - links debate decision to git-backed work unit
+    bead_id: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.debate_id:

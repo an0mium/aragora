@@ -56,6 +56,7 @@ class BeadType(str, Enum):
     TASK = "task"  # Actionable work item
     EPIC = "epic"  # Large work item containing subtasks
     HOOK = "hook"  # Special: per-agent work queue entry
+    DEBATE_DECISION = "debate_decision"  # Decision from a multi-agent debate
 
 
 class BeadStatus(str, Enum):

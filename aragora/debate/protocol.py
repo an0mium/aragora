@@ -340,6 +340,13 @@ class DebateProtocol:
     byzantine_phase_timeout: float = 30.0  # Timeout per PBFT phase (seconds)
     byzantine_max_view_changes: int = 3  # Max leader changes before failure
 
+    # Bead tracking: Git-backed audit trail for debate decisions (Gastown pattern)
+    # When enabled, creates a Bead for each debate decision that meets confidence threshold
+    # Beads are stored in JSONL format with optional git backing for auditability
+    enable_bead_tracking: bool = False  # Enable bead creation for debate decisions
+    bead_min_confidence: float = 0.5  # Min confidence to create a bead (0.0-1.0)
+    bead_auto_commit: bool = False  # Auto-commit beads to git after creation
+
     def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
         """Get the phase configuration for a specific round.
 

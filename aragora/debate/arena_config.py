@@ -243,6 +243,12 @@ class ArenaConfig:
     provenance_store: Optional[Any] = None  # Pre-configured ProvenanceStore for persistence
     provenance_auto_persist: bool = True  # Auto-persist provenance chain after debate completion
 
+    # Bead Tracking (git-backed audit trail for debate decisions)
+    enable_bead_tracking: bool = False  # Create Bead for each debate decision
+    bead_store: Optional[Any] = None  # Pre-configured BeadStore for persistence
+    bead_min_confidence: float = 0.5  # Min confidence to create a bead (0.0-1.0)
+    bead_auto_commit: bool = False  # Auto-commit beads to git after creation
+
     # ML Integration (local ML models for routing, quality, consensus)
     enable_ml_delegation: bool = False  # Use ML-based agent selection (MLDelegationStrategy)
     ml_delegation_strategy: Optional[Any] = None  # Custom MLDelegationStrategy instance

@@ -1481,6 +1481,80 @@ class Arena:
         """
         await self._km_manager.ingest_outcome(result, self.env)
 
+    async def _create_debate_bead(self, result: "DebateResult") -> Optional[str]:
+        """Create a Bead to track this debate decision with git-backed audit trail.
+
+        Returns the bead ID if created, None otherwise.
+        """
+        # Check if bead tracking is enabled via protocol or config
+        enable_bead = getattr(self.protocol, "enable_bead_tracking", False)
+        min_confidence = getattr(self.protocol, "bead_min_confidence", 0.5)
+
+        if not enable_bead:
+            return None
+
+        # Only create beads for debates meeting confidence threshold
+        if result.confidence < min_confidence:
+            logger.debug(
+                f"Skipping bead creation: confidence {result.confidence:.2f} < {min_confidence}"
+            )
+            return None
+
+        try:
+            from aragora.nomic.beads import Bead, BeadPriority, BeadStore, BeadType
+
+            # Get or create bead store (default to .beads directory)
+            bead_store = getattr(self, "_bead_store", None)
+            if bead_store is None:
+                bead_store = BeadStore(
+                    bead_dir=self.env.context.get("bead_dir", ".beads")
+                    if self.env.context
+                    else ".beads",
+                    git_enabled=True,
+                    auto_commit=getattr(self.protocol, "bead_auto_commit", False),
+                )
+                await bead_store.initialize()
+                self._bead_store = bead_store
+
+            # Determine priority based on confidence
+            if result.confidence >= 0.9:
+                priority = BeadPriority.HIGH
+            elif result.confidence >= 0.7:
+                priority = BeadPriority.NORMAL
+            else:
+                priority = BeadPriority.LOW
+
+            # Create the bead
+            bead = Bead.create(
+                bead_type=BeadType.DEBATE_DECISION,
+                title=f"Decision: {result.task[:50]}..."
+                if len(result.task) > 50
+                else f"Decision: {result.task}",
+                description=result.final_answer[:500] if result.final_answer else "",
+                priority=priority,
+                tags=["debate", result.status, f"confidence:{result.confidence:.0%}"],
+                metadata={
+                    "debate_id": result.debate_id,
+                    "consensus_reached": result.consensus_reached,
+                    "confidence": result.confidence,
+                    "rounds_used": result.rounds_used,
+                    "participants": result.participants,
+                    "winner": result.winner,
+                    "domain": getattr(self, "_extract_debate_domain", lambda: "general")(),
+                },
+            )
+
+            bead_id = await bead_store.create(bead)
+            logger.info(f"Created debate bead: {bead_id[:8]} for debate {result.debate_id[:8]}")
+            return bead_id
+
+        except ImportError:
+            logger.debug("Bead tracking unavailable: aragora.nomic.beads not found")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to create debate bead: {e}")
+            return None
+
     async def _refresh_evidence_for_round(
         self, combined_text: str, ctx: "DebateContext", round_num: int
     ) -> int:
@@ -1831,6 +1905,16 @@ class Arena:
                 await self._ingest_debate_outcome(ctx.result)
             except Exception as e:
                 logger.debug(f"Knowledge Mound ingestion failed (non-critical): {e}")
+
+        # Create a Bead to track this debate decision with git-backed audit trail
+        # This enables durable work tracking and audit history via the Gastown pattern
+        if ctx.result:
+            try:
+                bead_id = await self._create_debate_bead(ctx.result)
+                if bead_id:
+                    ctx.result.bead_id = bead_id
+            except Exception as e:
+                logger.debug(f"Bead creation failed (non-critical): {e}")
 
         # Queue for Supabase background sync (non-blocking)
         # This enables cloud persistence when SUPABASE_SYNC_ENABLED=true
