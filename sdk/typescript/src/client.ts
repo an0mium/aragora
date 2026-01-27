@@ -35,7 +35,6 @@ import type {
   ContinuumRetrieveOptions,
   ContinuumStoreOptions,
   ContinuumStoreResult,
-  Counterfactual,
   CounterfactualGeneration,
   CounterfactualList,
   CreateAuditSessionRequest,
@@ -130,7 +129,6 @@ import type {
   TrendingTopic,
   TrendingTopicsList,
   UserOrganization,
-  VerificationBackend,
   VerificationReport,
   VerificationResult,
   VerificationStatus,
@@ -1054,7 +1052,7 @@ export class AragoraClient {
     };
   }
 
-  async getNarrative(debateId: string, options?: { format?: 'brief' | 'detailed' | 'executive_summary' }): Promise<Narrative> {
+  async getNarrative(debateId: string, _options?: { format?: 'brief' | 'detailed' | 'executive_summary' }): Promise<Narrative> {
     const response = await this.request<any>('GET', `/api/v1/debates/${encodeURIComponent(debateId)}/summary`, { params: { format: 'json' } });
     const summary = typeof response === 'string' ? response : response?.summary ?? '';
     return {
