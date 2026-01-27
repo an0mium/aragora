@@ -62,6 +62,9 @@ class ResourcePermission:
     org_id: str | None = None
     conditions: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Hierarchy inheritance settings
+    inherit_to_children: bool = True  # If True, grant cascades to child resources
+    max_inheritance_depth: int | None = None  # Max depth for inheritance (None = unlimited)
 
     @classmethod
     def create(
@@ -75,6 +78,8 @@ class ResourcePermission:
         org_id: str | None = None,
         conditions: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        inherit_to_children: bool = True,
+        max_inheritance_depth: int | None = None,
     ) -> ResourcePermission:
         """
         Factory method to create a new ResourcePermission.
@@ -89,6 +94,8 @@ class ResourcePermission:
             org_id: Organization scope
             conditions: Optional ABAC conditions
             metadata: Optional metadata
+            inherit_to_children: If True, permission cascades to child resources
+            max_inheritance_depth: Max depth for inheritance (None = unlimited)
 
         Returns:
             New ResourcePermission instance
@@ -105,6 +112,8 @@ class ResourcePermission:
             org_id=org_id,
             conditions=conditions or {},
             metadata=metadata or {},
+            inherit_to_children=inherit_to_children,
+            max_inheritance_depth=max_inheritance_depth,
         )
 
     @property
@@ -190,6 +199,8 @@ class ResourcePermission:
             "org_id": self.org_id,
             "conditions": self.conditions,
             "metadata": self.metadata,
+            "inherit_to_children": self.inherit_to_children,
+            "max_inheritance_depth": self.max_inheritance_depth,
         }
 
     @classmethod
@@ -214,6 +225,8 @@ class ResourcePermission:
             org_id=data.get("org_id"),
             conditions=data.get("conditions", {}),
             metadata=data.get("metadata", {}),
+            inherit_to_children=data.get("inherit_to_children", True),
+            max_inheritance_depth=data.get("max_inheritance_depth"),
         )
 
 
