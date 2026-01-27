@@ -35,7 +35,6 @@ from .base import (
     handle_errors,
     json_response,
 )
-from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -197,7 +196,6 @@ class BeliefHandler(BaseHandler):
             return True
         return False
 
-    @require_permission("belief:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route belief network requests to appropriate methods."""
         normalized = strip_version_prefix(path)

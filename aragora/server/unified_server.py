@@ -484,6 +484,8 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         "/api/v1/moments/",  # Public moments summaries (v1)
         "/api/flips/",  # Public flip summaries
         "/api/v1/flips/",  # Public flip summaries (v1)
+        "/api/belief-network/",  # Public belief network summaries
+        "/api/v1/belief-network/",  # Public belief network summaries (v1)
         "/api/verticals/",  # Public verticals list
         "/api/v1/verticals/",  # Public verticals list (v1)
         "/api/features/",  # Public feature config
@@ -710,6 +712,13 @@ class UnifiedHandler(ResponseHelpersMixin, HandlerRegistryMixin, BaseHTTPRequest
         # Route all /api/* requests through modular handlers
         if path.startswith("/api/"):
             if self._try_modular_handler(path, query):
+                return
+            # Fallback for auth/me - return 401 instead of 404 when handler unavailable
+            if path in ("/api/auth/me", "/api/v1/auth/me"):
+                self._send_json(
+                    {"error": "Authentication required", "code": "auth_required"},
+                    status=401,
+                )
                 return
 
         # Static file serving (non-API routes)

@@ -44,7 +44,7 @@ from .base import (
     safe_error_message,
     ttl_cache,
 )
-from aragora.rbac.decorators import require_permission
+from aragora.billing.auth import extract_user_from_request
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter for consensus endpoints (30 requests per minute)
@@ -85,7 +85,6 @@ class ConsensusHandler(BaseHandler):
             return True
         return False
 
-    @require_permission("consensus:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route consensus requests to appropriate methods."""
         path = strip_version_prefix(path)
@@ -137,6 +136,10 @@ class ConsensusHandler(BaseHandler):
             return self._get_risk_warnings(topic.strip() if topic else None, domain, limit)
 
         if path == "/api/consensus/seed-demo":
+            # Require authentication for seed-demo (mutating operation)
+            user_ctx = extract_user_from_request(handler, self.ctx.get("user_store"))
+            if not user_ctx.authenticated:
+                return error_response("Authentication required", 401)
             return self._seed_demo_data()
 
         if path.startswith("/api/consensus/domain/"):
