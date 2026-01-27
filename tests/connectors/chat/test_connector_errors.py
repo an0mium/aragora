@@ -32,6 +32,16 @@ class TestSlackErrorHandling:
     @pytest.mark.asyncio
     async def test_rate_limit_error(self, connector):
         """Should handle rate limit (429) errors."""
+        # Create connector with no retries for this test
+        from aragora.connectors.chat.slack import SlackConnector
+
+        test_connector = SlackConnector(
+            bot_token="xoxb-test",
+            enable_circuit_breaker=False,
+        )
+        # Disable retries by setting max_retries to 1
+        test_connector._max_retries = 1
+
         mock_response = MagicMock()
         mock_response.status_code = 429
         mock_response.headers = {"Retry-After": "30"}
@@ -45,7 +55,7 @@ class TestSlackErrorHandling:
                 return_value=mock_response
             )
 
-            result = await connector.send_message("C12345", "Test message")
+            result = await test_connector.send_message("C12345", "Test message")
 
         # Should indicate failure due to rate limiting
         assert result.success is False or "rate" in str(result).lower()

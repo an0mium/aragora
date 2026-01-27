@@ -54,6 +54,8 @@ from aragora.server.openapi.endpoints.webhooks import WEBHOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.integrations import INTEGRATION_ENDPOINTS
 from aragora.server.openapi.endpoints.nomic import NOMIC_ENDPOINTS
 from aragora.server.openapi.endpoints.deliberations import DELIBERATIONS_ENDPOINTS
+from aragora.server.openapi.endpoints.auth import AUTH_ENDPOINTS
+from aragora.server.openapi.endpoints.admin import ADMIN_ENDPOINTS
 
 
 from typing import Any
@@ -120,6 +122,8 @@ ALL_ENDPOINTS = {
     **INTEGRATION_ENDPOINTS,
     **NOMIC_ENDPOINTS,
     **DELIBERATIONS_ENDPOINTS,
+    **AUTH_ENDPOINTS,
+    **ADMIN_ENDPOINTS,
     # Decorator-registered endpoints (merged last to allow overrides)
     **_get_decorator_endpoints(),
 }
@@ -170,5 +174,7 @@ __all__ = [
     "INTEGRATION_ENDPOINTS",
     "NOMIC_ENDPOINTS",
     "DELIBERATIONS_ENDPOINTS",
+    "AUTH_ENDPOINTS",
+    "ADMIN_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

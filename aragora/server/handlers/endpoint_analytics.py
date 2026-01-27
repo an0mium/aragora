@@ -36,7 +36,7 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 logger = logging.getLogger(__name__)
 
 # Permission required for endpoint analytics access
-ENDPOINT_ANALYTICS_PERMISSION = "analytics:read"
+ENDPOINT_ANALYTICS_PERMISSION = "analytics.read"
 
 # Rate limiter for endpoint analytics (60 requests per minute)
 _endpoint_analytics_limiter = RateLimiter(requests_per_minute=60)

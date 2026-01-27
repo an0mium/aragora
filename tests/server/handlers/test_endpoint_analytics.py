@@ -80,7 +80,7 @@ def mock_auth_context():
     """Create a mock authentication context with analytics permission."""
     ctx = MagicMock()
     ctx.user_id = "test-user"
-    ctx.permissions = {"analytics:read"}
+    ctx.permissions = {"analytics.read"}
     ctx.has_permission = lambda p: p in ctx.permissions
     return ctx
 

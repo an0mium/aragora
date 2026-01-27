@@ -10,10 +10,52 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.belief import BeliefHandler
+
+
+class MockPermissionDecision:
+    """Mock permission decision that always allows."""
+
+    def __init__(self):
+        self.allowed = True
+        self.reason = "Allowed by test mock"
+
+
+class MockPermissionChecker:
+    """Mock permission checker that always allows."""
+
+    def check_permission(self, context, permission):
+        return MockPermissionDecision()
+
+
+class MockUserAuthContext:
+    """Mock user auth context."""
+
+    def __init__(self):
+        self.authenticated = True
+        self.is_authenticated = True
+        self.user_id = "test-user"
+        self.id = "test-user"
+        self.email = "test@example.com"
+        self.org_id = "test-org"
+        self.role = "admin"
+
+
+@pytest.fixture(autouse=True)
+def mock_belief_auth():
+    """Mock authentication and permission checking for belief handler tests."""
+    with patch(
+        "aragora.server.handlers.belief.get_permission_checker",
+        return_value=MockPermissionChecker(),
+    ):
+        with patch(
+            "aragora.billing.jwt_auth.extract_user_from_request",
+            return_value=MockUserAuthContext(),
+        ):
+            yield
 
 
 @pytest.fixture
