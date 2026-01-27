@@ -77,6 +77,7 @@ class SharingNotificationsHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        assert user is not None  # err is None implies user exists
 
         user_id = user.user_id or "anonymous"
 
@@ -128,6 +129,7 @@ class SharingNotificationsHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        assert user is not None  # err is None implies user exists
 
         user_id = user.user_id or "anonymous"
 
@@ -187,6 +189,7 @@ class SharingNotificationsHandler(BaseHandler):
         user, err = self.require_auth_or_error(handler)
         if err:
             return err
+        assert user is not None  # err is None implies user exists
 
         user_id = user.user_id or "anonymous"
 
