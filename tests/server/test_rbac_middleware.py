@@ -64,7 +64,7 @@ class TestRBACMiddleware:
         """Unauthenticated requests to protected routes should be denied."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
             ],
             default_authenticated=True,
         )
@@ -79,7 +79,7 @@ class TestRBACMiddleware:
         """Authenticated requests with correct permission should be allowed."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
             ],
         )
         middleware = RBACMiddleware(config)
@@ -87,18 +87,18 @@ class TestRBACMiddleware:
         # Create auth context with permission
         auth_ctx = AuthorizationContext(
             user_id="user_123",
-            permissions={"debates:create"},
+            permissions={"debates.create"},
         )
 
         allowed, reason, perm = middleware.check_request("/api/debates", "POST", auth_ctx)
         assert allowed is True
-        assert perm == "debates:create"
+        assert perm == "debates.create"
 
     def test_authenticated_without_permission(self):
         """Authenticated requests without required permission should be denied."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates$", "POST", "debates:create"),
+                RoutePermission(r"^/api/debates$", "POST", "debates.create"),
             ],
         )
         middleware = RBACMiddleware(config)
@@ -111,7 +111,7 @@ class TestRBACMiddleware:
 
         allowed, reason, perm = middleware.check_request("/api/debates", "POST", auth_ctx)
         assert allowed is False
-        assert perm == "debates:create"
+        assert perm == "debates.create"
 
     def test_allow_unauthenticated_route(self):
         """Routes marked allow_unauthenticated should work without auth."""
@@ -186,7 +186,7 @@ class TestRoutePermission:
 
     def test_method_mismatch(self):
         """Wrong method should not match."""
-        rule = RoutePermission(r"^/api/debates$", "POST", "debates:create")
+        rule = RoutePermission(r"^/api/debates$", "POST", "debates.create")
 
         matches, _ = rule.matches("/api/debates", "GET")
         assert matches is False
@@ -225,7 +225,7 @@ class TestUnifiedServerRBACIntegration:
         rbac = UnifiedHandler.rbac
 
         # Debates endpoints
-        assert rbac.get_required_permission("/api/debates", "POST") == "debates:create"
+        assert rbac.get_required_permission("/api/debates", "POST") == "debates.create"
         assert rbac.get_required_permission("/api/debates", "GET") == "debates:read"
 
         # Admin endpoints require admin permission
@@ -260,4 +260,4 @@ class TestUnifiedServerRBACIntegration:
         # With default_authenticated=False, unmatched routes are allowed
         # but matched routes with permission requirements should fail
         if perm:  # If a permission is required
-            assert allowed is False or perm == "debates:create"
+            assert allowed is False or perm == "debates.create"
