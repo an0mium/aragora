@@ -29,6 +29,10 @@ wscat -c ws://localhost:8765/ws -H "Authorization: Bearer $ARAGORA_API_TOKEN"
 Browser clients cannot set custom headers; use a server-side proxy if auth is
 enforced.
 
+**SDK note:** The Python streaming client (`AragoraWebSocket`) appends the API
+key as a `token` query parameter. If your deployment requires header-based auth,
+use a proxy to inject `Authorization` or disable auth for WebSocket reads.
+
 ### Initial Messages
 
 On connection, the server sends:

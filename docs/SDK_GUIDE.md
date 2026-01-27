@@ -453,6 +453,33 @@ else:
             print(f"{msg.agent_id}: {msg.content[:100]}...")
 ```
 
+### Streaming Debate Events (Python)
+
+```python
+import asyncio
+from aragora.streaming import AragoraWebSocket
+
+async def stream_debate(debate_id: str):
+    ws = AragoraWebSocket(base_url="https://api.aragora.ai", api_key="YOUR_API_KEY")
+
+    def on_message(event):
+        data = event.get("data", {}) if isinstance(event, dict) else {}
+        print(data.get("content", ""))
+
+    ws.on("agent_message", on_message)
+    await ws.connect(debate_id=debate_id)
+
+    # Wait for consensus (or handle any other events)
+    await ws.once("consensus", timeout=60)
+    await ws.disconnect()
+
+asyncio.run(stream_debate("debate-123"))
+```
+
+**Dependency:** `pip install websockets`
+**Auth:** `api_key` is sent as a `token` query parameter; use a proxy to inject
+`Authorization` headers if your WebSocket server requires header auth.
+
 ### Gauntlet for Policy Review
 
 ```python

@@ -85,6 +85,9 @@ tests/
 │   ├── test_api_workflow.py      # API workflow tests
 │   ├── test_debate_lifecycle.py  # Full debate lifecycle
 │   └── test_websocket_events.py  # WebSocket event tests
+├── skills/                        # Skills system tests
+│   ├── builtin/                  # Built-in skill coverage
+│   └── test_*.py                 # Registry/loader/base tests
 ├── security/                      # Security tests
 │   ├── test_auth_boundaries.py   # Auth boundary tests
 │   ├── test_cors.py              # CORS handling
@@ -120,8 +123,21 @@ pytest tests/ -n auto
 pytest tests/ -s
 ```
 
+### Auth/RBAC Checks
+
+By default, handler permission decorators are bypassed during tests. Set
+`ARAGORA_TEST_REAL_AUTH=1` to exercise real RBAC checks in a test run.
+
 If RBAC decorators block integration endpoints, mock an `AuthorizationContext`
 in the integration tests (see `tests/integration/test_*_api.py`).
+
+### OpenAPI Route Validation
+
+Validate handler routes against the OpenAPI spec:
+
+```bash
+python scripts/validate_openapi_routes.py
+```
 
 ### Test Markers
 
