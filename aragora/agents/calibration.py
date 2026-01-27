@@ -608,6 +608,38 @@ class CalibrationTracker(SQLiteStore):
             temperature_params=temp_params,
         )
 
+    def get_calibration(self, agent: str) -> Optional[dict[str, Any]]:
+        """
+        Get calibration data for an agent.
+
+        Implements CalibrationTrackerProtocol.get_calibration.
+
+        Args:
+            agent: Agent name
+
+        Returns:
+            Dict with calibration metrics, or None if no data
+        """
+        try:
+            summary = self.get_calibration_summary(agent, include_temperature=True)
+            if summary.total_predictions == 0:
+                return None
+            return {
+                "agent": summary.agent,
+                "total_predictions": summary.total_predictions,
+                "total_correct": summary.total_correct,
+                "accuracy": summary.total_correct / summary.total_predictions
+                if summary.total_predictions > 0
+                else 0.0,
+                "brier_score": summary.brier_score,
+                "ece": summary.ece,
+                "temperature": summary.temperature_params.temperature
+                if summary.temperature_params
+                else 1.0,
+            }
+        except Exception:
+            return None
+
     def get_domain_breakdown(self, agent: str) -> dict[str, CalibrationSummary]:
         """
         Get calibration breakdown by domain for an agent.

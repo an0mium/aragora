@@ -75,11 +75,22 @@ jobs:
         run: |
           CURRENT=$(python scripts/audit_test_skips.py --count-only)
           BASELINE=$(cat tests/.skip_baseline 2>/dev/null || echo 600)
+          THRESHOLD=5  # Fail if skips increase by more than this
           echo "Current skip count: $CURRENT"
           echo "Baseline: $BASELINE"
-          if [ "$CURRENT" -gt "$BASELINE" ]; then
-            echo "::warning::Skip count increased: $CURRENT > $BASELINE baseline"
+          echo "Threshold: $THRESHOLD"
+
+          DIFF=$((CURRENT - BASELINE))
+          if [ "$DIFF" -gt "$THRESHOLD" ]; then
+            echo "::error::Skip count increased by $DIFF (from $BASELINE to $CURRENT)"
+            echo "::error::This exceeds the threshold of $THRESHOLD additional skips"
             echo "Run 'python scripts/audit_test_skips.py' locally to see details"
+            exit 1
+          elif [ "$DIFF" -gt 0 ]; then
+            echo "::warning::Skip count increased slightly: $CURRENT > $BASELINE baseline (+$DIFF)"
+            echo "Consider updating tests/.skip_baseline if these skips are intentional"
+          elif [ "$DIFF" -lt 0 ]; then
+            echo "::notice::Skip count decreased by $((-DIFF))! Consider updating baseline."
           fi
           # Store for potential artifact
           echo "$CURRENT" > skip_count.txt
