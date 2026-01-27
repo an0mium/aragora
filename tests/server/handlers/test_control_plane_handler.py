@@ -552,11 +552,9 @@ class TestControlPlaneHandlerSubmitTask:
 class TestControlPlaneHandlerDeliberations:
     """Test deliberation endpoints."""
 
-    def test_submit_deliberation_requires_auth(
-        self, control_plane_handler, mock_coordinator, monkeypatch
-    ):
+    @pytest.mark.no_auto_auth
+    def test_submit_deliberation_requires_auth(self, control_plane_handler, mock_coordinator):
         """Test submitting a deliberation requires authentication."""
-        monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "true")
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_request_body({"content": "Test deliberation"})
 
@@ -823,11 +821,11 @@ class TestControlPlaneHandlerCancelTask:
 class TestControlPlaneHandlerUnregisterAgent:
     """Test DELETE /api/control-plane/agents/:id endpoint."""
 
+    @pytest.mark.no_auto_auth
     def test_unregister_agent_requires_auth(
-        self, control_plane_handler, mock_coordinator, mock_http_handler, monkeypatch
+        self, control_plane_handler, mock_coordinator, mock_http_handler
     ):
         """Test unregistering agent requires authentication."""
-        monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "true")
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle_delete(
