@@ -44,7 +44,7 @@ from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
 
 # RBAC permission for leaderboard endpoints
-LEADERBOARD_PERMISSION = "agent:read"
+LEADERBOARD_PERMISSION = "agents:read"
 
 # Rate limiter for leaderboard endpoints (60 requests per minute - cached data)
 _leaderboard_limiter = RateLimiter(requests_per_minute=60)

@@ -65,7 +65,7 @@ from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip, rate_limit
 
 # RBAC permission for agent endpoints
-AGENT_PERMISSION = "agent:read"
+AGENT_PERMISSION = "agents:read"
 
 # Rate limiter for agent handlers (60 requests per minute)
 _agent_limiter = RateLimiter(requests_per_minute=60)
