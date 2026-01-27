@@ -516,6 +516,298 @@
         ]
       }
     },
+    "/api/v1/nomic/metrics": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Nomic loop metrics",
+        "operationId": "getNomicMetrics",
+        "description": "Get nomic loop Prometheus metrics summary including phase transitions, cycle outcomes, and stuck phase detection.",
+        "responses": {
+          "200": {
+            "description": "Nomic metrics summary"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/proposals": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "List pending proposals",
+        "operationId": "listNomicProposals",
+        "description": "Get pending improvement proposals from the nomic loop.",
+        "responses": {
+          "200": {
+            "description": "Pending proposals list"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/control/start": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Start nomic loop",
+        "operationId": "startNomicLoop",
+        "description": "Start the nomic loop with optional configuration.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cycles": {
+                    "type": "integer",
+                    "description": "Number of cycles to run",
+                    "default": 1
+                  },
+                  "max_cycles": {
+                    "type": "integer",
+                    "description": "Maximum cycles allowed",
+                    "default": 10
+                  },
+                  "auto_approve": {
+                    "type": "boolean",
+                    "description": "Auto-approve proposals",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Loop started"
+          },
+          "409": {
+            "description": "Loop already running"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/control/stop": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Stop nomic loop",
+        "operationId": "stopNomicLoop",
+        "description": "Stop the running nomic loop.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "graceful": {
+                    "type": "boolean",
+                    "description": "Use graceful shutdown",
+                    "default": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Loop stopped"
+          },
+          "404": {
+            "description": "Loop not running"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/control/pause": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Pause nomic loop",
+        "operationId": "pauseNomicLoop",
+        "description": "Pause the nomic loop at the current phase.",
+        "responses": {
+          "200": {
+            "description": "Loop paused"
+          },
+          "404": {
+            "description": "Loop not running"
+          },
+          "409": {
+            "description": "Loop already paused"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/control/resume": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Resume nomic loop",
+        "operationId": "resumeNomicLoop",
+        "description": "Resume a paused nomic loop.",
+        "responses": {
+          "200": {
+            "description": "Loop resumed"
+          },
+          "409": {
+            "description": "Loop not paused"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/control/skip-phase": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Skip current phase",
+        "operationId": "skipNomicPhase",
+        "description": "Skip the current phase and move to the next one.",
+        "responses": {
+          "200": {
+            "description": "Phase skipped"
+          },
+          "404": {
+            "description": "Loop not running"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/proposals/approve": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Approve proposal",
+        "operationId": "approveNomicProposal",
+        "description": "Approve a pending improvement proposal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proposal_id": {
+                    "type": "string",
+                    "description": "ID of the proposal to approve"
+                  },
+                  "approved_by": {
+                    "type": "string",
+                    "description": "User who approved the proposal"
+                  }
+                },
+                "required": ["proposal_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Proposal approved"
+          },
+          "404": {
+            "description": "Proposal not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/nomic/proposals/reject": {
+      "post": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Reject proposal",
+        "operationId": "rejectNomicProposal",
+        "description": "Reject a pending improvement proposal.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proposal_id": {
+                    "type": "string",
+                    "description": "ID of the proposal to reject"
+                  },
+                  "rejected_by": {
+                    "type": "string",
+                    "description": "User who rejected the proposal"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason for rejection"
+                  }
+                },
+                "required": ["proposal_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Proposal rejected"
+          },
+          "404": {
+            "description": "Proposal not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/modes": {
       "get": {
         "tags": [
@@ -15873,6 +16165,97 @@
         }
       }
     },
+    "/api/v1/cross-pollination/km": {
+      "get": {
+        "tags": [
+          "Cross-Pollination"
+        ],
+        "summary": "Knowledge Mound integration status",
+        "operationId": "getCrossPollinationKM",
+        "description": "Get Knowledge Mound bidirectional integration status including adapter states, batch queue status, and cross-subsystem handler statistics.",
+        "responses": {
+          "200": {
+            "description": "KM integration status"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cross-pollination/km/sync": {
+      "post": {
+        "tags": [
+          "Cross-Pollination"
+        ],
+        "summary": "Sync KM adapters",
+        "operationId": "syncCrossPollinationKM",
+        "description": "Trigger manual sync of KM adapters (RankingAdapter, RlmAdapter). Useful for forcing persistence after important debates or before shutdown.",
+        "responses": {
+          "200": {
+            "description": "Sync results with adapter status and duration"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cross-pollination/km/staleness-check": {
+      "post": {
+        "tags": [
+          "Cross-Pollination"
+        ],
+        "summary": "Check KM staleness",
+        "operationId": "checkCrossPollinationKMStaleness",
+        "description": "Trigger manual staleness check for Knowledge Mound nodes.",
+        "responses": {
+          "200": {
+            "description": "Staleness check results"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cross-pollination/km/culture": {
+      "get": {
+        "tags": [
+          "Cross-Pollination"
+        ],
+        "summary": "Get culture patterns",
+        "operationId": "getCrossPollinationKMCulture",
+        "description": "Get culture patterns for a workspace including debate style preferences and organizational patterns.",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "description": "Workspace ID to get culture patterns for",
+            "schema": {
+              "type": "string",
+              "default": "default"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Culture patterns for the workspace"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/gauntlet/receipts": {
       "get": {
         "tags": [
@@ -29679,6 +30062,226 @@
                     },
                     "message": {
                       "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/dead-letter": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List dead-letter deliveries",
+        "operationId": "listWebhooksDeadLetter",
+        "description": "List webhook deliveries that have been moved to the dead-letter queue after exhausting retries.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of deliveries to return",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dead-letter delivery list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dead_letters": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "webhook_id": {
+                            "type": "string"
+                          },
+                          "event": {
+                            "type": "string"
+                          },
+                          "payload": {
+                            "type": "object"
+                          },
+                          "error": {
+                            "type": "string"
+                          },
+                          "retry_count": {
+                            "type": "integer"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/dead-letter/{id}": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get dead-letter delivery",
+        "operationId": "getWebhooksDeadLetter",
+        "description": "Get a specific dead-letter delivery by ID.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dead-letter delivery details"
+          },
+          "404": {
+            "description": "Delivery not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete dead-letter delivery",
+        "operationId": "deleteWebhooksDeadLetter",
+        "description": "Remove a delivery from the dead-letter queue.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery deleted"
+          },
+          "404": {
+            "description": "Delivery not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/dead-letter/{id}/retry": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Retry dead-letter delivery",
+        "operationId": "retryWebhooksDeadLetter",
+        "description": "Retry a dead-letter delivery by moving it back to the processing queue.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery queued for retry"
+          },
+          "404": {
+            "description": "Delivery not found or not in dead-letter queue"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/webhooks/queue/stats": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get webhook queue statistics",
+        "operationId": "getWebhooksQueueStats",
+        "description": "Get statistics about the webhook delivery queue including pending, processing, and dead-letter counts.",
+        "responses": {
+          "200": {
+            "description": "Queue statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "pending": {
+                          "type": "integer"
+                        },
+                        "processing": {
+                          "type": "integer"
+                        },
+                        "dead_letter": {
+                          "type": "integer"
+                        },
+                        "total_delivered": {
+                          "type": "integer"
+                        },
+                        "total_failed": {
+                          "type": "integer"
+                        }
+                      }
                     }
                   }
                 }
