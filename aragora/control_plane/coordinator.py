@@ -594,7 +594,7 @@ class ControlPlaneCoordinator:
                 if issue.agent:
                     # Update health status
                     agent_info = await self._registry.get(issue.agent)
-                    if agent_info and agent_info.status != AgentStatus.ERROR:
+                    if agent_info and agent_info.status != AgentStatus.FAILED:
                         logger.warning(
                             "watchdog_critical_agent",
                             agent=issue.agent,
