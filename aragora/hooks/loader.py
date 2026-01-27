@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 __all__ = [
     "HookConfigLoader",
     "get_hook_loader",
+    "setup_arena_hooks",
+    "setup_arena_hooks_from_config",
 ]
 
 logger = logging.getLogger(__name__)
@@ -463,3 +465,115 @@ def get_hook_loader() -> HookConfigLoader:
     if _hook_loader is None:
         _hook_loader = HookConfigLoader()
     return _hook_loader
+
+
+def setup_arena_hooks(
+    hook_manager: "HookManager",
+    hooks_dir: str = "hooks",
+    recursive: bool = True,
+    validate: bool = True,
+) -> int:
+    """
+    Discover and apply YAML hooks to an Arena's HookManager.
+
+    Convenience function for Arena integration that:
+    1. Discovers YAML hook files in the specified directory
+    2. Validates all hook configurations
+    3. Applies valid hooks to the HookManager
+
+    Args:
+        hook_manager: Arena's HookManager to apply hooks to
+        hooks_dir: Directory to search for YAML hook definitions
+        recursive: Whether to search subdirectories
+        validate: Whether to validate configurations before applying
+
+    Returns:
+        Number of hooks successfully registered
+
+    Example:
+        # In Arena initialization or startup
+        from aragora.hooks.loader import setup_arena_hooks
+        from aragora.debate.hooks import HookManager
+
+        hook_manager = HookManager()
+        count = setup_arena_hooks(hook_manager, "hooks/debate")
+        logger.info(f"Loaded {count} declarative hooks")
+    """
+    loader = get_hook_loader()
+
+    # Discover and load hooks
+    configs = loader.discover_and_load(
+        directory=hooks_dir,
+        recursive=recursive,
+    )
+
+    if not configs:
+        logger.debug(f"No hook definitions found in {hooks_dir}")
+        return 0
+
+    # Validate if requested
+    if validate:
+        valid_configs = []
+        for config in configs:
+            errors = loader.validate_config(config)
+            if errors:
+                logger.warning(f"Hook '{config.name}' validation failed: {'; '.join(errors)}")
+            else:
+                valid_configs.append(config)
+        configs = valid_configs
+
+    # Apply to manager
+    registered = loader.apply_to_manager(hook_manager, configs)
+
+    logger.info(
+        f"setup_arena_hooks dir={hooks_dir} discovered={len(configs)} registered={registered}"
+    )
+
+    return registered
+
+
+def setup_arena_hooks_from_config(
+    hook_manager: "HookManager",
+    yaml_hooks_dir: str = "hooks",
+    enable_yaml_hooks: bool = True,
+    yaml_hooks_recursive: bool = True,
+) -> int:
+    """
+    Setup hooks from ArenaConfig settings.
+
+    Integrates with ArenaConfig to provide seamless YAML hook loading
+    based on configuration parameters.
+
+    Args:
+        hook_manager: Arena's HookManager to apply hooks to
+        yaml_hooks_dir: ArenaConfig.yaml_hooks_dir value
+        enable_yaml_hooks: ArenaConfig.enable_yaml_hooks value
+        yaml_hooks_recursive: ArenaConfig.yaml_hooks_recursive value
+
+    Returns:
+        Number of hooks successfully registered (0 if disabled)
+
+    Example:
+        # In Arena __init__ or from_config
+        if config.enable_yaml_hooks and self.hook_manager:
+            setup_arena_hooks_from_config(
+                self.hook_manager,
+                yaml_hooks_dir=config.yaml_hooks_dir,
+                enable_yaml_hooks=config.enable_yaml_hooks,
+                yaml_hooks_recursive=config.yaml_hooks_recursive,
+            )
+    """
+    if not enable_yaml_hooks:
+        logger.debug("YAML hooks disabled via configuration")
+        return 0
+
+    if hook_manager is None:
+        logger.debug("No HookManager provided, skipping YAML hooks")
+        return 0
+
+    return setup_arena_hooks(
+        hook_manager=hook_manager,
+        hooks_dir=yaml_hooks_dir,
+        recursive=yaml_hooks_recursive,
+        validate=True,
+    )
