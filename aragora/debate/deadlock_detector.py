@@ -416,7 +416,7 @@ class DeadlockDetector:
 
     def _detect_convergence_failures(self) -> List[Deadlock]:
         """Detect when debate is failing to converge."""
-        deadlocks = []
+        deadlocks: List[Deadlock] = []
 
         # Need at least 3 rounds to detect convergence failure
         if len(self._round_argument_counts) < 3:

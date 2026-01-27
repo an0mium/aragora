@@ -543,8 +543,8 @@ class BeadStore:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about the bead store."""
         beads = list(self._beads_cache.values())
-        by_status = {}
-        by_type = {}
+        by_status: Dict[str, int] = {}
+        by_type: Dict[str, int] = {}
         for bead in beads:
             by_status[bead.status.value] = by_status.get(bead.status.value, 0) + 1
             by_type[bead.bead_type.value] = by_type.get(bead.bead_type.value, 0) + 1

@@ -426,7 +426,7 @@ class AgentHierarchy:
     async def get_statistics(self) -> Dict[str, Any]:
         """Get statistics about the hierarchy."""
         assignments = list(self._assignments.values())
-        by_role = {}
+        by_role: Dict[str, int] = {}
         for assignment in assignments:
             by_role[assignment.role.value] = by_role.get(assignment.role.value, 0) + 1
 
