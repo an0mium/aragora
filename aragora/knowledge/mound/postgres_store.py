@@ -412,7 +412,8 @@ class PostgresStore:
                         topic,
                     )
 
-        return cast(str, node_data["id"])
+        node_id: str = node_data["id"]
+        return node_id
 
     async def get_node_async(self, node_id: str) -> Optional[KnowledgeItem]:
         """Get a knowledge node by ID."""
@@ -700,7 +701,8 @@ class PostgresStore:
                 json.dumps(pattern.get("metadata", {})),
             )
 
-        return cast(str, pattern["id"])
+        pattern_id: str = pattern["id"]
+        return pattern_id
 
     async def get_culture_patterns_async(
         self, workspace_id: str, pattern_type: Optional[str] = None
