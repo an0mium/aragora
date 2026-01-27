@@ -111,6 +111,8 @@ class HealthHandler(SecureHandler):
         "/readyz/dependencies",
         "/api/health",  # Basic health check for load balancers
         "/api/v1/health",  # v1 route for basic health check
+        "/api/health/ws",  # WebSocket health check for availability
+        "/api/v1/health/ws",  # v1 WebSocket health check
     }
 
     # Permission required for protected health endpoints
