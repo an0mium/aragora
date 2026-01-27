@@ -8,9 +8,10 @@ Provides endpoints for collecting user feedback including:
 - General suggestions
 
 Endpoints:
-- POST /api/v1/feedback/nps - Submit NPS score
-- POST /api/v1/feedback/general - Submit general feedback
-- GET /api/v1/feedback/prompts - Get active feedback prompts
+- POST /api/v1/feedback/nps - Submit NPS score (requires feedback.write)
+- POST /api/v1/feedback/general - Submit general feedback (requires feedback.write)
+- GET /api/v1/feedback/nps/summary - Get NPS summary (requires feedback.update - admin)
+- GET /api/v1/feedback/prompts - Get active feedback prompts (requires feedback.read)
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from aragora.config import resolve_db_path
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.base import (
     HandlerResult,
     ServerContext,
@@ -33,6 +36,39 @@ from aragora.server.handlers.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _check_permission(ctx: ServerContext, permission: str) -> Optional[HandlerResult]:
+    """
+    Check if the current user has the required permission.
+
+    Args:
+        ctx: Server context with user_id
+        permission: Permission key to check (e.g., "feedback.write")
+
+    Returns:
+        None if permission granted, error_response if denied
+    """
+    user_id = ctx.get("user_id")
+    if not user_id:
+        return error_response("Authentication required", status=401)
+
+    # Build minimal auth context from server context
+    auth_context = AuthorizationContext(
+        user_id=user_id,
+        org_id=ctx.get("org_id"),  # type: ignore[arg-type]
+        roles=ctx.get("roles", set()),  # type: ignore[arg-type]
+        permissions=ctx.get("permissions", set()),  # type: ignore[arg-type]
+    )
+
+    checker = get_permission_checker()
+    decision = checker.check_permission(auth_context, permission)
+
+    if not decision.allowed:
+        logger.warning(f"Permission denied: {permission} for user {user_id}")
+        return error_response(f"Permission denied: {permission}", status=403)
+
+    return None
 
 
 class FeedbackType(str, Enum):
@@ -183,7 +219,14 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
 
     Returns:
         {"success": true, "feedback_id": "..."}
+
+    Requires: feedback.write permission
     """
+    # Check permission
+    perm_error = _check_permission(ctx, "feedback.write")
+    if perm_error:
+        return perm_error
+
     try:
         body = ctx.get("body", {})
         user_id = ctx.get("user_id", "anonymous")
@@ -233,7 +276,14 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
 
     Returns:
         {"success": true, "feedback_id": "..."}
+
+    Requires: feedback.write permission
     """
+    # Check permission
+    perm_error = _check_permission(ctx, "feedback.write")
+    if perm_error:
+        return perm_error
+
     try:
         body = ctx.get("body", {})
         user_id = ctx.get("user_id", "anonymous")
@@ -286,7 +336,14 @@ async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
 
     Returns:
         {"nps_score": ..., "total_responses": ..., ...}
+
+    Requires: feedback.update permission (admin only)
     """
+    # Check permission - admin only (feedback.update maps to PERM_FEEDBACK_ALL)
+    perm_error = _check_permission(ctx, "feedback.update")
+    if perm_error:
+        return perm_error
+
     try:
         query = ctx.get("query", {})
         days = int(query.get("days", 30))
@@ -306,7 +363,14 @@ async def handle_get_feedback_prompts(ctx: ServerContext) -> HandlerResult:
     GET /api/v1/feedback/prompts
 
     Returns prompts based on user activity and timing.
+
+    Requires: feedback.read permission
     """
+    # Check permission
+    perm_error = _check_permission(ctx, "feedback.read")
+    if perm_error:
+        return perm_error
+
     # Simple prompt logic - can be expanded
     prompts = []
 
