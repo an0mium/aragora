@@ -162,3 +162,6 @@ docs/investor/
 .python-version
 .claude/
 .checkpoints/
+
+# Bead tracking data (has its own git repo)
+.beads/
