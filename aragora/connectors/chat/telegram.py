@@ -427,6 +427,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.get(
                     f"{self._api_base}/getFile",
                     params={"file_id": file_id},
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -447,7 +448,7 @@ class TelegramConnector(ChatPlatformConnector):
 
                 # Download file
                 download_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
-                response = await client.get(download_url)
+                response = await client.get(download_url, headers=build_trace_headers())
                 content = response.content
                 self._record_success()
 
@@ -688,6 +689,7 @@ class TelegramConnector(ChatPlatformConnector):
                     f"{self._api_base}/sendVoice",
                     data=data,
                     files=files,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 result = response.json()
 
@@ -749,6 +751,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.get(
                     f"{self._api_base}/getChat",
                     params={"chat_id": channel_id},
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -852,6 +855,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/answerCallbackQuery",
                     json=payload,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -1167,18 +1171,21 @@ class TelegramConnector(ChatPlatformConnector):
                         data["reply_markup"] = json.dumps(keyboard)
 
                 # Determine how to send the photo
+                trace_headers = build_trace_headers()  # Distributed tracing
                 if isinstance(photo, bytes):
                     files = {"photo": ("photo.jpg", photo, "image/jpeg")}
                     response = await client.post(
                         f"{self._api_base}/sendPhoto",
                         data=data,
                         files=files,
+                        headers=trace_headers,
                     )
                 elif photo.startswith(("http://", "https://")):
                     data["photo"] = photo
                     response = await client.post(
                         f"{self._api_base}/sendPhoto",
                         json=data,
+                        headers=trace_headers,
                     )
                 else:
                     # Assume file_id
@@ -1186,6 +1193,7 @@ class TelegramConnector(ChatPlatformConnector):
                     response = await client.post(
                         f"{self._api_base}/sendPhoto",
                         json=data,
+                        headers=trace_headers,
                     )
 
                 result = response.json()
@@ -1283,18 +1291,21 @@ class TelegramConnector(ChatPlatformConnector):
                         data["reply_markup"] = json.dumps(keyboard)
 
                 # Determine how to send the video
+                trace_headers = build_trace_headers()  # Distributed tracing
                 if isinstance(video, bytes):
                     files = {"video": ("video.mp4", video, "video/mp4")}
                     response = await client.post(
                         f"{self._api_base}/sendVideo",
                         data=data,
                         files=files,
+                        headers=trace_headers,
                     )
                 elif video.startswith(("http://", "https://")):
                     data["video"] = video
                     response = await client.post(
                         f"{self._api_base}/sendVideo",
                         json=data,
+                        headers=trace_headers,
                     )
                 else:
                     # Assume file_id
@@ -1302,6 +1313,7 @@ class TelegramConnector(ChatPlatformConnector):
                     response = await client.post(
                         f"{self._api_base}/sendVideo",
                         json=data,
+                        headers=trace_headers,
                     )
 
                 result = response.json()
