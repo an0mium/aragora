@@ -282,6 +282,7 @@ class InboxCommandHandler:
             - params: Optional action-specific parameters
         """
         try:
+            self._check_permission(request, "inbox:write")
             self._ensure_services()
 
             body = await request.json()
@@ -331,6 +332,7 @@ class InboxCommandHandler:
             - params: Optional action-specific parameters
         """
         try:
+            self._check_permission(request, "inbox:write")
             self._ensure_services()
 
             body = await request.json()
