@@ -4355,6 +4355,14 @@ GET /api/introspection/agents
 
 Returns list of agents available for introspection.
 
+### Get Agent Availability
+
+```http
+GET /api/introspection/agents/availability
+```
+
+Returns credential availability for known agent types.
+
 ### Get Agent Introspection
 
 ```http

@@ -117,6 +117,29 @@ The router extracts:
 
 ---
 
+## Normalized Messages & Channel Docks
+
+Outbound results are normalized into a platform‑independent message format
+before being adapted by channel‑specific docks.
+
+**Normalized message model:** `aragora/channels/normalized.py`  
+**Dock interface:** `aragora/channels/dock.py`
+
+```python
+from aragora.channels.normalized import NormalizedMessage, MessageFormat
+
+message = NormalizedMessage(
+    content="Decision complete ✅",
+    format=MessageFormat.MARKDOWN,
+).with_button("View receipt", "https://aragora.ai/receipts/abc123")
+```
+
+Each platform implements a `ChannelDock` that declares capabilities
+(buttons, threads, files, voice) and renders the normalized message into the
+platform’s native format.
+
+---
+
 ## Voice Integration
 
 Aragora supports bidirectional voice I/O over WebSocket:

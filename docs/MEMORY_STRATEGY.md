@@ -274,6 +274,19 @@ def _compute_similarity(self, query: str, entry: MemoryEntry) -> float:
     return cosine_similarity(query_embedding, entry_embedding)
 ```
 
+### Hybrid Search (Vector + Keyword)
+
+For higher recall, hybrid search combines vector similarity with keyword
+matches using Reciprocal Rank Fusion (RRF). This is useful for exact terms and
+acronyms that embeddings may miss.
+
+```python
+from aragora.memory import get_hybrid_memory_search
+
+search = get_hybrid_memory_search(continuum_memory)
+results = await search.search("SLA breach", limit=10)
+```
+
 ## Integration with Debate Phases
 
 ### Phase 0 (Context Init)
