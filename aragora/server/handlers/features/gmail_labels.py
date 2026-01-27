@@ -172,7 +172,7 @@ class GmailLabelsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_delete(
+    async def handle_delete(  # type: ignore[override]
         self,
         path: str,
         query_params: Dict[str, Any],

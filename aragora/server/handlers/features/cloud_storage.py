@@ -234,7 +234,7 @@ if HANDLER_BASE_AVAILABLE:
             """Check if this handler can process the given path."""
             return path.startswith("/api/v1/cloud/")
 
-        async def handle(
+        async def handle(  # type: ignore[override]
             self,
             path: str,
             query_params: Dict[str, Any],
@@ -281,7 +281,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return error_response("Not found", 404)
 
-        async def handle_post(
+        async def handle_post(  # type: ignore[override]
             self,
             path: str,
             body: Dict[str, Any],

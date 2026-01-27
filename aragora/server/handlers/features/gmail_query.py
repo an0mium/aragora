@@ -71,7 +71,7 @@ class GmailQueryHandler(SecureHandler):
         """Check if this handler can process the path."""
         return path.startswith("/api/v1/gmail/query") or path.startswith("/api/v1/gmail/inbox/")
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         path: str,
         query_params: Dict[str, Any],
@@ -98,7 +98,7 @@ class GmailQueryHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         body: Dict[str, Any],
