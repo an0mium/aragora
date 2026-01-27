@@ -5143,23 +5143,12 @@ export class AragoraClient {
   async getBudgetTransactions(
     budgetId: string,
     params?: { limit?: number; offset?: number; start_date?: string; end_date?: string }
-  ): Promise<{
-    transactions: Array<{
-      transaction_id: string;
-      budget_id: string;
-      amount_usd: number;
-      description: string;
-      debate_id?: string;
-      user_id?: string;
-      created_at: number;
-      created_at_iso: string;
-    }>;
-    count: number;
-    total: number;
-    budget_id: string;
-    pagination: { limit: number; offset: number; has_more: boolean };
-  }> {
-    return this.request('GET', `/api/v1/budgets/${encodeURIComponent(budgetId)}/transactions`, { params });
+  ): Promise<import('./types').BudgetTransactionList> {
+    return this.request<import('./types').BudgetTransactionList>(
+      'GET',
+      `/api/v1/budgets/${encodeURIComponent(budgetId)}/transactions`,
+      { params }
+    );
   }
 
   /**
@@ -5168,19 +5157,12 @@ export class AragoraClient {
   async getBudgetTrends(
     budgetId: string,
     params?: { period?: 'hour' | 'day' | 'week' | 'month'; limit?: number }
-  ): Promise<{
-    trends: Array<{
-      period: string;
-      total_spent_usd: number;
-      transaction_count: number;
-      avg_transaction_usd: number;
-    }>;
-    period: string;
-    count: number;
-    budget_id?: string;
-    org_id?: string;
-  }> {
-    return this.request('GET', `/api/v1/budgets/${encodeURIComponent(budgetId)}/trends`, { params });
+  ): Promise<import('./types').BudgetTrendsResponse> {
+    return this.request<import('./types').BudgetTrendsResponse>(
+      'GET',
+      `/api/v1/budgets/${encodeURIComponent(budgetId)}/trends`,
+      { params }
+    );
   }
 
   /**
@@ -5188,19 +5170,10 @@ export class AragoraClient {
    */
   async getOrgTrends(
     params?: { period?: 'hour' | 'day' | 'week' | 'month'; limit?: number }
-  ): Promise<{
-    trends: Array<{
-      period: string;
-      total_spent_usd: number;
-      transaction_count: number;
-      avg_transaction_usd: number;
-    }>;
-    period: string;
-    count: number;
-    budget_id?: string;
-    org_id?: string;
-  }> {
-    return this.request('GET', '/api/v1/budgets/org/trends', { params });
+  ): Promise<import('./types').BudgetTrendsResponse> {
+    return this.request<import('./types').BudgetTrendsResponse>('GET', '/api/v1/budgets/org/trends', {
+      params,
+    });
   }
 
   // ===========================================================================

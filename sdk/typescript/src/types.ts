@@ -2303,6 +2303,40 @@ export interface BudgetSummary {
   currency: string;
 }
 
+export interface BudgetTransaction {
+  transaction_id: string;
+  budget_id: string;
+  amount_usd: number;
+  description: string;
+  debate_id?: string;
+  user_id?: string;
+  created_at: number;
+  created_at_iso: string;
+}
+
+export interface BudgetTransactionList {
+  transactions: BudgetTransaction[];
+  count: number;
+  total: number;
+  budget_id: string;
+  pagination: { limit: number; offset: number; has_more: boolean };
+}
+
+export interface BudgetTrendPoint {
+  period: string;
+  total_spent_usd: number;
+  transaction_count: number;
+  avg_transaction_usd: number;
+}
+
+export interface BudgetTrendsResponse {
+  trends: BudgetTrendPoint[];
+  period: string;
+  count: number;
+  budget_id?: string;
+  org_id?: string;
+}
+
 // =============================================================================
 // Cost Types
 // =============================================================================
