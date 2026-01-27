@@ -110,6 +110,34 @@ import type {
   CodebaseVulnerability,
   CodebaseDependencyAnalysis,
   CodebaseMetrics,
+  // Decisions types
+  DecisionType,
+  DecisionPriority,
+  DecisionConfig,
+  DecisionContext,
+  ResponseChannel,
+  DecisionResult,
+  DecisionStatusResponse,
+  // Documents types
+  Document,
+  DocumentUploadResponse,
+  SupportedFormats,
+  BatchUploadResponse,
+  BatchJobStatus,
+  BatchJobResults,
+  ProcessingStats,
+  DocumentChunk,
+  DocumentContext,
+  AuditSession,
+  AuditSessionCreateResponse,
+  AuditFinding,
+  AuditReport,
+  // Policies types
+  Policy,
+  PolicyRule,
+  PolicyViolation,
+  ComplianceCheckResult,
+  ComplianceStats,
 } from './types';
 
 export interface AragoraClientOptions {
@@ -1738,6 +1766,535 @@ export class CodebaseAPI {
   }
 }
 
+// =============================================================================
+// Decisions API
+// =============================================================================
+
+export class DecisionsAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * Create a new decision request.
+   */
+  async create(options: {
+    content: string;
+    decisionType?: DecisionType;
+    config?: Partial<DecisionConfig>;
+    context?: DecisionContext;
+    priority?: DecisionPriority;
+    responseChannels?: ResponseChannel[];
+  }): Promise<DecisionResult> {
+    return this.client.post<DecisionResult>('/api/v1/decisions', {
+      content: options.content,
+      decision_type: options.decisionType ?? 'auto',
+      priority: options.priority ?? 'normal',
+      ...(options.config && {
+        config: {
+          agents: options.config.agents,
+          rounds: options.config.rounds,
+          consensus: options.config.consensus,
+          timeout_seconds: options.config.timeout_seconds,
+        },
+      }),
+      ...(options.context && {
+        context: {
+          user_id: options.context.user_id,
+          workspace_id: options.context.workspace_id,
+          ...options.context.metadata,
+        },
+      }),
+      ...(options.responseChannels && {
+        response_channels: options.responseChannels.map((ch) => ({
+          platform: ch.platform,
+          target: ch.target,
+          ...ch.options,
+        })),
+      }),
+    });
+  }
+
+  /**
+   * Get a decision by request ID.
+   */
+  async get(requestId: string): Promise<DecisionResult> {
+    return this.client.get<DecisionResult>(`/api/v1/decisions/${requestId}`);
+  }
+
+  /**
+   * Get decision status for polling.
+   */
+  async getStatus(requestId: string): Promise<DecisionStatusResponse> {
+    return this.client.get<DecisionStatusResponse>(`/api/v1/decisions/${requestId}/status`);
+  }
+
+  /**
+   * List recent decisions.
+   */
+  async list(options: {
+    status?: string;
+    decisionType?: DecisionType;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ decisions: DecisionResult[]; total: number }> {
+    return this.client.get<{ decisions: DecisionResult[]; total: number }>('/api/v1/decisions', {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+      ...(options.status && { status: options.status }),
+      ...(options.decisionType && { decision_type: options.decisionType }),
+    });
+  }
+
+  /**
+   * Make a quick decision with minimal configuration.
+   */
+  async quickDecision(question: string, agents?: string[]): Promise<DecisionResult> {
+    return this.create({
+      content: question,
+      decisionType: 'quick',
+      config: {
+        agents: agents ?? ['anthropic-api', 'openai-api'],
+        rounds: 2,
+        consensus: 'majority',
+        timeout_seconds: 60,
+      },
+    });
+  }
+
+  /**
+   * Start a full debate on a topic.
+   */
+  async startDebate(
+    topic: string,
+    options: { agents?: string[]; rounds?: number } = {}
+  ): Promise<DecisionResult> {
+    return this.create({
+      content: topic,
+      decisionType: 'debate',
+      config: {
+        agents: options.agents ?? ['anthropic-api', 'openai-api', 'gemini-api'],
+        rounds: options.rounds ?? 3,
+        consensus: 'majority',
+        timeout_seconds: 300,
+      },
+    });
+  }
+}
+
+// =============================================================================
+// Documents API
+// =============================================================================
+
+export class DocumentsAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * List uploaded documents.
+   */
+  async list(options: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+  } = {}): Promise<Document[]> {
+    const data = await this.client.get<{ documents: Document[] }>('/api/documents', {
+      limit: options.limit ?? 50,
+      offset: options.offset ?? 0,
+      ...(options.status && { status: options.status }),
+    });
+    return data.documents ?? [];
+  }
+
+  /**
+   * Get a document by ID.
+   */
+  async get(documentId: string): Promise<Document> {
+    return this.client.get<Document>(`/api/documents/${documentId}`);
+  }
+
+  /**
+   * Upload a document for processing.
+   */
+  async upload(options: {
+    filename: string;
+    content: string;
+    contentType: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<DocumentUploadResponse> {
+    return this.client.post<DocumentUploadResponse>('/api/documents/upload', {
+      filename: options.filename,
+      content: options.content,
+      content_type: options.contentType,
+      ...(options.metadata && { metadata: options.metadata }),
+    });
+  }
+
+  /**
+   * Delete a document by ID.
+   */
+  async delete(documentId: string): Promise<void> {
+    return this.client.delete(`/api/documents/${documentId}`);
+  }
+
+  /**
+   * Get supported document formats.
+   */
+  async formats(): Promise<SupportedFormats> {
+    return this.client.get<SupportedFormats>('/api/documents/formats');
+  }
+
+  /**
+   * Upload multiple documents as a batch.
+   */
+  async batchUpload(
+    files: Array<{ filename: string; content: string; contentType: string }>,
+    metadata?: Record<string, unknown>
+  ): Promise<BatchUploadResponse> {
+    return this.client.post<BatchUploadResponse>('/api/documents/batch', {
+      files: files.map((f) => ({
+        filename: f.filename,
+        content: f.content,
+        content_type: f.contentType,
+      })),
+      ...(metadata && { metadata }),
+    });
+  }
+
+  /**
+   * Get the status of a batch processing job.
+   */
+  async batchStatus(jobId: string): Promise<BatchJobStatus> {
+    return this.client.get<BatchJobStatus>(`/api/documents/batch/${jobId}`);
+  }
+
+  /**
+   * Get the results of a completed batch job.
+   */
+  async batchResults(jobId: string): Promise<BatchJobResults> {
+    return this.client.get<BatchJobResults>(`/api/documents/batch/${jobId}/results`);
+  }
+
+  /**
+   * Cancel a batch processing job.
+   */
+  async batchCancel(jobId: string): Promise<void> {
+    return this.client.delete(`/api/documents/batch/${jobId}`);
+  }
+
+  /**
+   * Get document processing statistics.
+   */
+  async processingStats(): Promise<ProcessingStats> {
+    return this.client.get<ProcessingStats>('/api/documents/processing/stats');
+  }
+
+  /**
+   * Get chunks for a document.
+   */
+  async chunks(
+    documentId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<DocumentChunk[]> {
+    const data = await this.client.get<{ chunks: DocumentChunk[] }>(
+      `/api/documents/${documentId}/chunks`,
+      {
+        limit: options.limit ?? 100,
+        offset: options.offset ?? 0,
+      }
+    );
+    return data.chunks ?? [];
+  }
+
+  /**
+   * Get LLM-ready context from a document.
+   */
+  async context(
+    documentId: string,
+    options: { maxTokens?: number; model?: string } = {}
+  ): Promise<DocumentContext> {
+    return this.client.get<DocumentContext>(`/api/documents/${documentId}/context`, {
+      max_tokens: options.maxTokens ?? 100000,
+      model: options.model ?? 'gemini-1.5-flash',
+    });
+  }
+
+  /**
+   * Create a new audit session for documents.
+   */
+  async createAudit(
+    documentIds: string[],
+    options: { auditTypes?: string[]; model?: string } = {}
+  ): Promise<AuditSessionCreateResponse> {
+    return this.client.post<AuditSessionCreateResponse>('/api/audit/sessions', {
+      document_ids: documentIds,
+      audit_types: options.auditTypes ?? ['security', 'compliance', 'consistency', 'quality'],
+      model: options.model ?? 'gemini-1.5-flash',
+    });
+  }
+
+  /**
+   * List audit sessions.
+   */
+  async listAudits(options: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+  } = {}): Promise<AuditSession[]> {
+    const data = await this.client.get<{ sessions: AuditSession[] }>('/api/audit/sessions', {
+      limit: options.limit ?? 20,
+      offset: options.offset ?? 0,
+      ...(options.status && { status: options.status }),
+    });
+    return data.sessions ?? [];
+  }
+
+  /**
+   * Get audit session details.
+   */
+  async getAudit(sessionId: string): Promise<AuditSession> {
+    return this.client.get<AuditSession>(`/api/audit/sessions/${sessionId}`);
+  }
+
+  /**
+   * Start an audit session.
+   */
+  async startAudit(sessionId: string): Promise<AuditSession> {
+    return this.client.post<AuditSession>(`/api/audit/sessions/${sessionId}/start`, {});
+  }
+
+  /**
+   * Pause an audit session.
+   */
+  async pauseAudit(sessionId: string): Promise<AuditSession> {
+    return this.client.post<AuditSession>(`/api/audit/sessions/${sessionId}/pause`, {});
+  }
+
+  /**
+   * Resume a paused audit session.
+   */
+  async resumeAudit(sessionId: string): Promise<AuditSession> {
+    return this.client.post<AuditSession>(`/api/audit/sessions/${sessionId}/resume`, {});
+  }
+
+  /**
+   * Cancel an audit session.
+   */
+  async cancelAudit(sessionId: string): Promise<AuditSession> {
+    return this.client.post<AuditSession>(`/api/audit/sessions/${sessionId}/cancel`, {});
+  }
+
+  /**
+   * Get findings from an audit session.
+   */
+  async auditFindings(
+    sessionId: string,
+    options: { severity?: string; auditType?: string } = {}
+  ): Promise<AuditFinding[]> {
+    const data = await this.client.get<{ findings: AuditFinding[] }>(
+      `/api/audit/sessions/${sessionId}/findings`,
+      {
+        ...(options.severity && { severity: options.severity }),
+        ...(options.auditType && { audit_type: options.auditType }),
+      }
+    );
+    return data.findings ?? [];
+  }
+
+  /**
+   * Generate an audit report.
+   */
+  async auditReport(sessionId: string, format: string = 'json'): Promise<AuditReport> {
+    return this.client.get<AuditReport>(`/api/audit/sessions/${sessionId}/report`, { format });
+  }
+}
+
+// =============================================================================
+// Policies API
+// =============================================================================
+
+export class PoliciesAPI {
+  constructor(private client: AragoraClient) {}
+
+  /**
+   * List policies with optional filters.
+   */
+  async list(options: {
+    workspaceId?: string;
+    verticalId?: string;
+    frameworkId?: string;
+    enabledOnly?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ policies: Policy[]; total: number }> {
+    return this.client.get<{ policies: Policy[]; total: number }>('/api/v1/policies', {
+      limit: options.limit ?? 100,
+      offset: options.offset ?? 0,
+      ...(options.workspaceId && { workspace_id: options.workspaceId }),
+      ...(options.verticalId && { vertical_id: options.verticalId }),
+      ...(options.frameworkId && { framework_id: options.frameworkId }),
+      ...(options.enabledOnly && { enabled_only: options.enabledOnly }),
+    });
+  }
+
+  /**
+   * Get policy details.
+   */
+  async get(policyId: string): Promise<Policy> {
+    const data = await this.client.get<{ policy: Policy }>(`/api/v1/policies/${policyId}`);
+    return data.policy ?? (data as unknown as Policy);
+  }
+
+  /**
+   * Create a new policy.
+   */
+  async create(options: {
+    name: string;
+    frameworkId: string;
+    verticalId: string;
+    description?: string;
+    workspaceId?: string;
+    level?: string;
+    enabled?: boolean;
+    rules?: Array<Partial<PolicyRule>>;
+    metadata?: Record<string, unknown>;
+  }): Promise<Policy> {
+    const data = await this.client.post<{ policy: Policy }>('/api/v1/policies', {
+      name: options.name,
+      framework_id: options.frameworkId,
+      vertical_id: options.verticalId,
+      description: options.description ?? '',
+      workspace_id: options.workspaceId ?? 'default',
+      level: options.level ?? 'recommended',
+      enabled: options.enabled ?? true,
+      ...(options.rules && { rules: options.rules }),
+      ...(options.metadata && { metadata: options.metadata }),
+    });
+    return data.policy ?? (data as unknown as Policy);
+  }
+
+  /**
+   * Update a policy.
+   */
+  async update(
+    policyId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      level?: string;
+      enabled?: boolean;
+      rules?: Array<Partial<PolicyRule>>;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<Policy> {
+    const data = await this.client.post<{ policy: Policy }>(`/api/v1/policies/${policyId}`, {
+      ...(updates.name !== undefined && { name: updates.name }),
+      ...(updates.description !== undefined && { description: updates.description }),
+      ...(updates.level !== undefined && { level: updates.level }),
+      ...(updates.enabled !== undefined && { enabled: updates.enabled }),
+      ...(updates.rules !== undefined && { rules: updates.rules }),
+      ...(updates.metadata !== undefined && { metadata: updates.metadata }),
+    });
+    return data.policy ?? (data as unknown as Policy);
+  }
+
+  /**
+   * Delete a policy.
+   */
+  async delete(policyId: string): Promise<void> {
+    return this.client.delete(`/api/v1/policies/${policyId}`);
+  }
+
+  /**
+   * Toggle a policy's enabled status.
+   */
+  async toggle(policyId: string, enabled?: boolean): Promise<Policy> {
+    const data = await this.client.post<{ policy: Policy }>(`/api/v1/policies/${policyId}/toggle`, {
+      ...(enabled !== undefined && { enabled }),
+    });
+    return data.policy ?? (data as unknown as Policy);
+  }
+
+  /**
+   * List policy violations.
+   */
+  async listViolations(options: {
+    policyId?: string;
+    workspaceId?: string;
+    status?: string;
+    severity?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<{ violations: PolicyViolation[]; total: number }> {
+    return this.client.get<{ violations: PolicyViolation[]; total: number }>(
+      '/api/v1/compliance/violations',
+      {
+        limit: options.limit ?? 100,
+        offset: options.offset ?? 0,
+        ...(options.policyId && { policy_id: options.policyId }),
+        ...(options.workspaceId && { workspace_id: options.workspaceId }),
+        ...(options.status && { status: options.status }),
+        ...(options.severity && { severity: options.severity }),
+      }
+    );
+  }
+
+  /**
+   * Get violation details.
+   */
+  async getViolation(violationId: string): Promise<PolicyViolation> {
+    const data = await this.client.get<{ violation: PolicyViolation }>(
+      `/api/v1/compliance/violations/${violationId}`
+    );
+    return data.violation ?? (data as unknown as PolicyViolation);
+  }
+
+  /**
+   * Update violation status.
+   */
+  async updateViolation(
+    violationId: string,
+    status: string,
+    resolutionNotes?: string
+  ): Promise<PolicyViolation> {
+    const data = await this.client.post<{ violation: PolicyViolation }>(
+      `/api/v1/compliance/violations/${violationId}`,
+      {
+        status,
+        ...(resolutionNotes && { resolution_notes: resolutionNotes }),
+      }
+    );
+    return data.violation ?? (data as unknown as PolicyViolation);
+  }
+
+  /**
+   * Run compliance check on content.
+   */
+  async check(
+    content: string,
+    options: {
+      frameworks?: string[];
+      minSeverity?: string;
+      storeViolations?: boolean;
+      workspaceId?: string;
+    } = {}
+  ): Promise<ComplianceCheckResult> {
+    return this.client.post<ComplianceCheckResult>('/api/v1/compliance/check', {
+      content,
+      min_severity: options.minSeverity ?? 'low',
+      store_violations: options.storeViolations ?? false,
+      workspace_id: options.workspaceId ?? 'default',
+      ...(options.frameworks && { frameworks: options.frameworks }),
+    });
+  }
+
+  /**
+   * Get compliance statistics.
+   */
+  async getStats(workspaceId?: string): Promise<ComplianceStats> {
+    return this.client.get<ComplianceStats>('/api/v1/compliance/stats', {
+      ...(workspaceId && { workspace_id: workspaceId }),
+    });
+  }
+}
+
 export class AragoraClient {
   public readonly baseUrl: string;
   private apiKey?: string;
@@ -1761,6 +2318,9 @@ export class AragoraClient {
   public readonly rbac: RBACAPI;
   public readonly auth: AuthAPI;
   public readonly codebase: CodebaseAPI;
+  public readonly decisions: DecisionsAPI;
+  public readonly documents: DocumentsAPI;
+  public readonly policies: PoliciesAPI;
 
   constructor(baseUrl: string = 'http://localhost:8080', options: AragoraClientOptions = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '');

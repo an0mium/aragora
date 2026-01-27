@@ -1229,3 +1229,226 @@ export interface CodebaseAnalysisRequest {
   complexity_warning?: number;
   complexity_error?: number;
 }
+
+// =============================================================================
+// Decisions Types
+// =============================================================================
+
+export type DecisionType = 'debate' | 'workflow' | 'gauntlet' | 'quick' | 'auto';
+export type DecisionPriority = 'high' | 'normal' | 'low';
+export type DecisionStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface DecisionConfig {
+  agents: string[];
+  rounds: number;
+  consensus: string;
+  timeout_seconds: number;
+}
+
+export interface DecisionContext {
+  user_id?: string;
+  workspace_id?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ResponseChannel {
+  platform: string;
+  target?: string;
+  options?: Record<string, unknown>;
+}
+
+export interface DecisionResult {
+  request_id: string;
+  status: DecisionStatus;
+  decision_type: DecisionType;
+  content: string;
+  result?: Record<string, unknown>;
+  error?: string;
+  created_at?: string;
+  completed_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DecisionStatusResponse {
+  request_id: string;
+  status: DecisionStatus;
+  progress: number;
+  current_stage?: string;
+  estimated_remaining_seconds?: number;
+}
+
+// =============================================================================
+// Documents Types
+// =============================================================================
+
+export type DocumentStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface Document {
+  id: string;
+  filename: string;
+  content_type: string;
+  status: DocumentStatus;
+  size_bytes?: number;
+  metadata?: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DocumentUploadResponse {
+  document_id: string;
+  status: DocumentStatus;
+  message?: string;
+}
+
+export interface SupportedFormats {
+  formats: string[];
+  mime_types: string[];
+}
+
+export interface BatchUploadResponse {
+  job_id: string;
+  status: string;
+  files_count: number;
+}
+
+export interface BatchJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  total: number;
+  completed: number;
+  failed: number;
+}
+
+export interface BatchJobResults {
+  job_id: string;
+  documents: Document[];
+  errors: Array<{ filename: string; error: string }>;
+}
+
+export interface ProcessingStats {
+  total_documents: number;
+  pending: number;
+  processing: number;
+  completed: number;
+  failed: number;
+}
+
+export interface DocumentChunk {
+  id: string;
+  document_id: string;
+  content: string;
+  position: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface DocumentContext {
+  content: string;
+  token_count: number;
+  truncated: boolean;
+  chunks_included: number;
+}
+
+export interface AuditSession {
+  id: string;
+  status: string;
+  document_ids: string[];
+  audit_types: string[];
+  model: string;
+  progress: number;
+  created_at?: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface AuditSessionCreateResponse {
+  session_id: string;
+  status: string;
+}
+
+export interface AuditFinding {
+  id: string;
+  session_id: string;
+  document_id: string;
+  audit_type: string;
+  severity: string;
+  title: string;
+  description: string;
+  location?: string;
+  recommendation?: string;
+}
+
+export interface AuditReport {
+  session_id: string;
+  format: string;
+  content: string;
+  generated_at: string;
+}
+
+// =============================================================================
+// Policies Types
+// =============================================================================
+
+export type PolicyLevel = 'required' | 'recommended' | 'optional';
+export type ViolationStatus = 'open' | 'investigating' | 'resolved' | 'false_positive';
+
+export interface PolicyRule {
+  id: string;
+  name: string;
+  description: string;
+  condition: string;
+  severity: string;
+  enabled: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface Policy {
+  id: string;
+  name: string;
+  description: string;
+  framework_id: string;
+  workspace_id: string;
+  vertical_id: string;
+  level: PolicyLevel;
+  enabled: boolean;
+  rules: PolicyRule[];
+  created_at?: string;
+  updated_at?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PolicyViolation {
+  id: string;
+  policy_id: string;
+  rule_id: string;
+  rule_name: string;
+  framework_id: string;
+  vertical_id: string;
+  workspace_id: string;
+  severity: string;
+  status: ViolationStatus;
+  description: string;
+  source: string;
+  created_at?: string;
+  resolved_at?: string;
+  resolved_by?: string;
+  resolution_notes?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ComplianceCheckResult {
+  compliant: boolean;
+  score: number;
+  issues: Array<Record<string, unknown>>;
+  checked_at?: string;
+}
+
+export interface ComplianceStats {
+  policies_total: number;
+  policies_enabled: number;
+  policies_disabled: number;
+  violations_total: number;
+  violations_open: number;
+  violations_by_severity: Record<string, number>;
+  risk_score: number;
+}
