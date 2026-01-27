@@ -31,6 +31,7 @@ from ..base import (
     require_user_auth,
     safe_error_message,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,7 @@ class SchedulerHandler(BaseHandler):
         return get_scheduler()
 
     @require_user_auth
+    @require_permission("scheduler:read")
     @handle_errors("list jobs")
     def _list_jobs(self, query_params: dict, user=None) -> HandlerResult:
         """List all scheduled jobs."""
@@ -155,6 +157,7 @@ class SchedulerHandler(BaseHandler):
         )
 
     @require_user_auth
+    @require_permission("scheduler:read")
     @handle_errors("get job")
     def _get_job(self, job_id: str, user=None) -> HandlerResult:
         """Get details of a specific job."""
@@ -167,6 +170,7 @@ class SchedulerHandler(BaseHandler):
         return json_response(job.to_dict())
 
     @require_user_auth
+    @require_permission("scheduler:create")
     @handle_errors("create job")
     def _create_job(self, handler, user=None) -> HandlerResult:
         """
@@ -251,6 +255,7 @@ class SchedulerHandler(BaseHandler):
         )
 
     @require_user_auth
+    @require_permission("scheduler:delete")
     @handle_errors("delete job")
     def _delete_job(self, job_id: str, user=None) -> HandlerResult:
         """Delete a scheduled job."""
@@ -268,6 +273,7 @@ class SchedulerHandler(BaseHandler):
             return error_response(f"Failed to delete job: {job_id}", 500)
 
     @require_user_auth
+    @require_permission("scheduler:execute")
     @handle_errors("trigger job")
     def _trigger_job(self, job_id: str, user=None) -> HandlerResult:
         """Manually trigger a job execution."""
@@ -294,6 +300,7 @@ class SchedulerHandler(BaseHandler):
             return error_response(safe_error_message(e, "Failed to trigger job"), 500)
 
     @require_user_auth
+    @require_permission("scheduler:update")
     @handle_errors("pause job")
     def _pause_job(self, job_id: str, user=None) -> HandlerResult:
         """Pause a scheduled job."""
@@ -310,6 +317,7 @@ class SchedulerHandler(BaseHandler):
             return error_response(f"Could not pause job: {job_id}", 400)
 
     @require_user_auth
+    @require_permission("scheduler:update")
     @handle_errors("resume job")
     def _resume_job(self, job_id: str, user=None) -> HandlerResult:
         """Resume a paused job."""
@@ -326,6 +334,7 @@ class SchedulerHandler(BaseHandler):
             return error_response(f"Could not resume job: {job_id}", 400)
 
     @require_user_auth
+    @require_permission("scheduler:read")
     @handle_errors("job history")
     def _get_job_history(self, job_id: str, limit: int = 10, user=None) -> HandlerResult:
         """Get run history for a job."""
@@ -452,6 +461,7 @@ class SchedulerHandler(BaseHandler):
             return error_response(safe_error_message(e, "Git push handling"), 500)
 
     @require_user_auth
+    @require_permission("scheduler:execute")
     @handle_errors("file upload event")
     def _handle_file_upload(self, handler, user=None) -> HandlerResult:
         """

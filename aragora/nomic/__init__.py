@@ -122,6 +122,64 @@ from aragora.nomic.branch_coordinator import (
 # Legacy NomicLoop API (compatibility)
 from aragora.nomic.loop import NomicLoop
 
+# Gastown Patterns - Beads (git-backed work persistence)
+from aragora.nomic.beads import (
+    Bead,
+    BeadEvent,
+    BeadPriority,
+    BeadStatus,
+    BeadStore,
+    BeadType,
+    create_bead_store,
+    get_bead_store,
+    reset_bead_store,
+)
+
+# Gastown Patterns - Convoys (grouped work orders)
+from aragora.nomic.convoys import (
+    Convoy,
+    ConvoyManager,
+    ConvoyPriority,
+    ConvoyProgress,
+    ConvoyStatus,
+    get_convoy_manager,
+    reset_convoy_manager,
+)
+
+# Gastown Patterns - Hook Queue (GUPP recovery)
+from aragora.nomic.hook_queue import (
+    HookEntry,
+    HookEntryStatus,
+    HookQueue,
+    HookQueueRegistry,
+    get_hook_queue_registry,
+    reset_hook_queue_registry,
+)
+
+# Gastown Patterns - Agent Roles (hierarchical coordination)
+from aragora.nomic.agent_roles import (
+    AgentHierarchy,
+    AgentRole,
+    RoleAssignment,
+    RoleBasedRouter,
+    RoleCapability,
+    get_agent_hierarchy,
+    reset_agent_hierarchy,
+)
+
+# Gastown Patterns - Molecules (durable workflows)
+from aragora.nomic.molecules import (
+    Molecule,
+    MoleculeEngine,
+    MoleculeResult,
+    MoleculeStatus,
+    MoleculeStep,
+    StepExecutor,
+    StepStatus,
+    get_molecule_engine,
+    reset_molecule_engine,
+)
+
 # Cross-cycle learning
 from aragora.nomic.cycle_record import (
     AgentContribution,
@@ -357,4 +415,47 @@ __all__ = [
     "save_cycle",
     # Legacy API
     "NomicLoop",
+    # Gastown Patterns - Beads
+    "Bead",
+    "BeadType",
+    "BeadStatus",
+    "BeadPriority",
+    "BeadStore",
+    "BeadEvent",
+    "create_bead_store",
+    "get_bead_store",
+    "reset_bead_store",
+    # Gastown Patterns - Convoys
+    "Convoy",
+    "ConvoyStatus",
+    "ConvoyPriority",
+    "ConvoyProgress",
+    "ConvoyManager",
+    "get_convoy_manager",
+    "reset_convoy_manager",
+    # Gastown Patterns - Hook Queue (GUPP)
+    "HookEntry",
+    "HookEntryStatus",
+    "HookQueue",
+    "HookQueueRegistry",
+    "get_hook_queue_registry",
+    "reset_hook_queue_registry",
+    # Gastown Patterns - Agent Roles
+    "AgentRole",
+    "RoleCapability",
+    "RoleAssignment",
+    "AgentHierarchy",
+    "RoleBasedRouter",
+    "get_agent_hierarchy",
+    "reset_agent_hierarchy",
+    # Gastown Patterns - Molecules
+    "Molecule",
+    "MoleculeStep",
+    "MoleculeStatus",
+    "StepStatus",
+    "MoleculeResult",
+    "MoleculeEngine",
+    "StepExecutor",
+    "get_molecule_engine",
+    "reset_molecule_engine",
 ]

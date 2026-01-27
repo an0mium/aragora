@@ -492,14 +492,16 @@ class TestFeaturedAndTrending:
         # Mark template as featured
         _marketplace_templates["tpl-123"].is_featured = True
 
-        result = marketplace_handler._get_featured()
+        raw_result = marketplace_handler._get_featured()
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "templates" in result["data"]
 
     def test_get_trending_templates(self, mock_marketplace_state, marketplace_handler):
         """Test getting trending templates."""
-        result = marketplace_handler._get_trending({"period": "week"})
+        raw_result = marketplace_handler._get_trending({"period": "week"})
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "templates" in result["data"]
@@ -507,7 +509,8 @@ class TestFeaturedAndTrending:
     def test_get_trending_different_periods(self, mock_marketplace_state, marketplace_handler):
         """Test trending with different time periods."""
         for period in ["week", "month"]:
-            result = marketplace_handler._get_trending({"period": period})
+            raw_result = marketplace_handler._get_trending({"period": period})
+            result = parse_result(raw_result)
             assert result["success"] is True, f"Failed for period={period}"
 
 
@@ -516,14 +519,16 @@ class TestCategories:
 
     def test_get_categories(self, mock_marketplace_state, marketplace_handler):
         """Test getting all categories."""
-        result = marketplace_handler._get_categories()
+        raw_result = marketplace_handler._get_categories()
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         assert "categories" in result["data"]
 
     def test_categories_include_counts(self, mock_marketplace_state, marketplace_handler):
         """Test categories include template counts."""
-        result = marketplace_handler._get_categories()
+        raw_result = marketplace_handler._get_categories()
+        result = parse_result(raw_result)
 
         assert result["success"] is True
         for category in result["data"]["categories"]:
@@ -554,7 +559,8 @@ class TestHandlerRouting:
         mock_handler.path = "/api/v1/marketplace/templates"
         mock_handler.command = "GET"
 
-        result = marketplace_handler.handle("/api/v1/marketplace/templates", {}, mock_handler)
+        raw_result = marketplace_handler.handle("/api/v1/marketplace/templates", {}, mock_handler)
+        result = parse_result(raw_result)
 
         assert result["success"] is True
 
@@ -573,28 +579,34 @@ class TestDataValidation:
             # Test rating too low
             mock_handler.headers = {"Content-Length": "15"}
             mock_handler.rfile.read.return_value = b'{"rating": 0}'
-            result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
             assert result["success"] is False
 
             # Test rating too high
             mock_handler.headers = {"Content-Length": "15"}
             mock_handler.rfile.read.return_value = b'{"rating": 6}'
-            result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
             assert result["success"] is False
 
             # Test valid ratings
             for rating in [1, 2, 3, 4, 5]:
                 mock_handler.headers = {"Content-Length": "15"}
                 mock_handler.rfile.read.return_value = f'{{"rating": {rating}}}'.encode()
-                result = marketplace_handler._rate_template("tpl-123", mock_handler, "127.0.0.1")
+                raw_result = marketplace_handler._rate_template(
+                    "tpl-123", mock_handler, "127.0.0.1"
+                )
+                result = parse_result(raw_result)
                 assert result["success"] is True, f"Failed for rating={rating}"
 
     def test_limit_bounds(self, mock_marketplace_state, marketplace_handler):
         """Test limit parameter bounds."""
         # Max limit should be 50
-        result = marketplace_handler._list_templates({"limit": "100"})
+        raw_result = marketplace_handler._list_templates({"limit": "100"})
+        result = parse_result(raw_result)
         assert result["success"] is True
-        assert result["data"]["pagination"]["limit"] <= 50
+        assert result["data"]["limit"] <= 50
 
     def test_template_id_generation(self, mock_marketplace_state, marketplace_handler):
         """Test template IDs are generated correctly."""
@@ -609,7 +621,8 @@ class TestDataValidation:
             "aragora.server.handlers.template_marketplace._publish_limiter.is_allowed",
             return_value=True,
         ):
-            result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            raw_result = marketplace_handler._publish_template(mock_handler, "127.0.0.1")
+            result = parse_result(raw_result)
 
         assert result["success"] is True
         # ID is generated as category/name-slug format

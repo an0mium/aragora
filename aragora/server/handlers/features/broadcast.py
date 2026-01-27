@@ -28,6 +28,7 @@ from ..base import (
     get_string_param,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 

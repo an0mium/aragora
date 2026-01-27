@@ -131,7 +131,7 @@ class TestFilterAvailableAgents:
         if len(specs) < 2:
             pytest.skip("Need at least 2 unavailable agents to test minimum threshold")
 
-        with pytest.raises(ValueError, match="Not enough agents"):
+        with pytest.raises(ValueError, match="agents have valid credentials"):
             filter_available_agents(specs, log_filtered=False, min_agents=2)
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "key1", "OPENAI_API_KEY": "key2"}, clear=False)
