@@ -275,6 +275,13 @@ class CritiqueGenerator:
         proposal_agent = crit_result.target_agent
 
         if crit_result.critique and _is_effectively_empty_critique(crit_result.critique):
+            provider = getattr(critic, "provider", None) or getattr(critic, "model_type", "unknown")
+            logger.warning(
+                "critique_empty_response critic=%s provider=%s target=%s",
+                critic.name,
+                provider,
+                proposal_agent,
+            )
             crit_result.critique = None
 
         if crit_result.error:

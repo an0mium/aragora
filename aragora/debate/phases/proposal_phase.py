@@ -74,6 +74,9 @@ class ProposalPhase:
         update_role_assignments: Optional[Callable] = None,
         record_grounded_position: Optional[Callable] = None,
         extract_citation_needs: Optional[Callable] = None,
+        # Propulsion engine for push-based work assignment (Gastown pattern)
+        propulsion_engine: Any = None,
+        enable_propulsion: bool = False,
     ):
         """
         Initialize the proposal phase.
@@ -108,6 +111,10 @@ class ProposalPhase:
         self._update_role_assignments = update_role_assignments
         self._record_grounded_position = record_grounded_position
         self._extract_citation_needs = extract_citation_needs
+
+        # Propulsion engine for push-based work assignment
+        self._propulsion_engine = propulsion_engine
+        self._enable_propulsion = enable_propulsion
 
     async def execute(self, ctx: "DebateContextType") -> None:
         """
@@ -161,6 +168,9 @@ class ProposalPhase:
         # 7. Extract citation needs
         if self._extract_citation_needs:
             self._extract_citation_needs(ctx.proposals)
+
+        # 8. Fire propulsion event (proposals_ready) for push-based flow
+        await self._fire_propulsion_event(ctx)
 
     def _emit_debate_start(self, ctx: "DebateContextType") -> None:
         """Emit debate start hook event."""
@@ -270,7 +280,25 @@ class ProposalPhase:
         """Process a proposal result from an agent."""
         from aragora.core import Message
 
+        def _is_effectively_empty_response(content: Any) -> bool:
+            if not isinstance(content, str):
+                return False
+            normalized = content.strip().lower()
+            return not normalized or normalized in (
+                "agent response was empty",
+                "(agent produced empty output)",
+                "agent produced empty output",
+            )
+
         is_error = isinstance(result_or_error, Exception)
+
+        if not is_error and _is_effectively_empty_response(result_or_error):
+            provider = getattr(agent, "provider", None) or getattr(agent, "model_type", "unknown")
+            logger.warning(
+                f"agent_empty_response agent={agent.name} provider={provider} phase=proposal"
+            )
+            result_or_error = ValueError("Agent response was empty")
+            is_error = True
 
         if is_error:
             logger.error(f"agent_error agent={agent.name} phase=proposal error={result_or_error}")
@@ -409,3 +437,45 @@ class ProposalPhase:
                 )
             except Exception as e:
                 logger.debug(f"Spectator notification failed: {e}")
+
+    async def _fire_propulsion_event(self, ctx: "DebateContextType") -> None:
+        """Fire propulsion event to push work to the next stage.
+
+        Triggers "proposals_ready" event with all generated proposals,
+        enabling reactive debate flow via the Gastown pattern.
+
+        Args:
+            ctx: The DebateContext with proposals
+        """
+        if not self._enable_propulsion or not self._propulsion_engine:
+            return
+
+        try:
+            from aragora.debate.propulsion import PropulsionPayload, PropulsionPriority
+
+            # Create payload with proposal data
+            payload = PropulsionPayload(
+                data={
+                    "proposals": dict(ctx.proposals),
+                    "agent_count": len(ctx.proposals),
+                    "debate_id": getattr(ctx, "debate_id", None),
+                    "task": ctx.env.task[:200] if ctx.env else None,
+                },
+                priority=PropulsionPriority.NORMAL,
+                source_stage="proposal_phase",
+                source_molecule_id=getattr(ctx, "debate_id", None),
+            )
+
+            # Fire the propulsion event
+            results = await self._propulsion_engine.propel("proposals_ready", payload)
+
+            if results:
+                success_count = sum(1 for r in results if r.success)
+                logger.info(
+                    f"[propulsion] proposals_ready fired "
+                    f"handlers={len(results)} success={success_count}"
+                )
+        except ImportError:
+            logger.debug("[propulsion] PropulsionEngine imports unavailable")
+        except Exception as e:
+            logger.warning(f"[propulsion] Failed to fire proposals_ready: {e}")

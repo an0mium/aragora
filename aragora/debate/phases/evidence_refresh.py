@@ -59,6 +59,8 @@ class EvidenceRefresher:
         hooks: Optional[dict] = None,
         notify_spectator: Optional[Callable] = None,
         timeout: float = DEFAULT_CALLBACK_TIMEOUT,
+        skill_registry=None,
+        enable_skills: bool = False,
     ):
         """
         Initialize the evidence refresher.
@@ -69,11 +71,15 @@ class EvidenceRefresher:
             hooks: Dictionary of event hooks
             notify_spectator: Callback for spectator notifications
             timeout: Timeout in seconds for refresh operations
+            skill_registry: Optional SkillRegistry for skill-based evidence
+            enable_skills: Whether to invoke skills for evidence refresh
         """
         self._refresh_evidence = refresh_callback
         self.hooks = hooks or {}
         self._notify_spectator = notify_spectator
         self._timeout = timeout
+        self.skill_registry = skill_registry
+        self.enable_skills = enable_skills
 
     async def refresh_for_round(
         self,
@@ -131,15 +137,26 @@ class EvidenceRefresher:
                 default=0,  # Return 0 snippets on timeout
             )
 
-            if refreshed:
-                logger.info(f"evidence_refreshed round={round_num} new_snippets={refreshed}")
+            # Also invoke skills for evidence refresh if enabled
+            skill_snippets = 0
+            if self.enable_skills and self.skill_registry:
+                skill_snippets = await self._refresh_with_skills(combined_text, ctx)
+                if skill_snippets:
+                    logger.info(
+                        f"skill_evidence_refreshed round={round_num} new_snippets={skill_snippets}"
+                    )
+
+            total_refreshed = (refreshed or 0) + skill_snippets
+
+            if total_refreshed:
+                logger.info(f"evidence_refreshed round={round_num} new_snippets={total_refreshed}")
 
                 # Notify spectator
                 if self._notify_spectator:
                     self._notify_spectator(
                         "evidence",
-                        details=f"Refreshed evidence: {refreshed} new sources",
-                        metric=refreshed,
+                        details=f"Refreshed evidence: {total_refreshed} new sources",
+                        metric=total_refreshed,
                         agent="system",
                     )
 
@@ -147,11 +164,98 @@ class EvidenceRefresher:
                 if "on_evidence_refresh" in self.hooks:
                     self.hooks["on_evidence_refresh"](
                         round_num=round_num,
-                        new_snippets=refreshed,
+                        new_snippets=total_refreshed,
                     )
 
-            return refreshed or 0
+            return total_refreshed
 
         except Exception as e:
             logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
+            return 0
+
+    async def _refresh_with_skills(
+        self,
+        text: str,
+        ctx: "DebateContext",
+    ) -> int:
+        """Refresh evidence using skills for claim-specific searches.
+
+        Args:
+            text: Combined text from proposals and critiques
+            ctx: The DebateContext
+
+        Returns:
+            Number of new evidence snippets from skills
+        """
+        if not self.skill_registry or not self.enable_skills:
+            return 0
+
+        try:
+            from aragora.reasoning.evidence_collector import EvidenceSnippet
+            from aragora.skills import SkillCapability, SkillContext, SkillStatus
+
+            # Create skill execution context
+            skill_ctx = SkillContext(
+                user_id="debate-system",
+                permissions={"debate:evidence"},
+                metadata={"source": "evidence_refresh", "text_length": len(text)},
+            )
+
+            # Find debate-compatible skills
+            debate_skills = []
+            for skill in self.skill_registry.list_skills():
+                manifest = skill.manifest
+                if SkillCapability.EXTERNAL_API in manifest.capabilities:
+                    if hasattr(manifest, "tags") and "debate" in getattr(manifest, "tags", []):
+                        debate_skills.append(skill)
+                    elif manifest.name in ("web_search", "search", "research"):
+                        debate_skills.append(skill)
+
+            if not debate_skills:
+                return 0
+
+            # Extract key claims/queries from text (simple heuristic)
+            # Use first 500 chars as a focused query
+            query = text[:500] if len(text) > 500 else text
+
+            snippets_added = 0
+            for skill in debate_skills[:2]:  # Limit to 2 skills per refresh
+                try:
+                    result = await asyncio.wait_for(
+                        self.skill_registry.invoke(
+                            skill.manifest.name,
+                            {"query": query},
+                            skill_ctx,
+                        ),
+                        timeout=8.0,  # Shorter timeout for refresh
+                    )
+
+                    if result.status == SkillStatus.SUCCESS and result.output:
+                        snippet = EvidenceSnippet(
+                            content=str(result.output)[:2000],
+                            source=f"skill:{skill.manifest.name}",
+                            relevance=0.65,  # Slightly lower relevance for refresh
+                            metadata={
+                                "skill": skill.manifest.name,
+                                "refresh": True,
+                            },
+                        )
+
+                        # Add to evidence pack if exists
+                        if ctx.evidence_pack:
+                            ctx.evidence_pack.snippets.append(snippet)
+                            snippets_added += 1
+
+                except asyncio.TimeoutError:
+                    logger.debug(f"[skills] Refresh timeout for {skill.manifest.name}")
+                except Exception as e:
+                    logger.debug(f"[skills] Refresh error for {skill.manifest.name}: {e}")
+
+            return snippets_added
+
+        except ImportError as e:
+            logger.debug(f"[skills] Refresh skipped (missing imports): {e}")
+            return 0
+        except Exception as e:
+            logger.warning(f"[skills] Refresh error: {e}")
             return 0

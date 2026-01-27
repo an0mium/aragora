@@ -190,6 +190,10 @@ class Arena:
         auto_evolve: bool = False,  # Trigger evolution after high-quality debates
         breeding_threshold: float = 0.8,  # Min confidence to trigger evolution
         evidence_collector=None,  # Optional EvidenceCollector for auto-collecting evidence
+        skill_registry=None,  # Optional SkillRegistry for extensible capabilities
+        enable_skills: bool = False,  # Enable skills during evidence collection
+        propulsion_engine=None,  # Optional PropulsionEngine for push-based work assignment
+        enable_propulsion: bool = False,  # Enable propulsion events at stage transitions
         breakpoint_manager=None,  # Optional BreakpointManager for human-in-the-loop
         checkpoint_manager=None,  # Optional CheckpointManager for debate resume
         enable_checkpointing: bool = True,  # Auto-create CheckpointManager if True (enables debate resume)
@@ -305,6 +309,21 @@ class Arena:
 
         # Unpack core components to instance attributes
         self._apply_core_components(core)
+
+        # Skills system for extensible capabilities (evidence collection, etc.)
+        self.skill_registry = skill_registry
+        self.enable_skills = enable_skills
+        if skill_registry and enable_skills:
+            logger.info(
+                f"[skills] Skill registry attached with {skill_registry.count()} skills "
+                f"(debate evidence collection enabled)"
+            )
+
+        # Propulsion engine for push-based work assignment (Gastown pattern)
+        self.propulsion_engine = propulsion_engine
+        self.enable_propulsion = enable_propulsion
+        if propulsion_engine and enable_propulsion:
+            logger.info("[propulsion] PropulsionEngine attached (reactive debate flow enabled)")
 
         # Auto-create Knowledge Mound if not provided (recommended for decision engine)
         if knowledge_mound is None and auto_create_knowledge_mound:

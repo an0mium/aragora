@@ -252,6 +252,9 @@ def init_phases(arena: "Arena") -> None:
         enable_knowledge_retrieval=getattr(arena, "enable_knowledge_retrieval", True),
         cross_debate_memory=getattr(arena, "cross_debate_memory", None),
         enable_cross_debate_memory=getattr(arena, "enable_cross_debate_memory", True),
+        # Skills system for extensible evidence collection
+        skill_registry=getattr(arena, "skill_registry", None),
+        enable_skills=getattr(arena, "enable_skills", False),
         fetch_historical_context=arena._fetch_historical_context,
         format_patterns_for_prompt=arena._format_patterns_for_prompt,
         get_successful_patterns_from_memory=arena._get_successful_patterns_from_memory,
@@ -274,6 +277,9 @@ def init_phases(arena: "Arena") -> None:
         update_role_assignments=arena._update_role_assignments,
         record_grounded_position=arena._record_grounded_position,
         extract_citation_needs=arena._extract_citation_needs,
+        # Propulsion engine for push-based work assignment
+        propulsion_engine=getattr(arena, "propulsion_engine", None),
+        enable_propulsion=getattr(arena, "enable_propulsion", False),
     )
 
     # Initialize optional advanced features based on protocol flags
@@ -347,6 +353,12 @@ def init_phases(arena: "Arena") -> None:
         rlm_compression_round_threshold=getattr(arena, "rlm_compression_round_threshold", 3),
         # Adaptive rounds based on memory-aware debate strategy
         debate_strategy=getattr(arena, "debate_strategy", None),
+        # Skills system for evidence refresh during rounds
+        skill_registry=getattr(arena, "skill_registry", None),
+        enable_skills=getattr(arena, "enable_skills", False),
+        # Propulsion engine for push-based work assignment
+        propulsion_engine=getattr(arena, "propulsion_engine", None),
+        enable_propulsion=getattr(arena, "enable_propulsion", False),
     )
 
     # Phase 3: Consensus Resolution

@@ -123,6 +123,14 @@ class ArenaConfig:
     circuit_breaker: Optional[CircuitBreaker] = None
     evidence_collector: Optional[EvidenceCollectorProtocol] = None
 
+    # Skills system integration
+    skill_registry: Optional[Any] = None  # SkillRegistry for extensible capabilities
+    enable_skills: bool = False  # Enable skills during evidence collection
+
+    # Propulsion engine for push-based work assignment (Gastown pattern)
+    propulsion_engine: Optional[Any] = None  # PropulsionEngine for reactive debate flow
+    enable_propulsion: bool = False  # Enable propulsion events at stage transitions
+
     # Agent configuration
     agent_weights: Optional[Dict[str, float]] = None
 
@@ -515,6 +523,10 @@ class ArenaConfig:
             "auto_evolve": self.auto_evolve,
             "breeding_threshold": self.breeding_threshold,
             "evidence_collector": self.evidence_collector,
+            "skill_registry": self.skill_registry,
+            "enable_skills": self.enable_skills,
+            "propulsion_engine": self.propulsion_engine,
+            "enable_propulsion": self.enable_propulsion,
             "breakpoint_manager": self.breakpoint_manager,
             "performance_monitor": self.performance_monitor,
             "enable_performance_monitor": self.enable_performance_monitor,

@@ -362,9 +362,10 @@ class DebateContext:
             if self.debate_id:
                 self.result.debate_id = self.debate_id
                 self.result.id = self.debate_id
-            self.result.status = (
-                "consensus_reached" if self.result.consensus_reached else "completed"
-            )
+            if not self.result.status:
+                self.result.status = (
+                    "consensus_reached" if self.result.consensus_reached else "completed"
+                )
         return self.result
 
     def to_summary_dict(self) -> dict:

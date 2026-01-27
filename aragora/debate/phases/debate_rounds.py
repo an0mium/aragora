@@ -148,6 +148,10 @@ class DebateRoundsPhase:
         compress_context: Optional[Callable] = None,  # Async callback to compress debate messages
         rlm_compression_round_threshold: int = 3,  # Start compression after this many rounds
         debate_strategy: Any = None,  # DebateStrategy for adaptive round estimation
+        skill_registry: Any = None,  # SkillRegistry for skill-based evidence refresh
+        enable_skills: bool = False,  # Enable skill invocation during evidence refresh
+        propulsion_engine: Any = None,  # PropulsionEngine for push-based work assignment
+        enable_propulsion: bool = False,  # Enable propulsion events at stage transitions
     ):
         """
         Initialize the debate rounds phase.
@@ -180,6 +184,8 @@ class DebateRoundsPhase:
             compress_context: Async callback to compress debate messages using RLM
             rlm_compression_round_threshold: Start compression after this many rounds (default 3)
             debate_strategy: Optional DebateStrategy for memory-based round estimation
+            skill_registry: Optional SkillRegistry for skill-based evidence refresh
+            enable_skills: Enable skill invocation during evidence refresh
         """
         self.protocol = protocol
         self.debate_strategy = debate_strategy
@@ -210,6 +216,10 @@ class DebateRoundsPhase:
         self._context_initializer = context_initializer
         self._compress_context = compress_context
         self._rlm_compression_round_threshold = rlm_compression_round_threshold
+        self._skill_registry = skill_registry
+        self._enable_skills = enable_skills
+        self._propulsion_engine = propulsion_engine
+        self._enable_propulsion = enable_propulsion
 
         # Internal state
         self._partial_messages: list["Message"] = []
@@ -444,13 +454,38 @@ class DebateRoundsPhase:
         with perf_monitor.track_phase(ctx.debate_id, "critique"):
             await self._critique_phase(ctx, critics, round_num)
 
+        # Fire propulsion event: critiques ready for next stage
+        await self._fire_propulsion_event(
+            "critiques_ready",
+            ctx,
+            round_num,
+            {"critique_count": len(self._partial_critiques)},
+        )
+
         # Refresh evidence based on claims made in critiques and proposals
         with perf_monitor.track_phase(ctx.debate_id, "evidence_refresh"):
             await self._refresh_evidence_for_round(ctx, round_num)
 
+        # Fire propulsion event: evidence ready
+        evidence_count = len(ctx.evidence_pack.snippets) if ctx.evidence_pack else 0
+        await self._fire_propulsion_event(
+            "evidence_ready",
+            ctx,
+            round_num,
+            {"evidence_count": evidence_count},
+        )
+
         # Revision phase with performance tracking
         with perf_monitor.track_phase(ctx.debate_id, "revision"):
             await self._revision_phase(ctx, critics, round_num)
+
+        # Fire propulsion event: revisions complete
+        await self._fire_propulsion_event(
+            "revisions_complete",
+            ctx,
+            round_num,
+            {"proposal_count": len(ctx.proposals)},
+        )
 
         # Track novelty of revised proposals
         self._convergence_tracker.track_novelty(ctx, round_num)
@@ -651,6 +686,15 @@ class DebateRoundsPhase:
                 and not isinstance(crit_result, Exception)
                 and _is_effectively_empty_critique(crit_result)
             ):
+                provider = getattr(critic, "provider", None) or getattr(
+                    critic, "model_type", "unknown"
+                )
+                logger.warning(
+                    "critique_empty_response critic=%s provider=%s target=%s",
+                    critic.name,
+                    provider,
+                    proposal_agent,
+                )
                 crit_result = None
 
             if isinstance(crit_result, Exception):
@@ -1011,15 +1055,22 @@ class DebateRoundsPhase:
                 default=0,  # Return 0 snippets on timeout
             )
 
-            if refreshed:
-                logger.info(f"evidence_refreshed round={round_num} new_snippets={refreshed}")
+            # Also invoke skills for evidence refresh if enabled
+            skill_snippets = 0
+            if self._enable_skills and self._skill_registry:
+                skill_snippets = await self._refresh_with_skills(combined_text, ctx)
+
+            total_refreshed = (refreshed or 0) + skill_snippets
+
+            if total_refreshed:
+                logger.info(f"evidence_refreshed round={round_num} new_snippets={total_refreshed}")
 
                 # Notify spectator
                 if self._notify_spectator:
                     self._notify_spectator(
                         "evidence",
-                        details=f"Refreshed evidence: {refreshed} new sources",
-                        metric=refreshed,
+                        details=f"Refreshed evidence: {total_refreshed} new sources",
+                        metric=total_refreshed,
                         agent="system",
                     )
 
@@ -1027,11 +1078,99 @@ class DebateRoundsPhase:
                 if "on_evidence_refresh" in self.hooks:
                     self.hooks["on_evidence_refresh"](
                         round_num=round_num,
-                        new_snippets=refreshed,
+                        new_snippets=total_refreshed,
                     )
 
         except Exception as e:
             logger.warning(f"Evidence refresh failed for round {round_num}: {e}")
+
+    async def _refresh_with_skills(
+        self,
+        text: str,
+        ctx: "DebateContext",
+    ) -> int:
+        """Refresh evidence using skills for claim-specific searches.
+
+        Args:
+            text: Combined text from proposals and critiques
+            ctx: The DebateContext
+
+        Returns:
+            Number of new evidence snippets from skills
+        """
+        if not self._skill_registry or not self._enable_skills:
+            return 0
+
+        try:
+            from aragora.reasoning.evidence_collector import EvidenceSnippet
+            from aragora.skills import SkillCapability, SkillContext, SkillStatus
+
+            # Create skill execution context
+            skill_ctx = SkillContext(
+                user_id="debate-system",
+                permissions={"debate:evidence"},
+                metadata={"source": "evidence_refresh", "text_length": len(text)},
+            )
+
+            # Find debate-compatible skills
+            debate_skills = []
+            for skill in self._skill_registry.list_skills():
+                manifest = skill.manifest
+                if SkillCapability.EXTERNAL_API in manifest.capabilities:
+                    if hasattr(manifest, "tags") and "debate" in getattr(manifest, "tags", []):
+                        debate_skills.append(skill)
+                    elif manifest.name in ("web_search", "search", "research"):
+                        debate_skills.append(skill)
+
+            if not debate_skills:
+                return 0
+
+            # Extract key claims/queries from text (simple heuristic)
+            query = text[:500] if len(text) > 500 else text
+
+            snippets_added = 0
+            for skill in debate_skills[:2]:  # Limit to 2 skills per refresh
+                try:
+                    result = await asyncio.wait_for(
+                        self._skill_registry.invoke(
+                            skill.manifest.name,
+                            {"query": query},
+                            skill_ctx,
+                        ),
+                        timeout=8.0,
+                    )
+
+                    if result.status == SkillStatus.SUCCESS and result.output:
+                        snippet = EvidenceSnippet(
+                            content=str(result.output)[:2000],
+                            source=f"skill:{skill.manifest.name}",
+                            relevance=0.65,
+                            metadata={
+                                "skill": skill.manifest.name,
+                                "refresh": True,
+                            },
+                        )
+
+                        if ctx.evidence_pack:
+                            ctx.evidence_pack.snippets.append(snippet)
+                            snippets_added += 1
+
+                except asyncio.TimeoutError:
+                    logger.debug(f"[skills] Refresh timeout for {skill.manifest.name}")
+                except Exception as e:
+                    logger.debug(f"[skills] Refresh error for {skill.manifest.name}: {e}")
+
+            if snippets_added:
+                logger.info(f"[skills] Refreshed {snippets_added} evidence snippets from skills")
+
+            return snippets_added
+
+        except ImportError as e:
+            logger.debug(f"[skills] Refresh skipped (missing imports): {e}")
+            return 0
+        except Exception as e:
+            logger.warning(f"[skills] Refresh error: {e}")
+            return 0
 
     def get_partial_messages(self) -> list["Message"]:
         """Get partial messages for timeout recovery."""
@@ -1256,3 +1395,58 @@ Write your FINAL, POLISHED proposal that:
 
 This is your final word. Make it count. Be thorough but focused.
 Write in a clear, confident voice while acknowledging genuine complexity."""
+
+    async def _fire_propulsion_event(
+        self,
+        event_type: str,
+        ctx: "DebateContext",
+        round_num: int,
+        data: dict = None,
+    ) -> None:
+        """Fire propulsion event to push work to the next stage.
+
+        Triggers propulsion events at key stage transitions for reactive debate flow
+        via the Gastown pattern.
+
+        Args:
+            event_type: Event type (e.g., "critiques_ready", "revisions_complete")
+            ctx: The DebateContext
+            round_num: Current round number
+            data: Additional data to include in payload
+        """
+        if not self._enable_propulsion or not self._propulsion_engine:
+            return
+
+        try:
+            from aragora.debate.propulsion import PropulsionPayload, PropulsionPriority
+
+            # Build payload data
+            payload_data = {
+                "round_num": round_num,
+                "debate_id": getattr(ctx, "debate_id", None),
+                "task": ctx.env.task[:200] if ctx.env else None,
+            }
+            if data:
+                payload_data.update(data)
+
+            # Create payload
+            payload = PropulsionPayload(
+                data=payload_data,
+                priority=PropulsionPriority.NORMAL,
+                source_stage=f"debate_rounds_round_{round_num}",
+                source_molecule_id=getattr(ctx, "debate_id", None),
+            )
+
+            # Fire the propulsion event
+            results = await self._propulsion_engine.propel(event_type, payload)
+
+            if results:
+                success_count = sum(1 for r in results if r.success)
+                logger.info(
+                    f"[propulsion] {event_type} fired round={round_num} "
+                    f"handlers={len(results)} success={success_count}"
+                )
+        except ImportError:
+            logger.debug("[propulsion] PropulsionEngine imports unavailable")
+        except Exception as e:
+            logger.warning(f"[propulsion] Failed to fire {event_type}: {e}")

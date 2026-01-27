@@ -82,6 +82,9 @@ class ContextInitializer:
         # Cross-debate memory for institutional knowledge
         cross_debate_memory: Any = None,  # CrossDebateMemory for institutional knowledge
         enable_cross_debate_memory: bool = True,  # Query cross-debate memory before debates
+        # Skills system for extensible evidence collection
+        skill_registry: Any = None,  # SkillRegistry for debate-compatible skills
+        enable_skills: bool = False,  # Invoke skills during evidence collection
         # RLM (Recursive Language Models) for context compression
         enable_rlm_compression: bool = True,  # Compress accumulated context hierarchically
         rlm_config: Any = None,  # RLMConfig for compression settings
@@ -134,6 +137,10 @@ class ContextInitializer:
         self.enable_belief_guidance = enable_belief_guidance
         self.cross_debate_memory = cross_debate_memory
         self.enable_cross_debate_memory = enable_cross_debate_memory
+
+        # Skills system for extensible evidence collection
+        self.skill_registry = skill_registry
+        self.enable_skills = enable_skills
 
         # RLM configuration - use factory for TRUE RLM support
         self.enable_rlm_compression = enable_rlm_compression and HAS_RLM
@@ -777,11 +784,113 @@ class ContextInitializer:
             else:
                 logger.info("evidence_collection_empty")
 
+            # Collect evidence from skills if enabled
+            if self.enable_skills and self.skill_registry:
+                skill_snippets = await self._collect_skill_evidence(ctx.env.task)
+                if skill_snippets:
+                    if ctx.evidence_pack is None:
+                        # Create minimal evidence pack if none exists
+                        from aragora.reasoning.evidence_collector import EvidencePack
+
+                        ctx.evidence_pack = EvidencePack(snippets=[], total_searched=0)
+                    ctx.evidence_pack.snippets.extend(skill_snippets)
+                    logger.info(f"skill_evidence_collected snippets={len(skill_snippets)}")
+
         except asyncio.TimeoutError:
             logger.warning("evidence_collection_timeout")
         except Exception as e:
             logger.warning(f"evidence_collection_error error={e}")
             # Continue without evidence - don't break the debate
+
+    async def _collect_skill_evidence(self, task: str) -> list:
+        """Collect evidence from debate-compatible skills.
+
+        Invokes all skills tagged with 'debate' capability and converts
+        their outputs to EvidenceSnippet format for injection into context.
+
+        Args:
+            task: The debate task/query to collect evidence for
+
+        Returns:
+            List of EvidenceSnippet objects from skill invocations
+        """
+        if not self.skill_registry or not self.enable_skills:
+            return []
+
+        snippets = []
+        try:
+            from aragora.reasoning.evidence_collector import EvidenceSnippet
+            from aragora.skills import SkillCapability, SkillContext, SkillStatus
+
+            # Create skill execution context
+            skill_ctx = SkillContext(
+                user_id="debate-system",
+                permissions={"debate:evidence"},
+                metadata={"source": "context_initializer", "task": task[:200]},
+            )
+
+            # Find skills tagged for debate evidence collection
+            debate_skills = []
+            for skill in self.skill_registry.list_skills():
+                manifest = skill.manifest
+                # Check if skill has EXTERNAL_API capability and is debate-compatible
+                if SkillCapability.EXTERNAL_API in manifest.capabilities:
+                    # Check for debate tag in tags list
+                    if hasattr(manifest, "tags") and "debate" in getattr(manifest, "tags", []):
+                        debate_skills.append(skill)
+                    # Or check if it's a web search skill (commonly useful for debates)
+                    elif manifest.name in ("web_search", "search", "research"):
+                        debate_skills.append(skill)
+
+            if not debate_skills:
+                logger.debug("[skills] No debate-compatible skills found")
+                return []
+
+            # Invoke skills in parallel with timeout
+            async def invoke_skill(skill):
+                try:
+                    result = await asyncio.wait_for(
+                        self.skill_registry.invoke(
+                            skill.manifest.name,
+                            {"query": task},
+                            skill_ctx,
+                        ),
+                        timeout=10.0,
+                    )
+                    if result.status == SkillStatus.SUCCESS and result.output:
+                        return EvidenceSnippet(
+                            content=str(result.output)[:2000],  # Limit size
+                            source=f"skill:{skill.manifest.name}",
+                            relevance=0.7,  # Base relevance for skill evidence
+                            metadata={
+                                "skill": skill.manifest.name,
+                                "skill_version": skill.manifest.version,
+                                "execution_time_ms": result.execution_time_ms,
+                            },
+                        )
+                except asyncio.TimeoutError:
+                    logger.debug(f"[skills] Timeout invoking {skill.manifest.name}")
+                except Exception as e:
+                    logger.debug(f"[skills] Error invoking {skill.manifest.name}: {e}")
+                return None
+
+            results = await asyncio.gather(
+                *[invoke_skill(s) for s in debate_skills],
+                return_exceptions=True,
+            )
+
+            for result in results:
+                if isinstance(result, EvidenceSnippet):
+                    snippets.append(result)
+
+            logger.info(f"[skills] Collected {len(snippets)} evidence snippets from skills")
+
+        except ImportError as e:
+            logger.debug(f"[skills] Evidence collection skipped (missing imports): {e}")
+        except Exception as e:
+            logger.warning(f"[skills] Evidence collection error: {e}")
+
+        return snippets
 
     async def await_background_context(self, ctx: "DebateContext") -> None:
         """Await and cleanup background research/evidence tasks.

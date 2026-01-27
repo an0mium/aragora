@@ -84,7 +84,8 @@ class WinnerSelector:
         if not vote_counts:
             result.final_answer = list(proposals.values())[0] if proposals else ""
             result.consensus_reached = False
-            result.confidence = 0.5
+            result.confidence = 0.0
+            result.status = "insufficient_participation"
             return
 
         # Find winner (highest vote count)
@@ -100,8 +101,13 @@ class WinnerSelector:
         result.final_answer = proposals.get(
             winner_agent, list(proposals.values())[0] if proposals else ""
         )
-        result.consensus_reached = (count / total_votes >= threshold) if total_votes > 0 else False
-        result.confidence = count / total_votes if total_votes > 0 else 0.5
+        if total_votes <= 0:
+            result.consensus_reached = False
+            result.confidence = 0.0
+            result.status = "insufficient_participation"
+        else:
+            result.consensus_reached = count / total_votes >= threshold
+            result.confidence = count / total_votes
         ctx.winner_agent = winner_agent
         result.winner = winner_agent
 
