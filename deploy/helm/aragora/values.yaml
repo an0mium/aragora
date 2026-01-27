@@ -26,11 +26,22 @@ serviceAccount:
 # Pod annotations
 podAnnotations: {}
 
-# Pod security context
-podSecurityContext: {}
+# Pod security context (PSS restricted-compatible)
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
 
-# Container security context
-securityContext: {}
+# Container security context (PSS restricted-compatible)
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 # Service configuration
 service:
