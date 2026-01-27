@@ -44,6 +44,8 @@ from aragora.hooks.conditions import (
 from aragora.hooks.loader import (
     HookConfigLoader,
     get_hook_loader,
+    setup_arena_hooks,
+    setup_arena_hooks_from_config,
 )
 
 __all__ = [
@@ -57,4 +59,7 @@ __all__ = [
     # Loader
     "HookConfigLoader",
     "get_hook_loader",
+    # Arena integration
+    "setup_arena_hooks",
+    "setup_arena_hooks_from_config",
 ]

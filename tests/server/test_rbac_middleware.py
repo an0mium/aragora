@@ -106,7 +106,7 @@ class TestRBACMiddleware:
         # Create auth context without permission
         auth_ctx = AuthorizationContext(
             user_id="user_123",
-            permissions={"debates:read"},  # Wrong permission
+            permissions={"debates.read"},  # Wrong permission
         )
 
         allowed, reason, perm = middleware.check_request("/api/debates", "POST", auth_ctx)
@@ -131,14 +131,14 @@ class TestRBACMiddleware:
         """Route patterns should match correctly."""
         config = RBACMiddlewareConfig(
             route_permissions=[
-                RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates:read", 1),
+                RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates.read", 1),
             ],
         )
         middleware = RBACMiddleware(config)
 
         auth_ctx = AuthorizationContext(
             user_id="user_123",
-            permissions={"debates:read"},
+            permissions={"debates.read"},
         )
 
         # Should match with resource ID
@@ -170,7 +170,7 @@ class TestRoutePermission:
 
     def test_matches_exact_path(self):
         """Exact path patterns should match."""
-        rule = RoutePermission(r"^/api/debates$", "GET", "debates:read")
+        rule = RoutePermission(r"^/api/debates$", "GET", "debates.read")
 
         matches, resource_id = rule.matches("/api/debates", "GET")
         assert matches is True
@@ -178,7 +178,7 @@ class TestRoutePermission:
 
     def test_matches_with_capture_group(self):
         """Patterns with capture groups should extract resource ID."""
-        rule = RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates:read", 1)
+        rule = RoutePermission(r"^/api/debates/([^/]+)$", "GET", "debates.read", 1)
 
         matches, resource_id = rule.matches("/api/debates/abc123", "GET")
         assert matches is True
@@ -226,7 +226,7 @@ class TestUnifiedServerRBACIntegration:
 
         # Debates endpoints
         assert rbac.get_required_permission("/api/debates", "POST") == "debates.create"
-        assert rbac.get_required_permission("/api/debates", "GET") == "debates:read"
+        assert rbac.get_required_permission("/api/debates", "GET") == "debates.read"
 
         # Admin endpoints require admin permission
         assert rbac.get_required_permission("/api/admin/users", "GET") == "admin.*"
