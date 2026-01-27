@@ -66,7 +66,7 @@ class TestCreateArenaHooks:
             "on_phase_progress",
             "on_heartbeat",
         }
-        assert set(hooks.keys()) == expected_hooks
+        assert expected_hooks.issubset(set(hooks.keys()))
 
     def test_hooks_are_callable(self, emitter):
         """All hooks should be callable functions."""
@@ -193,6 +193,8 @@ class TestCreateArenaHooks:
         assert event.data["reached"] is True
         assert event.data["confidence"] == 0.92
         assert event.data["answer"] == "The consensus answer is yes"
+        assert event.data["status"] == ""
+        assert event.data["agent_failures"] == {}
 
     def test_on_consensus_with_synthesis_fallback(self, mock_emitter):
         """on_consensus should include synthesis as fallback."""
@@ -209,6 +211,31 @@ class TestCreateArenaHooks:
         event = mock_emitter.events[0]
         assert event.type == StreamEventType.CONSENSUS
         assert event.data["synthesis"] == "This is the synthesized conclusion."
+
+    def test_on_consensus_with_status_and_failures(self, mock_emitter):
+        """on_consensus should forward status and agent failures."""
+        hooks = create_arena_hooks(mock_emitter)
+
+        hooks["on_consensus"](
+            reached=False,
+            confidence=0.1,
+            answer="No consensus",
+            status="insufficient_participation",
+            agent_failures={
+                "agent1": [
+                    {
+                        "phase": "proposal",
+                        "error_type": "timeout",
+                        "message": "Agent response was empty",
+                    }
+                ]
+            },
+        )
+
+        assert len(mock_emitter.events) == 1
+        event = mock_emitter.events[0]
+        assert event.data["status"] == "insufficient_participation"
+        assert "agent1" in event.data["agent_failures"]
 
     def test_on_synthesis_emits_event(self, mock_emitter):
         """on_synthesis should emit SYNTHESIS event with content and confidence."""

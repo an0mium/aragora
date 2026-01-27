@@ -597,6 +597,97 @@ if PROMETHEUS_AVAILABLE:
         ["source"],
     )
 
+    # ========================================================================
+    # Checkpoint Bridge metrics (unified recovery)
+    # ========================================================================
+    CHECKPOINT_BRIDGE_SAVES = Counter(
+        "aragora_checkpoint_bridge_saves_total",
+        "Total checkpoint bridge save operations",
+        ["debate_id", "phase"],
+    )
+
+    CHECKPOINT_BRIDGE_RESTORES = Counter(
+        "aragora_checkpoint_bridge_restores_total",
+        "Total checkpoint bridge restore operations",
+        ["status"],  # success, not_found, failed
+    )
+
+    CHECKPOINT_BRIDGE_MOLECULE_RECOVERIES = Counter(
+        "aragora_checkpoint_bridge_molecule_recoveries_total",
+        "Molecule recovery operations from checkpoints",
+        ["status"],  # success, not_found, no_state
+    )
+
+    CHECKPOINT_BRIDGE_SAVE_DURATION = Histogram(
+        "aragora_checkpoint_bridge_save_duration_seconds",
+        "Checkpoint bridge save operation duration",
+        buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
+    )
+
+    # ========================================================================
+    # Agent Channel metrics (peer-to-peer messaging)
+    # ========================================================================
+    AGENT_CHANNEL_MESSAGES = Counter(
+        "aragora_agent_channel_messages_total",
+        "Total messages sent through agent channels",
+        ["message_type", "channel"],  # message_type: proposal, critique, query, signal
+    )
+
+    AGENT_CHANNEL_SETUPS = Counter(
+        "aragora_agent_channel_setups_total",
+        "Channel setup operations",
+        ["status"],  # success, failed, disabled
+    )
+
+    AGENT_CHANNEL_TEARDOWNS = Counter(
+        "aragora_agent_channel_teardowns_total",
+        "Channel teardown operations",
+    )
+
+    AGENT_CHANNEL_ACTIVE = Gauge(
+        "aragora_agent_channel_active",
+        "Number of active agent channels",
+    )
+
+    AGENT_CHANNEL_HISTORY_SIZE = Histogram(
+        "aragora_agent_channel_history_size",
+        "Message history size at channel teardown",
+        buckets=[5, 10, 25, 50, 100, 250, 500],
+    )
+
+    # ========================================================================
+    # Session Management metrics (multi-channel sessions)
+    # ========================================================================
+    SESSION_CREATED = Counter(
+        "aragora_session_created_total",
+        "Sessions created",
+        ["channel"],  # slack, telegram, whatsapp, api
+    )
+
+    SESSION_DEBATES_LINKED = Counter(
+        "aragora_session_debates_linked_total",
+        "Debates linked to sessions",
+        ["channel"],
+    )
+
+    SESSION_HANDOFFS = Counter(
+        "aragora_session_handoffs_total",
+        "Session handoffs between channels",
+        ["from_channel", "to_channel"],
+    )
+
+    SESSION_RESULT_ROUTES = Counter(
+        "aragora_session_result_routes_total",
+        "Debate results routed to sessions",
+        ["channel", "status"],  # status: success, failed, no_channel
+    )
+
+    SESSION_ACTIVE = Gauge(
+        "aragora_sessions_active",
+        "Number of active sessions by channel",
+        ["channel"],
+    )
+
 
 # ============================================================================
 # Fallback Implementation (when prometheus_client not available)
