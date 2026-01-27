@@ -30,7 +30,6 @@ from .base import (
     get_int_param,
     json_response,
 )
-from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 from aragora.server.versioning.compat import strip_version_prefix
 
@@ -80,7 +79,6 @@ class MomentsHandler(BaseHandler):
             return True
         return False
 
-    @require_permission("moments:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route moments requests to appropriate methods."""
         # Normalize path to handle both /api/... and /api/v1/... paths

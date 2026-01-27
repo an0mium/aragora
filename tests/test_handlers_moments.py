@@ -71,20 +71,20 @@ class TestSummaryEndpoint:
         return MomentsHandler({})
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_503_when_unavailable(self, handler):
-        """Should return 503 when moment detector unavailable."""
+    def test_200_when_unavailable(self, handler):
+        """Should return stub response when moment detector unavailable."""
         result = handler.handle("/api/moments/summary", {}, Mock())
-        assert result.status_code == 503
+        assert result.status_code == 200
         data = json.loads(result.body)
-        assert "not available" in data["error"]
+        assert "not available" in data["message"]
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
-    def test_503_when_not_configured(self, handler):
-        """Should return 503 when moment detector not in context."""
+    def test_200_when_not_configured(self, handler):
+        """Should return stub response when moment detector not in context."""
         result = handler.handle("/api/moments/summary", {}, Mock())
-        assert result.status_code == 503
+        assert result.status_code == 200
         data = json.loads(result.body)
-        assert "not configured" in data["error"]
+        assert "not configured" in data["message"]
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
     def test_returns_summary_structure(self):
@@ -196,10 +196,10 @@ class TestTimelineEndpoint:
         return MomentsHandler({})
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_503_when_unavailable(self, handler):
-        """Should return 503 when moment detector unavailable."""
+    def test_200_when_unavailable(self, handler):
+        """Should return stub response when moment detector unavailable."""
         result = handler.handle("/api/moments/timeline", {}, Mock())
-        assert result.status_code == 503
+        assert result.status_code == 200
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
     def test_returns_timeline_structure(self):
@@ -289,10 +289,10 @@ class TestTrendingEndpoint:
         return MomentsHandler({})
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_503_when_unavailable(self, handler):
-        """Should return 503 when moment detector unavailable."""
+    def test_200_when_unavailable(self, handler):
+        """Should return stub response when moment detector unavailable."""
         result = handler.handle("/api/moments/trending", {}, Mock())
-        assert result.status_code == 503
+        assert result.status_code == 200
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
     def test_returns_trending_structure(self):
@@ -371,10 +371,10 @@ class TestByTypeEndpoint:
         return MomentsHandler({})
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", False)
-    def test_503_when_unavailable(self, handler):
-        """Should return 503 when moment detector unavailable."""
+    def test_200_when_unavailable(self, handler):
+        """Should return stub response when moment detector unavailable."""
         result = handler.handle("/api/moments/by-type/upset_victory", {}, Mock())
-        assert result.status_code == 503
+        assert result.status_code == 200
 
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
     def test_validates_moment_type(self):
@@ -503,14 +503,14 @@ class TestErrorHandling:
     @patch("aragora.server.handlers.moments.MOMENT_DETECTOR_AVAILABLE", True)
     def test_handles_exception_in_summary(self):
         """Should handle exceptions gracefully in summary."""
+
+        class ExplodingCache:
+            def items(self):
+                raise Exception("Cache error")
+
         mock_detector = Mock()
-        mock_detector._moment_cache = property(
-            lambda self: (_ for _ in ()).throw(Exception("DB error"))
-        )
+        mock_detector._moment_cache = ExplodingCache()
 
         handler = MomentsHandler({"moment_detector": mock_detector})
-        # Mock will raise on iteration
-        mock_detector._moment_cache = Mock(side_effect=Exception("Cache error"))
-
         result = handler.handle("/api/moments/summary", {}, Mock())
         assert result.status_code == 500
