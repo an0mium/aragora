@@ -318,10 +318,14 @@ class KnowledgeChatHandler(BaseHandler):
         # Check appropriate permission based on operation
         if path == "/api/v1/chat/knowledge/store":
             # Store requires write permission
-            perm_error = self._check_permission(handler, self.KNOWLEDGE_WRITE_PERMISSION)
+            _, perm_error = self.require_permission_or_error(
+                handler, self.KNOWLEDGE_WRITE_PERMISSION
+            )
         else:
             # Search/inject requires read permission
-            perm_error = self._check_permission(handler, self.KNOWLEDGE_READ_PERMISSION)
+            _, perm_error = self.require_permission_or_error(
+                handler, self.KNOWLEDGE_READ_PERMISSION
+            )
         if perm_error:
             return perm_error
 
