@@ -2350,6 +2350,9 @@ export class AragoraClient {
     this.rbac = new RBACAPI(this);
     this.auth = new AuthAPI(this);
     this.codebase = new CodebaseAPI(this);
+    this.decisions = new DecisionsAPI(this);
+    this.documents = new DocumentsAPI(this);
+    this.policies = new PoliciesAPI(this);
   }
 
   /**
