@@ -484,9 +484,10 @@ class TestHealthHandlerImport:
 class TestDatabaseStoresHealth:
     """Tests for GET /api/health/stores endpoint."""
 
-    def test_stores_health_returns_response(self, health_handler):
+    @pytest.mark.asyncio
+    async def test_stores_health_returns_response(self, health_handler):
         """Stores health endpoint returns a valid response."""
-        result = health_handler.handle("/api/health/stores", {}, None)
+        result = await health_handler.handle("/api/health/stores", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -497,9 +498,10 @@ class TestDatabaseStoresHealth:
         assert "summary" in data
         assert "elapsed_ms" in data
 
-    def test_stores_health_includes_core_stores(self, health_handler_with_deps):
+    @pytest.mark.asyncio
+    async def test_stores_health_includes_core_stores(self, health_handler_with_deps):
         """Stores health includes core database stores."""
-        result = health_handler_with_deps.handle("/api/health/stores", {}, None)
+        result = await health_handler_with_deps.handle("/api/health/stores", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -509,9 +511,10 @@ class TestDatabaseStoresHealth:
         assert "debate_storage" in stores
         assert "elo_system" in stores
 
-    def test_stores_health_includes_new_stores(self, health_handler):
+    @pytest.mark.asyncio
+    async def test_stores_health_includes_new_stores(self, health_handler):
         """Stores health includes new stores (integration, gmail, sync, decision)."""
-        result = health_handler.handle("/api/health/stores", {}, None)
+        result = await health_handler.handle("/api/health/stores", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -523,20 +526,22 @@ class TestDatabaseStoresHealth:
         assert "sync_store" in stores
         assert "decision_result_store" in stores
 
-    def test_stores_health_shows_module_not_available(self, health_handler):
+    @pytest.mark.asyncio
+    async def test_stores_health_shows_module_not_available(self, health_handler):
         """Stores health gracefully handles missing modules."""
         # Patch imports to simulate missing modules
         with patch.dict("sys.modules", {"aragora.storage.integration_store": None}):
-            result = health_handler.handle("/api/health/stores", {}, None)
+            result = await health_handler.handle("/api/health/stores", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         # Even with missing modules, endpoint should return valid response
         assert "stores" in data
 
-    def test_stores_health_summary_counts(self, health_handler):
+    @pytest.mark.asyncio
+    async def test_stores_health_summary_counts(self, health_handler):
         """Stores health summary has correct count fields."""
-        result = health_handler.handle("/api/health/stores", {}, None)
+        result = await health_handler.handle("/api/health/stores", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -550,7 +555,8 @@ class TestDatabaseStoresHealth:
         # Total should equal healthy count (all should be healthy even if not initialized)
         assert summary["total"] == summary["healthy"]
 
-    def test_stores_health_decision_store_has_metrics(self, health_handler, tmp_path):
+    @pytest.mark.asyncio
+    async def test_stores_health_decision_store_has_metrics(self, health_handler, tmp_path):
         """Decision result store health check includes metrics."""
         import os
 
@@ -562,7 +568,7 @@ class TestDatabaseStoresHealth:
 
             decision_result_store._decision_result_store = None
 
-            result = health_handler.handle("/api/health/stores", {}, None)
+            result = await health_handler.handle("/api/health/stores", {}, None)
 
             assert result is not None
             data = json.loads(result.body)
@@ -585,9 +591,10 @@ class TestStoresHealthRouting:
         """Handler can handle /api/health/stores."""
         assert health_handler.can_handle("/api/v1/health/stores") is True
 
-    def test_handle_routes_to_stores_health(self, health_handler):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_stores_health(self, health_handler):
         """handle() correctly routes /api/health/stores."""
-        result = health_handler.handle("/api/health/stores", {}, None)
+        result = await health_handler.handle("/api/health/stores", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
