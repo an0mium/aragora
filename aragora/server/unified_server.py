@@ -1118,6 +1118,10 @@ class UnifiedServer:
         if startup_status.get("graphql"):
             logger.info("GraphQL API enabled at /graphql")
 
+        # Initialize handlers eagerly at startup to avoid first-request latency
+        # and ensure route index is built before accepting requests
+        self._init_handlers()
+
         logger.info("Starting unified server...")
         protocol = "https" if self.ssl_enabled else "http"
         logger.info(f"  HTTP API:   {protocol}://localhost:{self.http_port}")
