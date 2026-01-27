@@ -122,7 +122,7 @@ class TestCalibrationCurve:
     """Tests for GET /api/agent/{name}/calibration-curve endpoint."""
 
     def test_calibration_curve_module_unavailable(self, calibration_handler):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         original = mod.CALIBRATION_AVAILABLE
         mod.CALIBRATION_AVAILABLE = False
@@ -136,7 +136,7 @@ class TestCalibrationCurve:
             mod.CALIBRATION_AVAILABLE = original
 
     def test_calibration_curve_success(self, calibration_handler, mock_calibration_tracker):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -155,7 +155,7 @@ class TestCalibrationCurve:
     def test_calibration_curve_with_buckets_param(
         self, calibration_handler, mock_calibration_tracker
     ):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -175,7 +175,7 @@ class TestCalibrationCurve:
     def test_calibration_curve_buckets_clamped_min(
         self, calibration_handler, mock_calibration_tracker
     ):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -195,7 +195,7 @@ class TestCalibrationCurve:
     def test_calibration_curve_buckets_clamped_max(
         self, calibration_handler, mock_calibration_tracker
     ):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -213,7 +213,7 @@ class TestCalibrationCurve:
             )
 
     def test_calibration_curve_with_domain(self, calibration_handler, mock_calibration_tracker):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -243,7 +243,7 @@ class TestCalibrationSummary:
     """Tests for GET /api/agent/{name}/calibration-summary endpoint."""
 
     def test_calibration_summary_module_unavailable(self, calibration_handler):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         original = mod.CALIBRATION_AVAILABLE
         mod.CALIBRATION_AVAILABLE = False
@@ -255,7 +255,7 @@ class TestCalibrationSummary:
             mod.CALIBRATION_AVAILABLE = original
 
     def test_calibration_summary_success(self, calibration_handler, mock_calibration_tracker):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -276,7 +276,7 @@ class TestCalibrationSummary:
             assert "is_underconfident" in data
 
     def test_calibration_summary_with_domain(self, calibration_handler, mock_calibration_tracker):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -341,7 +341,7 @@ class TestCalibrationErrorHandling:
         assert result is None
 
     def test_calibration_curve_exception(self, calibration_handler):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -356,7 +356,7 @@ class TestCalibrationErrorHandling:
             assert result.status_code == 500
 
     def test_calibration_summary_exception(self, calibration_handler):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -398,7 +398,7 @@ class TestCalibrationEdgeCases:
     def test_calibration_curve_bucket_data_structure(
         self, calibration_handler, mock_calibration_tracker
     ):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")
@@ -419,7 +419,7 @@ class TestCalibrationEdgeCases:
             assert "brier_score" in bucket
 
     def test_invalid_buckets_param(self, calibration_handler, mock_calibration_tracker):
-        import aragora.server.handlers.calibration as mod
+        import aragora.server.handlers.agents.calibration as mod
 
         if not mod.CALIBRATION_AVAILABLE:
             pytest.skip("Calibration module not available")

@@ -97,6 +97,18 @@ test = [
     "weaviate-client>=4.0,<5.0",  # Weaviate indexing tests
     # Formal verification
     "z3-solver>=4.12,<5.0",  # Z3 theorem prover for formal verification tests
+    # Performance and benchmarking
+    "pytest-benchmark>=4.0,<5.0",  # Benchmark tests
+    # Cloud and storage
+    "boto3>=1.34,<2.0",  # S3 and AWS tests
+    # Document generation
+    "weasyprint>=60.0,<63.0",  # PDF generation tests
+    "reportlab>=3.6,<4.0",  # Report generation tests
+    # ML and embeddings
+    "scikit-learn>=1.5.0,<2.0",  # ML-based tests
+    "sentence-transformers>=3.0.0,<4.0",  # Embedding tests
+    # Audio processing
+    "pydub>=0.25.0,<1.0",  # Audio processing tests
 ]
 monitoring = [
     "prometheus-client>=0.19,<1.0",
