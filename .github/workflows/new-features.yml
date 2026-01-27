@@ -54,8 +54,8 @@ jobs:
           from aragora.migrations.versions.v20260120100000_marketplace_webhooks_batch import up_fn, down_fn
 
           # Test up migration
+          # SQLiteBackend auto-initializes on first use
           backend = SQLiteBackend(':memory:')
-          backend.initialize()
           up_fn(backend)
           print('SQLite: up migration successful')
 
