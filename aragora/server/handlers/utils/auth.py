@@ -97,7 +97,7 @@ async def get_auth_context(
             user_email=user_ctx.email,
             org_id=user_ctx.org_id,
             workspace_id=_extract_workspace_id(request),
-            roles=set(user_ctx.roles) if user_ctx.roles else {"member"},  # type: ignore[attr-defined]
+            roles={user_ctx.role} if user_ctx.role else {"member"},
             permissions=_get_user_permissions(user_ctx),
         )
 
