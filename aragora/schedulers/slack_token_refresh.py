@@ -9,6 +9,7 @@ Features:
 - Batches token refreshes to avoid rate limiting
 - Notifies on refresh failures for operational awareness
 - Graceful shutdown support
+- Prometheus metrics for observability
 """
 
 from __future__ import annotations
@@ -18,9 +19,77 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, List, Optional, Protocol
+from typing import Any, Callable, List, Optional, Protocol
 
 logger = logging.getLogger(__name__)
+
+# Prometheus metrics (lazy initialization to avoid import errors)
+_metrics_initialized = False
+_slack_token_refresh_total: Any = None
+_slack_token_refresh_failures: Any = None
+_slack_workspaces_active: Any = None
+_slack_refresh_duration: Any = None
+
+
+def _init_metrics() -> bool:
+    """Initialize Prometheus metrics if available."""
+    global _metrics_initialized
+    global _slack_token_refresh_total, _slack_token_refresh_failures
+    global _slack_workspaces_active, _slack_refresh_duration
+
+    if _metrics_initialized:
+        return _slack_token_refresh_total is not None
+
+    _metrics_initialized = True
+
+    try:
+        from prometheus_client import Counter, Gauge, Histogram
+
+        _slack_token_refresh_total = Counter(
+            "aragora_slack_token_refresh_total",
+            "Total number of Slack token refresh attempts",
+            ["status"],
+        )
+        _slack_token_refresh_failures = Counter(
+            "aragora_slack_token_refresh_failures_total",
+            "Total number of Slack token refresh failures",
+            ["error_type"],
+        )
+        _slack_workspaces_active = Gauge(
+            "aragora_slack_workspaces_active",
+            "Number of active Slack workspaces",
+        )
+        _slack_refresh_duration = Histogram(
+            "aragora_slack_token_refresh_duration_seconds",
+            "Duration of Slack token refresh operations",
+            buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+        )
+        logger.debug("Prometheus metrics initialized for Slack token refresh")
+        return True
+    except ImportError:
+        logger.debug("prometheus_client not available, metrics disabled")
+        return False
+
+
+def _record_refresh_success() -> None:
+    """Record a successful token refresh."""
+    if _slack_token_refresh_total:
+        _slack_token_refresh_total.labels(status="success").inc()
+
+
+def _record_refresh_failure(error_type: str = "unknown") -> None:
+    """Record a failed token refresh."""
+    if _slack_token_refresh_total:
+        _slack_token_refresh_total.labels(status="failure").inc()
+    if _slack_token_refresh_failures:
+        _slack_token_refresh_failures.labels(error_type=error_type).inc()
+
+
+def _update_active_workspaces(count: int) -> None:
+    """Update the active workspaces gauge."""
+    if _slack_workspaces_active:
+        _slack_workspaces_active.set(count)
+
 
 # Configuration from environment
 SLACK_CLIENT_ID = os.environ.get("SLACK_CLIENT_ID", "")
@@ -113,6 +182,9 @@ class SlackTokenRefreshScheduler:
         self._last_run: Optional[datetime] = None
         self._last_stats: Optional[RefreshStats] = None
 
+        # Initialize Prometheus metrics
+        _init_metrics()
+
     @property
     def is_running(self) -> bool:
         """Check if the scheduler is currently running."""
@@ -188,14 +260,21 @@ class SlackTokenRefreshScheduler:
 
     async def _refresh_expiring_tokens(self) -> RefreshStats:
         """Check and refresh tokens expiring soon."""
+        import time
+
         stats = RefreshStats()
+        start_time = time.time()
 
         # Get workspaces with tokens expiring soon
         try:
             expiring = self.store.get_expiring_tokens(hours=self.expiry_window_hours)
             stats.total_checked = len(expiring)
+
+            # Update active workspaces metric (total checked represents active)
+            _update_active_workspaces(len(expiring))
         except Exception as e:
             logger.error(f"Failed to get expiring tokens: {e}")
+            _record_refresh_failure("store_error")
             return stats
 
         if not expiring:
@@ -211,8 +290,11 @@ class SlackTokenRefreshScheduler:
 
             if result.success:
                 stats.refreshed += 1
+                _record_refresh_success()
             else:
                 stats.failed += 1
+                error_type = "revoked" if "revoked" in (result.error or "") else "api_error"
+                _record_refresh_failure(error_type)
                 if self.on_refresh_failure:
                     try:
                         self.on_refresh_failure(result)
@@ -221,6 +303,11 @@ class SlackTokenRefreshScheduler:
 
             # Small delay between refreshes to avoid rate limiting
             await asyncio.sleep(0.5)
+
+        # Record duration metric
+        duration = time.time() - start_time
+        if _slack_refresh_duration:
+            _slack_refresh_duration.observe(duration)
 
         return stats
 

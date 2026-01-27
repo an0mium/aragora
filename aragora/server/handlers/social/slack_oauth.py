@@ -152,11 +152,26 @@ class SlackOAuthHandler(SecureHandler):
         "/api/integrations/slack/preview",
         "/api/integrations/slack/callback",
         "/api/integrations/slack/uninstall",
+        "/api/integrations/slack/workspaces",
+    ]
+
+    # Route patterns for dynamic paths
+    ROUTE_PATTERNS = [
+        r"/api/integrations/slack/workspaces/([^/]+)/status",
+        r"/api/integrations/slack/workspaces/([^/]+)/refresh",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        import re
+
+        if path in self.ROUTES:
+            return True
+        # Check dynamic patterns
+        for pattern in self.ROUTE_PATTERNS:
+            if re.match(pattern, path):
+                return True
+        return False
 
     async def handle(  # type: ignore[override]
         self,
@@ -217,6 +232,44 @@ class SlackOAuthHandler(SecureHandler):
                     logger.warning(f"Permission denied for Slack preview: {e}")
                     return error_response("Permission denied: connector:read required", 403)
                 return await self._handle_preview(query_params)
+            return error_response("Method not allowed", 405)
+
+        elif path == "/api/integrations/slack/workspaces":
+            if method == "GET":
+                # Require connector:read permission for listing
+                try:
+                    self.check_permission(auth_context, CONNECTOR_READ)
+                except Exception as e:
+                    logger.warning(f"Permission denied for Slack workspace list: {e}")
+                    return error_response("Permission denied: connector:read required", 403)
+                return await self._handle_list_workspaces()
+            return error_response("Method not allowed", 405)
+
+        # Check for dynamic workspace routes
+        import re
+
+        status_match = re.match(r"/api/integrations/slack/workspaces/([^/]+)/status", path)
+        if status_match:
+            workspace_id = status_match.group(1)
+            if method == "GET":
+                try:
+                    self.check_permission(auth_context, CONNECTOR_READ)
+                except Exception as e:
+                    logger.warning(f"Permission denied for Slack workspace status: {e}")
+                    return error_response("Permission denied: connector:read required", 403)
+                return await self._handle_workspace_status(workspace_id)
+            return error_response("Method not allowed", 405)
+
+        refresh_match = re.match(r"/api/integrations/slack/workspaces/([^/]+)/refresh", path)
+        if refresh_match:
+            workspace_id = refresh_match.group(1)
+            if method == "POST":
+                try:
+                    self.check_permission(auth_context, CONNECTOR_AUTHORIZE)
+                except Exception as e:
+                    logger.warning(f"Permission denied for Slack token refresh: {e}")
+                    return error_response("Permission denied: connector:authorize required", 403)
+                return await self._handle_refresh_token(workspace_id)
             return error_response("Method not allowed", 405)
 
         return error_response("Not found", 404)
@@ -922,6 +975,227 @@ class SlackOAuthHandler(SecureHandler):
 
         # Acknowledge the event
         return json_response({"ok": True})
+
+    async def _handle_list_workspaces(self) -> HandlerResult:
+        """
+        List all Slack workspaces with their status.
+
+        Returns:
+            List of workspaces with id, name, is_active, token status
+        """
+        try:
+            from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+            store = get_slack_workspace_store()
+            workspaces = store.list_active(limit=1000)
+
+            workspace_list = []
+            current_time = time.time()
+
+            for ws in workspaces:
+                # Determine token health
+                token_status = "valid"
+                if ws.token_expires_at:
+                    if ws.token_expires_at < current_time:
+                        token_status = "expired"
+                    elif ws.token_expires_at < current_time + 3600:
+                        token_status = "expiring_soon"
+
+                workspace_list.append(
+                    {
+                        "workspace_id": ws.workspace_id,
+                        "workspace_name": ws.workspace_name,
+                        "is_active": ws.is_active,
+                        "token_status": token_status,
+                        "token_expires_at": ws.token_expires_at,
+                        "installed_at": ws.installed_at,
+                        "installed_by": ws.installed_by,
+                        "scopes": ws.scopes,
+                        "tenant_id": ws.tenant_id,
+                    }
+                )
+
+            logger.info(f"Listed {len(workspace_list)} Slack workspaces")
+            return json_response(
+                {
+                    "workspaces": workspace_list,
+                    "total": len(workspace_list),
+                }
+            )
+
+        except ImportError as e:
+            logger.error(f"Workspace store not available: {e}")
+            return error_response("Workspace storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to list workspaces: {e}")
+            return error_response(f"Failed to list workspaces: {e}", 500)
+
+    async def _handle_workspace_status(self, workspace_id: str) -> HandlerResult:
+        """
+        Get detailed token status for a specific workspace.
+
+        Args:
+            workspace_id: The Slack workspace ID
+
+        Returns:
+            Token health details including validity, expiration, scopes
+        """
+        try:
+            from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+            store = get_slack_workspace_store()
+            workspace = store.get(workspace_id)
+
+            if not workspace:
+                return error_response(f"Workspace {workspace_id} not found", 404)
+
+            current_time = time.time()
+
+            # Determine token health
+            token_status = "valid"
+            expires_in_seconds = None
+            if workspace.token_expires_at:
+                expires_in_seconds = int(workspace.token_expires_at - current_time)
+                if expires_in_seconds < 0:
+                    token_status = "expired"
+                elif expires_in_seconds < 3600:
+                    token_status = "expiring_soon"
+                elif expires_in_seconds < 86400:
+                    token_status = "expiring_today"
+
+            # Check if refresh token is available
+            has_refresh_token = bool(workspace.refresh_token)
+
+            status_data = {
+                "workspace_id": workspace.workspace_id,
+                "workspace_name": workspace.workspace_name,
+                "is_active": workspace.is_active,
+                "token_status": token_status,
+                "token_expires_at": workspace.token_expires_at,
+                "expires_in_seconds": expires_in_seconds,
+                "has_refresh_token": has_refresh_token,
+                "scopes": workspace.scopes,
+                "installed_at": workspace.installed_at,
+                "installed_by": workspace.installed_by,
+                "bot_user_id": workspace.bot_user_id,
+                "tenant_id": workspace.tenant_id,
+            }
+
+            logger.debug(f"Token status for workspace {workspace_id}: {token_status}")
+            return json_response(status_data)
+
+        except ImportError as e:
+            logger.error(f"Workspace store not available: {e}")
+            return error_response("Workspace storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to get workspace status: {e}")
+            return error_response(f"Failed to get workspace status: {e}", 500)
+
+    async def _handle_refresh_token(self, workspace_id: str) -> HandlerResult:
+        """
+        Manually trigger token refresh for a workspace.
+
+        Args:
+            workspace_id: The Slack workspace ID
+
+        Returns:
+            Refresh result with new token expiration
+        """
+        try:
+            from aragora.storage.slack_workspace_store import get_slack_workspace_store
+
+            store = get_slack_workspace_store()
+            workspace = store.get(workspace_id)
+
+            if not workspace:
+                return error_response(f"Workspace {workspace_id} not found", 404)
+
+            if not workspace.refresh_token:
+                return error_response("No refresh token available. Re-installation required.", 400)
+
+            if not workspace.is_active:
+                return error_response("Workspace is inactive. Re-installation required.", 400)
+
+            # Attempt token refresh
+            import httpx
+
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.post(
+                        SLACK_OAUTH_TOKEN_URL,
+                        data={
+                            "client_id": SLACK_CLIENT_ID,
+                            "client_secret": SLACK_CLIENT_SECRET,
+                            "grant_type": "refresh_token",
+                            "refresh_token": workspace.refresh_token,
+                        },
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+
+            except httpx.HTTPError as e:
+                logger.error(f"Token refresh HTTP error for {workspace_id}: {e}")
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error=str(e),
+                    )
+                return error_response(f"Token refresh failed: {e}", 502)
+
+            if not data.get("ok"):
+                error_msg = data.get("error", "Unknown error")
+                logger.error(f"Token refresh failed for {workspace_id}: {error_msg}")
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error=error_msg,
+                    )
+                return error_response(f"Token refresh failed: {error_msg}", 400)
+
+            # Update stored tokens
+            new_access_token = data.get("access_token")
+            new_refresh_token = data.get("refresh_token", workspace.refresh_token)
+            expires_in = data.get("expires_in")
+            new_expires_at = time.time() + expires_in if expires_in else None
+
+            workspace.access_token = new_access_token
+            workspace.refresh_token = new_refresh_token
+            workspace.token_expires_at = new_expires_at
+
+            if not store.save(workspace):
+                return error_response("Failed to save refreshed token", 500)
+
+            logger.info(f"Token refreshed for workspace {workspace_id}")
+
+            audit = _get_oauth_audit_logger()
+            if audit:
+                audit.log_oauth(
+                    workspace_id=workspace_id,
+                    action="token_refresh",
+                    success=True,
+                )
+
+            return json_response(
+                {
+                    "success": True,
+                    "workspace_id": workspace_id,
+                    "token_expires_at": new_expires_at,
+                    "expires_in_seconds": expires_in,
+                }
+            )
+
+        except ImportError as e:
+            logger.error(f"Workspace store not available: {e}")
+            return error_response("Workspace storage not available", 503)
+        except Exception as e:
+            logger.error(f"Failed to refresh token: {e}")
+            return error_response(f"Failed to refresh token: {e}", 500)
 
 
 # Handler factory function for registration
