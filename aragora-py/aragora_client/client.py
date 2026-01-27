@@ -8,8 +8,11 @@ from urllib.parse import quote
 
 import httpx
 
+from aragora_client.admin import AdminAPI
+from aragora_client.analytics import AnalyticsAPI
 from aragora_client.audit import AuditAPI
 from aragora_client.auth import AuthAPI
+from aragora_client.connectors import ConnectorsAPI
 from aragora_client.control_plane import ControlPlaneAPI
 from aragora_client.cross_pollination import CrossPollinationAPI
 from aragora_client.decisions import DecisionsAPI
@@ -1553,6 +1556,10 @@ class AragoraClient:
         self.threat_intel = ThreatIntelAPI(self)
         self.decisions = DecisionsAPI(self)
         self.replays = ReplayAPI(self)
+        # Enterprise APIs (added in v2.1)
+        self.admin = AdminAPI(self)
+        self.analytics = AnalyticsAPI(self)
+        self.connectors = ConnectorsAPI(self)
 
     async def __aenter__(self) -> AragoraClient:
         """Enter async context."""

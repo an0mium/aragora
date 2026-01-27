@@ -10,6 +10,8 @@ Example:
     >>> print(debate.consensus.conclusion)
 """
 
+from aragora_client.admin import AdminAPI
+from aragora_client.analytics import AnalyticsAPI
 from aragora_client.audit import (
     AuditAPI,
     AuditEvent,
@@ -29,6 +31,7 @@ from aragora_client.auth import (
     User,
 )
 from aragora_client.client import AragoraClient, CodebaseAPI, GmailAPI
+from aragora_client.connectors import ConnectorsAPI
 from aragora_client.control_plane import (
     AgentHealth,
     ControlPlaneAPI,
@@ -160,6 +163,10 @@ __all__ = [
     "AragoraClient",
     "CodebaseAPI",
     "GmailAPI",
+    # Enterprise APIs
+    "AdminAPI",
+    "AnalyticsAPI",
+    "ConnectorsAPI",
     # Exceptions
     "AragoraError",
     "AragoraConnectionError",
