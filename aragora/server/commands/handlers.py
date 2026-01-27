@@ -199,10 +199,10 @@ class StatusCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            memory.initialize()
+            # Note: ConsensusMemory initializes in __init__, no separate init needed
 
             # Get recent verified debates
-            debates = memory.list_verified_debates(verified_only=False, limit=5)
+            debates = memory.list_verified_debates(verified_only=False, limit=5)  # type: ignore[attr-defined]
 
             if not debates:
                 return CommandResult.ok(

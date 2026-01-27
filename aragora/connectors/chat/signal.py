@@ -876,10 +876,14 @@ class SignalConnector(ChatPlatformConnector):
         try:
             attachment = await self.download_file(file_id)
             if attachment.content:
+                # VoiceMessage requires context data (id, channel, author) from kwargs
                 return VoiceMessage(
+                    id=kwargs.get("id", file_id),
+                    channel=kwargs["channel"],  # Required from caller
+                    author=kwargs["author"],  # Required from caller
+                    duration_seconds=kwargs.get("duration", 0.0),
                     file=attachment,
-                    duration=kwargs.get("duration"),
-                    waveform=kwargs.get("waveform"),
+                    metadata={"waveform": kwargs.get("waveform")},
                 )
         except Exception as e:
             logger.error(f"Failed to get voice message: {e}")

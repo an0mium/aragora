@@ -1043,6 +1043,71 @@ async def init_witness_patrol() -> bool:
         return False
 
 
+# Global mayor coordinator instance
+_mayor_coordinator: Optional[Any] = None
+
+
+def get_mayor_coordinator() -> Optional[Any]:
+    """Get the global mayor coordinator instance.
+
+    Returns:
+        MayorCoordinator instance if initialized, None otherwise
+    """
+    return _mayor_coordinator
+
+
+async def init_mayor_coordinator() -> bool:
+    """Initialize the Mayor Coordinator for distributed leadership.
+
+    Creates the MayorCoordinator which bridges leader election with the
+    Gas Town agent hierarchy:
+    - When this node wins election, it becomes MAYOR
+    - When it loses election, it demotes to WITNESS
+    - Provides current mayor info via get_mayor_coordinator()
+
+    Returns:
+        True if coordinator started successfully, False otherwise
+    """
+    global _mayor_coordinator
+
+    try:
+        from aragora.nomic.mayor_coordinator import MayorCoordinator
+        from aragora.nomic.agent_roles import AgentHierarchy
+        import os
+
+        # Get node ID from environment or generate one
+        node_id = os.environ.get("ARAGORA_NODE_ID")
+        region = os.environ.get("ARAGORA_REGION")
+
+        # Create hierarchy (will be shared with witness if both are initialized)
+        hierarchy = AgentHierarchy()
+
+        # Create and start coordinator
+        coordinator = MayorCoordinator(
+            hierarchy=hierarchy,
+            node_id=node_id,
+            region=region,
+        )
+
+        if await coordinator.start():
+            _mayor_coordinator = coordinator
+            is_mayor = "yes" if coordinator.is_mayor else "no"
+            logger.info(
+                f"Mayor coordinator started (node={coordinator.node_id}, "
+                f"is_mayor={is_mayor}, region={region or 'global'})"
+            )
+            return True
+
+        return False
+
+    except ImportError as e:
+        logger.debug(f"Mayor coordinator not available: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Mayor coordinator initialization failed: {e}")
+        return False
+
+
 async def init_persistent_task_queue() -> int:
     """Initialize persistent task queue with recovery of pending tasks.
 
@@ -1969,6 +2034,7 @@ async def run_startup_sequence(
         "graphql": False,
         "backup_scheduler": False,
         "witness_patrol": False,
+        "mayor_coordinator": False,
     }
 
     # Initialize Redis HA early (other components may depend on it)
@@ -1991,6 +2057,9 @@ async def run_startup_sequence(
 
     # Initialize Witness Patrol for Gas Town agent monitoring
     status["witness_patrol"] = await init_witness_patrol()
+
+    # Initialize Mayor Coordinator for distributed leadership
+    status["mayor_coordinator"] = await init_mayor_coordinator()
 
     status["km_adapters"] = await init_km_adapters()
     status["workflow_checkpoint_persistence"] = init_workflow_checkpoint_persistence()
@@ -2653,5 +2722,7 @@ __all__ = [
     "init_deployment_validation",
     "init_witness_patrol",
     "get_witness_behavior",
+    "init_mayor_coordinator",
+    "get_mayor_coordinator",
     "run_startup_sequence",
 ]

@@ -16,6 +16,19 @@ Supported platforms:
 - Google Chat: /api/chat/google_chat/webhook
 - Telegram: /api/chat/telegram/webhook
 - WhatsApp: /api/chat/whatsapp/webhook
+
+Security:
+    Webhook endpoints are authenticated via platform signatures, NOT user RBAC.
+    This is the correct pattern for incoming webhooks from external platforms:
+    - Slack: X-Slack-Signature HMAC verification
+    - Discord: Ed25519 signature verification
+    - Teams: Bot Framework Bearer token verification
+    - Telegram: Secret token verification
+    - WhatsApp: X-Hub-Signature-256 verification
+    - Google Chat: Bearer token verification
+
+    User permissions are enforced at the platform level (e.g., Slack workspace permissions).
+    Rate limiting (60 req/min) provides additional protection against abuse.
 """
 
 from __future__ import annotations

@@ -5,12 +5,22 @@ Endpoints:
 - GET /audio/{id}.mp3 - Serve audio file
 - GET /api/podcast/feed.xml - iTunes-compatible RSS feed
 - GET /api/podcast/episodes - JSON episode listing
+
+Security:
+    Podcast endpoints are public for RSS reader compatibility.
+    Audio file serving includes:
+    - Rate limiting (10 req/min)
+    - Debate ID validation (prevents path traversal)
+    - Path containment verification
+
+    For private debates, authentication is required:
+    - debates.read permission for audio access
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from aragora.server.errors import safe_error_message as _safe_error_message
 
@@ -55,7 +65,13 @@ except ImportError:
 
 
 class AudioHandler(BaseHandler):
-    """Handler for audio file serving and podcast endpoints."""
+    """Handler for audio file serving and podcast endpoints.
+
+    Podcast endpoints are public for RSS reader compatibility.
+    Audio file serving checks debate access for private debates.
+    """
+
+    RESOURCE_TYPE = "audio"  # For audit logging
 
     ROUTES = [
         "/audio/*",
@@ -71,6 +87,62 @@ class AudioHandler(BaseHandler):
             return True
         return False
 
+    def _check_debate_access(self, debate_id: str, handler: Any) -> Optional[HandlerResult]:
+        """Check if user has access to the debate's audio.
+
+        For public debates, access is granted.
+        For private debates, requires authentication and debates.read permission.
+        Returns None if access is granted, error response otherwise.
+        """
+        storage = self.get_storage()
+        if not storage:
+            return None  # Allow if storage unavailable
+
+        # Get debate metadata
+        debate = storage.get_debate(debate_id) if storage else None
+        if not debate:
+            return None  # Let the serve method handle 404
+
+        # Check if debate is public
+        is_public = debate.get("is_public", True)  # Default to public
+        if is_public:
+            return None  # Public debates don't require auth
+
+        # Private debate - require authentication
+        try:
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+
+            # Check RBAC permission
+            if user:
+                from aragora.rbac.checker import get_permission_checker
+                from aragora.rbac.models import AuthorizationContext
+
+                auth_context = AuthorizationContext(
+                    user_id=getattr(user, "user_id", "anonymous"),
+                    org_id=getattr(user, "org_id", None),
+                    roles=getattr(user, "roles", {"member"}),
+                )
+
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_context, "debates.read")
+
+                if not decision.allowed:
+                    return error_response("Permission denied: debates.read", 403)
+
+                # Additional ownership check for private debates
+                debate_owner = debate.get("owner_id") or debate.get("user_id")
+                if debate_owner and debate_owner != user.user_id:
+                    # Check if user has admin role
+                    if "admin" not in getattr(user, "roles", set()):
+                        return error_response("Access denied to private debate", 403)
+
+            return None  # Access granted
+        except Exception as e:
+            logger.warning(f"Auth check failed for audio access: {e}")
+            return error_response("Authentication required for private debate", 401)
+
     def handle(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
         """Handle GET requests."""
         # Rate limit check
@@ -82,6 +154,12 @@ class AudioHandler(BaseHandler):
         # Audio file serving
         if path.startswith("/audio/") and path.endswith(".mp3"):
             debate_id = path[7:-4]  # Extract ID from /audio/{id}.mp3
+
+            # Check debate access for private debates
+            access_error = self._check_debate_access(debate_id, handler)
+            if access_error:
+                return access_error
+
             return self._serve_audio(debate_id)
 
         # Podcast endpoints

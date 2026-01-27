@@ -9,6 +9,11 @@ Endpoints:
 - GET /api/verify/history - Get verification history
 - GET /api/verify/history/{id} - Get specific verification result
 - GET /api/verify/history/{id}/tree - Get proof tree for visualization
+
+Security:
+    All endpoints require RBAC permissions:
+    - verification.read: View verification history and status
+    - verification.create: Run verification operations
 """
 
 from __future__ import annotations
@@ -20,7 +25,10 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, cast
+from typing import Any, Optional, cast
+
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 from ..base import (
     BaseHandler,
@@ -239,7 +247,14 @@ def _init_verification():
 
 
 class FormalVerificationHandler(BaseHandler):
-    """Handler for formal verification endpoints."""
+    """Handler for formal verification endpoints.
+
+    RBAC Permissions:
+    - verification.read: View verification history and status
+    - verification.create: Run verification operations
+    """
+
+    RESOURCE_TYPE = "verification"  # For audit logging
 
     ROUTES = [
         "/api/v1/verify/claim",
@@ -252,6 +267,36 @@ class FormalVerificationHandler(BaseHandler):
     def __init__(self, server_context: Optional[ServerContext] = None):
         super().__init__(server_context or cast(ServerContext, {}))
         self._manager = None
+
+    def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+        """Check RBAC permission for the request.
+
+        Returns None if permission is granted, or an error response if denied.
+        """
+        try:
+            # Try to get authenticated user
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+
+            if not user:
+                return error_response("Authentication required", 401)
+
+            auth_context = AuthorizationContext(
+                user_id=getattr(user, "user_id", "anonymous"),
+                org_id=getattr(user, "org_id", None),
+                roles=getattr(user, "roles", {"member"}),
+            )
+
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_context, permission)
+
+            if not decision.allowed:
+                return error_response(f"Permission denied: {permission}", 403)
+            return None
+        except Exception as e:
+            logger.warning(f"Auth check failed for verification: {e}")
+            return error_response("Authentication required", 401)
 
     def _get_manager(self):
         """Get or create the formal verification manager."""
@@ -276,7 +321,19 @@ class FormalVerificationHandler(BaseHandler):
         body: Optional[bytes] = None,
         query_params: Optional[dict] = None,
     ) -> HandlerResult:
-        """Route and handle formal verification requests."""
+        """Route and handle formal verification requests with RBAC enforcement."""
+        # Determine required permission based on method
+        if method == "POST":
+            permission = "verification.create"
+        else:
+            permission = "verification.read"
+
+        # Check RBAC permission
+        rbac_error = self._check_permission(handler, permission)
+        if rbac_error:
+            return rbac_error
+
+        # Route to appropriate handler
         if path == "/api/v1/verify/claim" and method == "POST":
             return await self._handle_verify_claim(handler, body)
         elif path == "/api/v1/verify/batch" and method == "POST":

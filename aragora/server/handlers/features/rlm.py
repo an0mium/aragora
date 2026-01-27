@@ -7,6 +7,12 @@ Endpoints:
 - GET /api/debates/{id}/context/{level} - Get debate at specific abstraction level
 - GET /api/debates/{id}/refinement-status - Check iterative refinement progress
 - POST /api/knowledge/query-rlm - Query knowledge mound using RLM
+
+Security:
+    All endpoints require RBAC permissions:
+    - debates.read: Query and compress debate context
+    - knowledge.read: Query knowledge mound
+    - analytics.read: Access RLM metrics
 """
 
 from __future__ import annotations
@@ -16,6 +22,8 @@ import time
 from typing import Any, Optional
 
 from aragora.server.http_utils import run_async as _run_async
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 from ..base import (
     BaseHandler,
@@ -31,7 +39,15 @@ logger = logging.getLogger(__name__)
 
 
 class RLMHandler(BaseHandler):
-    """Handler for RLM-powered query and compression endpoints."""
+    """Handler for RLM-powered query and compression endpoints.
+
+    RBAC Permissions:
+    - debates.read: Query and compress debate context
+    - knowledge.read: Query knowledge mound
+    - analytics.read: Access RLM metrics
+    """
+
+    RESOURCE_TYPE = "rlm"  # For audit logging
 
     ROUTES = [
         "/api/v1/debates/{debate_id}/query-rlm",
@@ -77,6 +93,31 @@ class RLMHandler(BaseHandler):
         if len(parts) >= 7 and parts[5] == "context":
             return parts[6].upper()
         return None
+
+    def _check_permission(self, user, permission: str) -> Optional[HandlerResult]:
+        """Check RBAC permission for the authenticated user.
+
+        Returns None if permission is granted, or an error response if denied.
+        """
+        if not user:
+            return error_response("Authentication required", 401)
+
+        try:
+            auth_context = AuthorizationContext(
+                user_id=getattr(user, "user_id", "anonymous"),
+                org_id=getattr(user, "org_id", None),
+                roles=getattr(user, "roles", {"member"}),
+            )
+
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_context, permission)
+
+            if not decision.allowed:
+                return error_response(f"Permission denied: {permission}", 403)
+            return None
+        except Exception as e:
+            logger.error(f"RBAC check failed: {e}")
+            return error_response("Authorization check failed", 500)
 
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Handle GET requests."""
@@ -125,6 +166,11 @@ class RLMHandler(BaseHandler):
             "tokens_processed": 5000
         }
         """
+        # RBAC check
+        rbac_error = self._check_permission(user, "debates.read")
+        if rbac_error:
+            return rbac_error
+
         debate_id = self._extract_debate_id(path)
         if not debate_id:
             return error_response("Invalid debate ID", 400)
@@ -238,6 +284,11 @@ class RLMHandler(BaseHandler):
             "levels_created": 3
         }
         """
+        # RBAC check
+        rbac_error = self._check_permission(user, "debates.read")
+        if rbac_error:
+            return rbac_error
+
         debate_id = self._extract_debate_id(path)
         if not debate_id:
             return error_response("Invalid debate ID", 400)
@@ -314,6 +365,11 @@ class RLMHandler(BaseHandler):
             "nodes": [...]
         }
         """
+        # RBAC check
+        rbac_error = self._check_permission(user, "debates.read")
+        if rbac_error:
+            return rbac_error
+
         debate_id = self._extract_debate_id(path)
         level_name = self._extract_level(path)
 
@@ -384,6 +440,11 @@ class RLMHandler(BaseHandler):
             "last_query_time": "..."
         }
         """
+        # RBAC check
+        rbac_error = self._check_permission(user, "debates.read")
+        if rbac_error:
+            return rbac_error
+
         debate_id = self._extract_debate_id(path)
         if not debate_id:
             return error_response("Invalid debate ID", 400)
@@ -419,6 +480,11 @@ class RLMHandler(BaseHandler):
             "confidence": 0.85
         }
         """
+        # RBAC check
+        rbac_error = self._check_permission(user, "knowledge.read")
+        if rbac_error:
+            return rbac_error
+
         body = handler.get_json_body()
         if not body:
             return error_response("Request body required", 400)

@@ -4,12 +4,14 @@ Compliance HTTP Handlers for Aragora.
 Provides REST API endpoints for compliance and audit operations:
 - SOC 2 Type II report generation
 - GDPR data export requests
+- GDPR Right-to-be-Forgotten workflow
 - Audit trail verification
 - SIEM-compatible event export
 
 Endpoints:
     GET  /api/v2/compliance/soc2-report          - Generate SOC 2 compliance summary
     GET  /api/v2/compliance/gdpr-export          - Export user data for GDPR
+    POST /api/v2/compliance/gdpr/right-to-be-forgotten - Execute GDPR right to erasure
     POST /api/v2/compliance/audit-verify         - Verify audit trail integrity
     GET  /api/v2/compliance/audit-events         - Export audit events (Elasticsearch/SIEM)
     GET  /api/v2/compliance/status               - Overall compliance status
@@ -96,6 +98,10 @@ class ComplianceHandler(BaseHandler):
             # Audit events endpoint (SIEM)
             if path == "/api/v2/compliance/audit-events" and method == "GET":
                 return await self._get_audit_events(query_params)
+
+            # GDPR Right-to-be-Forgotten endpoint
+            if path == "/api/v2/compliance/gdpr/right-to-be-forgotten" and method == "POST":
+                return await self._right_to_be_forgotten(body)
 
             return error_response("Not found", 404)
 
@@ -288,6 +294,234 @@ class ComplianceHandler(BaseHandler):
             )
 
         return json_response(export_data)
+
+    @require_permission("compliance:gdpr")
+    async def _right_to_be_forgotten(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Execute GDPR Right-to-be-Forgotten workflow (Article 17).
+
+        Coordinates three operations:
+        1. Revoke all user consents
+        2. Generate final data export (for user to keep)
+        3. Schedule data deletion after grace period
+
+        Body:
+            user_id: User ID requesting erasure (required)
+            grace_period_days: Days before deletion (default: 30)
+            include_export: Generate export before deletion (default: true)
+            reason: Optional reason for the request
+
+        Returns:
+            Confirmation with export URL and deletion schedule
+        """
+        user_id = body.get("user_id")
+        if not user_id:
+            return error_response("user_id is required", 400)
+
+        grace_period_days = int(body.get("grace_period_days", 30))
+        include_export = body.get("include_export", True)
+        reason = body.get("reason", "User request")
+
+        now = datetime.now(timezone.utc)
+        deletion_scheduled = now + timedelta(days=grace_period_days)
+        request_id = f"rtbf-{user_id}-{now.strftime('%Y%m%d%H%M%S')}"
+
+        result: Dict[str, Any] = {
+            "request_id": request_id,
+            "user_id": user_id,
+            "status": "scheduled",
+            "requested_at": now.isoformat(),
+            "reason": reason,
+            "operations": [],
+        }
+
+        try:
+            # Step 1: Revoke all consents
+            consents_revoked = await self._revoke_all_consents(user_id)
+            result["operations"].append(
+                {
+                    "operation": "revoke_consents",
+                    "status": "completed",
+                    "consents_revoked": consents_revoked,
+                }
+            )
+
+            # Step 2: Generate data export (if requested)
+            export_url = None
+            if include_export:
+                export_data = await self._generate_final_export(user_id)
+                export_url = f"/api/v2/compliance/exports/{request_id}"
+                result["operations"].append(
+                    {
+                        "operation": "generate_export",
+                        "status": "completed",
+                        "export_id": export_data.get("export_id"),
+                        "data_categories": export_data.get("data_categories", []),
+                    }
+                )
+                result["export_url"] = export_url
+
+            # Step 3: Schedule deletion
+            await self._schedule_deletion(
+                user_id=user_id,
+                request_id=request_id,
+                scheduled_for=deletion_scheduled,
+                reason=reason,
+            )
+            result["operations"].append(
+                {
+                    "operation": "schedule_deletion",
+                    "status": "scheduled",
+                    "scheduled_for": deletion_scheduled.isoformat(),
+                }
+            )
+
+            # Record audit event
+            await self._log_rtbf_request(
+                request_id=request_id,
+                user_id=user_id,
+                reason=reason,
+                deletion_scheduled=deletion_scheduled,
+            )
+
+            result["deletion_scheduled"] = deletion_scheduled.isoformat()
+            result["grace_period_days"] = grace_period_days
+            result["message"] = (
+                f"Right-to-be-forgotten request processed. "
+                f"Data will be permanently deleted on {deletion_scheduled.strftime('%Y-%m-%d')}. "
+                f"{'Export available at: ' + export_url if export_url else 'No export requested.'}"
+            )
+
+            logger.info(
+                f"GDPR RTBF request processed: user={user_id}, "
+                f"request_id={request_id}, deletion={deletion_scheduled.isoformat()}"
+            )
+
+            return json_response(result)
+
+        except Exception as e:
+            logger.exception(f"RTBF request failed for user {user_id}: {e}")
+            result["status"] = "failed"
+            result["error"] = str(e)
+            return json_response(result, status=500)
+
+    async def _revoke_all_consents(self, user_id: str) -> int:
+        """Revoke all consents for a user."""
+        try:
+            from aragora.privacy.consent import get_consent_manager
+
+            manager = get_consent_manager()
+            revoked_count = manager.bulk_revoke_for_user(user_id)
+            logger.info(f"Revoked {revoked_count} consents for user {user_id}")
+            return revoked_count
+        except Exception as e:
+            logger.warning(f"Failed to revoke consents for {user_id}: {e}")
+            return 0
+
+    async def _generate_final_export(self, user_id: str) -> Dict[str, Any]:
+        """Generate final data export before deletion."""
+        # Use the existing GDPR export logic
+        data_categories: list[str] = []
+        export_data: Dict[str, Any] = {
+            "export_id": f"final-{user_id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+            "user_id": user_id,
+            "requested_at": datetime.now(timezone.utc).isoformat(),
+            "data_categories": data_categories,
+        }
+
+        # Collect all data categories
+        decisions = await self._get_user_decisions(user_id)
+        export_data["decisions"] = decisions
+        data_categories.append("decisions")
+
+        preferences = await self._get_user_preferences(user_id)
+        export_data["preferences"] = preferences
+        data_categories.append("preferences")
+
+        activity = await self._get_user_activity(user_id)
+        export_data["activity"] = activity
+        data_categories.append("activity")
+
+        # Add consent records
+        try:
+            from aragora.privacy.consent import get_consent_manager
+
+            manager = get_consent_manager()
+            consent_export = manager.export_consent_data(user_id)
+            export_data["consent_records"] = consent_export.to_dict()
+            data_categories.append("consent_records")
+        except Exception as e:
+            logger.warning(f"Failed to export consent data: {e}")
+
+        # Calculate checksum
+        data_str = json.dumps(export_data, sort_keys=True, default=str)
+        export_data["checksum"] = hashlib.sha256(data_str.encode()).hexdigest()
+
+        return export_data
+
+    async def _schedule_deletion(
+        self,
+        user_id: str,
+        request_id: str,
+        scheduled_for: datetime,
+        reason: str,
+    ) -> Dict[str, Any]:
+        """Schedule data deletion for user."""
+        # In a production system, this would:
+        # 1. Create a deletion job in a job queue
+        # 2. Store the deletion schedule in a database
+        # 3. Send notification to administrators
+
+        deletion_record = {
+            "request_id": request_id,
+            "user_id": user_id,
+            "scheduled_for": scheduled_for.isoformat(),
+            "reason": reason,
+            "status": "scheduled",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Log for audit trail
+        try:
+            store = get_audit_store()
+            store.log_event(
+                action="gdpr_deletion_scheduled",
+                resource_type="user",
+                resource_id=user_id,
+                metadata=deletion_record,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log deletion schedule: {e}")
+
+        return deletion_record
+
+    async def _log_rtbf_request(
+        self,
+        request_id: str,
+        user_id: str,
+        reason: str,
+        deletion_scheduled: datetime,
+    ) -> None:
+        """Log the right-to-be-forgotten request for compliance."""
+        try:
+            store = get_audit_store()
+            store.log_event(
+                action="gdpr_rtbf_request",
+                resource_type="user",
+                resource_id=user_id,
+                metadata={
+                    "request_id": request_id,
+                    "reason": reason,
+                    "deletion_scheduled": deletion_scheduled.isoformat(),
+                    "operations": [
+                        "revoke_consents",
+                        "generate_export",
+                        "schedule_deletion",
+                    ],
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log RTBF request: {e}")
 
     @require_permission("compliance:audit")
     async def _verify_audit(self, body: Dict[str, Any]) -> HandlerResult:

@@ -13,6 +13,14 @@ Provides REST endpoints for canvas management:
 - POST /api/v1/canvas/{id}/edges - Add edge
 - DELETE /api/v1/canvas/{id}/edges/{edge_id} - Delete edge
 - POST /api/v1/canvas/{id}/action - Execute action
+
+Security:
+    All endpoints require RBAC permissions:
+    - canvas.read: List, get canvas
+    - canvas.create: Create canvas, add nodes/edges
+    - canvas.update: Update canvas/nodes
+    - canvas.delete: Delete canvas/nodes/edges
+    - canvas.run: Execute actions
 """
 
 from __future__ import annotations
@@ -23,8 +31,10 @@ import logging
 import re
 from typing import Any, Dict, Optional
 
+from aragora.server.handlers.secure import (
+    SecureHandler,
+)
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
@@ -45,7 +55,7 @@ CANVAS_EDGE_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/edges/([a-zA
 CANVAS_ACTION_PATTERN = re.compile(r"^/api/v1/canvas/([a-zA-Z0-9_-]+)/action$")
 
 
-class CanvasHandler(BaseHandler):
+class CanvasHandler(SecureHandler):
     """Handler for Live Canvas REST API endpoints.
 
     Endpoints:
@@ -60,7 +70,16 @@ class CanvasHandler(BaseHandler):
         POST /api/v1/canvas/{id}/edges - Add edge
         DELETE /api/v1/canvas/{id}/edges/{edge_id} - Delete edge
         POST /api/v1/canvas/{id}/action - Execute action
+
+    RBAC Permissions:
+        - canvas.read: List, get canvas
+        - canvas.create: Create canvas, add nodes/edges
+        - canvas.update: Update canvas/nodes
+        - canvas.delete: Delete canvas/nodes/edges
+        - canvas.run: Execute actions
     """
+
+    RESOURCE_TYPE = "canvas"  # For audit logging
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
@@ -72,7 +91,7 @@ class CanvasHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
-        """Handle requests."""
+        """Handle requests with RBAC enforcement."""
         # Rate limit check
         client_ip = get_client_ip(handler)
         if not _canvas_limiter.is_allowed(client_ip):
@@ -92,14 +111,60 @@ class CanvasHandler(BaseHandler):
             logger.warning(f"Authentication failed for canvas: {e}")
             return error_response("Authentication required", 401)
 
+        # RBAC: Check permission based on method and path
+        method = getattr(handler, "command", "GET")
+        try:
+            permission = self._get_required_permission(path, method)
+            if permission:
+                from aragora.rbac.models import AuthorizationContext
+                from aragora.rbac.checker import get_permission_checker
+
+                # Build context from user info
+                auth_context = AuthorizationContext(
+                    user_id=user_id or "anonymous",
+                    org_id=workspace_id,
+                    roles=getattr(user, "roles", set()) if user else {"member"},
+                )
+
+                checker = get_permission_checker()
+                decision = checker.check_permission(auth_context, permission)
+                if not decision.allowed:
+                    return error_response(f"Permission denied: {permission}", 403)
+        except Exception as e:
+            logger.error(f"RBAC check failed: {e}")
+            return error_response("Authorization check failed", 500)
+
         # Override workspace from query params if provided
         workspace_id = query_params.get("workspace_id") or workspace_id
 
-        method = getattr(handler, "command", "GET")
         body = self._get_request_body(handler)
 
         # Route to appropriate handler
         return self._route_request(path, method, query_params, body, user_id, workspace_id)
+
+    def _get_required_permission(self, path: str, method: str) -> Optional[str]:
+        """Determine required permission based on path and method."""
+        # Action endpoints
+        if CANVAS_ACTION_PATTERN.match(path):
+            return "canvas.run"
+
+        # Delete operations
+        if method == "DELETE":
+            return "canvas.delete"
+
+        # Create operations
+        if method == "POST":
+            if path == "/api/v1/canvas":
+                return "canvas.create"
+            # Adding nodes/edges counts as create
+            return "canvas.create"
+
+        # Update operations
+        if method in ("PUT", "PATCH"):
+            return "canvas.update"
+
+        # Read operations (GET)
+        return "canvas.read"
 
     def _get_request_body(self, handler: Any) -> Dict[str, Any]:
         """Extract JSON body from request."""

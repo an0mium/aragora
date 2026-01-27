@@ -30,7 +30,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from aragora.server.handlers.secure import SecureHandler
+from aragora.server.handlers.secure import (
+    ForbiddenError,
+    SecureHandler,
+    UnauthorizedError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +89,34 @@ class RoutingRulesHandler(SecureHandler):
         return path.startswith("/api/v1/routing-rules/")
 
     async def handle_request(self, request: Any) -> dict[str, Any]:
-        """Route request to appropriate handler."""
+        """Route request to appropriate handler with RBAC enforcement."""
         method = request.method
         path = request.path
 
         # Remove query string for path matching
         path_only = path.split("?")[0]
+
+        # RBAC: Authenticate and authorize
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+        except UnauthorizedError:
+            return {"status": "error", "error": "Authentication required", "code": 401}
+
+        # Determine required permission based on method and path
+        try:
+            if method == "POST" and path_only == "/api/v1/routing-rules":
+                self.check_permission(auth_context, "policies.create")
+            elif method in ("PUT", "PATCH"):
+                self.check_permission(auth_context, "policies.update")
+            elif method == "DELETE":
+                self.check_permission(auth_context, "policies.delete")
+            elif "toggle" in path_only and method == "POST":
+                self.check_permission(auth_context, "policies.update")
+            else:
+                # GET requests and evaluate (read-only operations)
+                self.check_permission(auth_context, "policies.read")
+        except ForbiddenError as e:
+            return {"status": "error", "error": str(e), "code": 403}
 
         # List/Create rules
         if path_only == "/api/v1/routing-rules":

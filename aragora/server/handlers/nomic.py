@@ -8,6 +8,7 @@ Endpoints:
 - GET /api/nomic/log - Get nomic loop logs
 - GET /api/nomic/risk-register - Get risk register entries
 - GET /api/nomic/witness/status - Get Gas Town witness patrol status
+- GET /api/nomic/mayor/current - Get current Gas Town mayor information
 - GET /api/modes - Get available operational modes
 - WS /api/nomic/stream - Real-time WebSocket event stream
 
@@ -71,6 +72,7 @@ class NomicHandler(SecureHandler):
         "/api/nomic/log",
         "/api/nomic/risk-register",
         "/api/nomic/witness/status",
+        "/api/nomic/mayor/current",
         "/api/nomic/control/start",
         "/api/nomic/control/stop",
         "/api/nomic/control/pause",
@@ -184,6 +186,7 @@ class NomicHandler(SecureHandler):
             "/api/nomic/metrics": self._get_nomic_metrics,
             "/api/nomic/proposals": self._get_proposals,
             "/api/nomic/witness/status": self._get_witness_status,
+            "/api/nomic/mayor/current": self._get_mayor_current,
             "/api/modes": self._get_modes,
         }
 
@@ -560,6 +563,52 @@ class NomicHandler(SecureHandler):
         except Exception as e:
             logger.error(f"Failed to get witness status: {e}")
             return error_response(f"Failed to get witness status: {e}", 500)
+
+    def _get_mayor_current(self) -> HandlerResult:
+        """Get current mayor information.
+
+        Returns information about the current Gas Town mayor:
+        - is_this_node: whether this node is the current mayor
+        - node_id: the node ID of the current mayor
+        - agent_id: the agent ID of the mayor
+        - became_mayor_at: when this mayor was elected
+        - region: regional scope (if using regional elections)
+        """
+        try:
+            from aragora.server.startup import get_mayor_coordinator
+
+            coordinator = get_mayor_coordinator()
+            if not coordinator:
+                return json_response({
+                    "initialized": False,
+                    "message": "Mayor coordinator not initialized",
+                })
+
+            response: dict[str, Any] = {
+                "initialized": True,
+                "is_started": coordinator.is_started,
+                "is_this_node": coordinator.is_mayor,
+                "this_node_id": coordinator.node_id,
+                "current_mayor_node": coordinator.get_current_mayor_node(),
+            }
+
+            # Add detailed mayor info if this node is the mayor
+            if coordinator.is_mayor:
+                mayor_info = coordinator.get_mayor_info()
+                if mayor_info:
+                    response["mayor_info"] = mayor_info.to_dict()
+
+            return json_response(response)
+
+        except ImportError as e:
+            logger.debug(f"Mayor coordinator not available: {e}")
+            return json_response({
+                "initialized": False,
+                "error": "Mayor coordinator module not available",
+            })
+        except Exception as e:
+            logger.error(f"Failed to get mayor info: {e}")
+            return error_response(f"Failed to get mayor info: {e}", 500)
 
     # =========================================================================
     # POST Handlers - Control Operations
