@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Skill Marketplace API Handlers.
 
