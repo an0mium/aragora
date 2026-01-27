@@ -22,6 +22,10 @@ if _spec and _spec.loader:
     generate_signature = _webhooks_module.generate_signature
     verify_signature = _webhooks_module.verify_signature
     WEBHOOK_EVENTS = _webhooks_module.WEBHOOK_EVENTS
+    # RBAC exports
+    RBAC_AVAILABLE = _webhooks_module.RBAC_AVAILABLE
+    check_permission = _webhooks_module.check_permission
+    validate_webhook_url = _webhooks_module.validate_webhook_url
 else:
     raise ImportError("Could not load webhooks.py module")
 
@@ -36,4 +40,8 @@ __all__ = [
     "generate_signature",
     "verify_signature",
     "WEBHOOK_EVENTS",
+    # RBAC exports
+    "RBAC_AVAILABLE",
+    "check_permission",
+    "validate_webhook_url",
 ]
