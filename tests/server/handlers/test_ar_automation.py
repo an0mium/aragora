@@ -294,8 +294,14 @@ def mock_ar_service():
 
 
 def parse_response(result) -> tuple[dict[str, Any], int]:
-    """Parse HandlerResult into (body_dict, status_code)."""
+    """Parse HandlerResult into (body_dict, status_code).
+
+    Note: success_response wraps data in {"data": ..., "success": True}
+    """
     body = json.loads(result.body) if result.body else {}
+    # Unwrap data if present (success_response format)
+    if "data" in body and body.get("success"):
+        return body["data"], result.status_code
     return body, result.status_code
 
 
