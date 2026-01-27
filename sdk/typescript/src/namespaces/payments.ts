@@ -357,7 +357,7 @@ export class PaymentsAPI {
     request: UpdateCustomerRequest
   ): Promise<{ success: boolean; customer: CustomerProfile }> {
     return this.client.request('PUT', `/api/payments/customer/${customerId}`, {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -378,7 +378,9 @@ export class PaymentsAPI {
   async createSubscription(
     request: CreateSubscriptionRequest
   ): Promise<{ success: boolean; subscription_id: string; subscription: Subscription }> {
-    return this.client.request('POST', '/api/payments/subscription', { json: request });
+    return this.client.request('POST', '/api/payments/subscription', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -396,7 +398,7 @@ export class PaymentsAPI {
     request: UpdateSubscriptionRequest
   ): Promise<{ success: boolean; subscription: Subscription }> {
     return this.client.request('PUT', `/api/payments/subscription/${subscriptionId}`, {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
