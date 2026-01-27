@@ -53,7 +53,7 @@ class MockMound:
         )
 
 
-class TestHandler(ExtractionOperationsMixin):
+class MockExtractionHandler(ExtractionOperationsMixin):
     """Test handler that implements ExtractionOperationsMixin."""
 
     def __init__(self):
@@ -64,7 +64,7 @@ class TestHandler(ExtractionOperationsMixin):
         return self.mound
 
 
-class TestHandlerNoMound(ExtractionOperationsMixin):
+class MockExtractionHandlerNoMound(ExtractionOperationsMixin):
     """Test handler with no mound available."""
 
     def __init__(self):
@@ -75,10 +75,10 @@ class TestHandlerNoMound(ExtractionOperationsMixin):
 
 
 def parse_json_response(result):
-    """Parse JSON response from handler result tuple."""
+    """Parse JSON response from HandlerResult dataclass."""
     import json
 
-    status_code, content_type, body, headers = result
+    body = result.body
     if isinstance(body, bytes):
         body = body.decode("utf-8")
     return json.loads(body)
@@ -87,13 +87,13 @@ def parse_json_response(result):
 @pytest.fixture
 def handler():
     """Create test handler with mocked mound."""
-    return TestHandler()
+    return MockExtractionHandler()
 
 
 @pytest.fixture
 def handler_no_mound():
     """Create test handler without mound."""
-    return TestHandlerNoMound()
+    return MockExtractionHandlerNoMound()
 
 
 # Mock the decorators to bypass RBAC and rate limiting for tests
@@ -125,7 +125,7 @@ class TestExtractFromDebate:
         ]
 
         # Create fresh handler to get decorator-free method
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.extract_from_debate(
             debate_id="debate-123",
             messages=messages,
@@ -141,13 +141,13 @@ class TestExtractFromDebate:
     @pytest.mark.asyncio
     async def test_extract_missing_debate_id(self, handler):
         """Test extraction fails without debate_id."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.extract_from_debate(
             debate_id="",
             messages=[{"content": "test"}],
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 400
         assert "debate_id is required" in data.get("error", "")
@@ -155,13 +155,13 @@ class TestExtractFromDebate:
     @pytest.mark.asyncio
     async def test_extract_missing_messages(self, handler):
         """Test extraction fails without messages."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.extract_from_debate(
             debate_id="debate-123",
             messages=[],
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 400
         assert "messages" in data.get("error", "")
@@ -174,7 +174,7 @@ class TestExtractFromDebate:
             messages=[{"content": "test"}],
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 503
         assert "not available" in data.get("error", "")
@@ -182,7 +182,7 @@ class TestExtractFromDebate:
     @pytest.mark.asyncio
     async def test_extract_mound_error(self, handler):
         """Test extraction handles mound errors."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         test_handler.mound.extract_from_debate = AsyncMock(side_effect=Exception("Mound error"))
 
         result = await test_handler.extract_from_debate(
@@ -190,7 +190,7 @@ class TestExtractFromDebate:
             messages=[{"content": "test"}],
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 500
         assert "error" in data
@@ -198,7 +198,7 @@ class TestExtractFromDebate:
     @pytest.mark.asyncio
     async def test_extract_with_optional_params(self, handler):
         """Test extraction with optional parameters."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.extract_from_debate(
             debate_id="debate-456",
             messages=[{"agent_id": "agent-1", "content": "Test claim"}],
@@ -224,7 +224,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_promote_success(self, handler):
         """Test successful promotion of extracted knowledge."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.promote_extracted_knowledge(
             workspace_id="workspace-123",
             min_confidence=0.7,
@@ -239,13 +239,13 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_promote_missing_workspace_id(self, handler):
         """Test promotion fails without workspace_id."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.promote_extracted_knowledge(
             workspace_id="",
             min_confidence=0.6,
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 400
         assert "workspace_id is required" in data.get("error", "")
@@ -257,7 +257,7 @@ class TestPromoteExtractedKnowledge:
             workspace_id="workspace-123",
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 503
         assert "not available" in data.get("error", "")
@@ -265,7 +265,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_promote_mound_error(self, handler):
         """Test promotion handles mound errors."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         test_handler.mound.promote_extracted_knowledge = AsyncMock(
             side_effect=Exception("Promotion error")
         )
@@ -274,7 +274,7 @@ class TestPromoteExtractedKnowledge:
             workspace_id="workspace-123",
         )
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 500
         assert "error" in data
@@ -282,7 +282,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_promote_with_claim_ids(self, handler):
         """Test promotion with specific claim IDs."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.promote_extracted_knowledge(
             workspace_id="workspace-123",
             claim_ids=["claim-1", "claim-2"],
@@ -296,7 +296,7 @@ class TestPromoteExtractedKnowledge:
     @pytest.mark.asyncio
     async def test_promote_default_confidence(self, handler):
         """Test promotion uses default min_confidence."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.promote_extracted_knowledge(
             workspace_id="workspace-123",
         )
@@ -311,7 +311,7 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_get_stats_success(self, handler):
         """Test successful stats retrieval."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         result = await test_handler.get_extraction_stats()
 
         data = parse_json_response(result)
@@ -324,7 +324,7 @@ class TestGetExtractionStats:
         """Test stats when mound is unavailable."""
         result = await handler_no_mound.get_extraction_stats()
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 503
         assert "not available" in data.get("error", "")
@@ -332,12 +332,12 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_get_stats_mound_error(self, handler):
         """Test stats handles mound errors."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         test_handler.mound.get_extraction_stats = MagicMock(side_effect=Exception("Stats error"))
 
         result = await test_handler.get_extraction_stats()
 
-        status_code = result[0]
+        status_code = result.status_code
         data = parse_json_response(result)
         assert status_code == 500
         assert "error" in data
@@ -345,7 +345,7 @@ class TestGetExtractionStats:
     @pytest.mark.asyncio
     async def test_get_stats_empty(self, handler):
         """Test stats with empty results."""
-        test_handler = TestHandler()
+        test_handler = MockExtractionHandler()
         test_handler.mound.get_extraction_stats = MagicMock(
             return_value={
                 "total_extractions": 0,
