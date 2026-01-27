@@ -330,6 +330,30 @@ class DeletionStore:
         """Get all deletion certificates for a user."""
         return [c for c in self._certificates.values() if c.user_id == user_id]
 
+    def update_status(self, request_id: str, status: DeletionStatus) -> bool:
+        """
+        Update the status of a deletion request.
+
+        Args:
+            request_id: ID of the deletion request
+            status: New status to set
+
+        Returns:
+            True if request was found and updated, False otherwise
+        """
+        request = self._requests.get(request_id)
+        if request is None:
+            return False
+
+        request.status = status
+        if status == DeletionStatus.COMPLETED:
+            request.completed_at = datetime.now(timezone.utc)
+        elif status == DeletionStatus.IN_PROGRESS:
+            request.started_at = datetime.now(timezone.utc)
+
+        self._persist()
+        return True
+
     def _load(self) -> None:
         """Load from storage."""
         if not self.storage_path.exists():

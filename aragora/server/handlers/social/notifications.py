@@ -301,7 +301,7 @@ class NotificationsHandler(SecureHandler):
             return err
 
         # SECURITY: Require 'notifications.read' permission for all GET endpoints
-        perm_err = self.require_permission_or_error(handler, "read")  # type: ignore[attr-defined]
+        _, perm_err = self.require_permission_or_error(handler, "read")  # type: ignore[attr-defined]
         if perm_err:
             return perm_err
 
@@ -339,7 +339,7 @@ class NotificationsHandler(SecureHandler):
             return err
 
         # SECURITY: Require 'notifications.write' permission for configuration changes
-        perm_err = self.require_permission_or_error(handler, "write")  # type: ignore[attr-defined]
+        _, perm_err = self.require_permission_or_error(handler, "write")  # type: ignore[attr-defined]
         if perm_err:
             return perm_err
 
@@ -377,7 +377,7 @@ class NotificationsHandler(SecureHandler):
             return err
 
         # SECURITY: Require 'notifications.delete' permission
-        perm_err = self.require_permission_or_error(handler, "delete")  # type: ignore[attr-defined]
+        _, perm_err = self.require_permission_or_error(handler, "delete")  # type: ignore[attr-defined]
         if perm_err:
             return perm_err
 

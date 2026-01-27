@@ -178,15 +178,18 @@ class SemanticSearchMixin:
                 logger.debug(f"[{self.adapter_name}] Semantic search failed, falling back: {e}")
 
             # Fallback to keyword search
+            fallback_results: List[Dict[str, Any]]
             if fallback_fn:
-                results = fallback_fn(query, limit=limit, min_confidence=min_similarity)
+                fallback_results = fallback_fn(query, limit=limit, min_confidence=min_similarity)
             elif hasattr(self, "search_similar"):
-                results = self.search_similar(query, limit=limit, min_confidence=min_similarity)  # type: ignore[attr-defined]
+                fallback_results = self.search_similar(
+                    query, limit=limit, min_confidence=min_similarity
+                )  # type: ignore[attr-defined]
             else:
-                results = []
+                fallback_results = []
 
             success = True
-            return results
+            return fallback_results
 
         finally:
             self._record_metric("semantic_search", success, time.time() - start)

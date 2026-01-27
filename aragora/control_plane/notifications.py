@@ -863,6 +863,61 @@ def on_notification_event(
 
 
 # =============================================================================
+# Security Notifications
+# =============================================================================
+
+
+async def send_security_notification(
+    title: str,
+    message: str,
+    severity: str = "medium",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Send a security-related notification to the security team.
+
+    This is a convenience function for break-glass access, suspicious activity,
+    and other security events that require immediate attention.
+
+    Args:
+        title: Short notification title
+        message: Detailed notification message
+        severity: "low", "medium", "high", or "critical"
+        metadata: Optional additional data to include
+
+    Returns:
+        True if notification was queued/sent successfully, False otherwise
+    """
+    dispatcher = get_default_notification_dispatcher()
+    if dispatcher is None:
+        logger.warning(f"Security notification not sent (no dispatcher): {title}")
+        return False
+
+    # Map severity to priority
+    priority_map = {
+        "low": NotificationPriority.LOW,
+        "medium": NotificationPriority.NORMAL,
+        "high": NotificationPriority.HIGH,
+        "critical": NotificationPriority.URGENT,
+    }
+    priority = priority_map.get(severity, NotificationPriority.HIGH)
+
+    try:
+        results = await dispatcher.dispatch(
+            event_type=NotificationEventType.SYSTEM_ALERT,
+            title=f"[SECURITY] {title}",
+            body=message,
+            priority=priority,
+            metadata=metadata or {},
+        )
+        # Consider success if any channel delivered
+        return any(r.success for r in results)
+    except Exception as e:
+        logger.error(f"Failed to send security notification: {e}")
+        return False
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -880,4 +935,6 @@ __all__ = [
     "set_default_notification_dispatcher",
     # Decorators
     "on_notification_event",
+    # Security
+    "send_security_notification",
 ]

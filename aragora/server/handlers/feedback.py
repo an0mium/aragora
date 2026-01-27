@@ -185,7 +185,8 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
         {"success": true, "feedback_id": "..."}
     """
     try:
-        body = ctx.body or {}
+        body = ctx.get("body", {})
+        user_id = ctx.get("user_id", "anonymous")
         score = body.get("score")
 
         if score is None or not isinstance(score, int) or not 0 <= score <= 10:
@@ -193,7 +194,7 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
 
         entry = FeedbackEntry(
             id=str(uuid.uuid4()),
-            user_id=ctx.user_id,
+            user_id=user_id,
             feedback_type=FeedbackType.NPS,
             score=score,
             comment=body.get("comment"),
@@ -203,7 +204,7 @@ async def handle_submit_nps(ctx: ServerContext) -> HandlerResult:
         store = get_feedback_store()
         store.save(entry)
 
-        logger.info(f"NPS feedback submitted: score={score}, user={ctx.user_id}")
+        logger.info(f"NPS feedback submitted: score={score}, user={user_id}")
 
         return json_response(
             {
@@ -234,7 +235,8 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
         {"success": true, "feedback_id": "..."}
     """
     try:
-        body = ctx.body or {}
+        body = ctx.get("body", {})
+        user_id = ctx.get("user_id", "anonymous")
 
         feedback_type_str = body.get("type", "general")
         try:
@@ -248,7 +250,7 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
 
         entry = FeedbackEntry(
             id=str(uuid.uuid4()),
-            user_id=ctx.user_id,
+            user_id=user_id,
             feedback_type=feedback_type,
             score=body.get("score"),
             comment=comment,
@@ -258,7 +260,7 @@ async def handle_submit_feedback(ctx: ServerContext) -> HandlerResult:
         store = get_feedback_store()
         store.save(entry)
 
-        logger.info(f"Feedback submitted: type={feedback_type.value}, user={ctx.user_id}")
+        logger.info(f"Feedback submitted: type={feedback_type.value}, user={user_id}")
 
         return json_response(
             {
@@ -286,7 +288,8 @@ async def handle_get_nps_summary(ctx: ServerContext) -> HandlerResult:
         {"nps_score": ..., "total_responses": ..., ...}
     """
     try:
-        days = int(ctx.query_params.get("days", 30))
+        query = ctx.get("query", {})
+        days = int(query.get("days", 30))
         store = get_feedback_store()
         summary = store.get_nps_summary(days)
         return json_response(summary)

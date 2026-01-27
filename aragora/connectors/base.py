@@ -30,7 +30,10 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
+
+if TYPE_CHECKING:
+    from aragora.resilience import CircuitBreaker
 
 from aragora.reasoning.provenance import (
     ProvenanceManager,
@@ -299,7 +302,7 @@ class BaseConnector(ABC):
         self._base_delay = base_delay
         self._max_delay = max_delay
         # Circuit breaker for failure protection
-        self._circuit_breaker = None
+        self._circuit_breaker: Optional["CircuitBreaker"] = None
         self._enable_circuit_breaker = enable_circuit_breaker
 
     def _get_circuit_breaker(self):

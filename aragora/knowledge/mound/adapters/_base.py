@@ -250,14 +250,14 @@ class _TimedOperation:
         self.start_time = time.time()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         latency = time.time() - self.start_time
         self.success = exc_type is None
         if not self.success:
             self.error = exc_val
 
         self.adapter._record_metric(self.operation, self.success, latency)
-        return False  # Don't suppress exceptions
+        # Don't suppress exceptions (returning None is equivalent to False)
 
 
 __all__ = [

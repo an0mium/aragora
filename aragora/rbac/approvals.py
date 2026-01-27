@@ -604,11 +604,16 @@ class ApprovalWorkflow:
             expires_at = datetime.now(timezone.utc) + timedelta(hours=request.duration_hours)
 
             # Grant the permission
-            await store.grant(
+            from aragora.rbac.models import ResourceType
+
+            # Map resource type string to enum
+            resource_type_enum = ResourceType(request.resource_type)
+
+            store.grant_permission(
                 user_id=request.requester_id,
-                permission=request.permission,
-                resource_type=request.resource_type,
-                resource_id=request.resource_id,
+                permission_id=request.permission,
+                resource_type=resource_type_enum,
+                resource_id=request.resource_id or "*",
                 granted_by="approval_workflow",
                 expires_at=expires_at,
                 conditions={"approval_request_id": request.id},

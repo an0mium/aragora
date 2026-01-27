@@ -287,23 +287,24 @@ async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
         - Rejects requests with invalid signatures
     """
     # Extract headers
-    event_type = ctx.headers.get("x-github-event", "")
-    delivery_id = ctx.headers.get("x-github-delivery", "unknown")
-    signature = ctx.headers.get("x-hub-signature-256", "")
+    headers = ctx.get("headers", {})
+    event_type = headers.get("x-github-event", "")
+    delivery_id = headers.get("x-github-delivery", "unknown")
+    signature = headers.get("x-hub-signature-256", "")
 
     # Get webhook secret from environment
     webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET", "")
 
     # Verify signature if secret is configured
     if webhook_secret:
-        raw_body = ctx.raw_body or b""
+        raw_body = ctx.get("raw_body", b"")
         if not verify_signature(raw_body, signature, webhook_secret):
             logger.warning(f"Invalid webhook signature for delivery {delivery_id}")
             return error_response("Invalid signature", status=401)
 
     # Parse payload
     try:
-        payload = ctx.body or {}
+        payload = ctx.get("body", {})
     except Exception as e:
         logger.error(f"Failed to parse webhook payload: {e}")
         return error_response("Invalid JSON payload", status=400)

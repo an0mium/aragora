@@ -433,9 +433,9 @@ class UnifiedDeletionCoordinator:
             result.completed_at = datetime.now(timezone.utc)
 
             # Run post-deletion hooks
-            for hook in self._post_deletion_hooks:
+            for post_hook in self._post_deletion_hooks:
                 try:
-                    await hook(user_id, result)
+                    await post_hook(user_id, result)
                 except Exception as e:
                     result.warnings.append(f"Post-deletion hook failed: {e}")
                     logger.warning(f"Post-deletion hook failed for {user_id}: {e}")

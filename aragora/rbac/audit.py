@@ -49,6 +49,20 @@ class AuditEventType(str, Enum):
     IMPERSONATION_END = "impersonation_end"
     POLICY_CHANGED = "policy_changed"
 
+    # Break-glass / Emergency access
+    BREAK_GLASS_ACTIVATED = "break_glass_activated"
+    BREAK_GLASS_DEACTIVATED = "break_glass_deactivated"
+    BREAK_GLASS_ACTION = "break_glass_action"
+
+    # Approval workflow
+    APPROVAL_REQUESTED = "approval_requested"
+    APPROVAL_GRANTED = "approval_granted"
+    APPROVAL_DENIED = "approval_denied"
+    APPROVAL_EXPIRED = "approval_expired"
+
+    # Generic custom event
+    CUSTOM = "custom"
+
 
 @dataclass
 class AuditEvent:
@@ -336,6 +350,47 @@ class AuthorizationAuditor:
             reason=reason,
             ip_address=ip_address,
             user_agent=user_agent,
+        )
+
+        self._emit_event(event)
+
+    async def log_event(
+        self,
+        event_type: str,
+        details: dict[str, Any] | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> None:
+        """
+        Log a generic audit event.
+
+        This is a flexible method for logging custom or specialized events
+        like break-glass access, approval workflows, etc.
+
+        Args:
+            event_type: Event type string (will try to match AuditEventType enum)
+            details: Optional event details/metadata
+            category: Optional event category (e.g., "break_glass", "approval")
+            user_id: Optional user ID associated with the event
+            resource_type: Optional resource type
+            resource_id: Optional resource ID
+        """
+        # Try to match event_type to enum, fallback to CUSTOM
+        try:
+            audit_event_type = AuditEventType(event_type)
+        except ValueError:
+            audit_event_type = AuditEventType.CUSTOM
+
+        event = AuditEvent(
+            event_type=audit_event_type,
+            user_id=user_id or "system",
+            resource_type=resource_type or category or "unknown",
+            resource_id=resource_id or "",
+            decision=True,
+            reason=event_type if audit_event_type == AuditEventType.CUSTOM else "",
+            metadata=details or {},
         )
 
         self._emit_event(event)
