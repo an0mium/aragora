@@ -23,20 +23,23 @@ from aragora.server.validation import validate_path_segment, SAFE_ID_PATTERN
 from aragora.server.versioning.compat import strip_version_prefix
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     get_string_param,
     json_response,
     safe_error_message,
 )
+from .secure import SecureHandler
+from .utils.auth import ForbiddenError, UnauthorizedError
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
 
-class VerticalsHandler(BaseHandler):
-    """Handler for vertical specialist endpoints."""
+class VerticalsHandler(SecureHandler):
+    """Handler for vertical specialist endpoints with RBAC protection."""
+
+    RESOURCE_TYPE = "verticals"
 
     ROUTES = [
         "/api/verticals",
@@ -68,6 +71,19 @@ class VerticalsHandler(BaseHandler):
         path = strip_version_prefix(path)
         # Get HTTP method from handler
         method = getattr(handler, "command", "GET") if handler else "GET"
+
+        # RBAC check - require authentication and appropriate permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            # Determine permission based on HTTP method
+            if method in ("POST", "PUT", "PATCH", "DELETE"):
+                self.check_permission(auth_context, "verticals:write")
+            else:
+                self.check_permission(auth_context, "verticals:read")
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
         # GET /api/verticals - List all verticals
         if path == "/api/verticals" and method == "GET":

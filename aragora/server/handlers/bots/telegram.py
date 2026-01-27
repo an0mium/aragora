@@ -95,7 +95,7 @@ class TelegramHandler(SecureHandler):
         return False
 
     @rate_limit(rpm=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route Telegram GET requests with RBAC for status endpoint."""

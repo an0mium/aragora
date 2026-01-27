@@ -87,7 +87,7 @@ class WhatsAppHandler(SecureHandler):
         return path in self.ROUTES
 
     @rate_limit(rpm=60)
-    async def handle(
+    async def handle(  # type: ignore[override]
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route WhatsApp GET requests with RBAC for status endpoint."""

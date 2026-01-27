@@ -26,8 +26,42 @@ from .base import (
     get_string_param,
     json_response,
 )
+from .secure import SecureHandler
+from .utils.auth import ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
+
+
+class GauntletSecureHandler(SecureHandler):
+    """Base handler for Gauntlet v1 endpoints with RBAC protection."""
+
+    RESOURCE_TYPE = "gauntlet"
+
+    async def check_gauntlet_permission(
+        self,
+        kwargs: Dict[str, Any],
+        permission: str = "gauntlet.read",
+    ) -> Optional[HandlerResult]:
+        """Check permission and return error response if denied."""
+        try:
+            handler = kwargs.get("handler")
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None  # Permission granted
+        except UnauthorizedError:
+            return rfc7807_error(
+                status=401,
+                title="Unauthorized",
+                detail="Authentication required",
+                problem_type=f"{PROBLEM_TYPE_BASE}/unauthorized",
+            )
+        except ForbiddenError as e:
+            return rfc7807_error(
+                status=403,
+                title="Forbidden",
+                detail=str(e),
+                problem_type=f"{PROBLEM_TYPE_BASE}/forbidden",
+            )
 
 
 # RFC 7807 Problem Types
@@ -62,7 +96,7 @@ def rfc7807_error(
     )
 
 
-class GauntletSchemaHandler(BaseHandler):
+class GauntletSchemaHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/schema/{type}
 
@@ -85,6 +119,10 @@ class GauntletSchemaHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+            return error
+
         try:
             schema_type = path_params.get("schema_type") if path_params else None
 
@@ -122,7 +160,7 @@ class GauntletSchemaHandler(BaseHandler):
             )
 
 
-class GauntletAllSchemasHandler(BaseHandler):
+class GauntletAllSchemasHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/schemas
 
@@ -142,6 +180,10 @@ class GauntletAllSchemasHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+            return error
+
         try:
             from aragora.gauntlet.api import get_all_schemas, SCHEMA_VERSION
 
@@ -164,7 +206,7 @@ class GauntletAllSchemasHandler(BaseHandler):
             )
 
 
-class GauntletTemplatesListHandler(BaseHandler):
+class GauntletTemplatesListHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/templates
 
@@ -187,6 +229,10 @@ class GauntletTemplatesListHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+            return error
+
         try:
             from aragora.gauntlet.api import list_templates, TemplateCategory
 
@@ -235,7 +281,7 @@ class GauntletTemplatesListHandler(BaseHandler):
             )
 
 
-class GauntletTemplateHandler(BaseHandler):
+class GauntletTemplateHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/templates/{id}
 
@@ -258,6 +304,10 @@ class GauntletTemplateHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+            return error
+
         try:
             template_id = path_params.get("template_id") if path_params else None
 
