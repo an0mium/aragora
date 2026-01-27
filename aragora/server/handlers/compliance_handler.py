@@ -63,7 +63,7 @@ class ComplianceHandler(BaseHandler):
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the request."""
         if path.startswith("/api/v2/compliance"):
-            return method in ("GET", "POST")
+            return method in ("GET", "POST", "DELETE")
         return False
 
     @rate_limit(requests_per_minute=20)

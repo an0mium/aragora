@@ -196,7 +196,12 @@ class QuotaFallbackMixin:
         Returns:
             OpenRouterAgent instance if OPENROUTER_API_KEY is set, None otherwise
         """
-        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        try:
+            from aragora.config import get_api_key
+
+            openrouter_key = get_api_key("OPENROUTER_API_KEY", required=False)
+        except Exception:
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
         if not openrouter_key:
             return None
 
@@ -895,11 +900,37 @@ def get_default_fallback_enabled() -> bool:
         from aragora.config.settings import get_settings
 
         settings = get_settings()
-        return settings.agent.openrouter_fallback_enabled
+        if "ARAGORA_OPENROUTER_FALLBACK_ENABLED" in os.environ:
+            return settings.agent.openrouter_fallback_enabled
+        if settings.agent.openrouter_fallback_enabled:
+            return True
     except (ImportError, AttributeError, KeyError) as e:
         # Expected errors: module not installed, missing attribute, or config key
         logger.debug(f"Settings not available for fallback config, defaulting to disabled: {e}")
-        return False
     except Exception as e:
         logger.warning(f"Unexpected error loading fallback settings, defaulting to disabled: {e}")
+    try:
+        from aragora.config.secrets import get_secret
+        from aragora.config.secrets import SecretsConfig
+
+        explicit_flag = get_secret("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
+        secrets_config = SecretsConfig.from_env()
+    except Exception:
+        explicit_flag = None
+        secrets_config = None
+    if explicit_flag is None:
+        explicit_flag = os.environ.get("ARAGORA_OPENROUTER_FALLBACK_ENABLED")
+    if isinstance(explicit_flag, str):
+        normalized = explicit_flag.strip().lower()
+        if normalized:
+            return normalized in {"1", "true", "yes", "on"}
+
+    if not (secrets_config and secrets_config.use_aws):
         return False
+
+    try:
+        from aragora.config import get_api_key
+
+        return bool(get_api_key("OPENROUTER_API_KEY", required=False))
+    except Exception:
+        return bool(os.environ.get("OPENROUTER_API_KEY"))
