@@ -70,11 +70,11 @@ jobs:
             exit 1
           fi
 
-      - name: Check TypeScript SDK type generation
-        run: python scripts/generate_sdk_types.py --check --openapi docs/api/openapi_generated.json
+      - name: Generate TypeScript SDK types
+        run: python scripts/generate_sdk_types.py --openapi docs/api/openapi_generated.json
 
-      - name: Check Python SDK type generation
-        run: python scripts/generate_python_sdk_types.py --check --openapi docs/api/openapi_generated.json
+      - name: Generate Python SDK types
+        run: python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json
 
       - name: Compare with existing spec
         id: compare
@@ -131,13 +131,15 @@ jobs:
               print('::warning::Large number of endpoints missing operationId - SDK generation may be incomplete')
           "
 
-      - name: Upload generated spec
+      - name: Upload generated spec and SDK types
         uses: actions/upload-artifact@v4
         with:
           name: openapi-spec
           path: |
             docs/api/openapi_generated.json
             docs/api/openapi_generated.yaml
+            sdk/typescript/src/openapi-types.ts
+            sdk/python/aragora/generated_types.py
           retention-days: 14
 
       - name: Comment on PR (if spec changed)
@@ -178,7 +180,9 @@ jobs:
           # Copy generated files to compare
           cp /tmp/openapi-spec/openapi_generated.json docs/api/openapi.json 2>/dev/null || true
           cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
-          git diff --quiet docs/api/openapi.json docs/api/openapi.yaml || echo "changes=true" >> $GITHUB_OUTPUT
+          cp /tmp/openapi-spec/openapi-types.ts sdk/typescript/src/openapi-types.ts 2>/dev/null || true
+          cp /tmp/openapi-spec/generated_types.py sdk/python/aragora/generated_types.py 2>/dev/null || true
+          git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py || echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Commit updated spec
         if: steps.changes.outputs.changes == 'true'
@@ -195,19 +199,21 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Re-apply the generated spec files from temp location
+            # Re-apply the generated spec and SDK type files from temp location
             cp /tmp/openapi-spec/openapi_generated.json docs/api/openapi.json 2>/dev/null || true
             cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
+            cp /tmp/openapi-spec/openapi-types.ts sdk/typescript/src/openapi-types.ts 2>/dev/null || true
+            cp /tmp/openapi-spec/generated_types.py sdk/python/aragora/generated_types.py 2>/dev/null || true
 
             # Check if there are actual changes
-            if git diff --quiet docs/api/openapi.json docs/api/openapi.yaml 2>/dev/null; then
+            if git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py 2>/dev/null; then
               echo "No changes to commit"
               exit 0
             fi
 
             # Stage and commit
-            git add docs/api/openapi.json docs/api/openapi.yaml
-            git commit -m "chore(api): auto-update OpenAPI spec [skip ci]" || true
+            git add docs/api/openapi.json docs/api/openapi.yaml sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py
+            git commit -m "chore(api): auto-update OpenAPI spec and SDK types [skip ci]" || true
 
             # Try to push
             if git push origin main; then
