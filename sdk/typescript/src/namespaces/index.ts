@@ -189,3 +189,36 @@ export {
   type BeliefNode,
   type BeliefEdge,
 } from './belief-network';
+
+// Moments
+export {
+  MomentsAPI,
+  type Moment,
+  type MomentsSummary,
+  type MomentsTimeline,
+  type TrendingMoments,
+} from './moments';
+
+// Introspection
+export {
+  IntrospectionAPI,
+  type AgentInfo,
+  type LeaderboardEntry,
+  type SystemIntrospection,
+} from './introspection';
+
+// Documents
+export {
+  DocumentsAPI,
+  type Document,
+  type DocumentFormat,
+  type UploadResult,
+} from './documents';
+
+// Retention
+export {
+  RetentionAPI,
+  type RetentionPolicy,
+  type ExpiringItem,
+  type ExecutionResult,
+} from './retention';

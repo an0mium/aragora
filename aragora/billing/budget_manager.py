@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -415,7 +415,7 @@ class BudgetManager:
             self._local.connection.row_factory = sqlite3.Row
             self._ensure_schema(self._local.connection)
 
-        return self._local.connection
+        return cast(sqlite3.Connection, self._local.connection)
 
     def _ensure_schema(self, conn: sqlite3.Connection) -> None:
         """Ensure database schema exists."""

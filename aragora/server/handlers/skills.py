@@ -243,11 +243,13 @@ class SkillsHandler(BaseHandler):
         return json_response(
             {
                 "skill": name,
-                "total_invocations": metrics.total_invocations,
-                "successful_invocations": metrics.successful_invocations,
-                "failed_invocations": metrics.failed_invocations,
-                "average_latency_ms": metrics.average_latency_ms,
-                "last_invoked": metrics.last_invoked.isoformat() if metrics.last_invoked else None,
+                "total_invocations": metrics.get("total_invocations", 0),
+                "successful_invocations": metrics.get("successful_invocations", 0),
+                "failed_invocations": metrics.get("failed_invocations", 0),
+                "average_latency_ms": metrics.get("average_latency_ms", 0),
+                "last_invoked": metrics.get("last_invoked").isoformat()
+                if metrics.get("last_invoked")
+                else None,
             }
         )
 

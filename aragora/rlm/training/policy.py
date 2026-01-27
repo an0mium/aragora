@@ -143,7 +143,7 @@ class StrategyPolicy(Policy):
             return random.choice(self.strategies)
 
         probs = self.get_action_probs(state)
-        return max(probs, key=lambda k: probs[k])
+        return max(probs.keys(), key=lambda k: probs[k])
 
     def get_action_probs(self, state: PolicyState) -> dict[str, float]:
         """Get probability distribution over strategies."""
