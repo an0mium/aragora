@@ -97,6 +97,11 @@ class ResourceType(str, Enum):
     # Domain specialists
     VERTICALS = "verticals"  # Domain-specific AI specialists (legal, medical, etc.)
 
+    # Interactive features
+    CANVAS = "canvas"  # Visual canvas operations
+    VERIFICATION = "verification"  # Formal verification operations
+    CODEBASE = "codebase"  # Codebase analysis operations
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

@@ -212,11 +212,17 @@ class PermissionChecker:
         Args:
             context: Authorization context (user, roles, etc.)
             permission_key: Permission to check (e.g., "debates.create")
+                           Also accepts colon format (e.g., "debates:create")
             resource_id: Optional specific resource ID
 
         Returns:
             AuthorizationDecision with result and reason
         """
+        # Normalize permission key format: accept both "resource:action" and "resource.action"
+        # Standard format is "resource.action" (dot notation)
+        if ":" in permission_key and "." not in permission_key:
+            permission_key = permission_key.replace(":", ".")
+
         # Check cache first (distributed or local)
         if self._enable_cache:
             cached = self._get_cached_decision(context, permission_key, resource_id)
@@ -1022,7 +1028,19 @@ def check_permission(
     permission_key: str,
     resource_id: str | None = None,
 ) -> AuthorizationDecision:
-    """Convenience function to check permission using global checker."""
+    """Convenience function to check permission using global checker.
+
+    Args:
+        context: Authorization context
+        permission_key: Permission to check (accepts both "resource.action" and "resource:action")
+        resource_id: Optional specific resource ID
+
+    Returns:
+        AuthorizationDecision with result and reason
+    """
+    # Normalize permission key format (colon -> dot)
+    if ":" in permission_key and "." not in permission_key:
+        permission_key = permission_key.replace(":", ".")
     return get_permission_checker().check_permission(context, permission_key, resource_id)
 
 
@@ -1031,5 +1049,14 @@ def has_permission(
     permission_key: str,
     resource_id: str | None = None,
 ) -> bool:
-    """Convenience function to check if permission is granted."""
+    """Convenience function to check if permission is granted.
+
+    Args:
+        context: Authorization context
+        permission_key: Permission to check (accepts both "resource.action" and "resource:action")
+        resource_id: Optional specific resource ID
+
+    Returns:
+        True if permission is granted, False otherwise
+    """
     return check_permission(context, permission_key, resource_id).allowed

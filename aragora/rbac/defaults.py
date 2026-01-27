@@ -466,6 +466,39 @@ PERM_VERTICALS_WRITE = _permission(
     ResourceType.VERTICALS, Action.UPDATE, "Update Verticals", "Configure domain specialists"
 )
 
+# Canvas permissions (visual canvas operations)
+PERM_CANVAS_READ = _permission(
+    ResourceType.CANVAS, Action.READ, "View Canvas", "View canvas documents and state"
+)
+PERM_CANVAS_CREATE = _permission(
+    ResourceType.CANVAS, Action.CREATE, "Create Canvas", "Create new canvas documents"
+)
+PERM_CANVAS_UPDATE = _permission(
+    ResourceType.CANVAS, Action.UPDATE, "Update Canvas", "Modify canvas content and state"
+)
+PERM_CANVAS_DELETE = _permission(
+    ResourceType.CANVAS, Action.DELETE, "Delete Canvas", "Delete canvas documents"
+)
+PERM_CANVAS_RUN = _permission(
+    ResourceType.CANVAS, Action.RUN, "Run Canvas", "Execute canvas operations"
+)
+
+# Verification permissions (formal verification operations)
+PERM_VERIFICATION_READ = _permission(
+    ResourceType.VERIFICATION, Action.READ, "View Verification", "View verification results"
+)
+PERM_VERIFICATION_CREATE = _permission(
+    ResourceType.VERIFICATION, Action.CREATE, "Create Verification", "Run formal verification"
+)
+
+# Codebase analysis permissions
+PERM_CODEBASE_READ = _permission(
+    ResourceType.CODEBASE, Action.READ, "View Codebase Analysis", "View codebase analysis results"
+)
+PERM_CODEBASE_ANALYZE = _permission(
+    ResourceType.CODEBASE, Action.RUN, "Analyze Codebase", "Run codebase analysis operations"
+)
+
 
 # ============================================================================
 # ENTERPRISE PERMISSIONS - Data Governance
@@ -1253,6 +1286,18 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Verticals
         PERM_VERTICALS_READ,
         PERM_VERTICALS_WRITE,
+        # Canvas
+        PERM_CANVAS_READ,
+        PERM_CANVAS_CREATE,
+        PERM_CANVAS_UPDATE,
+        PERM_CANVAS_DELETE,
+        PERM_CANVAS_RUN,
+        # Verification
+        PERM_VERIFICATION_READ,
+        PERM_VERIFICATION_CREATE,
+        # Codebase analysis
+        PERM_CODEBASE_READ,
+        PERM_CODEBASE_ANALYZE,
     ]
 }
 
@@ -1418,6 +1463,18 @@ ROLE_ADMIN = Role(
         # Verticals
         PERM_VERTICALS_READ.key,
         PERM_VERTICALS_WRITE.key,
+        # Canvas (all operations)
+        PERM_CANVAS_READ.key,
+        PERM_CANVAS_CREATE.key,
+        PERM_CANVAS_UPDATE.key,
+        PERM_CANVAS_DELETE.key,
+        PERM_CANVAS_RUN.key,
+        # Verification (all operations)
+        PERM_VERIFICATION_READ.key,
+        PERM_VERIFICATION_CREATE.key,
+        # Codebase analysis (all operations)
+        PERM_CODEBASE_READ.key,
+        PERM_CODEBASE_ANALYZE.key,
     },
     parent_roles=[],
     priority=80,
@@ -1484,6 +1541,15 @@ ROLE_DEBATE_CREATOR = Role(
         PERM_DECISION_READ.key,
         # Verticals
         PERM_VERTICALS_READ.key,
+        # Canvas (create and manage)
+        PERM_CANVAS_READ.key,
+        PERM_CANVAS_CREATE.key,
+        PERM_CANVAS_UPDATE.key,
+        PERM_CANVAS_RUN.key,
+        # Verification (read only)
+        PERM_VERIFICATION_READ.key,
+        # Codebase analysis (read only)
+        PERM_CODEBASE_READ.key,
     },
     priority=50,
     is_system=True,
@@ -1614,6 +1680,10 @@ ROLE_MEMBER = Role(
         PERM_WORKSPACE_SHARE.key,
         # Verticals
         PERM_VERTICALS_READ.key,
+        # Canvas (basic access)
+        PERM_CANVAS_READ.key,
+        PERM_CANVAS_CREATE.key,
+        PERM_CANVAS_RUN.key,
     },
     parent_roles=[],
     priority=40,
