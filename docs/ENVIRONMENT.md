@@ -1,6 +1,6 @@
 # Environment Variable Reference
 
-> **Last Updated:** 2026-01-25
+> **Last Updated:** 2026-01-27
 
 
 Complete reference for all environment variables used by Aragora.
@@ -260,6 +260,60 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 | `ARAGORA_CONTROL_PLANE_POLICY_SOURCE` | Optional | Policy source: `compliance`, `inprocess` | Auto (compliance in production) |
 | `ARAGORA_REQUIRE_DISTRIBUTED` | Optional | Fail closed when stores fall back to local (prod default) | `auto` |
 | `ARAGORA_STORAGE_MODE` | Optional | Force storage mode: `postgres`, `redis`, `sqlite`, `file` | `auto` |
+
+## Control Plane Watchdog
+
+Three-tier monitoring system for agent health and SLA compliance. See [WATCHDOG.md](./WATCHDOG.md) for architecture details.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `CP_ENABLE_WATCHDOG` | Optional | Enable the three-tier watchdog system | `true` |
+| `CP_WATCHDOG_CHECK_INTERVAL` | Optional | Tier check interval (seconds) | `5` |
+| `CP_WATCHDOG_HEARTBEAT_TIMEOUT` | Optional | Agent heartbeat timeout (seconds) | `30` |
+| `CP_WATCHDOG_AUTO_ESCALATE` | Optional | Auto-escalate issues to higher tiers | `true` |
+| `CP_WATCHDOG_ESCALATION_THRESHOLD` | Optional | Issues before escalating | `3` |
+| `CP_WATCHDOG_MEMORY_WARNING_MB` | Optional | Memory usage warning threshold (MB) | `1024` |
+| `CP_WATCHDOG_MEMORY_CRITICAL_MB` | Optional | Memory usage critical threshold (MB) | `2048` |
+| `CP_WATCHDOG_LATENCY_WARNING_MS` | Optional | Latency warning threshold (ms) | `5000` |
+| `CP_WATCHDOG_LATENCY_CRITICAL_MS` | Optional | Latency critical threshold (ms) | `15000` |
+| `CP_WATCHDOG_ERROR_RATE_WARNING` | Optional | Error rate warning threshold (0.0-1.0) | `0.1` |
+| `CP_WATCHDOG_ERROR_RATE_CRITICAL` | Optional | Error rate critical threshold (0.0-1.0) | `0.3` |
+| `CP_WATCHDOG_SLA_AVAILABILITY_PCT` | Optional | SLA availability target (percent) | `99.0` |
+| `CP_WATCHDOG_SLA_RESPONSE_TIME_MS` | Optional | SLA response time target (ms) | `10000` |
+
+**Example Configuration:**
+```bash
+# Production: strict monitoring
+CP_ENABLE_WATCHDOG=true
+CP_WATCHDOG_CHECK_INTERVAL=2
+CP_WATCHDOG_HEARTBEAT_TIMEOUT=10
+CP_WATCHDOG_AUTO_ESCALATE=true
+CP_WATCHDOG_SLA_AVAILABILITY_PCT=99.9
+
+# Development: relaxed monitoring
+CP_ENABLE_WATCHDOG=true
+CP_WATCHDOG_CHECK_INTERVAL=30
+CP_WATCHDOG_HEARTBEAT_TIMEOUT=120
+CP_WATCHDOG_AUTO_ESCALATE=false
+```
+
+## Skills System
+
+Skills provide specialized capabilities to agents during debates. See [SKILLS.md](./SKILLS.md) for usage.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SKILLS_ENABLED` | Optional | Enable the skills system | `true` |
+| `ARAGORA_SKILLS_RATE_LIMIT` | Optional | Skills API rate limit (req/min) | `30` |
+| `ARAGORA_SKILLS_TIMEOUT` | Optional | Default skill invocation timeout (seconds) | `30` |
+| `ARAGORA_SKILLS_MAX_TIMEOUT` | Optional | Maximum allowed skill timeout (seconds) | `60` |
+| `GOOGLE_SEARCH_API_KEY` | Optional | Google Custom Search API key | - |
+| `GOOGLE_SEARCH_CX` | Optional | Google Custom Search engine ID | - |
+
+**Notes:**
+- `TAVILY_API_KEY` (documented in Web Research section) is used by web search skills
+- `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` enable Google search skills
+- Skills can define their own API key requirements
 
 **\*Auto-detect Behavior:**
 - If `DATABASE_URL` or `ARAGORA_POSTGRES_DSN` is set → uses PostgreSQL
