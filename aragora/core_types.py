@@ -155,6 +155,7 @@ class DebateResult:
     rounds_completed: int = 0
     status: str = ""
     participants: list[str] = field(default_factory=list)
+    agent_failures: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     proposals: dict[str, str] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
     critiques: list[Critique] = field(default_factory=list)
@@ -240,6 +241,7 @@ class DebateResult:
             "rounds_used": self.rounds_used,
             "rounds_completed": self.rounds_completed,
             "participants": list(self.participants),
+            "agent_failures": self.agent_failures,
             "duration_seconds": self.duration_seconds,
             "winner": self.winner,
         }
@@ -266,6 +268,7 @@ class DebateResult:
             rounds_used=data.get("rounds_used", data.get("rounds_completed", 0)),
             rounds_completed=data.get("rounds_completed", data.get("rounds_used", 0)),
             participants=data.get("participants", []),
+            agent_failures=data.get("agent_failures", {}),
             proposals=data.get("proposals", {}),
             duration_seconds=data.get("duration_seconds", 0.0),
             winner=data.get("winner"),

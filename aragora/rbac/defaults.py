@@ -201,6 +201,37 @@ PERM_CONNECTOR_DELETE = _permission(
     ResourceType.CONNECTOR, Action.DELETE, "Delete Connectors", "Remove connector configurations"
 )
 
+# Repository permissions
+PERM_REPOSITORY_READ = _permission(
+    ResourceType.REPOSITORY, Action.READ, "View Repositories", "View repository indexing status"
+)
+PERM_REPOSITORY_CREATE = _permission(
+    ResourceType.REPOSITORY, Action.CREATE, "Index Repositories", "Start repository indexing"
+)
+PERM_REPOSITORY_UPDATE = _permission(
+    ResourceType.REPOSITORY,
+    Action.UPDATE,
+    "Update Repositories",
+    "Incrementally update repositories",
+)
+PERM_REPOSITORY_DELETE = _permission(
+    ResourceType.REPOSITORY, Action.DELETE, "Remove Repositories", "Remove indexed repositories"
+)
+
+# Message bindings permissions
+PERM_BINDINGS_READ = _permission(
+    ResourceType.BINDINGS, Action.READ, "View Bindings", "View message bindings"
+)
+PERM_BINDINGS_CREATE = _permission(
+    ResourceType.BINDINGS, Action.CREATE, "Create Bindings", "Create new message bindings"
+)
+PERM_BINDINGS_UPDATE = _permission(
+    ResourceType.BINDINGS, Action.UPDATE, "Update Bindings", "Update message bindings"
+)
+PERM_BINDINGS_DELETE = _permission(
+    ResourceType.BINDINGS, Action.DELETE, "Delete Bindings", "Remove message bindings"
+)
+
 # Admin permissions
 PERM_ADMIN_CONFIG = _permission(
     ResourceType.ADMIN, Action.SYSTEM_CONFIG, "System Configuration", "Modify system-wide settings"
@@ -1030,6 +1061,16 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CONNECTOR_READ,
         PERM_CONNECTOR_CREATE,
         PERM_CONNECTOR_DELETE,
+        # Repositories
+        PERM_REPOSITORY_READ,
+        PERM_REPOSITORY_CREATE,
+        PERM_REPOSITORY_UPDATE,
+        PERM_REPOSITORY_DELETE,
+        # Message bindings
+        PERM_BINDINGS_READ,
+        PERM_BINDINGS_CREATE,
+        PERM_BINDINGS_UPDATE,
+        PERM_BINDINGS_DELETE,
         # Admin
         PERM_ADMIN_CONFIG,
         PERM_ADMIN_METRICS,
@@ -1289,6 +1330,16 @@ ROLE_ADMIN = Role(
         PERM_CONNECTOR_READ.key,
         PERM_CONNECTOR_CREATE.key,
         PERM_CONNECTOR_DELETE.key,
+        # Repositories
+        PERM_REPOSITORY_READ.key,
+        PERM_REPOSITORY_CREATE.key,
+        PERM_REPOSITORY_UPDATE.key,
+        PERM_REPOSITORY_DELETE.key,
+        # Message bindings
+        PERM_BINDINGS_READ.key,
+        PERM_BINDINGS_CREATE.key,
+        PERM_BINDINGS_UPDATE.key,
+        PERM_BINDINGS_DELETE.key,
         # Webhooks
         PERM_WEBHOOK_READ.key,
         PERM_WEBHOOK_CREATE.key,

@@ -110,6 +110,15 @@ class CritiqueGenerator:
         self._emit_heartbeat = heartbeat_callback
         self._max_concurrent = max_concurrent
 
+    @staticmethod
+    def _classify_error(error: Exception) -> str:
+        if isinstance(error, asyncio.TimeoutError):
+            return "timeout"
+        message = str(error).lower()
+        if "empty" in message:
+            return "empty"
+        return "exception"
+
     async def execute_critique_phase(
         self,
         ctx: "DebateContext",
@@ -173,6 +182,43 @@ class CritiqueGenerator:
                             ctx.context_messages,
                             target_agent=proposal_agent,
                         )
+
+                if crit_result and _is_effectively_empty_critique(crit_result):
+                    logger.warning(
+                        "critique_empty_response_retry critic=%s target=%s",
+                        critic.name,
+                        proposal_agent,
+                    )
+                    retry_task_id = f"{critic.name}:critique:{proposal_agent}:retry"
+                    with streaming_task_context(retry_task_id):
+                        if self._with_timeout:
+                            crit_result = await self._with_timeout(
+                                self._critique_with_agent(
+                                    critic,
+                                    proposal,
+                                    ctx.env.task if ctx.env else "",
+                                    ctx.context_messages,
+                                    target_agent=proposal_agent,
+                                ),
+                                critic.name,
+                                timeout_seconds=timeout,
+                            )
+                        else:
+                            crit_result = await self._critique_with_agent(
+                                critic,
+                                proposal,
+                                ctx.env.task if ctx.env else "",
+                                ctx.context_messages,
+                                target_agent=proposal_agent,
+                            )
+
+                if crit_result and _is_effectively_empty_critique(crit_result):
+                    return CritiqueResult(
+                        critic=critic,
+                        target_agent=proposal_agent,
+                        critique=None,
+                        error=ValueError("Agent response was empty"),
+                    )
                 return CritiqueResult(
                     critic=critic,
                     target_agent=proposal_agent,
@@ -283,12 +329,30 @@ class CritiqueGenerator:
                 proposal_agent,
             )
             crit_result.critique = None
+            crit_result.error = ValueError("Agent response was empty")
 
         if crit_result.error:
             logger.error(
                 f"critique_error critic={critic.name} target={proposal_agent} "
                 f"error={crit_result.error}"
             )
+            error_type = self._classify_error(crit_result.error)
+            provider = getattr(critic, "provider", None) or getattr(critic, "model_type", "unknown")
+            ctx.record_agent_failure(
+                critic.name,
+                phase="critique",
+                error_type=error_type,
+                message=str(crit_result.error),
+                provider=provider,
+            )
+            if "on_agent_error" in self.hooks:
+                self.hooks["on_agent_error"](
+                    agent=critic.name,
+                    error_type=error_type,
+                    message=str(crit_result.error),
+                    recoverable=True,
+                    phase="critique",
+                )
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(critic.name)
             # Create placeholder critique so the UI shows a failure instead of a silent drop
@@ -319,6 +383,22 @@ class CritiqueGenerator:
         if crit_result.critique is None:
             # Handle timeout/error case
             logger.warning(f"critique_returned_none critic={critic.name} target={proposal_agent}")
+            ctx.record_agent_failure(
+                critic.name,
+                phase="critique",
+                error_type="timeout",
+                message="Critique unavailable - agent timed out or returned empty output",
+                provider=getattr(critic, "provider", None)
+                or getattr(critic, "model_type", "unknown"),
+            )
+            if "on_agent_error" in self.hooks:
+                self.hooks["on_agent_error"](
+                    agent=critic.name,
+                    error_type="timeout",
+                    message="Critique unavailable - agent timed out or returned empty output",
+                    recoverable=True,
+                    phase="critique",
+                )
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(critic.name)
 

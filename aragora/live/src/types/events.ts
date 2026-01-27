@@ -190,6 +190,8 @@ export interface ConsensusData {
   confidence?: number;
   supporting_agents?: string[];
   answer?: string;
+  status?: string;
+  agent_failures?: Record<string, AgentFailureRecord[]>;
 }
 
 export interface VerdictData {
@@ -199,6 +201,20 @@ export interface VerdictData {
   citations?: string[];
 }
 
+export interface AgentFailureRecord {
+  phase?: string;
+  error_type?: string;
+  message?: string;
+  provider?: string;
+  timestamp?: number;
+}
+
+export interface AgentErrorData {
+  error_type?: string;
+  message?: string;
+  recoverable?: boolean;
+  phase?: string;
+}
 export interface TokenDeltaData {
   agent: string;
   delta: string;
@@ -325,6 +341,7 @@ export type TypedStreamEvent =
   | (StreamEventBase & { type: 'round_start'; data: RoundStartData })
   | (StreamEventBase & { type: 'vote'; data: VoteData })
   | (StreamEventBase & { type: 'consensus'; data: ConsensusData })
+  | (StreamEventBase & { type: 'agent_error'; data: AgentErrorData })
   | (StreamEventBase & { type: 'verdict' | 'grounded_verdict'; data: VerdictData })
   | (StreamEventBase & { type: 'token_delta'; data: TokenDeltaData })
   | (StreamEventBase & { type: 'mood_detected' | 'mood_shift'; data: MoodData })

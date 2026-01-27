@@ -118,6 +118,15 @@ class DebateContext:
     hook_manager: Optional[Any] = None
     """HookManager for extended lifecycle hooks (PRE_ROUND, POST_ROUND, etc)."""
 
+    channel_integration: Optional[Any] = None
+    """Optional ChannelIntegration for agent-to-agent messaging."""
+
+    checkpoint_bridge: Optional[Any] = None
+    """Optional CheckpointBridge for unified molecule/checkpoint recovery."""
+
+    molecule_orchestrator: Optional[Any] = None
+    """Optional MoleculeOrchestrator for debate phase tracking."""
+
     # =========================================================================
     # Agent Subsets (computed at phase boundaries)
     # =========================================================================
@@ -140,6 +149,9 @@ class DebateContext:
 
     proposals: dict[str, str] = field(default_factory=dict)
     """Agent name -> proposal text mapping."""
+
+    agent_failures: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    """Agent name -> list of failure records (phase, type, message, timestamp)."""
 
     context_messages: list["Message"] = field(default_factory=list)
     """All messages in debate context (for prompt building)."""
@@ -335,6 +347,29 @@ class DebateContext:
         if self.result:
             self.result.messages.append(msg)
 
+    def record_agent_failure(
+        self,
+        agent_name: str,
+        phase: str,
+        error_type: str,
+        message: str,
+        provider: Optional[str] = None,
+    ) -> None:
+        """Record an agent failure for post-run diagnostics."""
+        import time
+
+        if not agent_name:
+            agent_name = "unknown"
+
+        record = {
+            "phase": phase,
+            "error_type": error_type,
+            "message": message,
+            "provider": provider or "",
+            "timestamp": time.time(),
+        }
+        self.agent_failures.setdefault(agent_name, []).append(record)
+
     def add_critique(self, critique: "Critique") -> None:
         """Add a critique to both result and partial tracking."""
         self.round_critiques.append(critique)
@@ -360,6 +395,7 @@ class DebateContext:
             # Copy novelty tracking data
             self.result.per_agent_novelty = dict(self.per_agent_novelty)
             self.result.avg_novelty = self.avg_novelty
+            self.result.agent_failures = dict(self.agent_failures)
             self.result.proposals = dict(self.proposals)
             self.result.participants = [agent.name for agent in self.agents]
             if self.debate_id:

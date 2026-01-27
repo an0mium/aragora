@@ -13,6 +13,7 @@ Tests the billing API endpoints including:
 """
 
 import json
+import os
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,17 @@ import pytest
 
 from aragora.billing.models import SubscriptionTier
 from aragora.server.handlers.admin.billing import BillingHandler
+
+
+@pytest.fixture(autouse=True)
+def enable_real_auth_for_billing_tests(monkeypatch):
+    """Enable real auth for billing tests that patch extract_user_from_request.
+
+    Billing tests set up their own auth context patches, so we need to disable
+    the decorator's test bypass mode to use those patches.
+    """
+    monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "1")
+    yield
 
 
 def parse_body(result) -> dict:
@@ -1316,14 +1328,13 @@ class TestUsageExport:
         owner = user_store.get_user_by_id("owner_1")
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            # Patch at the billing module level since it imports directly
-            with patch(
-                "aragora.server.handlers.admin.billing.extract_user_from_request"
-            ) as mock_extract:
+            # Patch at the decorators module level where it's imported
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
                     is_authenticated=True,
+                    role="owner",
                 )
                 mock_extract.return_value = mock_ctx
 
@@ -1338,9 +1349,7 @@ class TestUsageExport:
         mock_handler = MockHandler(user_store=user_store)
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch(
-                "aragora.server.handlers.admin.billing.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext("", is_authenticated=False)
                 mock_extract.return_value = mock_ctx
@@ -1359,13 +1368,12 @@ class TestUsageForecast:
         owner = user_store.get_user_by_id("owner_1")
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch(
-                "aragora.server.handlers.admin.billing.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
                     is_authenticated=True,
+                    role="owner",
                 )
                 mock_extract.return_value = mock_ctx
 
@@ -1389,13 +1397,12 @@ class TestUsageForecast:
         org.billing_cycle_start = datetime.now(timezone.utc) - timedelta(days=5)  # High rate
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch(
-                "aragora.server.handlers.admin.billing.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
                     is_authenticated=True,
+                    role="owner",
                 )
                 mock_extract.return_value = mock_ctx
 
@@ -1415,9 +1422,7 @@ class TestInvoices:
         enterprise_owner = user_store.get_user_by_id("ent_owner_1")
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch(
-                "aragora.server.handlers.admin.billing.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
                 with patch(
                     "aragora.server.handlers.admin.billing.get_stripe_client"
                 ) as mock_get_stripe:
@@ -1425,6 +1430,7 @@ class TestInvoices:
                     mock_ctx = MockAuthContext(
                         user_id=enterprise_owner.id,
                         is_authenticated=True,
+                        role="owner",
                     )
                     mock_extract.return_value = mock_ctx
                     mock_get_stripe.return_value = stripe_client
@@ -1447,13 +1453,12 @@ class TestInvoices:
         org.stripe_customer_id = None
 
         with patch("aragora.server.handlers.admin.billing._billing_limiter") as mock_limiter:
-            with patch(
-                "aragora.server.handlers.admin.billing.extract_user_from_request"
-            ) as mock_extract:
+            with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
                 mock_limiter.is_allowed.return_value = True
                 mock_ctx = MockAuthContext(
                     user_id=owner.id,
                     is_authenticated=True,
+                    role="owner",
                 )
                 mock_extract.return_value = mock_ctx
 

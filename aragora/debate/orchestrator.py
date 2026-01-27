@@ -314,6 +314,9 @@ class Arena:
         # Unpack core components to instance attributes
         self._apply_core_components(core)
 
+        # Channel integration (initialized per debate run)
+        self._channel_integration = None
+
         # Skills system for extensible capabilities (evidence collection, etc.)
         self.skill_registry = skill_registry
         self.enable_skills = enable_skills
@@ -463,6 +466,7 @@ class Arena:
         self._init_lifecycle_manager()
         self._init_event_emitter()
         self._init_checkpoint_ops()
+        self._init_checkpoint_bridge()
 
         # Initialize grounded operations helper (uses position_ledger, elo_system)
         self._init_grounded_operations()
@@ -772,6 +776,34 @@ class Arena:
             memory_manager=None,  # Set after _init_phases when memory_manager exists
             cache=self._cache,
         )
+
+    def _init_checkpoint_bridge(self) -> None:
+        """Initialize optional checkpoint bridge for molecule-aware recovery."""
+        self.molecule_orchestrator = None
+        self.checkpoint_bridge = None
+
+        if getattr(self.protocol, "enable_molecule_tracking", False):
+            try:
+                from aragora.debate.molecule_orchestrator import get_molecule_orchestrator
+
+                self.molecule_orchestrator = get_molecule_orchestrator(self.protocol)
+            except ImportError:
+                logger.debug("[molecules] Molecule orchestrator not available")
+            except Exception as e:
+                logger.warning(f"[molecules] Failed to initialize orchestrator: {e}")
+
+        if self.checkpoint_manager or self.molecule_orchestrator:
+            try:
+                from aragora.debate.checkpoint_bridge import create_checkpoint_bridge
+
+                self.checkpoint_bridge = create_checkpoint_bridge(
+                    molecule_orchestrator=self.molecule_orchestrator,
+                    checkpoint_manager=self.checkpoint_manager,
+                )
+            except ImportError:
+                logger.debug("[checkpoint_bridge] Checkpoint bridge not available")
+            except Exception as e:
+                logger.warning(f"[checkpoint_bridge] Initialization failed: {e}")
 
     def _init_grounded_operations(self) -> None:
         """Initialize GroundedOperations helper for verdict and relationship management."""
@@ -2047,11 +2079,44 @@ class Arena:
     async def _cleanup(self) -> None:
         """Internal cleanup. Delegates to LifecycleManager."""
         await self._lifecycle.cleanup()
+        await self._teardown_agent_channels()
         # Clear context gatherer cache to prevent cross-debate leaks
         if hasattr(self, "context_gatherer") and self.context_gatherer:
             self.context_gatherer.clear_cache()
         # Clear embedding cache (also called on success path, but idempotent)
         self._cleanup_convergence_cache()
+
+    async def _setup_agent_channels(self, ctx: "DebateContext", debate_id: str) -> None:
+        """Initialize agent-to-agent channels for the current debate."""
+        if not getattr(self.protocol, "enable_agent_channels", False):
+            return
+
+        try:
+            from aragora.debate.channel_integration import create_channel_integration
+
+            self._channel_integration = create_channel_integration(
+                debate_id=debate_id,
+                agents=self.agents,
+                protocol=self.protocol,
+            )
+            if await self._channel_integration.setup():
+                ctx.channel_integration = self._channel_integration
+            else:
+                self._channel_integration = None
+        except Exception as e:
+            logger.debug(f"[channels] Channel setup failed (non-critical): {e}")
+            self._channel_integration = None
+
+    async def _teardown_agent_channels(self) -> None:
+        """Tear down agent channels after debate completion."""
+        if not self._channel_integration:
+            return
+        try:
+            await self._channel_integration.teardown()
+        except Exception as e:
+            logger.debug(f"[channels] Channel teardown failed (non-critical): {e}")
+        finally:
+            self._channel_integration = None
 
     async def run(self, correlation_id: str = "") -> DebateResult:
         """Run the full debate and return results.
@@ -2129,6 +2194,8 @@ class Arena:
             domain=domain,
             hook_manager=self.hook_manager,
         )
+        ctx.molecule_orchestrator = self.molecule_orchestrator
+        ctx.checkpoint_bridge = self.checkpoint_bridge
 
         # Initialize BeliefNetwork with KM seeding if enabled
         if getattr(self.protocol, "enable_km_belief_sync", False):
@@ -2162,6 +2229,9 @@ class Arena:
 
         # Assign hierarchy roles to agents (Gastown pattern)
         self._assign_hierarchy_roles(ctx, task_type=domain)
+
+        # Initialize agent-to-agent channels (after selection/role assignment)
+        await self._setup_agent_channels(ctx, debate_id)
 
         # Structured logging for debate lifecycle (JSON in production)
         with correlation_context(correlation_id):
@@ -2371,6 +2441,7 @@ class Arena:
 
         # Cleanup debate-scoped embedding cache to free memory
         self._cleanup_convergence_cache()
+        await self._teardown_agent_channels()
 
         return ctx.finalize_result()
 

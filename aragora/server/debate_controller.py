@@ -211,10 +211,11 @@ class DebateController:
             return f"Invalid agent specification: {e}"
 
         try:
+            requested_count = len(specs)
             available_specs, filtered = filter_available_agents(
                 specs,
                 log_filtered=False,
-                min_agents=0,
+                min_agents=requested_count,
             )
         except Exception as e:
             return str(e)
@@ -228,8 +229,16 @@ class DebateController:
                 "Configure API keys in AWS Secrets Manager or environment variables."
             )
 
-        if len(available_specs) < 2:
+        if requested_count < 2:
             return "At least 2 agents are required to start a debate."
+
+        if len(available_specs) < requested_count:
+            available_names = ", ".join(s.provider for s in available_specs) or "none"
+            requested_names = ", ".join(s.provider for s in specs) or "none"
+            return (
+                f"Only {len(available_specs)}/{requested_count} requested agents are available. "
+                f"Requested: {requested_names}. Available: {available_names}."
+            )
 
         return None
 
@@ -506,6 +515,9 @@ Return JSON with these exact fields:
                     "final_answer": result.final_answer,
                     "consensus_reached": result.consensus_reached,
                     "confidence": result.confidence,
+                    "status": result.status,
+                    "agent_failures": result.agent_failures,
+                    "participants": result.participants,
                     "grounded_verdict": (
                         result.grounded_verdict.to_dict() if result.grounded_verdict else None
                     ),

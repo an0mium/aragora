@@ -28,9 +28,10 @@ class TestCoordinatorHandler:
         assert handler.can_handle("/api/v1/memory/coordinator/unknown") is False
         assert handler.can_handle("/api/v1/memory/other") is False
 
-    def test_metrics_without_coordinator(self, handler):
+    @pytest.mark.asyncio
+    async def test_metrics_without_coordinator(self, handler):
         """Test metrics returns default when no coordinator configured."""
-        result = handler.handle("/api/v1/memory/coordinator/metrics", {})
+        result = await handler.handle("/api/v1/memory/coordinator/metrics", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -39,16 +40,18 @@ class TestCoordinatorHandler:
         assert body["metrics"]["total_transactions"] == 0
         assert body["metrics"]["success_rate"] == 0.0
 
-    def test_config_without_coordinator(self, handler):
+    @pytest.mark.asyncio
+    async def test_config_without_coordinator(self, handler):
         """Test config returns defaults when no coordinator configured."""
-        result = handler.handle("/api/v1/memory/coordinator/config", {})
+        result = await handler.handle("/api/v1/memory/coordinator/config", {})
 
         assert result is not None
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["configured"] is False
 
-    def test_metrics_with_coordinator(self):
+    @pytest.mark.asyncio
+    async def test_metrics_with_coordinator(self):
         """Test metrics returns real data when coordinator exists."""
         from aragora.server.handlers.memory.coordinator import CoordinatorHandler
 
@@ -67,7 +70,7 @@ class TestCoordinatorHandler:
         mock_coordinator._rollback_handlers = {"continuum": lambda x: x, "consensus": lambda x: x}
 
         handler = CoordinatorHandler(server_context={"memory_coordinator": mock_coordinator})
-        result = handler.handle("/api/v1/memory/coordinator/metrics", {})
+        result = await handler.handle("/api/v1/memory/coordinator/metrics", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -82,7 +85,8 @@ class TestCoordinatorHandler:
         assert "continuum" in body["rollback_handlers"]
         assert "consensus" in body["rollback_handlers"]
 
-    def test_config_with_coordinator(self):
+    @pytest.mark.asyncio
+    async def test_config_with_coordinator(self):
         """Test config returns real options when coordinator exists."""
         from aragora.server.handlers.memory.coordinator import CoordinatorHandler
         from aragora.memory.coordinator import CoordinatorOptions
@@ -99,7 +103,7 @@ class TestCoordinatorHandler:
         )
 
         handler = CoordinatorHandler(server_context={"memory_coordinator": mock_coordinator})
-        result = handler.handle("/api/v1/memory/coordinator/config", {})
+        result = await handler.handle("/api/v1/memory/coordinator/config", {})
 
         assert result is not None
         assert result.status_code == 200
@@ -117,7 +121,8 @@ class TestCoordinatorHandler:
 class TestCoordinatorHandlerRateLimiting:
     """Tests for rate limiting on coordinator endpoints."""
 
-    def test_rate_limit_exceeded(self):
+    @pytest.mark.asyncio
+    async def test_rate_limit_exceeded(self):
         """Test rate limiting returns 429 when exceeded."""
         from aragora.server.handlers.memory.coordinator import (
             CoordinatorHandler,
@@ -128,7 +133,7 @@ class TestCoordinatorHandlerRateLimiting:
 
         # Exhaust rate limit
         with patch.object(_coordinator_limiter, "is_allowed", return_value=False):
-            result = handler.handle("/api/v1/memory/coordinator/metrics", {})
+            result = await handler.handle("/api/v1/memory/coordinator/metrics", {})
 
             assert result is not None
             assert result.status_code == 429

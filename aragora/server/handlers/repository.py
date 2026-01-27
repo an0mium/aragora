@@ -175,7 +175,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
 
         return error_response("Repository endpoint not found", 404)
 
-    @require_permission("repository:write")
+    @require_permission("repository.create")
     async def _start_index(self, body: Dict[str, Any]) -> HandlerResult:
         """Start a full repository index."""
         orchestrator = await _get_orchestrator()
@@ -226,7 +226,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Repository indexing failed: {e}")
             return error_response(safe_error_message(e, "indexing"), 500)
 
-    @require_permission("repository:write")
+    @require_permission("repository.update")
     async def _incremental_update(self, body: Dict[str, Any]) -> HandlerResult:
         """Perform incremental repository update."""
         orchestrator = await _get_orchestrator()
@@ -256,7 +256,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Incremental update failed: {e}")
             return error_response(safe_error_message(e, "incremental update"), 500)
 
-    @require_permission("repository:write")
+    @require_permission("repository.create")
     async def _batch_index(self, body: Dict[str, Any]) -> HandlerResult:
         """Index multiple repositories in batch."""
         orchestrator = await _get_orchestrator()
@@ -294,7 +294,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Batch indexing failed: {e}")
             return error_response(safe_error_message(e, "batch indexing"), 500)
 
-    @require_permission("repository:read")
+    @require_permission("repository.read")
     async def _get_status(self, repo_id: str) -> HandlerResult:
         """Get indexing status for a repository."""
         orchestrator = await _get_orchestrator()
@@ -333,7 +333,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             }
         )
 
-    @require_permission("repository:read")
+    @require_permission("repository.read")
     async def _get_entities(self, repo_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get entities from an indexed repository."""
         orchestrator = await _get_orchestrator()
@@ -383,7 +383,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Failed to get entities: {e}")
             return error_response(safe_error_message(e, "get entities"), 500)
 
-    @require_permission("repository:read")
+    @require_permission("repository.read")
     async def _get_graph(self, repo_id: str, query_params: Dict[str, Any]) -> HandlerResult:
         """Get relationship graph for a repository."""
         builder = await _get_relationship_builder(repo_id)
@@ -439,7 +439,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Failed to get graph: {e}")
             return error_response(safe_error_message(e, "get graph"), 500)
 
-    @require_permission("repository:read")
+    @require_permission("repository.read")
     async def _get_repository(self, repo_id: str) -> HandlerResult:
         """Get repository information."""
         orchestrator = await _get_orchestrator()
@@ -458,7 +458,7 @@ class RepositoryHandler(BaseHandler, PaginatedHandlerMixin):
             logger.error(f"Failed to get repository: {e}")
             return error_response(safe_error_message(e, "get repository"), 500)
 
-    @require_permission("repository:delete")
+    @require_permission("repository.delete")
     async def _remove_repository(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Remove an indexed repository."""
         orchestrator = await _get_orchestrator()

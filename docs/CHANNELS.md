@@ -201,9 +201,10 @@ Bindings map incoming messages to routing targets (provider, account, pattern).
 - `GET /api/bindings/stats` – router statistics
 
 **RBAC permissions:**
-- `bindings:read`
-- `bindings:write`
-- `bindings:delete`
+- `bindings.read`
+- `bindings.create`
+- `bindings.update`
+- `bindings.delete`
 
 ---
 

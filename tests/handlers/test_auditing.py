@@ -22,6 +22,17 @@ from aragora.server.handlers.auditing import (
 )
 
 
+@pytest.fixture(autouse=True)
+def enable_real_auth_for_auditing_tests(monkeypatch):
+    """Enable real auth for auditing tests that patch extract_user_from_request.
+
+    Auditing tests set up their own auth context patches, so we need to disable
+    the decorator's test bypass mode to use those patches.
+    """
+    monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "1")
+    yield
+
+
 def parse_body(result) -> dict:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))

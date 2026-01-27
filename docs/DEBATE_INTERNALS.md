@@ -97,6 +97,15 @@ ratings = await loaders.elo.load_many(["anthropic-api", "openai-api"])
 stats = await loaders.stats.load_many(["anthropic-api", "openai-api"])
 ```
 
+### Agent Failure Tracking
+
+Debate execution records per-agent failures (timeouts, empty responses, and
+exceptions). These are stored in `DebateContext.agent_failures` and persisted
+to the final `DebateResult.agent_failures`.
+
+When streaming events, failure summaries can surface in the `consensus` event
+(`status`, `agent_failures`) and as individual `agent_error` events.
+
 ## Phase System
 
 Debates progress through configurable phases.

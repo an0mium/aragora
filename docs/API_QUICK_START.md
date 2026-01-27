@@ -59,11 +59,14 @@ data: {"agent": "claude", "role": "proposer", "content": "I propose..."}
 event: critique
 data: {"agent": "gpt4", "target": "claude", "severity": 0.6, "content": "While valid..."}
 
+event: agent_error
+data: {"agent": "claude", "error_type": "timeout", "message": "Agent response was empty", "recoverable": true, "phase": "proposal"}
+
 event: vote
 data: {"agent": "claude", "choice": "gpt4", "confidence": 0.85}
 
 event: consensus
-data: {"winner": "gpt4", "confidence": 0.82, "final_answer": "..."}
+data: {"reached": true, "confidence": 0.82, "answer": "...", "status": "consensus_reached", "agent_failures": {}}
 
 event: debate_end
 data: {"debate_id": "d-abc123", "duration_ms": 12500}
@@ -84,6 +87,8 @@ curl http://localhost:8080/api/debates/d-abc123
   "winner": "gpt4",
   "confidence": 0.82,
   "consensus_reached": true,
+  "status": "consensus_reached",
+  "agent_failures": {},
   "rounds_used": 3,
   "participants": ["claude", "gpt4"],
   "messages": [...],

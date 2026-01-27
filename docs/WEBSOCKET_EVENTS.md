@@ -131,8 +131,9 @@ These payloads are emitted by `create_arena_hooks()`:
 { "type": "round_start", "data": { "round": 1 } }
 { "type": "agent_message", "data": { "content": "...", "role": "proposal" } }
 { "type": "critique", "data": { "target": "...", "issues": ["..."], "severity": 0.4, "content": "..." } }
+{ "type": "agent_error", "data": { "error_type": "timeout", "message": "...", "recoverable": true, "phase": "proposal" } }
 { "type": "vote", "data": { "vote": "...", "confidence": 0.72 } }
-{ "type": "consensus", "data": { "reached": true, "confidence": 0.85, "answer": "..." } }
+{ "type": "consensus", "data": { "reached": true, "confidence": 0.85, "answer": "...", "status": "consensus_reached", "agent_failures": {} } }
 { "type": "debate_end", "data": { "duration": 42.2, "rounds": 3 } }
 ```
 
@@ -152,6 +153,25 @@ Audience metrics emitted after `user_vote` look like:
 }
 ```
 
+### Agent Failure Tracking
+
+Consensus events may include `status` and `agent_failures`:
+
+- `status`: `consensus_reached`, `completed`, or `insufficient_participation`
+- `agent_failures`: map of agent → list of failure records
+
+Each failure record includes:
+
+```json
+{
+  "phase": "proposal",
+  "error_type": "timeout",
+  "message": "Agent response was empty",
+  "provider": "openai",
+  "timestamp": 1732735053.123
+}
+```
+
 ## Stream Event Types
 
 These are the canonical event names from `StreamEventType`, plus a few
@@ -161,6 +181,7 @@ analytics events emitted directly by the debate pipeline.
 - `debate_start`
 - `round_start`
 - `agent_message`
+- `agent_error`
 - `critique`
 - `vote`
 - `consensus`

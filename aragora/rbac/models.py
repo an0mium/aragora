@@ -36,6 +36,8 @@ class ResourceType(str, Enum):
     BILLING = "billing"
     CONNECTOR = "connectors"
     WEBHOOK = "webhooks"
+    REPOSITORY = "repository"
+    BINDINGS = "bindings"
     CHECKPOINT = "checkpoints"
     GAUNTLET = "gauntlet"  # Adversarial stress-testing
     MARKETPLACE = "marketplace"  # Template marketplace

@@ -31,7 +31,7 @@ Hook triggers are string keys (from `HookType`) grouped by lifecycle:
 - **Consensus**: `pre_consensus`, `post_consensus`, `on_convergence`
 - **Audit**: `on_finding`, `on_contradiction`, `on_inconsistency`,
   `on_evidence`, `on_progress`
-- **Errors**: `on_error`, `on_timeout`, `on_cancellation`
+- **Errors**: `on_error`, `on_timeout`, `on_cancellation`, `on_agent_error`
 - **Session**: `on_pause`, `on_resume`, `on_checkpoint`
 - **Propulsion**: `on_ready`, `on_propel`, `on_escalate`, `on_molecule_complete`
 
@@ -131,6 +131,7 @@ Use them as templates for your own `hooks/*.yaml` files.
 
 ## Notes
 
+- `on_agent_error` receives: `agent`, `error_type`, `message`, `recoverable`, `phase`.
 - Hook config loading does not expand environment variables automatically.
   If you want `${VAR}` expansion, preprocess your YAML with
   `os.path.expandvars()` before loading.

@@ -286,7 +286,14 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
             )
         )
 
-    def on_consensus(reached: bool, confidence: float, answer: str, synthesis: str = "") -> None:
+    def on_consensus(
+        reached: bool,
+        confidence: float,
+        answer: str,
+        synthesis: str = "",
+        status: str = "",
+        agent_failures: Optional[dict] = None,
+    ) -> None:
         emitter.emit(
             StreamEvent(
                 type=StreamEventType.CONSENSUS,
@@ -295,6 +302,8 @@ def create_arena_hooks(emitter: SyncEventEmitter, loop_id: str = "") -> dict[str
                     "confidence": confidence,
                     "answer": answer,  # Full answer - no truncation
                     "synthesis": synthesis,  # Fallback synthesis in case SYNTHESIS event is missed
+                    "status": status,
+                    "agent_failures": agent_failures or {},
                 },
                 loop_id=loop_id,
             )
@@ -584,13 +593,18 @@ def create_hook_manager_from_emitter(
         """Bridge POST_CONSENSUS to CONSENSUS event."""
         result = kwargs.get("result")
         if result:
+            reached = getattr(result, "reached", None)
+            if reached is None:
+                reached = getattr(result, "consensus_reached", False)
             emitter.emit(
                 StreamEvent(
                     type=StreamEventType.CONSENSUS,
                     data={
-                        "reached": getattr(result, "reached", False),
+                        "reached": reached,
                         "confidence": getattr(result, "confidence", 0.0),
                         "answer": getattr(result, "answer", ""),
+                        "status": getattr(result, "status", ""),
+                        "agent_failures": getattr(result, "agent_failures", {}),
                     },
                     loop_id=loop_id,
                 )

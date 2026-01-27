@@ -116,6 +116,26 @@ class ProposalPhase:
         self._propulsion_engine = propulsion_engine
         self._enable_propulsion = enable_propulsion
 
+    @staticmethod
+    def _is_effectively_empty_response(content: Any) -> bool:
+        if not isinstance(content, str):
+            return False
+        normalized = content.strip().lower()
+        return not normalized or normalized in (
+            "agent response was empty",
+            "(agent produced empty output)",
+            "agent produced empty output",
+        )
+
+    @staticmethod
+    def _classify_error(error: Exception) -> str:
+        if isinstance(error, asyncio.TimeoutError):
+            return "timeout"
+        message = str(error).lower()
+        if "empty" in message:
+            return "empty"
+        return "exception"
+
     async def execute(self, ctx: "DebateContextType") -> None:
         """
         Execute the proposal phase.
@@ -270,6 +290,22 @@ class ProposalPhase:
                     )
                 else:
                     result = await self._generate_with_agent(agent, prompt, ctx.context_messages)
+            if self._is_effectively_empty_response(result):
+                logger.warning("agent_empty_response_retry agent=%s phase=proposal", agent.name)
+                retry_task_id = f"{agent.name}:proposal:retry"
+                with streaming_task_context(retry_task_id):
+                    if self._with_timeout:
+                        result = await self._with_timeout(
+                            self._generate_with_agent(agent, prompt, ctx.context_messages),
+                            agent.name,
+                            timeout_seconds=timeout,
+                        )
+                    else:
+                        result = await self._generate_with_agent(
+                            agent, prompt, ctx.context_messages
+                        )
+            if self._is_effectively_empty_response(result):
+                return (agent, ValueError("Agent response was empty"))
             return (agent, result)
         except Exception as e:
             return (agent, e)
@@ -280,19 +316,9 @@ class ProposalPhase:
         """Process a proposal result from an agent."""
         from aragora.core import Message
 
-        def _is_effectively_empty_response(content: Any) -> bool:
-            if not isinstance(content, str):
-                return False
-            normalized = content.strip().lower()
-            return not normalized or normalized in (
-                "agent response was empty",
-                "(agent produced empty output)",
-                "agent produced empty output",
-            )
-
         is_error = isinstance(result_or_error, Exception)
 
-        if not is_error and _is_effectively_empty_response(result_or_error):
+        if not is_error and self._is_effectively_empty_response(result_or_error):
             provider = getattr(agent, "provider", None) or getattr(agent, "model_type", "unknown")
             logger.warning(
                 f"agent_empty_response agent={agent.name} provider={provider} phase=proposal"
@@ -302,6 +328,23 @@ class ProposalPhase:
 
         if is_error:
             logger.error(f"agent_error agent={agent.name} phase=proposal error={result_or_error}")
+            error_type = self._classify_error(result_or_error)
+            provider = getattr(agent, "provider", None) or getattr(agent, "model_type", "unknown")
+            ctx.record_agent_failure(
+                agent.name,
+                phase="proposal",
+                error_type=error_type,
+                message=str(result_or_error),
+                provider=provider,
+            )
+            if "on_agent_error" in self.hooks:
+                self.hooks["on_agent_error"](
+                    agent=agent.name,
+                    error_type=error_type,
+                    message=str(result_or_error),
+                    recoverable=True,
+                    phase="proposal",
+                )
             ctx.proposals[agent.name] = f"[Error generating proposal: {result_or_error}]"
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(agent.name)

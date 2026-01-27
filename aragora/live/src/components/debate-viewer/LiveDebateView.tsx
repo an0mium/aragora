@@ -85,7 +85,19 @@ export function LiveDebateView({
               (data?.error as string) ||
               'Missing credentials for agent',
           });
-        } else if (errorType && ['empty', 'timeout', 'internal'].includes(errorType)) {
+        }
+      }
+    }
+    return errors;
+  }, [streamEvents]);
+
+  const runtimeErrors = useMemo(() => {
+    const errors: Array<{ agent: string; message: string }> = [];
+    for (const event of streamEvents) {
+      if (event.type === 'agent_error') {
+        const data = event.data as Record<string, unknown>;
+        const errorType = data?.error_type as string | undefined;
+        if (errorType && ['empty', 'timeout', 'exception', 'internal'].includes(errorType)) {
           errors.push({
             agent: (event.agent as string) || (data?.agent as string) || 'unknown',
             message:
@@ -98,6 +110,29 @@ export function LiveDebateView({
     }
     return errors;
   }, [streamEvents]);
+
+  const consensusStatus = useMemo(() => {
+    const consensusEvents = streamEvents.filter(event => event.type === 'consensus');
+    if (consensusEvents.length === 0) return null;
+    const lastEvent = consensusEvents[consensusEvents.length - 1];
+    return lastEvent.data as {
+      status?: string;
+      agent_failures?: Record<string, Array<{ message?: string }>>;
+    };
+  }, [streamEvents]);
+
+  const agentFailureAgents = useMemo(() => {
+    const agents = new Set<string>();
+    if (consensusStatus?.agent_failures) {
+      Object.keys(consensusStatus.agent_failures).forEach((agent) => agents.add(agent));
+    }
+    for (const event of streamEvents) {
+      if (event.type === 'agent_error') {
+        agents.add(event.agent || 'unknown');
+      }
+    }
+    return Array.from(agents);
+  }, [consensusStatus, streamEvents]);
 
   // Calculate current phase/round from stream events or messages
   const currentPhase = useMemo(() => {
@@ -152,6 +187,17 @@ export function LiveDebateView({
                 Missing agents:{' '}
                 {initErrors.map((err) => err.agent).join(', ')}. Check API keys or Secrets
                 Manager.
+              </div>
+            )}
+            {consensusStatus?.status === 'insufficient_participation' && (
+              <div className="mt-4 border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-mono text-yellow-200">
+                Insufficient participation: {agentFailureAgents.length} agent
+                {agentFailureAgents.length === 1 ? '' : 's'} failed or timed out.
+              </div>
+            )}
+            {runtimeErrors.length > 0 && consensusStatus?.status !== 'insufficient_participation' && (
+              <div className="mt-4 border border-yellow-500/30 bg-yellow-500/5 px-3 py-2 text-xs font-mono text-yellow-200">
+                Agent errors detected: {runtimeErrors.map((err) => err.agent).join(', ')}.
               </div>
             )}
           </div>

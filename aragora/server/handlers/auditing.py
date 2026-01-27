@@ -372,7 +372,10 @@ class AuditingHandler(SecureHandler):
             return self._get_attack_types()
 
         if path.startswith("/api/v1/debates/") and path.endswith("/red-team"):
-            debate_id, err = self.extract_path_param(path, 3, "debate_id", SAFE_SLUG_PATTERN)
+            # Path: /api/v1/debates/{debate_id}/red-team
+            # Split: ["", "api", "v1", "debates", "{debate_id}", "red-team"]
+            # Index 4 contains the debate_id
+            debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_SLUG_PATTERN)
             if err:
                 return err
             return self._run_red_team_analysis(debate_id, handler)

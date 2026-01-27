@@ -168,7 +168,7 @@ class BindingsHandler(BaseHandler):
         # DELETE /api/bindings/:provider/:account/:pattern
         return await self._delete_binding(path, request)
 
-    @require_permission("bindings:read")
+    @require_permission("bindings.read")
     async def _list_bindings(self, request: Any) -> HandlerResult:
         """List all registered bindings."""
         router = self._get_router()
@@ -187,7 +187,7 @@ class BindingsHandler(BaseHandler):
             }
         )
 
-    @require_permission("bindings:read")
+    @require_permission("bindings.read")
     async def _list_bindings_by_provider(self, provider: str, request: Any) -> HandlerResult:
         """List bindings for a specific provider."""
         router = self._get_router()
@@ -207,7 +207,7 @@ class BindingsHandler(BaseHandler):
             }
         )
 
-    @require_permission("bindings:read")
+    @require_permission("bindings.read")
     async def _get_stats(self, request: Any) -> HandlerResult:
         """Get router statistics."""
         router = self._get_router()
@@ -221,7 +221,7 @@ class BindingsHandler(BaseHandler):
         stats = router.get_stats()
         return json_response(stats)
 
-    @require_permission("bindings:write")
+    @require_permission("bindings.create")
     async def _create_binding(self, request: Any) -> HandlerResult:
         """Create a new message binding."""
         router = self._get_router()
@@ -288,7 +288,7 @@ class BindingsHandler(BaseHandler):
             status=201,
         )
 
-    @require_permission("bindings:read")
+    @require_permission("bindings.read")
     async def _resolve_binding(self, request: Any) -> HandlerResult:
         """Resolve which binding applies to a message."""
         router = self._get_router()
@@ -335,7 +335,7 @@ class BindingsHandler(BaseHandler):
             }
         )
 
-    @require_permission("bindings:write")
+    @require_permission("bindings.delete")
     async def _delete_binding(self, path: str, request: Any) -> HandlerResult:
         """Delete a message binding."""
         router = self._get_router()

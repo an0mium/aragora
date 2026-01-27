@@ -20,6 +20,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def enable_real_auth_for_knowledge_tests(monkeypatch):
+    """Enable real auth for knowledge tests.
+
+    The @require_permission decorator has a test bypass mode. We need to disable it
+    to properly test authentication behavior.
+    """
+    monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "1")
+    yield
+
+
 def parse_body(result) -> dict:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body.decode("utf-8"))
@@ -290,14 +301,27 @@ class TestGetFact:
 # =============================================================================
 
 
+class MockUnauthenticatedContext:
+    """Mock unauthenticated user context."""
+
+    is_authenticated = False
+    user_id = None
+    role = None
+    error_reason = "No auth token provided"
+
+
 class TestCreateFact:
     """Test POST /api/knowledge/facts."""
 
+    @pytest.mark.no_auto_auth
     def test_create_fact_requires_auth(self, knowledge_handler, mock_post_handler):
         """Test that creating a fact requires authentication."""
         handler = mock_post_handler({"statement": "Test fact"})
 
-        result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
+        # Mock extract_user_from_request to return unauthenticated context
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_extract.return_value = MockUnauthenticatedContext()
+            result = knowledge_handler.handle("/api/v1/knowledge/facts", {}, handler)
 
         # Should require auth - returns 401
         assert result is not None
@@ -338,11 +362,15 @@ class TestCreateFact:
 class TestUpdateFact:
     """Test PUT /api/knowledge/facts/:id."""
 
+    @pytest.mark.no_auto_auth
     def test_update_fact_requires_auth(self, knowledge_handler, mock_put_handler):
         """Test that updating a fact requires authentication."""
         handler = mock_put_handler({"statement": "Updated fact"})
 
-        result = knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
+        # Mock extract_user_from_request to return unauthenticated context
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_extract.return_value = MockUnauthenticatedContext()
+            result = knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
@@ -356,9 +384,15 @@ class TestUpdateFact:
 class TestDeleteFact:
     """Test DELETE /api/knowledge/facts/:id."""
 
+    @pytest.mark.no_auto_auth
     def test_delete_fact_requires_auth(self, knowledge_handler, mock_delete_handler):
         """Test that deleting a fact requires authentication."""
-        result = knowledge_handler.handle("/api/v1/knowledge/facts/fact-1", {}, mock_delete_handler)
+        # Mock extract_user_from_request to return unauthenticated context
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_extract.return_value = MockUnauthenticatedContext()
+            result = knowledge_handler.handle(
+                "/api/v1/knowledge/facts/fact-1", {}, mock_delete_handler
+            )
 
         assert result is not None
         assert result.status_code == 401
