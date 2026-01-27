@@ -406,6 +406,10 @@ from aragora.client.models import (
 
 ## Error Handling
 
+The SDK provides structured error handling with consistent error types across Python and TypeScript SDKs.
+
+### Error Types
+
 ```python
 from aragora.client import AragoraClient, AragoraAPIError
 
@@ -415,16 +419,150 @@ try:
     debate = client.debates.get("nonexistent-id")
 except AragoraAPIError as e:
     print(f"Error: {e}")
-    print(f"Code: {e.code}")
-    print(f"Status: {e.status_code}")
+    print(f"Code: {e.code}")           # Machine-readable code
+    print(f"Status: {e.status_code}")  # HTTP status
+    print(f"Message: {e.message}")     # Human-readable message
+    print(f"Details: {e.details}")     # Additional context (optional)
 ```
 
-Common error codes:
-- `NOT_FOUND` (404): Resource doesn't exist
-- `VALIDATION_ERROR` (400): Invalid request parameters
-- `RATE_LIMITED` (429): Too many requests
-- `UNAUTHORIZED` (401): Missing or invalid API key
-- `INTERNAL_ERROR` (500): Server error
+### Error Code Reference
+
+| HTTP Status | Error Code | Description | Retryable |
+|-------------|------------|-------------|-----------|
+| 400 | `VALIDATION_ERROR` | Invalid request parameters | No |
+| 400 | `INVALID_INPUT` | Malformed request body | No |
+| 401 | `UNAUTHORIZED` | Missing or invalid API key | No |
+| 401 | `TOKEN_EXPIRED` | Authentication token expired | Yes (refresh) |
+| 403 | `FORBIDDEN` | Insufficient permissions | No |
+| 403 | `QUOTA_EXCEEDED` | Usage quota reached | Yes (wait) |
+| 404 | `NOT_FOUND` | Resource doesn't exist | No |
+| 409 | `CONFLICT` | Resource state conflict | Yes (retry) |
+| 422 | `UNPROCESSABLE` | Semantically invalid request | No |
+| 429 | `RATE_LIMITED` | Too many requests | Yes (backoff) |
+| 500 | `INTERNAL_ERROR` | Server error | Yes (retry) |
+| 502 | `BAD_GATEWAY` | Upstream service error | Yes (retry) |
+| 503 | `SERVICE_UNAVAILABLE` | Service temporarily unavailable | Yes (retry) |
+| 504 | `GATEWAY_TIMEOUT` | Request timeout | Yes (retry) |
+
+### API Response Format
+
+All API errors return a consistent JSON structure:
+
+```json
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Debate not found",
+    "details": {
+      "debate_id": "nonexistent-id",
+      "suggestion": "Use /api/debates to list available debates"
+    }
+  }
+}
+```
+
+### Handling Specific Errors
+
+```python
+from aragora.client import AragoraAPIError
+
+try:
+    result = client.debates.run(task="...", agents=["invalid-agent"])
+except AragoraAPIError as e:
+    if e.code == "VALIDATION_ERROR":
+        print(f"Fix your request: {e.details}")
+    elif e.code == "RATE_LIMITED":
+        retry_after = e.details.get("retry_after", 60)
+        print(f"Rate limited. Retry in {retry_after}s")
+    elif e.code == "QUOTA_EXCEEDED":
+        print("Upgrade your plan or wait for quota reset")
+    elif e.status_code >= 500:
+        print("Server error - safe to retry")
+    else:
+        raise
+```
+
+## Retry Behavior
+
+The SDK includes automatic retry logic for transient failures.
+
+### Default Retry Configuration
+
+```python
+client = AragoraClient(
+    base_url="http://localhost:8080",
+    # Retry configuration (defaults shown)
+    max_retries=3,              # Maximum retry attempts
+    retry_delay=1.0,            # Initial delay in seconds
+    retry_backoff=2.0,          # Exponential backoff multiplier
+    retry_max_delay=30.0,       # Maximum delay between retries
+    retry_on_status=[429, 500, 502, 503, 504],  # HTTP codes to retry
+)
+```
+
+### Retry Semantics
+
+1. **Exponential Backoff**: Each retry waits `delay * (backoff ^ attempt)`
+2. **Jitter**: Random 0-25% jitter added to prevent thundering herd
+3. **Respect Retry-After**: 429 responses with `Retry-After` header are honored
+4. **Idempotency**: Only idempotent requests (GET, PUT, DELETE) are retried by default
+5. **Circuit Breaker**: After repeated failures, requests fail fast for 60s
+
+### Manual Retry Control
+
+```python
+from aragora.client import AragoraClient, RetryConfig
+
+# Disable automatic retries
+client = AragoraClient(
+    base_url="http://localhost:8080",
+    retry=RetryConfig(enabled=False),
+)
+
+# Custom retry configuration
+client = AragoraClient(
+    base_url="http://localhost:8080",
+    retry=RetryConfig(
+        max_retries=5,
+        retry_delay=2.0,
+        retry_backoff=1.5,
+        retry_on_status=[429, 503],
+    ),
+)
+```
+
+### Per-Request Retry Override
+
+```python
+# Disable retry for a single request
+debate = client.debates.get(debate_id, retry=False)
+
+# Custom retry for a single request
+debate = client.debates.run(
+    task="...",
+    retry=RetryConfig(max_retries=5, retry_delay=5.0),
+)
+```
+
+### TypeScript SDK Retry
+
+```typescript
+import { createClient, RetryConfig } from '@aragora/sdk';
+
+const client = createClient({
+  baseUrl: 'https://api.aragora.ai',
+  apiKey: 'your-key',
+  retry: {
+    maxRetries: 3,
+    retryDelay: 1000,  // milliseconds
+    retryBackoff: 2.0,
+    retryOnStatus: [429, 500, 502, 503, 504],
+  },
+});
+
+// Per-request override
+const debate = await client.debates.get(debateId, { retry: false });
+```
 
 ## Examples
 
