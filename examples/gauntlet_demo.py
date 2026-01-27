@@ -17,9 +17,9 @@ from pathlib import Path
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from aragora.modes.gauntlet import (
+from aragora.gauntlet import (
     GauntletOrchestrator,
-    GauntletConfig,
+    OrchestratorConfig as GauntletConfig,
     InputType,
 )
 

@@ -32,10 +32,10 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from aragora.core import Agent, Critique, Message
-from aragora.modes.gauntlet import (
+from aragora.gauntlet import (
     GauntletOrchestrator,
-    GauntletConfig,
-    GauntletResult,
+    OrchestratorConfig as GauntletConfig,
+    OrchestratorResult as GauntletResult,
     InputType,
     Verdict,
     QUICK_GAUNTLET,
