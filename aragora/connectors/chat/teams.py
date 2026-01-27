@@ -263,7 +263,10 @@ class TeamsConnector(ChatPlatformConnector):
         except Exception as e:
             return False, None, f"Failed to get Graph token: {e}"
 
-        headers: dict[str, str] = {"Authorization": f"Bearer {token}"}
+        headers: dict[str, str] = {
+            "Authorization": f"Bearer {token}",
+            **build_trace_headers(),  # Distributed tracing
+        }
 
         if content_type:
             headers["Content-Type"] = content_type

@@ -163,6 +163,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         headers = {
             "Authorization": f"Bearer {self.bot_token}",
             "Content-Type": "application/json",
+            **build_trace_headers(),  # Distributed tracing
         }
 
         try:
@@ -277,6 +278,7 @@ class WhatsAppConnector(ChatPlatformConnector):
             headers = {
                 "Authorization": f"Bearer {self.bot_token}",
                 "Content-Type": "application/json",
+                **build_trace_headers(),  # Distributed tracing
             }
 
             async with httpx.AsyncClient(timeout=self._request_timeout) as client:
@@ -370,7 +372,10 @@ class WhatsAppConnector(ChatPlatformConnector):
         if not can_proceed:
             raise RuntimeError(cb_error or "Circuit breaker is open")
 
-        headers = {"Authorization": f"Bearer {self.bot_token}"}
+        headers = {
+            "Authorization": f"Bearer {self.bot_token}",
+            **build_trace_headers(),  # Distributed tracing
+        }
 
         try:
             async with httpx.AsyncClient(timeout=self._request_timeout) as client:
@@ -651,7 +656,10 @@ class WhatsAppConnector(ChatPlatformConnector):
             async with httpx.AsyncClient(timeout=self._request_timeout) as client:
                 files = {"file": ("voice.ogg", audio_data, "audio/ogg")}
                 data = {"messaging_product": "whatsapp", "type": "audio/ogg"}
-                headers = {"Authorization": f"Bearer {self.bot_token}"}
+                headers = {
+                    "Authorization": f"Bearer {self.bot_token}",
+                    **build_trace_headers(),  # Distributed tracing
+                }
 
                 response = await client.post(
                     f"{WHATSAPP_API_BASE}/{self.phone_number_id}/media",
@@ -862,6 +870,7 @@ class WhatsAppConnector(ChatPlatformConnector):
         headers = {
             "Authorization": f"Bearer {self.bot_token}",
             "Content-Type": "application/json",
+            **build_trace_headers(),  # Distributed tracing
         }
 
         try:

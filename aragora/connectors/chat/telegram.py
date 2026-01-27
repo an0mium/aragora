@@ -153,6 +153,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/sendMessage",
                     json=payload,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -224,6 +225,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/editMessageText",
                     json=payload,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -279,6 +281,7 @@ class TelegramConnector(ChatPlatformConnector):
                         "chat_id": channel_id,
                         "message_id": int(message_id),
                     },
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -323,6 +326,7 @@ class TelegramConnector(ChatPlatformConnector):
                         "chat_id": channel_id,
                         "action": "typing",
                     },
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 data = response.json()
 
@@ -368,6 +372,7 @@ class TelegramConnector(ChatPlatformConnector):
                         f"{self._api_base}/sendDocument",
                         data=data,
                         files=files,
+                        headers=build_trace_headers(),  # Distributed tracing
                     )
                     result = response.json()
 
