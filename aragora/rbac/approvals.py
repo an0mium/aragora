@@ -538,21 +538,55 @@ class ApprovalWorkflow:
         """
         Get default approvers for a permission request.
 
-        This should be overridden to integrate with actual RBAC system.
-        Default implementation returns empty list.
+        Finds users with admin permission for the resource type using
+        the RBAC PermissionChecker's reverse lookup.
+
+        Args:
+            permission: The permission being requested
+            resource_type: Type of resource (e.g., "debates", "workspaces")
+            org_id: Optional organization filter
+            workspace_id: Optional workspace filter
+
+        Returns:
+            List of user IDs who can approve this request
         """
         try:
-            # TODO: Integrate with RBAC PermissionChecker to find admins
-            # from aragora.rbac.checker import PermissionChecker
-            # checker = PermissionChecker()
-            # admin_permission = f"{resource_type}:admin"
-            # return checker.get_users_with_permission(admin_permission)
+            from aragora.rbac.checker import get_permission_checker
 
-            # For now, return empty to require explicit approvers
-            _ = resource_type  # Reserved for future RBAC integration
+            checker = get_permission_checker()
+
+            # Look for users with admin permission on this resource type
+            admin_permission = f"{resource_type}.admin"
+
+            approvers = checker.get_users_with_permission(
+                admin_permission,
+                org_id=org_id,
+                workspace_id=workspace_id,
+                limit=10,  # Reasonable limit for approvers
+            )
+
+            if approvers:
+                logger.debug(
+                    f"Found {len(approvers)} approvers for {admin_permission}: {approvers}"
+                )
+                return approvers
+
+            # Fallback: try wildcard admin permission
+            wildcard_permission = f"{resource_type}.*"
+            approvers = checker.get_users_with_permission(
+                wildcard_permission,
+                org_id=org_id,
+                workspace_id=workspace_id,
+                limit=10,
+            )
+
+            return approvers
+
+        except ImportError as e:
+            logger.warning(f"PermissionChecker not available: {e}")
             return []
-
-        except ImportError:
+        except Exception as e:
+            logger.warning(f"Error finding default approvers: {e}")
             return []
 
     async def _grant_temporary_permission(self, request: ApprovalRequest) -> None:

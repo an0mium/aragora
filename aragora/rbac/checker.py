@@ -977,6 +977,88 @@ class PermissionChecker:
 
         return permissions
 
+    def get_users_with_permission(
+        self,
+        permission_key: str,
+        org_id: str | None = None,
+        workspace_id: str | None = None,
+        limit: int = 100,
+    ) -> list[str]:
+        """
+        Get user IDs that have a specific permission.
+
+        This is the reverse lookup of check_permission - finds all users
+        who could approve a request requiring this permission.
+
+        Args:
+            permission_key: Permission to search for (e.g., "debates.admin" or "debates:admin")
+            org_id: Optional organization filter
+            workspace_id: Optional workspace filter
+            limit: Maximum users to return (default 100)
+
+        Returns:
+            List of user IDs with the permission
+        """
+        users_with_permission: list[str] = []
+
+        # Normalize permission key (support both : and . separators)
+        normalized_key = permission_key.replace(":", ".")
+
+        # Extract resource type for wildcard matching
+        resource = normalized_key.split(".")[0] if "." in normalized_key else normalized_key
+
+        # Check role assignments
+        for user_id, assignments in self._role_assignments.items():
+            if len(users_with_permission) >= limit:
+                break
+
+            for assignment in assignments:
+                # Skip invalid assignments
+                if not assignment.is_valid:
+                    continue
+                # Filter by org if specified
+                if org_id and assignment.org_id and assignment.org_id != org_id:
+                    continue
+
+                # Get role permissions
+                role_permissions = get_role_permissions(assignment.role_id, include_inherited=True)
+
+                # Check if role has the permission (exact match)
+                if normalized_key in role_permissions:
+                    if user_id not in users_with_permission:
+                        users_with_permission.append(user_id)
+                    break
+
+                # Check wildcard patterns
+                wildcards = [f"{resource}.*", f"{resource}:*", "*"]
+                if any(w in role_permissions for w in wildcards):
+                    if user_id not in users_with_permission:
+                        users_with_permission.append(user_id)
+                    break
+
+        # Also check workspace roles if workspace_id provided
+        if workspace_id and workspace_id in self._workspace_roles:
+            workspace_users = self._workspace_roles[workspace_id]
+            for user_id, roles in workspace_users.items():
+                if user_id in users_with_permission:
+                    continue
+                if len(users_with_permission) >= limit:
+                    break
+
+                for role_name in roles:
+                    role_permissions = get_role_permissions(role_name, include_inherited=True)
+                    if normalized_key in role_permissions:
+                        users_with_permission.append(user_id)
+                        break
+                    # Check wildcards
+                    wildcards = [f"{resource}.*", f"{resource}:*", "*"]
+                    if any(w in role_permissions for w in wildcards):
+                        users_with_permission.append(user_id)
+                        break
+
+        logger.debug(f"Found {len(users_with_permission)} users with permission '{permission_key}'")
+        return users_with_permission
+
     def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         stats: dict[str, Any] = {
