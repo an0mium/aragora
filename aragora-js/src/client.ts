@@ -138,6 +138,38 @@ import type {
   PolicyViolation,
   ComplianceCheckResult,
   ComplianceStats,
+  // Audit types
+  AuditPreset,
+  AuditPresetDetail,
+  AuditTypeInfo,
+  FindingWorkflow,
+  QuickAuditResult,
+  BulkUpdateResult,
+  // Billing types
+  BillingPlan,
+  Subscription,
+  Invoice,
+  UsageMetrics,
+  UsageForecast,
+  PaymentMethod,
+  // Notification types
+  NotificationFrequency,
+  NotificationPreference,
+  NotificationChannel,
+  Notification,
+  NotificationStats,
+  // Organization types
+  Organization,
+  OrganizationMember,
+  OrganizationInvitation,
+  UserOrganizationMembership,
+  // Tenant types
+  TenantStatus,
+  TenantTier,
+  TenantQuota,
+  TenantSettings,
+  Tenant,
+  TenantUsage,
 } from './types';
 
 export interface AragoraClientOptions {
