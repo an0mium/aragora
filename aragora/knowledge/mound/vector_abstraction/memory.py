@@ -23,6 +23,7 @@ from aragora.knowledge.mound.vector_abstraction.base import (
     VectorSearchResult,
     VectorStoreConfig,
 )
+from aragora.knowledge.search.bm25 import BM25Index
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,9 @@ class InMemoryVectorStore(BaseVectorStore):
 
         # Storage: collection_name -> namespace -> id -> StoredVector
         self._collections: dict[str, dict[str, dict[str, StoredVector]]] = {}
+
+        # BM25 indices for proper keyword search: collection_name -> namespace -> BM25Index
+        self._bm25_indices: dict[str, dict[str, BM25Index]] = {}
 
     # -------------------------------------------------------------------------
     # Connection Management
@@ -134,6 +138,11 @@ class InMemoryVectorStore(BaseVectorStore):
             namespace=ns,
         )
         collection[ns][id] = vector
+
+        # Update BM25 index for proper keyword search
+        bm25_index = self._get_bm25_index(ns)
+        bm25_index.add_document(id=id, content=content, metadata=metadata)
+
         return id
 
     async def upsert_batch(
@@ -162,11 +171,13 @@ class InMemoryVectorStore(BaseVectorStore):
         """Delete vectors by ID."""
         collection = self._get_collection()
         ns = namespace or ""
+        bm25_index = self._get_bm25_index(ns)
         deleted = 0
 
         for id in ids:
             if id in collection[ns]:
                 del collection[ns][id]
+                bm25_index.remove_document(id)
                 deleted += 1
 
         return deleted
@@ -242,18 +253,31 @@ class InMemoryVectorStore(BaseVectorStore):
         namespace: Optional[str] = None,
     ) -> list[VectorSearchResult]:
         """
-        Hybrid search combining vector and keyword matching.
+        Hybrid search combining vector and BM25 keyword matching.
+
+        Uses proper Okapi BM25 scoring for keyword search:
+        - IDF weighting for rare terms
+        - Term frequency saturation
+        - Document length normalization
 
         Alpha controls the balance:
         - alpha=0: Pure vector search
-        - alpha=1: Pure keyword search
+        - alpha=1: Pure BM25 keyword search
         - alpha=0.5: Equal weighting
         """
         collection = self._get_collection()
         ns = namespace or ""
+        bm25_index = self._get_bm25_index(ns)
 
-        # Tokenize query for keyword matching
-        query_tokens = set(query.lower().split())
+        # Get BM25 scores for all matching documents
+        bm25_results = bm25_index.search(query, limit=len(collection[ns]))
+        bm25_scores = {r.id: r.score for r in bm25_results}
+
+        # Normalize BM25 scores to [0, 1]
+        if bm25_scores:
+            max_bm25 = max(bm25_scores.values())
+            if max_bm25 > 0:
+                bm25_scores = {k: v / max_bm25 for k, v in bm25_scores.items()}
 
         results = []
         for vector in collection[ns].values():
@@ -261,18 +285,13 @@ class InMemoryVectorStore(BaseVectorStore):
             if filters and not self._matches_filter(vector, filters):
                 continue
 
-            # Vector similarity score
-            vector_score = self._cosine_similarity(embedding, vector.embedding)
+            # Vector similarity score (already normalized to [-1, 1], shift to [0, 1])
+            vector_score = (self._cosine_similarity(embedding, vector.embedding) + 1) / 2
 
-            # Keyword matching score (simple BM25-like)
-            content_tokens = set(vector.content.lower().split())
-            if query_tokens:
-                overlap = len(query_tokens & content_tokens)
-                keyword_score = overlap / len(query_tokens)
-            else:
-                keyword_score = 0.0
+            # BM25 keyword score (normalized)
+            keyword_score = bm25_scores.get(vector.id, 0.0)
 
-            # Combined score
+            # Combined score using linear fusion
             combined_score = (1 - alpha) * vector_score + alpha * keyword_score
 
             results.append(
@@ -374,6 +393,15 @@ class InMemoryVectorStore(BaseVectorStore):
         if name not in self._collections:
             self._collections[name] = defaultdict(dict)
         return self._collections[name]
+
+    def _get_bm25_index(self, namespace: str = "") -> BM25Index:
+        """Get or create BM25 index for the current collection and namespace."""
+        name = self.config.collection_name
+        if name not in self._bm25_indices:
+            self._bm25_indices[name] = {}
+        if namespace not in self._bm25_indices[name]:
+            self._bm25_indices[name][namespace] = BM25Index()
+        return self._bm25_indices[name][namespace]
 
     def _matches_filter(
         self,

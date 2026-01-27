@@ -83,7 +83,7 @@ class TestPermissionChecker:
 
     def test_permission_denied_when_missing(self, checker, context_with_permissions):
         """Missing permission denies access."""
-        decision = checker.check_permission(context_with_permissions, "debates:delete")
+        decision = checker.check_permission(context_with_permissions, "debates.delete")
         assert decision.allowed is False
         assert "not granted" in decision.reason.lower()
 
@@ -167,11 +167,11 @@ class TestAPIKeyScope:
         )
 
         # Debates allowed
-        decision = checker.check_permission(context, "debates:delete")
+        decision = checker.check_permission(context, "debates.delete")
         assert decision.allowed is True
 
         # Other resources not allowed by scope
-        decision = checker.check_permission(context, "users:read")
+        decision = checker.check_permission(context, "users.read")
         assert decision.allowed is False
 
 
@@ -476,7 +476,7 @@ class TestGlobalChecker:
             permissions={"debates.read"},
         )
         assert has_permission(context, "debates.read") is True
-        assert has_permission(context, "debates:delete") is False
+        assert has_permission(context, "debates.delete") is False
 
 
 class TestCacheStats:
