@@ -53,7 +53,7 @@ def mock_skill_registry():
         if not skill:
             return SkillResult(
                 status=SkillStatus.FAILURE,
-                error=f"Skill not found: {name}",
+                error_message=f"Skill not found: {name}",
             )
 
         registry._metrics[name]["total_invocations"] += 1
@@ -66,7 +66,7 @@ def mock_skill_registry():
             registry._metrics[name]["failed_invocations"] += 1
             return SkillResult(
                 status=SkillStatus.FAILURE,
-                error=str(e),
+                error_message=str(e),
             )
 
     registry.register = MagicMock(side_effect=mock_register)
@@ -127,13 +127,12 @@ def web_search_skill():
         query = input_data.get("query", "")
         return SkillResult(
             status=SkillStatus.SUCCESS,
-            output={
+            data={
                 "results": [
                     {"title": f"Result 1 for {query}", "url": "https://example.com/1"},
                     {"title": f"Result 2 for {query}", "url": "https://example.com/2"},
                 ]
             },
-            execution_time_ms=150.0,
         )
 
     skill.execute = AsyncMock(side_effect=mock_execute)
@@ -156,7 +155,7 @@ def evidence_skill():
         topic = input_data.get("topic", "")
         return SkillResult(
             status=SkillStatus.SUCCESS,
-            output={
+            data={
                 "evidence": [
                     {
                         "source": "academic",
@@ -170,7 +169,6 @@ def evidence_skill():
                     },
                 ]
             },
-            execution_time_ms=250.0,
         )
 
     skill.execute = AsyncMock(side_effect=mock_execute)
@@ -208,8 +206,8 @@ class TestSkillsArenaIntegration:
         )
 
         assert result.status == SkillStatus.SUCCESS
-        assert "results" in result.output
-        assert len(result.output["results"]) == 2
+        assert "results" in result.data
+        assert len(result.data["results"]) == 2
 
         # Verify metrics updated
         metrics = mock_skill_registry.get_metrics("web_search")
@@ -238,8 +236,8 @@ class TestSkillsArenaIntegration:
         )
 
         assert result.status == SkillStatus.SUCCESS
-        assert "evidence" in result.output
-        evidence_items = result.output["evidence"]
+        assert "evidence" in result.data
+        evidence_items = result.data["evidence"]
         assert len(evidence_items) == 2
         assert evidence_items[0]["source"] == "academic"
         assert evidence_items[1]["source"] == "news"
@@ -266,7 +264,7 @@ class TestSkillsArenaIntegration:
         )
 
         # Refresh with updated query
-        context.metadata["round"] = 3
+        context.debate_context["round"] = 3
         result2 = await mock_skill_registry.invoke(
             "web_search",
             {"query": "refined topic based on critiques"},
@@ -293,10 +291,11 @@ class TestSkillsArenaIntegration:
             user_id="debate_user",
             permissions=["skills:invoke"],
             debate_id="debate-multi",
+            debate_context={},
         )
 
         # Round 1: Search for initial information
-        context.metadata["round"] = 1
+        context.debate_context["round"] = 1
         search_result = await mock_skill_registry.invoke(
             "web_search",
             {"query": "AI regulation"},
@@ -304,7 +303,7 @@ class TestSkillsArenaIntegration:
         )
 
         # Round 2: Collect deeper evidence
-        context.metadata["round"] = 2
+        context.debate_context["round"] = 2
         evidence_result = await mock_skill_registry.invoke(
             "evidence_collector",
             {"topic": "AI regulation frameworks", "sources": ["academic"]},
@@ -312,7 +311,7 @@ class TestSkillsArenaIntegration:
         )
 
         # Round 3: Follow-up search
-        context.metadata["round"] = 3
+        context.debate_context["round"] = 3
         followup_result = await mock_skill_registry.invoke(
             "web_search",
             {"query": "EU AI Act implementation"},
@@ -342,6 +341,7 @@ class TestSkillsArenaIntegration:
             description="A skill that always fails",
             capabilities=[],
             input_schema={},
+            output_schema={},
         )
 
         async def mock_fail(input_data, context):
@@ -363,7 +363,7 @@ class TestSkillsArenaIntegration:
         )
 
         assert result.status == SkillStatus.FAILURE
-        assert "Simulated skill failure" in result.error
+        assert "Simulated skill failure" in result.error_message
 
         # Metrics should track failure
         metrics = mock_skill_registry.get_metrics("failing_skill")
@@ -389,6 +389,7 @@ class TestSkillsArenaIntegration:
             description="Checks permissions",
             capabilities=[],
             input_schema={},
+            output_schema={},
             required_permissions=["skills:invoke"],
         )
 
@@ -396,9 +397,9 @@ class TestSkillsArenaIntegration:
             if "skills:invoke" not in context.permissions:
                 return SkillResult(
                     status=SkillStatus.PERMISSION_DENIED,
-                    error="Missing required permission: skills:invoke",
+                    error_message="Missing required permission: skills:invoke",
                 )
-            return SkillResult(status=SkillStatus.SUCCESS, output={"ok": True})
+            return SkillResult(status=SkillStatus.SUCCESS, data={"ok": True})
 
         permission_skill.execute = AsyncMock(side_effect=check_perms)
         mock_skill_registry.register(permission_skill)
@@ -416,8 +417,7 @@ class TestSkillsArenaIntegration:
         """Test that debate metadata is available to skills."""
         mock_skill_registry.register(web_search_skill)
 
-        metadata = {
-            "debate_id": "debate-meta-test",
+        debate_context = {
             "round": 2,
             "topic": "AI Ethics",
             "agents": ["claude", "gpt-4", "gemini"],
@@ -427,7 +427,8 @@ class TestSkillsArenaIntegration:
         context = SkillContext(
             user_id="debate_user",
             permissions=["skills:invoke"],
-            metadata=metadata,
+            debate_id="debate-meta-test",
+            debate_context=debate_context,
         )
 
         result = await mock_skill_registry.invoke(
@@ -437,9 +438,9 @@ class TestSkillsArenaIntegration:
         )
 
         assert result.status == SkillStatus.SUCCESS
-        # Skill had access to all metadata
-        assert context.metadata["debate_id"] == "debate-meta-test"
-        assert context.metadata["round"] == 2
+        # Skill had access to all debate context
+        assert context.debate_id == "debate-meta-test"
+        assert context.debate_context["round"] == 2
 
     @pytest.mark.asyncio
     async def test_concurrent_skill_invocations(self, mock_skill_registry, web_search_skill):
@@ -509,9 +510,9 @@ class TestSkillsEvidenceFlow:
         # Aggregate evidence
         all_evidence = []
         if web_results.status == SkillStatus.SUCCESS:
-            all_evidence.extend(web_results.output.get("results", []))
+            all_evidence.extend(web_results.data.get("results", []))
         if evidence_results.status == SkillStatus.SUCCESS:
-            all_evidence.extend(evidence_results.output.get("evidence", []))
+            all_evidence.extend(evidence_results.data.get("evidence", []))
 
         # Should have evidence from both sources
         assert len(all_evidence) == 4  # 2 from web + 2 from evidence
@@ -526,6 +527,8 @@ class TestSkillsEvidenceFlow:
             version="1.0.0",
             description="Rate limited search",
             capabilities=[SkillCapability.WEB_SEARCH],
+            input_schema={"query": "string"},
+            output_schema={"results": "array"},
             rate_limit_per_minute=2,
         )
         rate_limited_skill._call_count = 0
@@ -535,11 +538,11 @@ class TestSkillsEvidenceFlow:
             if rate_limited_skill._call_count > 2:
                 return SkillResult(
                     status=SkillStatus.RATE_LIMITED,
-                    error="Rate limit exceeded: 2 per minute",
+                    error_message="Rate limit exceeded: 2 per minute",
                 )
             return SkillResult(
                 status=SkillStatus.SUCCESS,
-                output={"results": []},
+                data={"results": []},
             )
 
         rate_limited_skill.execute = AsyncMock(side_effect=mock_execute)
