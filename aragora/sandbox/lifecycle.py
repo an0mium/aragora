@@ -763,8 +763,8 @@ class SessionContainerManager:
             sessions = list(self._sessions.values())
 
         total = len(sessions)
-        by_state = {}
-        by_tenant = {}
+        by_state: Dict[str, int] = {}
+        by_tenant: Dict[str, int] = {}
 
         for session in sessions:
             state = session.state.value

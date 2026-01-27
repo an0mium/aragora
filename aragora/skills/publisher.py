@@ -276,7 +276,7 @@ class SkillPublisher:
 
     def _validate_capabilities(self, manifest: SkillManifest) -> List[ValidationIssue]:
         """Validate declared capabilities."""
-        issues = []
+        issues: List[ValidationIssue] = []
 
         for capability in manifest.capabilities:
             if not isinstance(capability, SkillCapability):
@@ -293,7 +293,7 @@ class SkillPublisher:
 
     def _validate_input_schema(self, manifest: SkillManifest) -> List[ValidationIssue]:
         """Validate input schema structure."""
-        issues = []
+        issues: List[ValidationIssue] = []
         schema = manifest.input_schema
 
         if not schema:
