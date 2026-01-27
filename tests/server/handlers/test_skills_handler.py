@@ -106,8 +106,18 @@ class MockSkillRegistry:
         """Return list of manifests (matches real SkillRegistry behavior)."""
         return [skill.manifest for skill in self._skills.values()]
 
-    def get_metrics(self, name: str) -> Optional[MockSkillMetrics]:
-        return self._metrics.get(name)
+    def get_metrics(self, name: str) -> Optional[Dict[str, Any]]:
+        """Return metrics as dict (matches real SkillRegistry behavior)."""
+        metrics = self._metrics.get(name)
+        if metrics is None:
+            return None
+        return {
+            "total_invocations": metrics.total_invocations,
+            "successful_invocations": metrics.successful_invocations,
+            "failed_invocations": metrics.failed_invocations,
+            "average_latency_ms": metrics.average_latency_ms,
+            "last_invoked": metrics.last_invoked,
+        }
 
     def set_metrics(self, name: str, metrics: MockSkillMetrics) -> None:
         self._metrics[name] = metrics
@@ -135,11 +145,11 @@ class MockSkillRegistry:
 
 @dataclass
 class MockSkillContext:
-    """Mock skill context for testing."""
+    """Mock skill context for testing (matches real SkillContext interface)."""
 
     user_id: str = "test-user"
-    permissions: Set[str] = field(default_factory=lambda: {"skills:invoke"})
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    permissions: List[str] = field(default_factory=lambda: ["skills:invoke"])  # Changed to List
+    config: Dict[str, Any] = field(default_factory=dict)  # Changed from metadata
 
 
 @pytest.fixture

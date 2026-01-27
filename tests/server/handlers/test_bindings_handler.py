@@ -267,7 +267,7 @@ class TestBindingsHandlerListBindings:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/bindings", mock_request)
@@ -296,7 +296,7 @@ class TestBindingsHandlerListBindings:
         """List bindings returns 429 when rate limited."""
         with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
             with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = create_simple_request()
                 result = await handler.handle_get("/api/bindings", mock_request)
@@ -312,7 +312,7 @@ class TestBindingsHandlerListBindings:
         with patch.object(handler, "_get_router", return_value=None):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/bindings", mock_request)
@@ -336,7 +336,7 @@ class TestBindingsHandlerListByProvider:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/bindings/telegram", mock_request)
@@ -355,7 +355,7 @@ class TestBindingsHandlerListByProvider:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/bindings/unknown", mock_request)
@@ -381,7 +381,7 @@ class TestBindingsHandlerGetStats:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/bindings/stats", mock_request)
@@ -398,7 +398,7 @@ class TestBindingsHandlerGetStats:
         with patch.object(handler, "_get_router", return_value=None):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/bindings/stats", mock_request)
@@ -424,7 +424,7 @@ class TestBindingsHandlerCreateBinding:
                         "aragora.server.handlers.bindings.MessageBinding", MockMessageBinding
                     ):
                         with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                            limiter.check.return_value = True
+                            limiter.is_allowed.return_value = True
 
                             mock_request = create_async_request(
                                 {
@@ -450,7 +450,7 @@ class TestBindingsHandlerCreateBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request(
                         {
@@ -473,7 +473,7 @@ class TestBindingsHandlerCreateBinding:
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings.BindingType", MockBindingType):
                     with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                        limiter.check.return_value = True
+                        limiter.is_allowed.return_value = True
 
                         mock_request = create_async_request(
                             {
@@ -506,7 +506,7 @@ class TestBindingsHandlerResolveBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request(
                         {
@@ -531,7 +531,7 @@ class TestBindingsHandlerResolveBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request(
                         {
@@ -555,7 +555,7 @@ class TestBindingsHandlerResolveBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request(
                         {
@@ -585,7 +585,7 @@ class TestBindingsHandlerDeleteBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_delete(
@@ -603,7 +603,7 @@ class TestBindingsHandlerDeleteBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_delete(
@@ -621,7 +621,7 @@ class TestBindingsHandlerDeleteBinding:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     # Path too short - missing pattern
@@ -647,7 +647,7 @@ class TestBindingsHandlerRateLimiting:
         """GET requests are rate limited."""
         with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
             with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = create_simple_request()
                 result = await handler.handle_get("/api/bindings", mock_request)
@@ -660,7 +660,7 @@ class TestBindingsHandlerRateLimiting:
         """POST requests are rate limited."""
         with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
             with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = create_async_request({})
                 result = await handler.handle_post("/api/bindings", mock_request)
@@ -673,7 +673,7 @@ class TestBindingsHandlerRateLimiting:
         """DELETE requests are rate limited."""
         with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
             with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                limiter.check.return_value = False
+                limiter.is_allowed.return_value = False
 
                 mock_request = create_simple_request()
                 result = await handler.handle_delete("/api/bindings/a/b/c", mock_request)
@@ -695,7 +695,7 @@ class TestBindingsHandlerErrorCases:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     # This will be treated as a provider lookup
@@ -714,7 +714,7 @@ class TestBindingsHandlerErrorCases:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_async_request({})
                     result = await handler.handle_post("/api/bindings/unknown", mock_request)
@@ -728,7 +728,7 @@ class TestBindingsHandlerErrorCases:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = MagicMock()
                     mock_request.client_address = ("127.0.0.1", 12345)
@@ -755,7 +755,7 @@ class TestBindingsHandlerVersionPrefix:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/v1/bindings", mock_request)
@@ -771,7 +771,7 @@ class TestBindingsHandlerVersionPrefix:
         with patch.object(handler, "_get_router", return_value=mock_router):
             with patch("aragora.server.handlers.bindings.BINDINGS_AVAILABLE", True):
                 with patch("aragora.server.handlers.bindings._bindings_limiter") as limiter:
-                    limiter.check.return_value = True
+                    limiter.is_allowed.return_value = True
 
                     mock_request = create_simple_request()
                     result = await handler.handle_get("/api/v2/bindings", mock_request)
