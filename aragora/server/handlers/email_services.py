@@ -35,6 +35,35 @@ from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
 
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
+
+def _check_email_permission(
+    auth_context: Optional[Any], permission_key: str
+) -> Optional[HandlerResult]:
+    """Check RBAC permission, return error response if denied."""
+    if not RBAC_AVAILABLE or auth_context is None:
+        return None  # Allow if RBAC not available
+
+    try:
+        decision = check_permission(auth_context, permission_key)
+        if not decision.allowed:
+            logger.warning(f"RBAC denied: permission={permission_key} reason={decision.reason}")
+            return error_response(f"Permission denied: {decision.reason}", status=403)
+    except Exception as e:
+        logger.warning(f"RBAC check failed: {e}")
+        # Fail open for now - can be changed to fail closed
+        return None
+
+    return None
+
+
 # Thread-safe service instances
 _followup_tracker: Optional[Any] = None
 _followup_tracker_lock = threading.Lock()
@@ -98,6 +127,7 @@ def get_email_categorizer():
 async def handle_mark_followup(
     data: dict[str, Any],
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Mark an email as awaiting reply.
@@ -112,6 +142,11 @@ async def handle_mark_followup(
         expected_reply_days: int (optional, default 3)
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:create")
+    if perm_error:
+        return perm_error
+
     try:
         tracker = get_followup_tracker()
 
@@ -168,6 +203,7 @@ async def handle_get_pending_followups(
     user_id: str = "default",
     include_resolved: bool = False,
     sort_by: str = "urgency",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Get list of pending follow-ups.
@@ -177,6 +213,11 @@ async def handle_get_pending_followups(
         include_resolved: bool (default false)
         sort_by: str (urgency, date, recipient)
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         tracker = get_followup_tracker()
 
@@ -218,6 +259,7 @@ async def handle_resolve_followup(
     followup_id: str,
     data: dict[str, Any],
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Resolve a follow-up.
@@ -228,6 +270,11 @@ async def handle_resolve_followup(
         notes: str (optional)
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:update")
+    if perm_error:
+        return perm_error
+
     try:
         tracker = get_followup_tracker()
 
@@ -259,12 +306,18 @@ async def handle_resolve_followup(
 
 async def handle_check_replies(
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Check for replies to pending follow-ups.
 
     POST /api/v1/email/followups/check-replies
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         tracker = get_followup_tracker()
 
@@ -302,6 +355,7 @@ async def handle_check_replies(
 async def handle_auto_detect_followups(
     user_id: str = "default",
     days_back: int = 7,
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Auto-detect sent emails that might need follow-up tracking.
@@ -309,6 +363,11 @@ async def handle_auto_detect_followups(
     POST /api/v1/email/followups/auto-detect
     Body: { days_back: int (default 7) }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:create")
+    if perm_error:
+        return perm_error
+
     try:
         tracker = get_followup_tracker()
 
@@ -348,6 +407,7 @@ async def handle_get_snooze_suggestions(
     email_id: str,
     data: dict[str, Any],
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Get snooze time recommendations for an email.
@@ -360,6 +420,11 @@ async def handle_get_snooze_suggestions(
         max_suggestions: int (default 5)
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         recommender = get_snooze_recommender()
 
@@ -424,6 +489,7 @@ async def handle_apply_snooze(
     email_id: str,
     data: dict[str, Any],
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Apply snooze to an email.
@@ -434,6 +500,11 @@ async def handle_apply_snooze(
         label: str (optional)
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:update")
+    if perm_error:
+        return perm_error
+
     try:
         snooze_until_str = data.get("snooze_until")
         if not snooze_until_str:
@@ -484,12 +555,18 @@ async def handle_apply_snooze(
 async def handle_cancel_snooze(
     email_id: str,
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Cancel snooze on an email.
 
     DELETE /api/v1/email/{id}/snooze
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:delete")
+    if perm_error:
+        return perm_error
+
     try:
         with _snoozed_emails_lock:
             if email_id not in _snoozed_emails:
@@ -522,12 +599,18 @@ async def handle_cancel_snooze(
 
 async def handle_get_snoozed_emails(
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Get list of snoozed emails.
 
     GET /api/v1/email/snoozed
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         now = datetime.now()
 
@@ -562,12 +645,18 @@ async def handle_get_snoozed_emails(
 
 async def handle_process_due_snoozes(
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Process snoozed emails that are now due (bring back to inbox).
 
     POST /api/v1/email/snooze/process-due
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:update")
+    if perm_error:
+        return perm_error
+
     try:
         now = datetime.now()
         processed = []
@@ -614,12 +703,18 @@ async def handle_process_due_snoozes(
 
 async def handle_get_categories(
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Get available email categories.
 
     GET /api/v1/email/categories
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         from aragora.services.email_categorizer import EmailCategory
 
@@ -642,6 +737,7 @@ async def handle_get_categories(
 async def handle_category_feedback(
     data: dict[str, Any],
     user_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> HandlerResult:
     """
     Submit feedback on email categorization to improve learning.
@@ -654,6 +750,11 @@ async def handle_category_feedback(
         email_metadata: dict (optional)
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:update")
+    if perm_error:
+        return perm_error
+
     try:
         categorizer = get_email_categorizer()
 
