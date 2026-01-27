@@ -92,7 +92,7 @@ class TestFindingWorkflowRBAC:
 
             result = await handler._update_status(request, "123")
 
-        mock_check.assert_called_once_with(request, "findings:update", "123")
+        mock_check.assert_called_once_with(request, "findings.update", "123")
         assert result["status"] == 403
 
     @pytest.mark.asyncio
@@ -109,7 +109,7 @@ class TestFindingWorkflowRBAC:
 
             result = await handler._assign(request, "123")
 
-        mock_check.assert_called_once_with(request, "findings:assign", "123")
+        mock_check.assert_called_once_with(request, "findings.assign", "123")
         assert result["status"] == 403
 
     @pytest.mark.asyncio
@@ -126,7 +126,7 @@ class TestFindingWorkflowRBAC:
 
             result = await handler._bulk_action(request)
 
-        mock_check.assert_called_once_with(request, "findings:bulk")
+        mock_check.assert_called_once_with(request, "findings.bulk")
         assert result["status"] == 403
 
     @pytest.mark.asyncio
@@ -142,7 +142,7 @@ class TestFindingWorkflowRBAC:
 
             result = await handler._get_history(request, "123")
 
-        mock_check.assert_called_once_with(request, "findings:read", "123")
+        mock_check.assert_called_once_with(request, "findings.read", "123")
         assert result["status"] == 403
 
     def test_check_permission_allows_authorized(self, handler, mock_request):
@@ -153,7 +153,7 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.check_permission"
         ) as mock_check:
             mock_check.return_value = AuthorizationDecision(
-                allowed=True, reason="Admin role", permission_key="findings:update"
+                allowed=True, reason="Admin role", permission_key="findings.update"
             )
             with patch(
                 "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
@@ -166,7 +166,7 @@ class TestFindingWorkflowRBAC:
                     org_id="org-1",
                     client_ip="127.0.0.1",
                 )
-                result = handler._check_permission(request, "findings:update", "123")
+                result = handler._check_permission(request, "findings.update", "123")
 
         assert result is None  # No error means allowed
 
@@ -180,7 +180,7 @@ class TestFindingWorkflowRBAC:
         ) as mock_extract:
             # No valid JWT
             mock_extract.return_value = MagicMock(authenticated=False, user_id=None)
-            result = handler._check_permission(request, "findings:update", "123")
+            result = handler._check_permission(request, "findings.update", "123")
 
         assert result is not None
         assert result["status"] == 401  # Unauthenticated
@@ -193,7 +193,7 @@ class TestFindingWorkflowRBAC:
             "aragora.server.handlers.features.finding_workflow.check_permission"
         ) as mock_check:
             mock_check.return_value = AuthorizationDecision(
-                allowed=False, reason="Insufficient permissions", permission_key="findings:update"
+                allowed=False, reason="Insufficient permissions", permission_key="findings.update"
             )
             with patch(
                 "aragora.server.handlers.features.finding_workflow.extract_user_from_request"
@@ -206,7 +206,7 @@ class TestFindingWorkflowRBAC:
                     org_id="org-1",
                     client_ip="127.0.0.1",
                 )
-                result = handler._check_permission(request, "findings:update", "123")
+                result = handler._check_permission(request, "findings.update", "123")
 
         assert result is not None
         assert result["status"] == 403  # Forbidden (authenticated but not authorized)
@@ -283,22 +283,22 @@ class TestFindingWorkflowPermissionKeys:
     @pytest.mark.parametrize(
         "method_name,permission_key,has_resource_id",
         [
-            ("_update_status", "findings:update", True),
-            ("_assign", "findings:assign", True),
-            ("_unassign", "findings:assign", True),
-            ("_add_comment", "findings:read", True),
-            ("_get_comments", "findings:read", True),
-            ("_get_history", "findings:read", True),
-            ("_set_priority", "findings:update", True),
-            ("_set_due_date", "findings:update", True),
-            ("_link_finding", "findings:update", True),
-            ("_mark_duplicate", "findings:update", True),
-            ("_bulk_action", "findings:bulk", False),
-            ("_get_my_assignments", "findings:read", False),
-            ("_get_overdue", "findings:read", False),
-            ("_get_workflow_states", "findings:read", False),
-            ("_get_presets", "findings:read", False),
-            ("_get_audit_types", "findings:read", False),
+            ("_update_status", "findings.update", True),
+            ("_assign", "findings.assign", True),
+            ("_unassign", "findings.assign", True),
+            ("_add_comment", "findings.read", True),
+            ("_get_comments", "findings.read", True),
+            ("_get_history", "findings.read", True),
+            ("_set_priority", "findings.update", True),
+            ("_set_due_date", "findings.update", True),
+            ("_link_finding", "findings.update", True),
+            ("_mark_duplicate", "findings.update", True),
+            ("_bulk_action", "findings.bulk", False),
+            ("_get_my_assignments", "findings.read", False),
+            ("_get_overdue", "findings.read", False),
+            ("_get_workflow_states", "findings.read", False),
+            ("_get_presets", "findings.read", False),
+            ("_get_audit_types", "findings.read", False),
         ],
     )
     @pytest.mark.asyncio

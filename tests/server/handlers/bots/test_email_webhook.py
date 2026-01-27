@@ -165,14 +165,15 @@ class TestRouting:
 class TestStatusEndpoint:
     """Tests for GET /api/bots/email/status."""
 
-    def test_get_status(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_status(self, handler):
         """Test getting email integration status."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
             method="GET",
         )
 
-        result = handler.handle("/api/v1/bots/email/status", {}, mock_http)
+        result = await handler.handle("/api/v1/bots/email/status", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -185,7 +186,8 @@ class TestStatusEndpoint:
         assert "sendgrid" in data["providers"]
         assert "ses" in data["providers"]
 
-    def test_status_shows_provider_configuration(self, handler):
+    @pytest.mark.asyncio
+    async def test_status_shows_provider_configuration(self, handler):
         """Test status shows whether providers are configured."""
         mock_http = MockHandler(method="GET")
 
@@ -194,7 +196,7 @@ class TestStatusEndpoint:
             {"SENDGRID_INBOUND_SECRET": "test_secret", "SES_NOTIFICATION_SECRET": ""},
             clear=False,
         ):
-            result = handler.handle("/api/v1/bots/email/status", {}, mock_http)
+            result = await handler.handle("/api/v1/bots/email/status", {}, mock_http)
 
         data = json.loads(result.body)
         # SendGrid configured, SES not

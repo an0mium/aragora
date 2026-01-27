@@ -130,14 +130,15 @@ class TestRouting:
 class TestStatusEndpoint:
     """Tests for GET /api/bots/zoom/status."""
 
-    def test_get_status(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_status(self, handler):
         """Test getting Zoom bot status."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
             method="GET",
         )
 
-        result = handler.handle("/api/v1/bots/zoom/status", {}, mock_http)
+        result = await handler.handle("/api/v1/bots/zoom/status", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -150,13 +151,14 @@ class TestStatusEndpoint:
         assert "bot_jid_configured" in data
         assert "secret_token_configured" in data
 
-    def test_status_shows_unconfigured_when_no_env_vars(self, handler):
+    @pytest.mark.asyncio
+    async def test_status_shows_unconfigured_when_no_env_vars(self, handler):
         """Test status shows unconfigured when env vars not set."""
         mock_http = MockHandler(method="GET")
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
-                result = handler.handle("/api/v1/bots/zoom/status", {}, mock_http)
+                result = await handler.handle("/api/v1/bots/zoom/status", {}, mock_http)
 
         data = json.loads(result.body)
         # When env vars are empty, enabled should be False

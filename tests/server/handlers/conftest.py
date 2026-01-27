@@ -103,6 +103,18 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Patch autonomous handlers which import get_auth_context directly
+    autonomous_modules = ["triggers", "alerts", "approvals", "learning", "monitoring"]
+    for mod_name in autonomous_modules:
+        try:
+            from aragora.server.handlers import autonomous
+
+            mod = getattr(autonomous, mod_name, None)
+            if mod and hasattr(mod, "get_auth_context"):
+                monkeypatch.setattr(mod, "get_auth_context", mock_get_auth_context)
+        except (ImportError, AttributeError):
+            pass
+
     yield mock_auth_ctx
 
 
