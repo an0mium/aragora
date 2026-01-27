@@ -443,8 +443,11 @@ class TestProviderRateLimitContext:
         limiter = ProviderRateLimiter("anthropic")
 
         async with limiter.request(timeout=1.0) as ctx:
+            # Freeze refill time to prevent auto-refill during the test
+            limiter._last_refill = time.monotonic()
             tokens_after = limiter._tokens
             ctx.release_on_error()
+            limiter._last_refill = time.monotonic()  # Freeze again before check
             assert limiter._tokens > tokens_after
 
 
