@@ -48,7 +48,7 @@ Technical Personas:
 import warnings
 
 warnings.warn(
-    "aragora-sdk is deprecated. Please use aragora-client instead: " "pip install aragora-client",
+    "aragora-sdk is deprecated. Please use aragora-client instead: pip install aragora-client",
     DeprecationWarning,
     stacklevel=2,
 )
