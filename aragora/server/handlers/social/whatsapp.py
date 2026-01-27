@@ -509,12 +509,57 @@ class WhatsAppHandler(BaseHandler):
             )
 
             env = Environment(task=f"Debate: {topic}")
-            agents = get_agents_by_names(["anthropic-api", "openai-api"])
+
+            # Resolve agent binding for this conversation
+            agent_names = ["anthropic-api", "openai-api"]  # Default agents
+            protocol_config = {
+                "rounds": 3,
+                "consensus": "majority",
+                "convergence_detection": False,
+                "early_stopping": False,
+            }
+            try:
+                from aragora.server.bindings import get_binding_router, BindingType
+
+                router = get_binding_router()
+                resolution = router.resolve(
+                    provider="whatsapp",
+                    account_id="default",
+                    peer_id=f"dm:{from_number}",
+                    user_id=from_number,
+                )
+
+                if resolution.matched and resolution.binding:
+                    logger.debug(
+                        f"Binding resolved: {resolution.agent_binding} "
+                        f"type={resolution.binding_type} reason={resolution.match_reason}"
+                    )
+
+                    # Apply agent binding
+                    if resolution.binding_type == BindingType.SPECIFIC_AGENT:
+                        agent_names = [resolution.agent_binding]
+                    elif resolution.binding_type == BindingType.AGENT_POOL:
+                        pool_name = resolution.agent_binding
+                        if pool_name == "full-team":
+                            agent_names = ["anthropic-api", "openai-api", "mistral-api"]
+                        elif pool_name == "fast":
+                            agent_names = ["openai-api"]
+
+                    # Apply config overrides from binding
+                    if resolution.config_overrides:
+                        protocol_config.update(resolution.config_overrides)
+
+            except ImportError:
+                logger.debug("Binding router not available, using default agents")
+            except Exception as e:
+                logger.debug(f"Binding resolution failed: {e}, using default agents")
+
+            agents = get_agents_by_names(agent_names)
             protocol = DebateProtocol(
-                rounds=3,
-                consensus="majority",
-                convergence_detection=False,
-                early_stopping=False,
+                rounds=protocol_config.get("rounds", 3),
+                consensus=protocol_config.get("consensus", "majority"),
+                convergence_detection=protocol_config.get("convergence_detection", False),
+                early_stopping=protocol_config.get("early_stopping", False),
             )
 
             if not agents:

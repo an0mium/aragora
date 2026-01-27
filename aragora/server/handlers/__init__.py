@@ -66,6 +66,8 @@ from .utilities import (
     get_content_length,
 )
 from .belief import BeliefHandler
+from .skills import SkillsHandler  # Skills system API
+from .bindings import BindingsHandler  # Message binding routing API
 from .admin import BillingHandler  # Moved to admin/
 from .budgets import BudgetHandler
 from .usage_metering import UsageMeteringHandler  # Token-level usage metering
@@ -276,6 +278,8 @@ ALL_HANDLERS = [
     CrossPollinationKMCultureHandler,  # Culture patterns query
     ConsensusHandler,
     BeliefHandler,
+    SkillsHandler,  # Skills system API
+    BindingsHandler,  # Message binding routing API
     DecisionExplainHandler,  # Decision explainability API
     DecisionHandler,  # Unified decision routing API
     ControlPlaneHandler,  # Enterprise control plane API
@@ -481,6 +485,8 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "GauntletHeatmapExportHandler": Stability.STABLE,
     "GauntletValidateReceiptHandler": Stability.STABLE,
     "BeliefHandler": Stability.STABLE,  # Belief networks - 4 test files
+    "SkillsHandler": Stability.STABLE,  # Skills system API - tested
+    "BindingsHandler": Stability.STABLE,  # Message binding routing API - tested
     "CalibrationHandler": Stability.STABLE,  # Agent calibration - 4 test files
     "PersonaHandler": Stability.STABLE,  # Agent personas - 2 test files
     # Promoted to Stable (Jan 2026) - comprehensive test coverage
@@ -646,6 +652,8 @@ __all__ = [
     "SLOHandler",
     "ConsensusHandler",
     "BeliefHandler",
+    "SkillsHandler",
+    "BindingsHandler",
     "ControlPlaneHandler",
     "OrchestrationHandler",
     "DecisionExplainHandler",

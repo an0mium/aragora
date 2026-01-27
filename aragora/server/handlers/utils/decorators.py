@@ -471,6 +471,13 @@ PERMISSION_MATRIX: dict[str, list[str]] = {
     "finance:write": ["admin", "owner"],
     "finance:approve": ["admin", "owner"],
     "finance:export": ["admin", "owner"],
+    # Cost visibility
+    "costs:read": ["member", "admin", "owner"],
+    # Accounts payable / receivable
+    "ap:read": ["admin", "owner"],
+    "ar:read": ["admin", "owner"],
+    # Auth & SSO handlers
+    "auth:read": ["member", "admin", "owner"],
     # Payroll permissions
     "payroll:read": ["admin", "owner"],
     "payroll:manage": ["owner"],

@@ -45,6 +45,7 @@ from aragora.server.validation.security import (
     validate_search_query_redos_safe,
     MAX_SEARCH_QUERY_LENGTH,
 )
+from aragora.server.validation.entities import validate_id
 from aragora.server.handlers.utils.responses import HandlerResult
 
 logger = logging.getLogger(__name__)
@@ -218,17 +219,19 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return self._handle_statistics()
 
         # GET /api/v1/evidence/debate/:debate_id
-        # After strip().split("/") = ["api", "v1", "evidence", "debate", "{debate_id}"]
-        # debate_id is at index 4
+        # Path: /api/v1/evidence/debate/{debate_id}
+        # Split: ["", "api", "v1", "evidence", "debate", "{debate_id}"] -> index 5
         if path.startswith("/api/v1/evidence/debate/"):
-            debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_ID_PATTERN)
+            debate_id, err = self.extract_path_param(path, 5, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_debate_evidence(debate_id, query_params)
 
         # GET /api/evidence/:id
+        # Path: /api/v1/evidence/{evidence_id}
+        # Split: ["", "api", "v1", "evidence", "{evidence_id}"] -> index 4
         if path.startswith("/api/v1/evidence/") and path.count("/") == 4:
-            evidence_id, err = self.extract_path_param(path, 3, "evidence_id", SAFE_ID_PATTERN)
+            evidence_id, err = self.extract_path_param(path, 4, "evidence_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_get_evidence(evidence_id)
@@ -265,9 +268,10 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return self._handle_collect(body)
 
         # POST /api/v1/evidence/debate/:debate_id
-        # debate_id is at index 4
+        # Path: /api/v1/evidence/debate/{debate_id}
+        # Split: ["", "api", "v1", "evidence", "debate", "{debate_id}"] -> index 5
         if path.startswith("/api/v1/evidence/debate/"):
-            debate_id, err = self.extract_path_param(path, 4, "debate_id", SAFE_ID_PATTERN)
+            debate_id, err = self.extract_path_param(path, 5, "debate_id", SAFE_ID_PATTERN)
             if err:
                 return err
             body, err = self.read_json_body_validated(handler)
@@ -289,8 +293,10 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         # DELETE /api/evidence/:id
+        # Path: /api/v1/evidence/{evidence_id}
+        # Split: ["", "api", "v1", "evidence", "{evidence_id}"] -> index 4
         if path.startswith("/api/v1/evidence/") and path.count("/") == 4:
-            evidence_id, err = self.extract_path_param(path, 3, "evidence_id", SAFE_ID_PATTERN)
+            evidence_id, err = self.extract_path_param(path, 4, "evidence_id", SAFE_ID_PATTERN)
             if err:
                 return err
             return self._handle_delete_evidence(evidence_id)
@@ -335,6 +341,11 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_get_evidence(self, evidence_id: str) -> HandlerResult:
         """Handle GET /api/evidence/:id - get specific evidence."""
+        # Validate evidence ID format
+        is_valid, err = validate_id(evidence_id, "evidence ID")
+        if not is_valid:
+            return error_response(err or "Invalid evidence ID", 400)
+
         store = self._get_evidence_store()
         evidence = store.get_evidence(evidence_id)
 
@@ -345,6 +356,11 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_get_debate_evidence(self, debate_id: str, query_params: dict) -> HandlerResult:
         """Handle GET /api/evidence/debate/:debate_id - get evidence for debate."""
+        # Validate debate ID format
+        is_valid, err = validate_id(debate_id, "debate ID")
+        if not is_valid:
+            return error_response(err or "Invalid debate ID", 400)
+
         round_number = get_int_param(query_params, "round", None)
 
         store = self._get_evidence_store()
@@ -471,6 +487,11 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_associate_evidence(self, debate_id: str, body: dict) -> HandlerResult:
         """Handle POST /api/evidence/debate/:debate_id - associate evidence."""
+        # Validate debate ID format
+        is_valid, err = validate_id(debate_id, "debate ID")
+        if not is_valid:
+            return error_response(err or "Invalid debate ID", 400)
+
         evidence_ids = body.get("evidence_ids", [])
         if not evidence_ids:
             return error_response("evidence_ids is required", 400)
@@ -509,6 +530,11 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
     def _handle_delete_evidence(self, evidence_id: str) -> HandlerResult:
         """Handle DELETE /api/evidence/:id - delete evidence."""
+        # Validate evidence ID format
+        is_valid, err = validate_id(evidence_id, "evidence ID")
+        if not is_valid:
+            return error_response(err or "Invalid evidence ID", 400)
+
         store = self._get_evidence_store()
         deleted = store.delete_evidence(evidence_id)
 
