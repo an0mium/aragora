@@ -334,8 +334,8 @@ class TestHandleGitHubWebhook:
         assert result.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_unhandled_event_acknowledged(self):
-        """Unknown event types are acknowledged but not processed."""
+    async def test_unknown_event_defaults_to_ping(self):
+        """Unknown event types default to PING handler for graceful handling."""
         ctx = self.create_mock_context(event_type="unknown_event")
 
         with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}, clear=False):
@@ -343,7 +343,8 @@ class TestHandleGitHubWebhook:
 
         body = json.loads(result.body.decode("utf-8"))
         assert body["success"] is True
-        assert body["handled"] is False
+        # Unknown events default to PING which returns pong
+        assert body["message"] == "pong"
 
     @pytest.mark.asyncio
     async def test_pr_event_queues_debate(self):
