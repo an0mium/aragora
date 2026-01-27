@@ -450,9 +450,9 @@ class MemoryHandler(SecureHandler):
                 return error_response("Rate limit exceeded. Please try again later.", 429)
 
             # Extract memory_id from /api/v1/memory/continuum/{id}
-            # After strip().split("/") = ["api", "v1", "memory", "continuum", "{id}"]
-            # memory_id is at index 4
-            memory_id, err = self.extract_path_param(path, 4, "memory_id")
+            # After split("/") = ["", "api", "v1", "memory", "continuum", "{id}"]
+            # memory_id is at index 5
+            memory_id, err = self.extract_path_param(path, 5, "memory_id")
             if err:
                 return err
             return self._delete_memory(memory_id)

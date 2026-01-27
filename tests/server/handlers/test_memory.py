@@ -14,6 +14,7 @@ Tests cover:
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -27,6 +28,22 @@ import pytest
 # ===========================================================================
 # Test Fixtures
 # ===========================================================================
+
+
+@pytest.fixture(autouse=True)
+def enable_real_auth_for_auth_tests(request):
+    """Enable real auth checks for tests marked with no_auto_auth.
+
+    The require_permission decorator in utils/decorators.py bypasses auth
+    in test mode. Tests that want to test actual auth behavior need to set
+    ARAGORA_TEST_REAL_AUTH to bypass this bypass.
+    """
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        os.environ["ARAGORA_TEST_REAL_AUTH"] = "1"
+        yield
+        del os.environ["ARAGORA_TEST_REAL_AUTH"]
+    else:
+        yield
 
 
 class MockMemoryTier(Enum):
@@ -540,10 +557,10 @@ class TestConsolidateEndpoint:
         assert data["success"] is True
         assert "entries_processed" in data
 
-    @pytest.mark.no_auto_auth
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_consolidate_unauthenticated(self, mock_auth, memory_handler, reset_rate_limiters):
         """Test consolidation requires authentication."""
+        # Note: Auto-auth passes RBAC, then this tests the handler's internal auth check
         mock_auth.return_value = MockAuthContext(is_authenticated=False)
         handler = make_mock_handler(method="POST")
 
