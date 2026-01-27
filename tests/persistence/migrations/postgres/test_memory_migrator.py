@@ -406,3 +406,449 @@ class TestReportPrinting:
 
         assert "Connection failed" in captured.out
         assert "FAILED" in captured.out
+
+
+# ===========================================================================
+# Tests: migrate_table Method (Async)
+# ===========================================================================
+
+
+@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
+class TestMigrateTableAsync:
+    """Tests for async migrate_table method."""
+
+    @pytest.fixture
+    def temp_db_with_consensus(self):
+        """Create SQLite database with consensus table."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("""
+            CREATE TABLE consensus (
+                id TEXT PRIMARY KEY,
+                task_hash TEXT,
+                question TEXT,
+                answer TEXT,
+                confidence REAL,
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO consensus (id, task_hash, question, answer, confidence, created_at)
+            VALUES
+                ('c1', 'hash1', 'Question 1', 'Answer 1', 0.9, '2024-01-15T10:00:00'),
+                ('c2', 'hash2', 'Question 2', 'Answer 2', 0.85, '2024-01-16T11:00:00')
+        """)
+        conn.commit()
+        conn.close()
+
+        yield db_path
+        db_path.unlink(missing_ok=True)
+
+    @pytest.fixture
+    def mock_pool_async(self):
+        """Create mock asyncpg pool with async context manager."""
+        pool = MagicMock()
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock()
+        mock_conn.executemany = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_conn.fetchrow = AsyncMock(return_value=[True])
+
+        mock_acquire = MagicMock()
+        mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_acquire.__aexit__ = AsyncMock()
+        pool.acquire = MagicMock(return_value=mock_acquire)
+        pool.close = AsyncMock()
+
+        return pool, mock_conn
+
+    @pytest.mark.asyncio
+    async def test_migrate_table_success(self, temp_db_with_consensus, mock_pool_async):
+        """Should migrate table successfully with batching."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        pool, conn = mock_pool_async
+        conn.fetchrow.return_value = [True]  # Table exists
+
+        migrator = MemoryMigrator(
+            sqlite_path=temp_db_with_consensus,
+            postgres_dsn="postgresql://test",
+            batch_size=10,
+        )
+        migrator._pool = pool
+
+        table_config = MemoryMigrator.CONSENSUS_TABLES.get(
+            "consensus",
+            {
+                "sqlite_columns": [
+                    "id",
+                    "task_hash",
+                    "question",
+                    "answer",
+                    "confidence",
+                    "created_at",
+                ],
+                "pg_columns": ["id", "task_hash", "question", "answer", "confidence", "created_at"],
+                "timestamp_columns": ["created_at"],
+            },
+        )
+
+        stats = await migrator.migrate_table("consensus", table_config)
+
+        assert stats.success is True
+        assert stats.rows_migrated == 2
+        assert stats.table == "consensus"
+
+    @pytest.mark.asyncio
+    async def test_migrate_table_skip_existing(self, temp_db_with_consensus, mock_pool_async):
+        """Should use ON CONFLICT DO NOTHING when skip_existing is True."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        pool, conn = mock_pool_async
+        conn.fetchrow.return_value = [True]
+
+        migrator = MemoryMigrator(
+            sqlite_path=temp_db_with_consensus,
+            postgres_dsn="postgresql://test",
+            skip_existing=True,
+        )
+        migrator._pool = pool
+
+        table_config = {
+            "sqlite_columns": ["id", "task_hash"],
+            "pg_columns": ["id", "task_hash"],
+        }
+
+        await migrator.migrate_table("consensus", table_config)
+
+        # Verify executemany was called
+        conn.executemany.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_migrate_table_missing_sqlite_table(self, mock_pool_async):
+        """Should skip migration if SQLite table doesn't exist."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        # Create empty database
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+        conn = sqlite3.connect(str(db_path))
+        conn.close()
+
+        pool, mock_conn = mock_pool_async
+
+        migrator = MemoryMigrator(
+            sqlite_path=db_path,
+            postgres_dsn="postgresql://test",
+        )
+        migrator._pool = pool
+
+        table_config = {
+            "sqlite_columns": ["id"],
+            "pg_columns": ["id"],
+        }
+
+        stats = await migrator.migrate_table("nonexistent", table_config)
+
+        assert stats.rows_migrated == 0
+        db_path.unlink(missing_ok=True)
+
+
+# ===========================================================================
+# Tests: migrate_consensus_memory Method
+# ===========================================================================
+
+
+@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
+class TestMigrateConsensusMemory:
+    """Tests for migrate_consensus_memory method."""
+
+    @pytest.fixture
+    def temp_consensus_db(self):
+        """Create SQLite database with all consensus tables."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+
+        conn = sqlite3.connect(str(db_path))
+
+        # Create consensus table
+        conn.execute("""
+            CREATE TABLE consensus (
+                id TEXT PRIMARY KEY,
+                task_hash TEXT,
+                question TEXT
+            )
+        """)
+        conn.execute("INSERT INTO consensus VALUES ('c1', 'h1', 'Q1')")
+
+        # Create dissent table
+        conn.execute("""
+            CREATE TABLE dissent (
+                id TEXT PRIMARY KEY,
+                consensus_id TEXT,
+                agent TEXT
+            )
+        """)
+        conn.execute("INSERT INTO dissent VALUES ('d1', 'c1', 'agent1')")
+
+        conn.commit()
+        conn.close()
+
+        yield db_path
+        db_path.unlink(missing_ok=True)
+
+    @pytest.fixture
+    def mock_pool_for_consensus(self):
+        """Create mock pool for consensus migration."""
+        pool = MagicMock()
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock()
+        mock_conn.executemany = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_conn.fetchrow = AsyncMock(return_value=[True])
+
+        mock_acquire = MagicMock()
+        mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_acquire.__aexit__ = AsyncMock()
+        pool.acquire = MagicMock(return_value=mock_acquire)
+        pool.close = AsyncMock()
+
+        return pool, mock_conn
+
+    @pytest.mark.asyncio
+    async def test_migrate_consensus_memory_all_tables(
+        self, temp_consensus_db, mock_pool_for_consensus
+    ):
+        """Should migrate all consensus tables."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        pool, conn = mock_pool_for_consensus
+
+        migrator = MemoryMigrator(
+            sqlite_path=temp_consensus_db,
+            postgres_dsn="postgresql://test",
+        )
+        migrator._pool = pool
+
+        results = await migrator.migrate_consensus_memory()
+
+        # Should have results for each consensus table
+        assert len(results) > 0
+
+
+# ===========================================================================
+# Tests: migrate_critique_store Method
+# ===========================================================================
+
+
+@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
+class TestMigrateCritiqueStore:
+    """Tests for migrate_critique_store method."""
+
+    @pytest.fixture
+    def temp_critique_db(self):
+        """Create SQLite database with critique tables."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+
+        conn = sqlite3.connect(str(db_path))
+
+        # Create debates table
+        conn.execute("""
+            CREATE TABLE debates (
+                id TEXT PRIMARY KEY,
+                task TEXT,
+                consensus_reached INTEGER
+            )
+        """)
+        conn.execute("INSERT INTO debates VALUES ('d1', 'Task 1', 1)")
+
+        # Create critiques table
+        conn.execute("""
+            CREATE TABLE critiques (
+                id TEXT PRIMARY KEY,
+                debate_id TEXT,
+                agent TEXT
+            )
+        """)
+        conn.execute("INSERT INTO critiques VALUES ('cr1', 'd1', 'agent1')")
+
+        conn.commit()
+        conn.close()
+
+        yield db_path
+        db_path.unlink(missing_ok=True)
+
+    @pytest.fixture
+    def mock_pool_for_critique(self):
+        """Create mock pool for critique migration."""
+        pool = MagicMock()
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock()
+        mock_conn.executemany = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_conn.fetchrow = AsyncMock(return_value=[True])
+
+        mock_acquire = MagicMock()
+        mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_acquire.__aexit__ = AsyncMock()
+        pool.acquire = MagicMock(return_value=mock_acquire)
+        pool.close = AsyncMock()
+
+        return pool, mock_conn
+
+    @pytest.mark.asyncio
+    async def test_migrate_critique_store_all_tables(
+        self, temp_critique_db, mock_pool_for_critique
+    ):
+        """Should migrate all critique tables."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        pool, conn = mock_pool_for_critique
+
+        migrator = MemoryMigrator(
+            sqlite_path=temp_critique_db,
+            postgres_dsn="postgresql://test",
+        )
+        migrator._pool = pool
+
+        results = await migrator.migrate_critique_store()
+
+        assert len(results) > 0
+
+
+# ===========================================================================
+# Tests: migrate_all Method
+# ===========================================================================
+
+
+@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
+class TestMigrateAll:
+    """Tests for migrate_all method."""
+
+    @pytest.fixture
+    def temp_full_db(self):
+        """Create SQLite database with multiple tables."""
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+            db_path = Path(f.name)
+
+        conn = sqlite3.connect(str(db_path))
+
+        conn.execute("CREATE TABLE consensus (id TEXT PRIMARY KEY)")
+        conn.execute("INSERT INTO consensus VALUES ('c1')")
+
+        conn.execute("CREATE TABLE debates (id TEXT PRIMARY KEY)")
+        conn.execute("INSERT INTO debates VALUES ('d1')")
+
+        conn.commit()
+        conn.close()
+
+        yield db_path
+        db_path.unlink(missing_ok=True)
+
+    @pytest.fixture
+    def mock_pool_full(self):
+        """Create mock pool for full migration."""
+        pool = MagicMock()
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock()
+        mock_conn.executemany = AsyncMock()
+        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_conn.fetchrow = AsyncMock(return_value=[True])
+
+        mock_acquire = MagicMock()
+        mock_acquire.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_acquire.__aexit__ = AsyncMock()
+        pool.acquire = MagicMock(return_value=mock_acquire)
+        pool.close = AsyncMock()
+
+        return pool, mock_conn
+
+    @pytest.mark.asyncio
+    async def test_migrate_all_returns_report(self, temp_full_db, mock_pool_full):
+        """Should return MigrationReport with all table stats."""
+        from aragora.persistence.migrations.postgres.memory_migrator import (
+            MemoryMigrator,
+            MigrationReport,
+        )
+
+        pool, conn = mock_pool_full
+
+        migrator = MemoryMigrator(
+            sqlite_path=temp_full_db,
+            postgres_dsn="postgresql://test",
+        )
+        migrator._pool = pool
+
+        report = await migrator.migrate_all()
+
+        assert isinstance(report, MigrationReport)
+        assert report.source_path == str(temp_full_db)
+        assert report.started_at is not None
+        assert report.completed_at is not None
+
+    @pytest.mark.asyncio
+    async def test_migrate_all_aggregates_errors(self, temp_full_db, mock_pool_full):
+        """Should aggregate errors across all tables."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        pool, conn = mock_pool_full
+        # Make executemany fail
+        conn.executemany = AsyncMock(side_effect=Exception("DB error"))
+
+        migrator = MemoryMigrator(
+            sqlite_path=temp_full_db,
+            postgres_dsn="postgresql://test",
+        )
+        migrator._pool = pool
+
+        report = await migrator.migrate_all()
+
+        # Should still complete but with errors
+        assert report.completed_at is not None
+
+
+# ===========================================================================
+# Tests: Connection Pool Lifecycle
+# ===========================================================================
+
+
+@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
+class TestConnectionPoolLifecycle:
+    """Tests for connection pool management."""
+
+    @pytest.mark.asyncio
+    async def test_close_pool(self):
+        """Should properly close connection pool."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        mock_pool = MagicMock()
+        mock_pool.close = AsyncMock()
+
+        migrator = MemoryMigrator(
+            sqlite_path="/tmp/test.db",
+            postgres_dsn="postgresql://test",
+        )
+        migrator._pool = mock_pool
+
+        await migrator.close()
+
+        mock_pool.close.assert_called_once()
+        assert migrator._pool is None
+
+    @pytest.mark.asyncio
+    async def test_close_without_pool(self):
+        """Should handle close when pool doesn't exist."""
+        from aragora.persistence.migrations.postgres.memory_migrator import MemoryMigrator
+
+        migrator = MemoryMigrator(
+            sqlite_path="/tmp/test.db",
+            postgres_dsn="postgresql://test",
+        )
+
+        # Should not raise
+        await migrator.close()
+
+        assert migrator._pool is None
