@@ -17,6 +17,32 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol, Sequence
 
+# Distributed tracing support
+try:
+    from aragora.server.middleware.tracing import trace_context
+
+    TRACING_AVAILABLE = True
+except ImportError:
+    TRACING_AVAILABLE = False
+
+    # Mock span for when tracing is not available
+    class _MockSpan:
+        def set_tag(self, key: str, value: Any) -> None:
+            pass
+
+        def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
+            pass
+
+        def set_error(self, error: Exception) -> None:
+            pass
+
+    from contextlib import contextmanager
+
+    @contextmanager
+    def trace_context(operation: str, **kwargs: Any):  # type: ignore[misc]
+        yield _MockSpan()
+
+
 from aragora.knowledge.mound.validation import (
     validate_graph_params,
     validate_id,
@@ -131,78 +157,96 @@ class QueryOperationsMixin:
 
         self._ensure_initialized()
 
-        # Validate inputs
-        validate_query(query)
-        ws_id = workspace_id or self.workspace_id
-        if ws_id:
-            validate_workspace_id(ws_id)
-        limit, offset = validate_pagination(limit, offset)
+        with trace_context("km.query") as span:
+            span.set_tag("query", query[:100])  # Truncate for tag size limits
+            span.set_tag("sources", list(sources))
+            span.set_tag("limit", limit)
+            span.set_tag("offset", offset)
 
-        start_time = time.time()
-        limit = min(limit, self.config.max_query_limit)
+            # Validate inputs
+            validate_query(query)
+            ws_id = workspace_id or self.workspace_id
+            if ws_id:
+                validate_workspace_id(ws_id)
+                span.set_tag("workspace_id", ws_id)
+            limit, offset = validate_pagination(limit, offset)
 
-        # Check cache first (include offset in cache key)
-        cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}"
-        if self._cache:
-            cached = await self._cache.get_query(cache_key)
-            if cached:
-                return cached
+            start_time = time.time()
+            limit = min(limit, self.config.max_query_limit)
 
-        # Query local mound
-        items = await self._query_local(query, filters, limit, ws_id)
+            # Check cache first (include offset in cache key)
+            cache_key = f"{ws_id}:{query}:{limit}:{offset}:{sources}"
+            if self._cache:
+                cached = await self._cache.get_query(cache_key)
+                if cached:
+                    span.set_tag("cache_hit", True)
+                    span.add_event("cache_hit")
+                    return cached
 
-        # Query connected memory systems in parallel
-        if self.config.parallel_queries:
-            tasks = []
-            if "all" in sources or "continuum" in sources:
-                tasks.append(self._query_continuum(query, filters, limit))
-            if "all" in sources or "consensus" in sources:
-                tasks.append(self._query_consensus(query, filters, limit))
-            if "all" in sources or "fact" in sources:
-                tasks.append(self._query_facts(query, filters, limit, ws_id))
-            if "all" in sources or "evidence" in sources:
-                tasks.append(self._query_evidence(query, filters, limit, ws_id))
-            if "all" in sources or "critique" in sources:
-                tasks.append(self._query_critique(query, filters, limit))
+            span.set_tag("cache_hit", False)
+            span.add_event("cache_miss")
 
-            if tasks:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                for result in results:
-                    if isinstance(result, list):
-                        items.extend(result)
-                    elif isinstance(result, Exception):
-                        logger.warning(f"Query source failed: {result}")
+            # Query local mound
+            items = await self._query_local(query, filters, limit, ws_id)
+            span.add_event("local_query_complete", {"count": len(items)})
 
-        # Sort by importance/relevance, apply offset, and limit
-        items.sort(key=lambda x: x.importance or 0, reverse=True)
-        if offset > 0:
-            items = items[offset:]
-        items = items[:limit]
+            # Query connected memory systems in parallel
+            if self.config.parallel_queries:
+                tasks = []
+                if "all" in sources or "continuum" in sources:
+                    tasks.append(self._query_continuum(query, filters, limit))
+                if "all" in sources or "consensus" in sources:
+                    tasks.append(self._query_consensus(query, filters, limit))
+                if "all" in sources or "fact" in sources:
+                    tasks.append(self._query_facts(query, filters, limit, ws_id))
+                if "all" in sources or "evidence" in sources:
+                    tasks.append(self._query_evidence(query, filters, limit, ws_id))
+                if "all" in sources or "critique" in sources:
+                    tasks.append(self._query_critique(query, filters, limit))
 
-        execution_time = (time.time() - start_time) * 1000
+                if tasks:
+                    span.add_event("parallel_queries_start", {"count": len(tasks)})
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    for result in results:
+                        if isinstance(result, list):
+                            items.extend(result)
+                        elif isinstance(result, Exception):
+                            logger.warning(f"Query source failed: {result}")
+                    span.add_event("parallel_queries_complete")
 
-        # Check and record SLO compliance
-        try:
-            from aragora.observability.metrics.slo import check_and_record_slo
+            # Sort by importance/relevance, apply offset, and limit
+            items.sort(key=lambda x: x.importance or 0, reverse=True)
+            if offset > 0:
+                items = items[offset:]
+            items = items[:limit]
 
-            check_and_record_slo("km_query", execution_time)
-        except ImportError:
-            pass  # Metrics not available
+            execution_time = (time.time() - start_time) * 1000
+            span.set_tag("execution_time_ms", execution_time)
+            span.set_tag("result_count", len(items))
 
-        result = QueryResult(  # type: ignore[assignment]
-            items=items,
-            total_count=len(items),
-            query=query,
-            filters=filters,
-            execution_time_ms=execution_time,
-            sources_queried=[KnowledgeSource(s) for s in sources if s != "all"],
-        )
+            # Check and record SLO compliance
+            try:
+                from aragora.observability.metrics.slo import check_and_record_slo
 
-        # Cache result
-        if self._cache:
-            await self._cache.set_query(cache_key, result)
+                check_and_record_slo("km_query", execution_time)
+            except ImportError:
+                pass  # Metrics not available
 
-        return result  # type: ignore[return-value]
+            result = QueryResult(  # type: ignore[assignment]
+                items=items,
+                total_count=len(items),
+                query=query,
+                filters=filters,
+                execution_time_ms=execution_time,
+                sources_queried=[KnowledgeSource(s) for s in sources if s != "all"],
+            )
+
+            # Cache result
+            if self._cache:
+                await self._cache.set_query(cache_key, result)
+                span.add_event("result_cached")
+
+            return result  # type: ignore[return-value]
 
     async def get_recent_nodes(
         self: QueryProtocol,

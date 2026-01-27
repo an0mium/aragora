@@ -79,6 +79,34 @@ AGENT_CREDENTIAL_MAP: dict[str, list[str]] = {
     "mock": [],
 }
 
+FALLBACK_ELIGIBLE_PROVIDERS = frozenset(
+    {
+        "anthropic-api",
+        "openai-api",
+        "gpt",
+        "codex",
+        "gemini",
+        "gemini-api",
+        "grok",
+        "grok-api",
+        "mistral-api",
+        "codestral",
+    }
+)
+
+
+def _openrouter_fallback_available() -> bool:
+    """Check if OpenRouter fallback is enabled and configured."""
+    try:
+        from aragora.agents.fallback import get_default_fallback_enabled
+    except ImportError:
+        return False
+
+    if not get_default_fallback_enabled():
+        return False
+
+    return bool(_get_secret("OPENROUTER_API_KEY"))
+
 
 @dataclass
 class CredentialStatus:
@@ -126,6 +154,9 @@ def validate_agent_credentials(agent_type: str) -> bool:
         if value:
             return True
 
+    if agent_type in FALLBACK_ELIGIBLE_PROVIDERS and _openrouter_fallback_available():
+        return True
+
     return False
 
 
@@ -161,6 +192,16 @@ def get_credential_status(agent_type: str) -> CredentialStatus:
             missing.append(var)
 
     is_available = available_via is not None
+
+    if not is_available and agent_type in FALLBACK_ELIGIBLE_PROVIDERS:
+        if _openrouter_fallback_available():
+            return CredentialStatus(
+                agent_type=agent_type,
+                is_available=True,
+                required_vars=required_vars,
+                missing_vars=[],
+                available_via="OPENROUTER_API_KEY (fallback)",
+            )
 
     return CredentialStatus(
         agent_type=agent_type,

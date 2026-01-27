@@ -137,6 +137,16 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
     )
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
         """Generate a response using Gemini API."""
+        if not self.api_key:
+            logger.warning("[%s] Missing API key, attempting OpenRouter fallback", self.name)
+            result = await self.fallback_generate(prompt, context, status_code=401)
+            if result is not None:
+                return result
+            raise AgentAPIError(
+                "Gemini API key not configured",
+                agent_name=self.name,
+                status_code=401,
+            )
 
         full_prompt = prompt
         if context:
@@ -175,6 +185,13 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    if response.status in (401, 403):
+                        result = await self.fallback_generate(
+                            prompt, context, status_code=response.status
+                        )
+                        if result is not None:
+                            return result
 
                     # Check if this is a quota/rate limit error and fallback is enabled
                     if self.is_quota_error(response.status, error_text):
@@ -248,6 +265,18 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
         Yields chunks of text as they arrive from the API.
         Falls back to OpenRouter streaming if rate limit errors are encountered.
         """
+        if not self.api_key:
+            logger.warning(
+                "[%s] Missing API key, attempting OpenRouter streaming fallback",
+                self.name,
+            )
+            async for chunk in self.fallback_generate_stream(prompt, context, status_code=401):
+                yield chunk
+            raise AgentStreamError(
+                "Gemini API key not configured",
+                agent_name=self.name,
+            )
+
         full_prompt = prompt
         if context:
             full_prompt = self._build_context_prompt(context) + prompt
@@ -286,6 +315,13 @@ class GeminiAgent(QuotaFallbackMixin, APIAgent):
                 if response.status != 200:
                     error_text = await response.text()
                     sanitized = _sanitize_error_message(error_text)
+
+                    if response.status in (401, 403):
+                        async for chunk in self.fallback_generate_stream(
+                            prompt, context, status_code=response.status
+                        ):
+                            yield chunk
+                        return
 
                     # Check for quota/rate limit errors and fallback to OpenRouter
                     if self.is_quota_error(response.status, error_text):
