@@ -112,11 +112,28 @@ class MockAuthContext:
     """Mock authentication context."""
 
     is_authenticated: bool = True
+    authenticated: bool = True  # Alias for handlers checking this attribute
     user_id: str = "user-123"
     email: str = "test@example.com"
-    org_id: str | None = None
-    role: str = "user"
+    org_id: str | None = "org-123"
+    role: str = "admin"
     error_reason: str | None = None
+    client_ip: str = "127.0.0.1"
+    permissions: set = None
+    roles: set = None
+
+    def __post_init__(self):
+        if self.permissions is None:
+            self.permissions = {
+                "*",
+                "admin",
+                "authentication.read",
+                "authentication.write",
+                "authentication.revoke",
+            }
+        if self.roles is None:
+            self.roles = {"admin", "owner"}
+        self.authenticated = self.is_authenticated
 
 
 @dataclass
@@ -1139,7 +1156,7 @@ class TestAuthHandlerMFA:
 class TestAuthHandlerRevokeToken:
     """Tests for token revocation endpoint."""
 
-    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.server.middleware.auth.extract_token")
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.revoke_token_persistent")
@@ -1161,7 +1178,7 @@ class TestAuthHandlerRevokeToken:
         assert result is not None
         assert result.status_code == 200
 
-    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     @patch("aragora.server.middleware.auth.extract_token")
     @patch("aragora.billing.jwt_auth.get_token_blacklist")
     @patch("aragora.billing.jwt_auth.revoke_token_persistent")

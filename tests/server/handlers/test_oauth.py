@@ -65,9 +65,22 @@ class MockHandler:
 class MockAuthContext:
     """Mock auth context for testing."""
 
-    def __init__(self, is_authenticated: bool = False, user_id: str = None):
+    def __init__(
+        self,
+        is_authenticated: bool = False,
+        user_id: str = None,
+        role: str = "admin",
+        org_id: str = "org-123",
+        client_ip: str = "127.0.0.1",
+    ):
         self.is_authenticated = is_authenticated
+        self.authenticated = is_authenticated  # Alias for handlers expecting this
         self.user_id = user_id
+        self.role = role
+        self.org_id = org_id
+        self.client_ip = client_ip
+        self.permissions = {"*", "admin", "authentication.read", "authentication.write"}
+        self.roles = {"admin", "owner"}
 
 
 def create_oauth_handler():
@@ -172,26 +185,26 @@ class TestValidateOAuthConfig:
 
     def test_returns_empty_in_dev_mode(self):
         """Should return empty list in development mode."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
 
-        with patch.object(oauth, "_IS_PRODUCTION", False):
-            missing = oauth.validate_oauth_config()
+        with patch.object(_oauth_impl, "_IS_PRODUCTION", False):
+            missing = _oauth_impl.validate_oauth_config()
             assert missing == []
 
     def test_returns_missing_vars_in_production(self):
         """Should return missing vars in production mode."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
 
         with (
-            patch.object(oauth, "_IS_PRODUCTION", True),
-            patch.object(oauth, "GOOGLE_CLIENT_ID", "test-client-id"),
-            patch.object(oauth, "_get_google_client_secret", return_value=""),
-            patch.object(oauth, "_get_google_redirect_uri", return_value=""),
-            patch.object(oauth, "_get_oauth_success_url", return_value=""),
-            patch.object(oauth, "_get_oauth_error_url", return_value=""),
-            patch.object(oauth, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()),
+            patch.object(_oauth_impl, "_IS_PRODUCTION", True),
+            patch.object(_oauth_impl, "GOOGLE_CLIENT_ID", "test-client-id"),
+            patch.object(_oauth_impl, "_get_google_client_secret", return_value=""),
+            patch.object(_oauth_impl, "_get_google_redirect_uri", return_value=""),
+            patch.object(_oauth_impl, "_get_oauth_success_url", return_value=""),
+            patch.object(_oauth_impl, "_get_oauth_error_url", return_value=""),
+            patch.object(_oauth_impl, "ALLOWED_OAUTH_REDIRECT_HOSTS", frozenset()),
         ):
-            missing = oauth.validate_oauth_config()
+            missing = _oauth_impl.validate_oauth_config()
             assert "GOOGLE_OAUTH_CLIENT_SECRET" in missing
             assert "GOOGLE_OAUTH_REDIRECT_URI" in missing
 
@@ -227,21 +240,21 @@ class TestValidateRedirectUrl:
 
     def test_rejects_unknown_host(self):
         """Should reject hosts not in allowlist."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
         from aragora.server.handlers.oauth import _validate_redirect_url
 
         with patch.object(
-            oauth, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])
+            _oauth_impl, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])
         ):
             assert _validate_redirect_url("https://evil.com/callback") is False
 
     def test_allows_subdomain_of_allowed_host(self):
         """Should allow subdomains of allowed hosts."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
         from aragora.server.handlers.oauth import _validate_redirect_url
 
         with patch.object(
-            oauth, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])
+            _oauth_impl, "_get_allowed_redirect_hosts", return_value=frozenset(["example.com"])
         ):
             assert _validate_redirect_url("https://app.example.com/callback") is True
 
@@ -316,14 +329,14 @@ class TestHandleGoogleAuthStart:
 
     def test_rejects_invalid_redirect_url(self):
         """Should reject invalid redirect URL."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
 
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
         with (
-            patch.object(oauth, "_get_google_client_id", return_value="test-client-id"),
-            patch.object(oauth, "_validate_redirect_url", return_value=False),
+            patch.object(_oauth_impl, "_get_google_client_id", return_value="test-client-id"),
+            patch.object(_oauth_impl, "_validate_redirect_url", return_value=False),
         ):
             result = handler._handle_google_auth_start(
                 mock_http, {"redirect_url": ["https://evil.com/steal"]}
@@ -334,21 +347,23 @@ class TestHandleGoogleAuthStart:
 
     def test_returns_redirect_to_google(self):
         """Should return redirect to Google OAuth."""
-        from aragora.server.handlers import oauth
+        from aragora.server.handlers import _oauth_impl
 
         handler = create_oauth_handler()
         mock_http = MockHandler()
 
         with (
-            patch.object(oauth, "_get_google_client_id", return_value="test-client-id"),
+            patch.object(_oauth_impl, "_get_google_client_id", return_value="test-client-id"),
             patch.object(
-                oauth, "_get_google_redirect_uri", return_value="http://localhost:8080/callback"
+                _oauth_impl,
+                "_get_google_redirect_uri",
+                return_value="http://localhost:8080/callback",
             ),
             patch.object(
-                oauth, "_get_oauth_success_url", return_value="http://localhost:3000/success"
+                _oauth_impl, "_get_oauth_success_url", return_value="http://localhost:3000/success"
             ),
-            patch.object(oauth, "_validate_redirect_url", return_value=True),
-            patch("aragora.server.handlers.oauth._generate_state", return_value="test-state"),
+            patch.object(_oauth_impl, "_validate_redirect_url", return_value=True),
+            patch("aragora.server.handlers._oauth_impl._generate_state", return_value="test-state"),
             patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_auth,
             patch.object(handler, "_get_user_store", return_value=None),
         ):
@@ -414,7 +429,10 @@ class TestHandleGoogleCallback:
         mock_http = MockHandler()
 
         with (
-            patch("aragora.server.handlers.oauth._validate_state", return_value={"user_id": None}),
+            patch(
+                "aragora.server.handlers._oauth_impl._validate_state",
+                return_value={"user_id": None},
+            ),
             patch.object(handler, "_redirect_with_error") as mock_redirect,
         ):
             mock_redirect.return_value = MagicMock(status_code=302)

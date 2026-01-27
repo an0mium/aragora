@@ -132,7 +132,7 @@ class TestDebateBeadStructures:
 
         # Create convoy for the round
         convoy = Convoy.create(
-            name=f"Debate {debate_id} Round {round_num}",
+            title=f"Debate {debate_id} Round {round_num}",
             description="All proposals for this round",
             bead_ids=[b.id for b in proposal_beads],
             priority=ConvoyPriority.HIGH,
@@ -252,7 +252,7 @@ class TestConvoyDebateLifecycle:
 
         # Create convoy
         convoy = Convoy.create(
-            name="Debate Round 1",
+            title="Debate Round 1",
             description="Round 1 tasks",
             bead_ids=[b.id for b in round1_beads],
             priority=ConvoyPriority.HIGH,
@@ -268,7 +268,7 @@ class TestConvoyDebateLifecycle:
         beads = [Bead.create(bead_type=BeadType.TASK, title=f"Task {i}") for i in range(2)]
 
         convoy = Convoy.create(
-            name="Test Convoy",
+            title="Test Convoy",
             description="Test",
             bead_ids=[b.id for b in beads],
         )
@@ -277,8 +277,8 @@ class TestConvoyDebateLifecycle:
         assert convoy.status == ConvoyStatus.PENDING
 
         # Start convoy
-        convoy.status = ConvoyStatus.RUNNING
-        assert convoy.status == ConvoyStatus.RUNNING
+        convoy.status = ConvoyStatus.ACTIVE
+        assert convoy.status == ConvoyStatus.ACTIVE
 
         # Complete convoy
         convoy.status = ConvoyStatus.COMPLETED
@@ -293,16 +293,16 @@ class TestConvoyDebateLifecycle:
             # Create beads for this round
             beads = [
                 Bead.create(
-                    BeadType.TASK,
-                    f"Round {round_num} Bead",
-                    data={"round": round_num},
+                    bead_type=BeadType.TASK,
+                    title=f"Round {round_num} Bead",
+                    metadata={"round": round_num},
                 )
                 for _ in range(3)
             ]
 
             # Create convoy
             convoy = Convoy.create(
-                name=f"Round {round_num}",
+                title=f"Round {round_num}",
                 description=f"Debate round {round_num}",
                 bead_ids=[b.id for b in beads],
                 metadata={"debate_id": debate_id, "round": round_num},
@@ -338,7 +338,7 @@ class TestEndToEndDebateRound:
                 bead_type=BeadType.TASK,
                 title=f"Proposal from {agent}",
                 description=f"Round {round_num} proposal",
-                data={
+                metadata={
                     "debate_id": debate_id,
                     "round": round_num,
                     "agent": agent,
@@ -350,7 +350,7 @@ class TestEndToEndDebateRound:
 
         # Group as convoy
         proposal_convoy = Convoy.create(
-            name=f"Round {round_num} Proposals",
+            title=f"Round {round_num} Proposals",
             bead_ids=[b.id for b in proposals],
             priority=ConvoyPriority.HIGH,
             metadata={"debate_id": debate_id, "round": round_num, "phase": "proposal"},
@@ -359,14 +359,15 @@ class TestEndToEndDebateRound:
         # Start processing
         proposal_convoy.status = ConvoyStatus.ACTIVE
         for bead in proposals:
-            bead.status = BeadStatus.ACTIVE
-            bead.started_at = datetime.now(timezone.utc)
+            bead.status = BeadStatus.RUNNING
+            bead.claimed_at = datetime.now(timezone.utc)
 
         # Complete all proposals
         for bead in proposals:
             bead.status = BeadStatus.COMPLETED
             bead.completed_at = datetime.now(timezone.utc)
-            bead.result = f"Proposal content from {bead.data['agent']}"
+            # Store result in metadata
+            bead.metadata["result"] = f"Proposal content from {bead.metadata['agent']}"
 
         proposal_convoy.status = ConvoyStatus.COMPLETED
 
@@ -384,7 +385,7 @@ class TestEndToEndDebateRound:
             bead = Bead.create(
                 bead_type=BeadType.TASK,
                 title=f"Proposal from {agent}",
-                data={"debate_id": debate_id, "agent": agent, "phase": "proposal"},
+                metadata={"debate_id": debate_id, "agent": agent, "phase": "proposal"},
             )
             bead.status = BeadStatus.COMPLETED
             proposals.append(bead)
@@ -396,7 +397,7 @@ class TestEndToEndDebateRound:
             critique = Bead.create(
                 bead_type=BeadType.TASK,
                 title=f"Critique from {critic_agent}",
-                data={
+                metadata={
                     "debate_id": debate_id,
                     "agent": critic_agent,
                     "phase": "critique",
@@ -408,7 +409,7 @@ class TestEndToEndDebateRound:
 
         # Create critique convoy
         critique_convoy = Convoy.create(
-            name="Critique Phase",
+            title="Critique Phase",
             bead_ids=[b.id for b in critiques],
             metadata={"debate_id": debate_id, "phase": "critique"},
         )
@@ -434,9 +435,9 @@ class TestEndToEndDebateRound:
         votes = []
         for agent in agents:
             vote = Bead.create(
-                bead_type=BeadType.DECISION,
+                bead_type=BeadType.DEBATE_DECISION,
                 title=f"Vote from {agent}",
-                data={
+                metadata={
                     "debate_id": debate_id,
                     "agent": agent,
                     "phase": "vote",
@@ -448,9 +449,9 @@ class TestEndToEndDebateRound:
 
         # Create voting convoy
         vote_convoy = Convoy.create(
-            name="Voting Phase",
+            title="Voting Phase",
             bead_ids=[b.id for b in votes],
-            priority=ConvoyPriority.CRITICAL,
+            priority=ConvoyPriority.URGENT,
             metadata={"debate_id": debate_id, "phase": "vote"},
         )
 
@@ -460,7 +461,7 @@ class TestEndToEndDebateRound:
         vote_convoy.status = ConvoyStatus.COMPLETED
 
         # Calculate consensus
-        choices = [v.data["choice"] for v in votes]
+        choices = [v.metadata["choice"] for v in votes]
         winner = max(set(choices), key=choices.count)
 
         assert winner == "proposal_A"
