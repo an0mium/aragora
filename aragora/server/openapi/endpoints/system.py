@@ -130,7 +130,40 @@ SYSTEM_ENDPOINTS = {
 - Success/failure rates
 - Resource usage per cycle""",
             "operationId": "getNomicMetrics",
-            "responses": {"200": _ok_response("Nomic metrics")},
+            "responses": {
+                "200": {
+                    "description": "Nomic metrics",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "total_cycles": {"type": "integer"},
+                                    "successful_cycles": {"type": "integer"},
+                                    "failed_cycles": {"type": "integer"},
+                                    "avg_cycle_duration_s": {"type": "number"},
+                                    "phase_durations": {
+                                        "type": "object",
+                                        "properties": {
+                                            "debate": {"type": "number"},
+                                            "design": {"type": "number"},
+                                            "implement": {"type": "number"},
+                                            "verify": {"type": "number"},
+                                        },
+                                    },
+                                    "resource_usage": {
+                                        "type": "object",
+                                        "properties": {
+                                            "tokens_used": {"type": "integer"},
+                                            "api_calls": {"type": "integer"},
+                                        },
+                                    },
+                                },
+                            }
+                        }
+                    },
+                }
+            },
             "security": [{"bearerAuth": []}],
         },
     },
@@ -163,7 +196,50 @@ SYSTEM_ENDPOINTS = {
                     "schema": {"type": "integer", "default": 50, "minimum": 1, "maximum": 200},
                 },
             ],
-            "responses": {"200": _ok_response("Nomic proposals")},
+            "responses": {
+                "200": {
+                    "description": "Nomic proposals",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "proposals": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {"type": "string"},
+                                                "title": {"type": "string"},
+                                                "description": {"type": "string"},
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "pending",
+                                                        "approved",
+                                                        "rejected",
+                                                        "implemented",
+                                                    ],
+                                                },
+                                                "debate_id": {"type": "string"},
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                },
+                                            },
+                                        },
+                                    },
+                                    "total": {"type": "integer"},
+                                },
+                            }
+                        }
+                    },
+                }
+            },
             "security": [{"bearerAuth": []}],
         },
     },

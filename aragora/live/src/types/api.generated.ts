@@ -475,7 +475,24 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            total_cycles?: number;
+                            successful_cycles?: number;
+                            failed_cycles?: number;
+                            avg_cycle_duration_s?: number;
+                            phase_durations?: {
+                                debate?: number;
+                                design?: number;
+                                implement?: number;
+                                verify?: number;
+                            };
+                            resource_usage?: {
+                                tokens_used?: number;
+                                api_calls?: number;
+                            };
+                        };
+                    };
                 };
             };
         };
@@ -550,7 +567,23 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            proposals?: {
+                                id?: string;
+                                title?: string;
+                                description?: string;
+                                /** @enum {string} */
+                                status?: "pending" | "approved" | "rejected" | "implemented";
+                                debate_id?: string;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                updated_at?: string;
+                            }[];
+                            total?: number;
+                        };
+                    };
                 };
             };
         };
@@ -12840,12 +12873,25 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description KM integration status with sync state and adapter health */
+                /** @description KM integration status */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": {
+                            connected?: boolean;
+                            /** @enum {string} */
+                            sync_state?: "idle" | "syncing" | "error";
+                            /** Format: date-time */
+                            last_sync?: string;
+                            adapters?: {
+                                name?: string;
+                                healthy?: boolean;
+                                entries_synced?: number;
+                            }[];
+                        };
+                    };
                 };
             };
         };
@@ -18768,7 +18814,24 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        total_cycles?: number;
+                        successful_cycles?: number;
+                        failed_cycles?: number;
+                        avg_cycle_duration_s?: number;
+                        phase_durations?: {
+                            debate?: number;
+                            design?: number;
+                            implement?: number;
+                            verify?: number;
+                        };
+                        resource_usage?: {
+                            tokens_used?: number;
+                            api_calls?: number;
+                        };
+                    };
+                };
             };
         };
     };
@@ -18791,7 +18854,23 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        proposals?: {
+                            id?: string;
+                            title?: string;
+                            description?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "approved" | "rejected" | "implemented";
+                            debate_id?: string;
+                            /** Format: date-time */
+                            created_at?: string;
+                            /** Format: date-time */
+                            updated_at?: string;
+                        }[];
+                        total?: number;
+                    };
+                };
             };
         };
     };
@@ -23576,12 +23655,25 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description KM integration status with sync state and adapter health */
+            /** @description KM integration status */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        connected?: boolean;
+                        /** @enum {string} */
+                        sync_state?: "idle" | "syncing" | "error";
+                        /** Format: date-time */
+                        last_sync?: string;
+                        adapters?: {
+                            name?: string;
+                            healthy?: boolean;
+                            entries_synced?: number;
+                        }[];
+                    };
+                };
             };
         };
     };

@@ -123,7 +123,35 @@ CROSS_POLLINATION_ENDPOINTS = {
             "operationId": "listCrossPollinationKm",
             "description": "Get status of cross-pollination integration with the Knowledge Mound including sync state and adapter health.",
             "responses": {
-                "200": _ok_response("KM integration status with sync state and adapter health"),
+                "200": {
+                    "description": "KM integration status",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "connected": {"type": "boolean"},
+                                    "sync_state": {
+                                        "type": "string",
+                                        "enum": ["idle", "syncing", "error"],
+                                    },
+                                    "last_sync": {"type": "string", "format": "date-time"},
+                                    "adapters": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "name": {"type": "string"},
+                                                "healthy": {"type": "boolean"},
+                                                "entries_synced": {"type": "integer"},
+                                            },
+                                        },
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
             },
         },
     },
