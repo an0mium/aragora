@@ -106,6 +106,9 @@ class TeamSelectionConfig:
     enable_pattern_selection: bool = True  # Enable task pattern-based selection
     km_expertise_cache_ttl: int = 300  # Cache TTL in seconds (5 minutes)
     custom_domain_map: dict[str, list[str]] = field(default_factory=dict)
+    # Gastown hierarchy role filtering
+    enable_hierarchy_filtering: bool = False  # Enable Gastown role-based filtering
+    hierarchy_filter_fallback: bool = True  # Fall back to all agents if no role match
 
 
 class TeamSelector:
@@ -155,6 +158,7 @@ class TeamSelector:
         domain: str = "general",
         task: str = "",
         context: Optional["DebateContext"] = None,
+        required_hierarchy_roles: Optional[set[str]] = None,
     ) -> list["Agent"]:
         """Select and rank agents for debate participation.
 
@@ -163,12 +167,17 @@ class TeamSelector:
             domain: Task domain for context-aware selection
             task: Task description for delegation-based routing
             context: Optional debate context for state-aware selection
+            required_hierarchy_roles: Optional set of Gastown hierarchy roles to filter by
+                                      (e.g., {"mayor", "crew"} for coordinators and workers)
 
         Returns:
             Agents sorted by performance score (highest first)
         """
+        # 0. Filter by Gastown hierarchy role if specified
+        hierarchy_filtered = self._filter_by_hierarchy_role(agents, required_hierarchy_roles)
+
         # 1. Filter by domain capability first (before circuit breaker)
-        domain_filtered = self._filter_by_domain_capability(agents, domain)
+        domain_filtered = self._filter_by_domain_capability(hierarchy_filtered, domain)
 
         # 2. Filter unavailable agents via circuit breaker
         available_names = self._filter_available(domain_filtered)
@@ -294,6 +303,85 @@ class TeamSelector:
             f"from={[a.name for a in agents]}"
         )
         return matching_agents
+
+    def _filter_by_hierarchy_role(
+        self,
+        agents: list["Agent"],
+        required_roles: Optional[set[str]] = None,
+    ) -> list["Agent"]:
+        """Filter agents by Gastown hierarchy role.
+
+        Uses the Gastown-inspired role system (Mayor, Witness, Polecat, Crew)
+        to filter agents based on their hierarchy role assignment.
+
+        Args:
+            agents: List of candidate agents
+            required_roles: Set of hierarchy roles to include (e.g., {"mayor", "crew"})
+                           If None or empty, returns all agents (no filtering)
+
+        Returns:
+            Filtered list of agents with matching hierarchy roles
+        """
+        if not required_roles or not self.config.enable_hierarchy_filtering:
+            return agents
+
+        # Normalize roles to lowercase
+        required_roles_lower = {r.lower() for r in required_roles}
+
+        matching_agents: list["Agent"] = []
+        for agent in agents:
+            # Check if agent has hierarchy_role attribute (from AgentSpec)
+            hierarchy_role = self._get_agent_hierarchy_role(agent)
+            if hierarchy_role and hierarchy_role.lower() in required_roles_lower:
+                matching_agents.append(agent)
+
+        if not matching_agents:
+            if self.config.hierarchy_filter_fallback:
+                logger.info(
+                    f"No agents match hierarchy roles {required_roles}, "
+                    f"falling back to all {len(agents)} agents"
+                )
+                return agents
+            else:
+                logger.warning(
+                    f"No agents match hierarchy roles {required_roles}, returning empty list"
+                )
+                return []
+
+        logger.info(
+            f"hierarchy_role_filter roles={required_roles} "
+            f"matched={[a.name for a in matching_agents]} "
+            f"from={[a.name for a in agents]}"
+        )
+        return matching_agents
+
+    def _get_agent_hierarchy_role(self, agent: "Agent") -> Optional[str]:
+        """Get the Gastown hierarchy role for an agent.
+
+        Checks multiple sources for the hierarchy role:
+        1. Direct hierarchy_role attribute
+        2. AgentSpec.hierarchy_role if agent has spec
+        3. Agent metadata
+
+        Args:
+            agent: Agent to get role for
+
+        Returns:
+            Hierarchy role string (mayor, witness, polecat, crew) or None
+        """
+        # Try direct attribute
+        if hasattr(agent, "hierarchy_role") and agent.hierarchy_role:
+            return agent.hierarchy_role
+
+        # Try spec attribute
+        if hasattr(agent, "spec") and hasattr(agent.spec, "hierarchy_role"):
+            return agent.spec.hierarchy_role
+
+        # Try metadata
+        if hasattr(agent, "metadata") and isinstance(agent.metadata, dict):
+            return agent.metadata.get("hierarchy_role")
+
+        return None
 
     def _agent_matches_capability(
         self,

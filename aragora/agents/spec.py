@@ -34,12 +34,15 @@ from typing import TYPE_CHECKING, Literal, Optional, Sequence
 if TYPE_CHECKING:
     from typing import TypedDict
 
+    from aragora.nomic.agent_roles import AgentRole as GastownRole
+
     class AgentSpecDict(TypedDict, total=False):
         provider: str
         model: str | None
         persona: str | None
         role: str | None  # None = assign automatically
         name: str | None
+        hierarchy_role: str | None  # Gastown role: mayor, witness, polecat, crew
 
 
 # Import ALLOWED_AGENT_TYPES for validation
@@ -128,6 +131,10 @@ class AgentSpec:
     persona: Optional[str] = None
     role: Optional[str] = None  # None = assign automatically based on position
     name: Optional[str] = None  # Optional display name
+    hierarchy_role: Optional[str] = None  # Gastown hierarchy: mayor, witness, polecat, crew
+
+    # Valid Gastown hierarchy roles
+    VALID_HIERARCHY_ROLES: frozenset[str] = frozenset({"mayor", "witness", "polecat", "crew"})
 
     def __post_init__(self) -> None:
         """Validate the spec after initialization."""
@@ -152,6 +159,17 @@ class AgentSpec:
             msg += f"Allowed: {', '.join(sorted(VALID_ROLES))}"
             raise ValueError(msg)
 
+        # Validate hierarchy_role (Gastown role: mayor, witness, polecat, crew)
+        if self.hierarchy_role is not None:
+            self.hierarchy_role = self.hierarchy_role.lower()
+            if self.hierarchy_role not in self.VALID_HIERARCHY_ROLES:
+                suggestion = _find_similar(self.hierarchy_role, self.VALID_HIERARCHY_ROLES)
+                msg = f"Invalid hierarchy role: '{self.hierarchy_role}'. "
+                if suggestion:
+                    msg += f"Did you mean '{suggestion}'? "
+                msg += f"Allowed: {', '.join(sorted(self.VALID_HIERARCHY_ROLES))}"
+                raise ValueError(msg)
+
         # Generate default name if not provided
         if self.name is None:
             parts = [self.provider]
@@ -165,6 +183,61 @@ class AgentSpec:
     def agent_type(self) -> str:
         """Alias for provider for backward compatibility with legacy code."""
         return self.provider
+
+    @property
+    def gastown_role(self) -> Optional["GastownRole"]:
+        """Get the Gastown AgentRole enum value if hierarchy_role is set.
+
+        Returns:
+            AgentRole enum (MAYOR, WITNESS, POLECAT, CREW) or None
+        """
+        if self.hierarchy_role is None:
+            return None
+        try:
+            from aragora.nomic.agent_roles import AgentRole
+
+            return AgentRole(self.hierarchy_role)
+        except (ImportError, ValueError):
+            return None
+
+    def has_gastown_capability(self, capability: str) -> bool:
+        """Check if this agent has a specific Gastown capability.
+
+        Args:
+            capability: Capability name (e.g., 'create_convoy', 'execute_task')
+
+        Returns:
+            True if the agent's hierarchy role grants this capability
+        """
+        gastown = self.gastown_role
+        if gastown is None:
+            return False
+        try:
+            from aragora.nomic.agent_roles import ROLE_CAPABILITIES, RoleCapability
+
+            try:
+                cap = RoleCapability(capability)
+            except ValueError:
+                return False
+            return cap in ROLE_CAPABILITIES.get(gastown, set())
+        except ImportError:
+            return False
+
+    def is_coordinator(self) -> bool:
+        """Check if this agent has coordinator capabilities (Mayor role)."""
+        return self.hierarchy_role == "mayor"
+
+    def is_monitor(self) -> bool:
+        """Check if this agent has monitoring capabilities (Witness role)."""
+        return self.hierarchy_role == "witness"
+
+    def is_worker(self) -> bool:
+        """Check if this agent is a worker (Polecat or Crew role)."""
+        return self.hierarchy_role in ("polecat", "crew")
+
+    def is_ephemeral(self) -> bool:
+        """Check if this agent is ephemeral (Polecat role)."""
+        return self.hierarchy_role == "polecat"
 
     @classmethod
     def create_team(
