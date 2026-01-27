@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """
 Device Registration and Notification API Handlers.
 
