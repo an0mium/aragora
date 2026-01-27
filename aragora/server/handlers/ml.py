@@ -37,7 +37,7 @@ from .base import (
     json_response,
     safe_error_message,
 )
-from .utils.decorators import has_permission
+from .utils.decorators import has_permission, require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -98,6 +98,7 @@ class MLHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("ml:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
@@ -113,12 +114,14 @@ class MLHandler(BaseHandler):
 
         return None
 
+    @require_permission("ml:read")
     @handle_errors("ML POST request")
     def handle_post(
         self,
         path: str,
         data: dict,
         handler: Any = None,
+        user: Any = None,
     ) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         # Rate limit check
@@ -127,20 +130,13 @@ class MLHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for ML endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # Check authentication and permissions for ML operations
-        user = self.get_current_user(handler)
-        if user:
-            # Determine required permission based on endpoint
-            if path == "/api/v1/ml/export-training":
-                required_permission = "ml:train"
-            else:
-                required_permission = "ml:read"
-
-            if not has_permission(
+        if path == "/api/v1/ml/export-training":
+            required_permission = "ml:train"
+            if not user or not has_permission(
                 user.role if hasattr(user, "role") else None, required_permission
             ):
                 return error_response(f"Permission denied: {required_permission} required", 403)
-
+            return self._handle_export_training(data)
         if path == "/api/v1/ml/route":
             return self._handle_route(data)
         elif path == "/api/v1/ml/score":
@@ -149,8 +145,6 @@ class MLHandler(BaseHandler):
             return self._handle_score_batch(data)
         elif path == "/api/v1/ml/consensus":
             return self._handle_consensus(data)
-        elif path == "/api/v1/ml/export-training":
-            return self._handle_export_training(data)
         elif path == "/api/v1/ml/embed":
             return self._handle_embed(data)
         elif path == "/api/v1/ml/search":

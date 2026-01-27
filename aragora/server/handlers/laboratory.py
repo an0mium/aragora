@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     pass
 
+from aragora.rbac.decorators import require_permission
 from aragora.utils.optional_imports import try_import
 
 from .base import (
@@ -53,6 +54,7 @@ class LaboratoryHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    @require_permission("laboratory:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         # Rate limit check
@@ -69,10 +71,9 @@ class LaboratoryHandler(BaseHandler):
             return self._get_emergent_traits(min_confidence, limit)
         return None
 
+    @require_permission("laboratory:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         # Rate limit check (shared with GET)
         client_ip = get_client_ip(handler)
         if not _laboratory_limiter.is_allowed(client_ip):
@@ -80,13 +81,6 @@ class LaboratoryHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/laboratory/cross-pollinations/suggest":
-            # Require authentication for computationally expensive operations
-            # Dev mode: skip auth if user_store not configured
-            user_store = self.ctx.get("user_store")
-            if user_store is not None:
-                auth_ctx = extract_user_from_request(handler, user_store)
-                if not auth_ctx.is_authenticated:
-                    return error_response("Authentication required", 401)
             return self._suggest_cross_pollinations(handler)
         return None
 

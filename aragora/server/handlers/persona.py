@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
 from aragora.utils.optional_imports import try_import_class
 from aragora.server.versioning.compat import strip_version_prefix
+from .utils.decorators import require_permission
 
 from .base import (
     SAFE_AGENT_PATTERN,
@@ -85,6 +86,7 @@ class PersonaHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("persona:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route persona requests to appropriate methods."""
         path = strip_version_prefix(path)
@@ -357,6 +359,7 @@ class PersonaHandler(BaseHandler):
     # POST Handlers
     # =========================================================================
 
+    @require_permission("persona:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Handle POST requests for persona endpoints."""
         path = strip_version_prefix(path)
@@ -426,6 +429,7 @@ class PersonaHandler(BaseHandler):
     # PUT Handlers
     # =========================================================================
 
+    @require_permission("persona:update")
     def handle_put(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Handle PUT requests for persona endpoints."""
         path = strip_version_prefix(path)
@@ -494,6 +498,7 @@ class PersonaHandler(BaseHandler):
     # DELETE Handlers
     # =========================================================================
 
+    @require_permission("persona:delete")
     def handle_delete(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Handle DELETE requests for persona endpoints."""
         path = strip_version_prefix(path)

@@ -18,6 +18,8 @@ import json
 import logging
 from typing import Optional
 
+from aragora.rbac.decorators import require_permission
+
 from .base import (
     BaseHandler,
     HandlerResult,
@@ -48,6 +50,7 @@ class PartnerHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES or path.startswith("/api/v1/partners/keys/")
 
+    @require_permission("partner:read")
     @rate_limit(rpm=30)
     def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route requests to appropriate methods."""
