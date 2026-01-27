@@ -691,26 +691,33 @@ class CanvasStateManager:
     async def _get_debate_agents(self, agent_config: Optional[List[str]] = None):
         """Get agents for debate, using defaults if not specified."""
         try:
-            from aragora.agents.cli_agents import get_agent
+            from aragora.agents.registry import AgentRegistry
 
             if agent_config:
-                return [get_agent(name) for name in agent_config if get_agent(name)]
+                agents = []
+                for name in agent_config:
+                    if AgentRegistry.is_registered(name):
+                        agent = AgentRegistry.create(name)
+                        if agent:
+                            agents.append(agent)
+                return agents
 
             # Default agents
             default_agents = ["claude", "gpt4"]
             agents = []
             for name in default_agents:
-                agent = get_agent(name)
-                if agent:
-                    agents.append(agent)
+                if AgentRegistry.is_registered(name):
+                    agent = AgentRegistry.create(name)
+                    if agent:
+                        agents.append(agent)
 
             if not agents:
                 # Fallback to any available agent
-                from aragora.agents.registry import get_available_agents
-
-                available = get_available_agents()
+                available = AgentRegistry.get_registered_types()
                 if available:
-                    agents = [available[0]]
+                    agent = AgentRegistry.create(available[0])
+                    if agent:
+                        agents = [agent]
 
             return agents
         except ImportError:
@@ -929,10 +936,10 @@ class CanvasStateManager:
     ) -> List[Dict[str, Any]]:
         """Query the knowledge mound for relevant information."""
         try:
-            from aragora.knowledge.mound.core import KnowledgeMound
+            from aragora.knowledge.mound.facade import KnowledgeMound
 
             mound = KnowledgeMound()
-            results = await mound.search(query, limit=limit)
+            results = await mound.query(query, limit=limit)
 
             # Format results
             formatted = []
@@ -950,24 +957,8 @@ class CanvasStateManager:
 
             return formatted
         except ImportError:
-            # Fallback: try knowledge bridges
-            try:
-                from aragora.knowledge.bridges import KnowledgeBridgeHub
-
-                hub = KnowledgeBridgeHub()
-                results = await hub.search(query, limit=limit)
-                return [
-                    {
-                        "id": str(i),
-                        "content": str(r),
-                        "confidence": 0.5,
-                        "source": "knowledge_bridge",
-                    }
-                    for i, r in enumerate(results)
-                ]
-            except Exception:
-                # If fallback also fails, return empty results
-                return []
+            # KnowledgeMound not available
+            return []
         except Exception:
             # If primary knowledge mound fails, return empty results
             return []

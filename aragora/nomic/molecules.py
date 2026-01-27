@@ -398,14 +398,15 @@ class DebateStepExecutor(StepExecutor):
         try:
             from aragora.core import Environment, DebateProtocol
             from aragora.debate.orchestrator import Arena
-            from aragora.agents.cli_agents import get_agent
+            from aragora.agents.registry import AgentRegistry
 
             # Get agents
             agents = []
             for agent_name in agents_config:
-                agent = get_agent(agent_name)
-                if agent:
-                    agents.append(agent)
+                if AgentRegistry.is_registered(agent_name):
+                    agent = AgentRegistry.create(agent_name)
+                    if agent:
+                        agents.append(agent)
 
             if not agents:
                 return {"status": "skipped", "reason": "No agents available"}
@@ -449,14 +450,15 @@ class ParallelStepExecutor(StepExecutor):
         aggregate = step.config.get("aggregate", "all")
 
         try:
-            from aragora.agents.cli_agents import get_agent
+            from aragora.agents.registry import AgentRegistry
 
             # Get agents
             agents = []
             for agent_name in agents_config:
-                agent = get_agent(agent_name)
-                if agent:
-                    agents.append(agent)
+                if AgentRegistry.is_registered(agent_name):
+                    agent = AgentRegistry.create(agent_name)
+                    if agent:
+                        agents.append(agent)
 
             if not agents:
                 return {"status": "skipped", "reason": "No agents available"}

@@ -49,10 +49,10 @@ try:
     BINDINGS_AVAILABLE = True
 except ImportError:
     BINDINGS_AVAILABLE = False
-    get_binding_router = None  # type: ignore[assignment]
-    BindingRouter = None  # type: ignore[assignment]
-    BindingType = None  # type: ignore[assignment]
-    MessageBinding = None  # type: ignore[assignment]
+    get_binding_router = None  # type: ignore[assignment, misc]
+    BindingRouter = None  # type: ignore[assignment, misc]
+    BindingType = None  # type: ignore[assignment, misc]
+    MessageBinding = None  # type: ignore[assignment, misc]
 
 
 class BindingsHandler(BaseHandler):

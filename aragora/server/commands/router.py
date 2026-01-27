@@ -160,7 +160,7 @@ def parse_command_text(text: str) -> tuple[str, list[str]]:
     args = []
     if args_text:
         in_quote = False
-        current_arg = []
+        current_arg: list[str] = []
         for char in args_text:
             if char == '"' and (not current_arg or current_arg[-1] != "\\"):
                 in_quote = not in_quote

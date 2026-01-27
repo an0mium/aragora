@@ -88,7 +88,7 @@ class SkillsHandler(BaseHandler):
 
         # Rate limit check
         client_ip = get_client_ip(request)
-        if not _skills_limiter.check(client_ip):
+        if not _skills_limiter.is_allowed(client_ip):
             return error_response(
                 "Rate limit exceeded for skills endpoints",
                 429,
@@ -128,7 +128,7 @@ class SkillsHandler(BaseHandler):
 
         # Rate limit check (stricter for invocations)
         client_ip = get_client_ip(request)
-        if not _skills_limiter.check(client_ip):
+        if not _skills_limiter.is_allowed(client_ip):
             return error_response(
                 "Rate limit exceeded for skill invocations",
                 429,

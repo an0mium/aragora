@@ -427,9 +427,9 @@ class ControlPlaneCoordinator:
             if self._watchdog:
                 await self._watchdog.start()
                 # Register existing agents with watchdog
-                agents = await self._registry.list_agents()
+                agents = await self._registry.list_all()
                 for agent in agents:
-                    self._watchdog.register_agent(agent.id)
+                    self._watchdog.register_agent(agent.agent_id)
                 logger.debug(
                     "watchdog_started",
                     monitored_agents=len(agents),
@@ -584,7 +584,7 @@ class ControlPlaneCoordinator:
                 severity=issue.severity.name,
                 category=issue.category.value,
                 agent=issue.agent,
-                message=issue.message,
+                issue_message=issue.message,
                 detected_by=issue.detected_by.value if issue.detected_by else None,
             )
 
@@ -593,13 +593,13 @@ class ControlPlaneCoordinator:
                 # Critical issues may trigger agent status change
                 if issue.agent:
                     # Update health status
-                    health = await self._registry.get_health(issue.agent)
-                    if health and health.status != HealthStatus.UNHEALTHY:
+                    agent_info = await self._registry.get(issue.agent)
+                    if agent_info and agent_info.status != AgentStatus.ERROR:
                         logger.warning(
                             "watchdog_critical_agent",
                             agent=issue.agent,
                             issue_category=issue.category.value,
-                            message=issue.message,
+                            issue_message=issue.message,
                         )
                         # Circuit breaker may already be handling this via health monitor
 
