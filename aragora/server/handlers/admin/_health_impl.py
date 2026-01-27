@@ -102,8 +102,15 @@ class HealthHandler(SecureHandler):
         "/api/diagnostics/deployment",
     ]
 
-    # K8s probe routes that remain public (no auth required)
-    PUBLIC_ROUTES = {"/healthz", "/readyz", "/readyz/dependencies"}
+    # Routes that are public (no auth required)
+    # Includes K8s probes and basic health endpoints for load balancers/monitoring
+    PUBLIC_ROUTES = {
+        "/healthz",
+        "/readyz",
+        "/readyz/dependencies",
+        "/api/health",  # Basic health check for load balancers
+        "/api/v1/health",  # v1 route for basic health check
+    }
 
     # Permission required for protected health endpoints
     HEALTH_PERMISSION = "system.health.read"
