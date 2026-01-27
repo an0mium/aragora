@@ -282,25 +282,25 @@ class OpenAICompatibleMixin(QuotaFallbackMixin):
                             agent_name=self.name,
                         )
 
-                    # Record token usage for billing (OpenAI format)
-                    usage = data.get("usage", {})
-                    self._record_token_usage(
-                        tokens_in=usage.get("prompt_tokens", 0),
-                        tokens_out=usage.get("completion_tokens", 0),
-                    )
+                # Record token usage for billing (OpenAI format)
+                usage = data.get("usage", {})
+                self._record_token_usage(
+                    tokens_in=usage.get("prompt_tokens", 0),
+                    tokens_out=usage.get("completion_tokens", 0),
+                )
 
-                    content = self._parse_response(data)
-                    if not content or not content.strip():
-                        if cb is not None:
-                            cb.record_failure()
-                        raise AgentAPIError(
-                            f"{self._get_error_prefix()} returned empty response",
-                            agent_name=self.name,
-                        )
-                    # Record success for circuit breaker
+                content = self._parse_response(data)
+                if not content or not content.strip():
                     if cb is not None:
-                        cb.record_success()
-                    return content
+                        cb.record_failure()
+                    raise AgentAPIError(
+                        f"{self._get_error_prefix()} returned empty response",
+                        agent_name=self.name,
+                    )
+                # Record success for circuit breaker
+                if cb is not None:
+                    cb.record_success()
+                return content
         except (AgentAPIError, AgentCircuitOpenError):
             raise  # Re-raise without double-recording
         except Exception:
