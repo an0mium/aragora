@@ -16,6 +16,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Auditing](#auditing)
 - [Backup Handler](#backup-handler)
 - [Belief](#belief)
+- [Bindings](#bindings)
 - [Breakpoints](#breakpoints)
 - [Budgets](#budgets)
 - [Checkpoints](#checkpoints)
@@ -53,7 +54,6 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Ml](#ml)
 - [Moments](#moments)
 - [Nomic](#nomic)
-- [Oauth](#oauth)
 - [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
 - [Orchestration](#orchestration)
@@ -71,6 +71,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [RLMContext](#rlmcontext)
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
+- [Skills](#skills)
 - [Slo](#slo)
 - [SMEUsageDashboard](#smeusagedashboard)
 - [Template Marketplace](#template-marketplace)
@@ -539,6 +540,40 @@ Get emergent traits from agent performance
 ### `GET` `/api/debate/:debate_id/graph-stats`
 
 Get argument graph statistics
+
+---
+
+## Bindings
+
+Bindings endpoint handlers.
+
+### `GET` `/api/bindings`
+
+List all message bindings
+
+### `GET` `/api/bindings/:provider`
+
+List bindings for a provider
+
+### `POST` `/api/bindings`
+
+Create a new binding
+
+### `PUT` `/api/bindings/:id`
+
+Update a binding
+
+### `DELETE` `/api/bindings/:id`
+
+Remove a binding
+
+### `POST` `/api/bindings/resolve`
+
+Resolve binding for a message
+
+### `GET` `/api/bindings/stats`
+
+Get router statistics
 
 ---
 
@@ -1702,28 +1737,6 @@ Real-time WebSocket event stream
 
 ---
 
-## Oauth
-
-OAuth Authentication Handlers.
-
-### `GET` `/api/auth/oauth/google`
-
-Redirect to Google OAuth consent screen
-
-### `GET` `/api/auth/oauth/google/callback`
-
-Handle OAuth callback
-
-### `POST` `/api/auth/oauth/link`
-
-Link OAuth account to existing user
-
-### `DELETE` `/api/auth/oauth/unlink`
-
-Unlink OAuth provider from account
-
----
-
 ## Oauth Wizard
 
 Unified OAuth Wizard Handler for SME Onboarding.
@@ -2323,6 +2336,28 @@ Delete routing rule
 ### `POST` `/api/v1/inbox/routing/rules/:id/test`
 
 Test routing rule
+
+---
+
+## Skills
+
+Skills endpoint handlers.
+
+### `GET` `/api/skills`
+
+List all registered skills
+
+### `GET` `/api/skills/:name`
+
+Get skill details
+
+### `POST` `/api/skills/invoke`
+
+Invoke a skill by name
+
+### `GET` `/api/skills/:name/metrics`
+
+Get skill execution metrics
 
 ---
 
