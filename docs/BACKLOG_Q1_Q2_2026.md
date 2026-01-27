@@ -1,6 +1,6 @@
 # Aragora Q1-Q2 2026 Backlog
 
-**Version:** 2.1.15
+**Version:** 2.4.0
 **Created:** January 2026
 **Duration:** 16 weeks (Sprints 1-8)
 **Focus:** SME Starter Pack, Developer Platform, Self-Hosted Deployment

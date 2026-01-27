@@ -11,7 +11,7 @@ Welcome to Aragora's SME Starter Pack! This guide helps small and medium enterpr
 pip install aragora-client
 
 # Or use the TypeScript SDK
-npm install @aragora/client
+npm install @aragora/sdk
 ```
 
 ### 2. Configure API Keys

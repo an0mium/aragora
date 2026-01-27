@@ -5,9 +5,11 @@ Prefer `/api/v1` endpoints for SDK usage; unversioned `/api` endpoints remain su
 
 ## Package Options
 
-- `aragora` - Full control plane package with sync + async SDK (server + CLI + client).
-- `aragora-client` - Lightweight, async-only SDK for remote API use (`/api/v1`).
+- `aragora-client` - Recommended lightweight, async-only SDK for remote API use (`/api/v1`).
+- `aragora` - Full control plane package with server + CLI + sync/async SDK.
 - `aragora-sdk` - Deprecated; use `aragora-client` instead.
+
+TypeScript: use `@aragora/sdk` (official). `@aragora/client` is deprecated.
 
 ## Installation
 

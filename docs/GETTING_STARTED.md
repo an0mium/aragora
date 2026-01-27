@@ -1,6 +1,6 @@
 # Getting Started with Aragora
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-27
 
 
 **Aragora** is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
@@ -86,7 +86,7 @@ API Keys:
 
 Environment:
   Python: 3.10.13
-  aragora: 0.8.0
+  aragora: 2.4.0
 
 Status: Ready
 ```

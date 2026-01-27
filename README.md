@@ -232,6 +232,7 @@ Aragora offers multiple SDK packages for different use cases:
 See [docs/SDK_COMPARISON.md](docs/SDK_COMPARISON.md) for detailed feature comparison.
 
 ### Python SDK
+> For a lightweight client-only SDK, use `aragora-client`. For TypeScript, use `@aragora/sdk`. Legacy `aragora-sdk` and `@aragora/client` are deprecated.
 
 Use the type-safe Python SDK for programmatic access:
 

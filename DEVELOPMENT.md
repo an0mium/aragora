@@ -298,6 +298,7 @@ cProfile.run('...')
 | Database locked | Check for zombie processes: `lsof .nomic/aragora.db` |
 | API rate limits | Add `OPENROUTER_API_KEY` for fallback |
 | WebSocket disconnects | Check CORS settings in `.env` |
+| Stray `.db` files in repo root | Set `ARAGORA_DATA_DIR=.nomic` and run `make clean-runtime` |
 
 ## Getting Help
 

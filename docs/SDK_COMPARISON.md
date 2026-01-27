@@ -4,9 +4,9 @@ Feature comparison between the Aragora Python and TypeScript SDKs.
 
 ## Quick Comparison
 
-| Feature | Python (`aragora-py`) | TypeScript (`@aragora/sdk`) |
+| Feature | Python (`aragora-client`) | TypeScript (`@aragora/sdk`) |
 |---------|----------------------|----------------------------|
-| Package | `pip install aragora` | `npm install @aragora/sdk` |
+| Package | `pip install aragora-client` | `npm install @aragora/sdk` |
 | Async | Native async/await | Native async/await |
 | Types | Type hints (mypy) | Full TypeScript types |
 | Streaming | Yes | Yes (WebSocket) |
@@ -21,9 +21,9 @@ Feature comparison between the Aragora Python and TypeScript SDKs.
 ### Python
 
 ```bash
+pip install aragora-client
+# or (full platform package)
 pip install aragora
-# or
-pip install aragora[all]  # with all optional dependencies
 ```
 
 ### TypeScript
@@ -43,7 +43,7 @@ pnpm add @aragora/sdk
 ### Python
 
 ```python
-from aragora import AragoraClient
+from aragora_client import AragoraClient
 
 client = AragoraClient(
     base_url="http://localhost:8080",

@@ -1,5 +1,8 @@
 # Skipped Tests Audit Report
 
+> **Note:** This report is historical. The canonical, auto-updated audit lives at `tests/SKIP_AUDIT.md`.
+> Refresh it with `python scripts/audit_test_skips.py --update-docs`.
+
 **Date:** 2026-01-21
 **Total Skip Markers:** 611
 **Total Tests:** 43,534+

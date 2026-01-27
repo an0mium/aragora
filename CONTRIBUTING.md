@@ -216,18 +216,18 @@ from aragora_client import AragoraClient as AragoraAsyncClient
 
 ### TypeScript Packages
 
-Two npm packages are available with different focuses:
+Two npm packages exist, but `@aragora/sdk` is the official TypeScript SDK:
 
 | Package | Purpose | Install |
 |---------|---------|---------|
-| `@aragora/sdk` | Full platform apps - workflows, explainability, marketplace | `npm install @aragora/sdk` |
-| `@aragora/client` | Lightweight client - `/api/v1` compatibility, control plane helpers | `npm install @aragora/client` |
+| `@aragora/sdk` | Official SDK (recommended) - workflows, explainability, marketplace | `npm install @aragora/sdk` |
+| `@aragora/client` | **Deprecated** legacy client - `/api/v1` compatibility | `npm install @aragora/client` |
 
 ```typescript
 // For application developers
 import { createClient } from '@aragora/sdk';
 
-// For enterprise/control plane
+// Legacy client (deprecated)
 import { AragoraClient } from '@aragora/client';
 ```
 
