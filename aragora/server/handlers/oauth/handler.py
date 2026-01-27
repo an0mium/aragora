@@ -15,16 +15,31 @@ from .._oauth_impl import (
     _validate_state,
     _cleanup_expired_states,
     _generate_state,
+    # Google
     _get_google_client_id,
     _get_google_client_secret,
     _get_google_redirect_uri,
+    # GitHub
     _get_github_client_id,
     _get_github_client_secret,
     _get_github_redirect_uri,
+    # Microsoft
     _get_microsoft_client_id,
     _get_microsoft_client_secret,
     _get_microsoft_tenant,
     _get_microsoft_redirect_uri,
+    # Apple
+    _get_apple_client_id,
+    _get_apple_team_id,
+    _get_apple_key_id,
+    _get_apple_private_key,
+    _get_apple_redirect_uri,
+    # OIDC
+    _get_oidc_issuer,
+    _get_oidc_client_id,
+    _get_oidc_client_secret,
+    _get_oidc_redirect_uri,
+    # Common
     _get_oauth_success_url,
     _get_oauth_error_url,
     _get_allowed_redirect_hosts,
@@ -45,16 +60,31 @@ __all__ = [
     "_validate_state",
     "_cleanup_expired_states",
     "_generate_state",
+    # Google
     "_get_google_client_id",
     "_get_google_client_secret",
     "_get_google_redirect_uri",
+    # GitHub
     "_get_github_client_id",
     "_get_github_client_secret",
     "_get_github_redirect_uri",
+    # Microsoft
     "_get_microsoft_client_id",
     "_get_microsoft_client_secret",
     "_get_microsoft_tenant",
     "_get_microsoft_redirect_uri",
+    # Apple
+    "_get_apple_client_id",
+    "_get_apple_team_id",
+    "_get_apple_key_id",
+    "_get_apple_private_key",
+    "_get_apple_redirect_uri",
+    # OIDC
+    "_get_oidc_issuer",
+    "_get_oidc_client_id",
+    "_get_oidc_client_secret",
+    "_get_oidc_redirect_uri",
+    # Common
     "_get_oauth_success_url",
     "_get_oauth_error_url",
     "_get_allowed_redirect_hosts",

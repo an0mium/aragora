@@ -76,8 +76,9 @@ class TestExtractAgentName:
     def test_extract_valid_agent_name(self):
         """Should extract valid agent names."""
         handler = CritiqueHandler({})
-        assert handler._extract_agent_name("/api/v1/agent/claude/reputation") == "claude"
-        assert handler._extract_agent_name("/api/v1/agent/gpt-4/reputation") == "gpt-4"
+        # _extract_agent_name expects paths with version prefix already stripped
+        assert handler._extract_agent_name("/api/agent/claude/reputation") == "claude"
+        assert handler._extract_agent_name("/api/agent/gpt-4/reputation") == "gpt-4"
 
     def test_reject_path_traversal(self):
         """Should reject path traversal attempts."""
