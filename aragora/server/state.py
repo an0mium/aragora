@@ -210,6 +210,15 @@ class StateManager:
 
             return True
 
+    def update_debate_agents(self, debate_id: str, agents: list[str]) -> bool:
+        """Update the active agent list for a debate."""
+        with self._debates_lock:
+            state = self._active_debates.get(debate_id)
+            if state is None:
+                return False
+            state.agents = list(agents)
+            return True
+
     def add_debate_message(self, debate_id: str, message: Any) -> bool:
         """
         Add a message to a debate's history.

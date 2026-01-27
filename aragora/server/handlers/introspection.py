@@ -35,6 +35,7 @@ from .base import (
     json_response,
     ttl_cache,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ class IntrospectionHandler(BaseHandler):
             return True
         return False
 
+    @require_permission("introspection:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route introspection requests to appropriate methods."""
         path = strip_version_prefix(path)

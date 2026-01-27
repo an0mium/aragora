@@ -333,6 +333,17 @@ def execute_debate_thread(
                 continue
             filtered_specs.append(spec)
         agent_specs = filtered_specs
+        actual_agents = [spec.name or spec.provider for spec in agent_specs]
+        try:
+            from aragora.server.state import get_state_manager
+
+            get_state_manager().update_debate_agents(debate_id, actual_agents)
+        except Exception as e:
+            logger.debug(
+                "[debate] %s: unable to update active agent list: %s",
+                debate_id,
+                e,
+            )
         if len(agent_specs) < 2:
             error_msg = "Not enough configured agents available to start the debate"
             with _active_debates_lock:
@@ -347,6 +358,14 @@ def execute_debate_thread(
                 )
             )
             return
+
+        emitter.emit(
+            StreamEvent(
+                type=StreamEventType.DEBATE_START,
+                data={"task": question, "agents": actual_agents, "filtered": True},
+                loop_id=debate_id,
+            )
+        )
 
         # Create agents with streaming support
         # Assign roles based on position for diverse debate dynamics

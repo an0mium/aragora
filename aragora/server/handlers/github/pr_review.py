@@ -1113,6 +1113,7 @@ class PRReviewHandler(BaseHandler):
         """Route PR review endpoint requests."""
         return None
 
+    @require_permission("github:pr:review")
     async def handle_post_trigger_review(self, data: Dict[str, Any]) -> HandlerResult:
         """POST /api/v1/github/pr/review"""
         repository = data.get("repository")
@@ -1134,6 +1135,7 @@ class PRReviewHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("github:pr:read")
     async def handle_get_pr(self, params: Dict[str, Any], pr_number: int) -> HandlerResult:
         """GET /api/v1/github/pr/{pr_number}"""
         repository = params.get("repository")
@@ -1150,6 +1152,7 @@ class PRReviewHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @require_permission("github:pr:read")
     async def handle_get_review_status(
         self, params: Dict[str, Any], review_id: str
     ) -> HandlerResult:
@@ -1161,6 +1164,7 @@ class PRReviewHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 404)
 
+    @require_permission("github:pr:read")
     async def handle_list_reviews(self, params: Dict[str, Any], pr_number: int) -> HandlerResult:
         """GET /api/v1/github/pr/{pr_number}/reviews"""
         repository = params.get("repository")
@@ -1177,6 +1181,7 @@ class PRReviewHandler(BaseHandler):
         else:
             return error_response(result.get("error", "Unknown error"), 400)
 
+    @require_permission("github:pr:write")
     async def handle_post_submit_review(
         self, data: Dict[str, Any], pr_number: int
     ) -> HandlerResult:

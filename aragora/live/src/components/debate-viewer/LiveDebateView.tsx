@@ -77,13 +77,21 @@ export function LiveDebateView({
       if (event.type === 'agent_error') {
         const data = event.data as Record<string, unknown>;
         const errorType = data?.error_type as string | undefined;
-        if (errorType === 'missing_env') {
+        if (errorType === 'missing_env' || errorType === 'missing_env_fallback') {
           errors.push({
             agent: (event.agent as string) || (data?.agent as string) || 'unknown',
             message:
               (data?.message as string) ||
               (data?.error as string) ||
               'Missing credentials for agent',
+          });
+        } else if (errorType && ['empty', 'timeout', 'internal'].includes(errorType)) {
+          errors.push({
+            agent: (event.agent as string) || (data?.agent as string) || 'unknown',
+            message:
+              (data?.message as string) ||
+              (data?.error as string) ||
+              `Agent error: ${errorType}`,
           });
         }
       }

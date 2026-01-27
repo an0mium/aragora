@@ -37,6 +37,7 @@ from .base import (
     safe_json_parse,
     ttl_cache,
 )
+from aragora.rbac.decorators import require_permission
 from .utils.rate_limit import RateLimiter, get_client_ip
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ class ReplaysHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
         return None
 
+    @require_permission("replays:read")
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route replay requests to appropriate methods."""
         nomic_dir = self.ctx.get("nomic_dir")

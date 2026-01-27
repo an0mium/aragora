@@ -31,6 +31,7 @@ from .base import (
     handle_errors,
     json_response,
 )
+from aragora.rbac.decorators import require_permission
 from aragora.server.versioning.compat import strip_version_prefix
 from .utils.rate_limit import RateLimiter, get_client_ip
 
@@ -68,6 +69,7 @@ class RoutingHandler(BaseHandler):
         """Check if this handler can process the given path."""
         return strip_version_prefix(path) in self.ROUTES
 
+    @require_permission("routing:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> Optional[HandlerResult]:
         """Route GET requests to appropriate methods."""
         path = strip_version_prefix(path)
@@ -89,6 +91,7 @@ class RoutingHandler(BaseHandler):
             return self._get_domain_leaderboard(domain, limit)
         return None
 
+    @require_permission("routing:create")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         path = strip_version_prefix(path)

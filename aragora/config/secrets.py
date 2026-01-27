@@ -24,7 +24,7 @@ import json
 import logging
 import os
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,7 @@ class SecretsConfig:
 
     # AWS Secrets Manager settings
     aws_region: str = "us-east-1"
+    aws_regions: list[str] = field(default_factory=list)
     secret_name: str = "aragora/production"
     use_aws: bool = False
 
@@ -101,8 +102,31 @@ class SecretsConfig:
             use_aws = use_flag.lower() in ("true", "1", "yes")
         else:
             use_aws = os.environ.get("ARAGORA_ENV", "").lower() == "production"
+            if not use_aws:
+                use_aws = bool(
+                    os.environ.get("ARAGORA_SECRET_NAME")
+                    and (os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION"))
+                )
+
+        primary_region = (
+            os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+        )
+        raw_regions = os.environ.get("ARAGORA_SECRET_REGIONS", "")
+        explicit_regions = [r.strip() for r in raw_regions.split(",") if r.strip()]
+        if explicit_regions:
+            regions = []
+            for region in [primary_region, *explicit_regions]:
+                if region and region not in regions:
+                    regions.append(region)
+        else:
+            regions = [primary_region]
+            if primary_region != "us-east-2":
+                regions.append("us-east-2")
+            if primary_region != "us-east-1":
+                regions.append("us-east-1")
         return cls(
-            aws_region=os.environ.get("AWS_REGION", "us-east-1"),
+            aws_region=primary_region,
+            aws_regions=regions,
             secret_name=os.environ.get("ARAGORA_SECRET_NAME", "aragora/production"),
             use_aws=use_aws,
         )
@@ -125,7 +149,7 @@ class SecretManager:
 
     def __init__(self, config: SecretsConfig | None = None):
         self.config = config or SecretsConfig.from_env()
-        self._aws_client: Any = None
+        self._aws_clients: dict[str, Any] = {}
         self._cached_secrets: dict[str, str] = {}
         self._cache_timestamp: float = 0.0
         self._initialized = False
@@ -163,24 +187,22 @@ class SecretManager:
         with self._lock:
             return list(self._access_log)
 
-    def _get_aws_client(self) -> Any:
-        """Lazily initialize AWS Secrets Manager client."""
-        if self._aws_client is not None:
-            return self._aws_client
+    def _get_aws_client(self, region: str) -> Any:
+        """Lazily initialize AWS Secrets Manager client for a region."""
+        if region in self._aws_clients:
+            return self._aws_clients[region]
 
         try:
             import boto3
 
-            self._aws_client = boto3.client(
-                "secretsmanager",
-                region_name=self.config.aws_region,
-            )
-            return self._aws_client
+            client = boto3.client("secretsmanager", region_name=region)
+            self._aws_clients[region] = client
+            return client
         except ImportError:
             logger.debug("boto3 not installed, AWS Secrets Manager unavailable")
             return None
         except Exception as e:
-            logger.warning(f"Failed to initialize AWS client: {e}")
+            logger.warning(f"Failed to initialize AWS client ({region}): {e}")
             return None
 
     def _load_from_aws(self) -> dict[str, str]:
@@ -188,34 +210,50 @@ class SecretManager:
         if not self.config.use_aws:
             return {}
 
-        client = self._get_aws_client()
-        if client is None:
-            logger.warning("Failed to create AWS Secrets Manager client")
+        regions = self.config.aws_regions or [self.config.aws_region]
+        if not regions:
             return {}
 
-        try:
-            response = client.get_secret_value(SecretId=self.config.secret_name)
-            secret_string = response.get("SecretString", "{}")
-            secrets: dict[str, str] = json.loads(secret_string)
-            logger.info(f"Loaded {len(secrets)} secrets from AWS Secrets Manager")
-            return secrets
-        except json.JSONDecodeError:
-            logger.error("Failed to parse secrets JSON from AWS")
-            return {}
-        except Exception as e:
-            # Handle botocore.exceptions.ClientError without direct import
-            # to avoid import issues when botocore is not installed
-            if type(e).__name__ == "ClientError" and hasattr(e, "response"):
-                error_code = e.response.get("Error", {}).get("Code", "")
-                if error_code == "ResourceNotFoundException":
-                    logger.warning(f"Secret '{self.config.secret_name}' not found in AWS")
-                elif error_code == "AccessDeniedException":
-                    logger.warning("Access denied to AWS Secrets Manager")
-                else:
-                    logger.error(f"AWS Secrets Manager error: {e}")
-            else:
-                logger.error(f"Unexpected error loading secrets: {e}")
-            return {}
+        last_error: Exception | None = None
+        for region in regions:
+            client = self._get_aws_client(region)
+            if client is None:
+                continue
+            try:
+                response = client.get_secret_value(SecretId=self.config.secret_name)
+                secret_string = response.get("SecretString", "{}")
+                secrets: dict[str, str] = json.loads(secret_string)
+                logger.info(
+                    "Loaded %d secrets from AWS Secrets Manager (region=%s)",
+                    len(secrets),
+                    region,
+                )
+                return secrets
+            except json.JSONDecodeError:
+                logger.error("Failed to parse secrets JSON from AWS (region=%s)", region)
+                return {}
+            except Exception as e:
+                last_error = e
+                if type(e).__name__ == "ClientError" and hasattr(e, "response"):
+                    error_code = e.response.get("Error", {}).get("Code", "")
+                    if error_code == "ResourceNotFoundException":
+                        logger.warning(
+                            "Secret '%s' not found in AWS (region=%s)",
+                            self.config.secret_name,
+                            region,
+                        )
+                        continue
+                    if error_code == "AccessDeniedException":
+                        logger.warning("Access denied to AWS Secrets Manager (region=%s)", region)
+                        continue
+                    logger.error("AWS Secrets Manager error (region=%s): %s", region, e)
+                    continue
+                logger.error("Unexpected error loading secrets (region=%s): %s", region, e)
+                continue
+
+        if last_error:
+            logger.warning("Failed to load secrets from AWS Secrets Manager in all regions")
+        return {}
 
     def _initialize(self, force_refresh: bool = False) -> None:
         """Initialize the secret manager (load from AWS if enabled).
