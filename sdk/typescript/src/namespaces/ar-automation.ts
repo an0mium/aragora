@@ -235,7 +235,7 @@ export class ARAutomationAPI {
     request: CreateARInvoiceRequest
   ): Promise<{ invoice: ARInvoice; message: string }> {
     return this.client.request('POST', '/api/v1/accounting/ar/invoices', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -284,7 +284,7 @@ export class ARAutomationAPI {
     request: RecordARPaymentRequest
   ): Promise<{ invoice: ARInvoice; message: string }> {
     return this.client.request('POST', `/api/v1/accounting/ar/invoices/${invoiceId}/payment`, {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 

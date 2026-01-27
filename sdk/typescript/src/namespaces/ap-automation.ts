@@ -240,7 +240,7 @@ export class APAutomationAPI {
     request: AddAPInvoiceRequest
   ): Promise<{ invoice: APInvoice; message: string }> {
     return this.client.request('POST', '/api/v1/accounting/ap/invoices', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -270,7 +270,7 @@ export class APAutomationAPI {
     request: RecordAPPaymentRequest
   ): Promise<{ invoice: APInvoice; message: string }> {
     return this.client.request('POST', `/api/v1/accounting/ap/invoices/${invoiceId}/payment`, {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -281,7 +281,7 @@ export class APAutomationAPI {
     request?: OptimizePaymentsRequest
   ): Promise<{ schedule: PaymentSchedule }> {
     return this.client.request('POST', '/api/v1/accounting/ap/optimize', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -290,7 +290,7 @@ export class APAutomationAPI {
    */
   async createBatchPayment(request: BatchPaymentRequest): Promise<{ batch: BatchPayment }> {
     return this.client.request('POST', '/api/v1/accounting/ap/batch', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 

@@ -406,6 +406,26 @@ export {
   type ListMessagesParams,
 } from './outlook';
 
+// Email Priority
+export {
+  EmailPriorityAPI,
+  type ScoringTier,
+  type UserAction,
+  type EmailCategory,
+  type GmailScopes,
+  type EmailMessage,
+  type PriorityFactor,
+  type PriorityResult,
+  type CategoryResult,
+  type CategoryStats,
+  type EmailConfig as EmailPriorityConfig,
+  type FeedbackItem,
+  type InboxItem,
+  type InboxParams,
+  type CrossChannelContext,
+  type ContextBoost,
+} from './email-priority';
+
 // Accounting & Payroll
 export {
   AccountingAPI,
