@@ -83,6 +83,41 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Create a mock UserAuthContext for BaseHandler auth methods
+    try:
+        from aragora.billing.auth.context import UserAuthContext
+
+        mock_user_ctx = UserAuthContext(
+            authenticated=True,
+            user_id="test-user-001",
+            email="test@example.com",
+            org_id="test-org-001",
+            role="admin",
+            token_type="access",
+            client_ip="127.0.0.1",
+        )
+
+        # Patch BaseHandler auth methods
+        from aragora.server.handlers.base import BaseHandler
+
+        def mock_require_auth_or_error(self, handler):
+            """Mock require_auth_or_error that returns authenticated user."""
+            return mock_user_ctx, None
+
+        def mock_require_admin_or_error(self, handler):
+            """Mock require_admin_or_error that returns admin user."""
+            return mock_user_ctx, None
+
+        def mock_get_current_user(self, handler):
+            """Mock get_current_user that returns authenticated user."""
+            return mock_user_ctx
+
+        monkeypatch.setattr(BaseHandler, "require_auth_or_error", mock_require_auth_or_error)
+        monkeypatch.setattr(BaseHandler, "require_admin_or_error", mock_require_admin_or_error)
+        monkeypatch.setattr(BaseHandler, "get_current_user", mock_get_current_user)
+    except (ImportError, AttributeError):
+        pass
+
     yield mock_auth_ctx
 
 

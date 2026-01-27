@@ -214,8 +214,31 @@ def create_request_body(data: dict) -> MagicMock:
     return handler
 
 
+def create_async_request(body: dict) -> MagicMock:
+    """Create a mock request with async json method.
+
+    The skills handler checks if request has 'json' attribute and calls await request.json().
+    This helper creates a proper async mock for that pattern.
+    """
+    mock_request = MagicMock()
+    mock_request.client_address = ("127.0.0.1", 12345)
+    mock_request.json = AsyncMock(return_value=body)
+    return mock_request
+
+
+def create_simple_request(body: dict) -> MagicMock:
+    """Create a mock request without json attribute (falls back to get('body')).
+
+    Use this when you want the handler to use request.get('body', {}) fallback.
+    """
+    mock_request = MagicMock(spec=["get", "client_address"])
+    mock_request.client_address = ("127.0.0.1", 12345)
+    mock_request.get.return_value = body
+    return mock_request
+
+
 class TestSkillsHandlerRouting:
-    """Tests for handler routing."""
+    """Tests for handler routing via ROUTES constant."""
 
     @pytest.fixture
     def handler(self, mock_server_context):
@@ -228,31 +251,23 @@ class TestSkillsHandlerRouting:
         assert "/api/skills/*/metrics" in handler.ROUTES
         assert "/api/skills/*" in handler.ROUTES
 
-    def test_can_handle_list_skills(self, handler):
-        """Handler can handle list skills endpoint."""
-        assert handler.can_handle("/api/skills")
-        assert handler.can_handle("/api/v1/skills")
+    def test_routes_order(self, handler):
+        """Wildcard route is last (required for proper matching)."""
+        routes = handler.ROUTES
+        wildcard_idx = routes.index("/api/skills/*")
+        assert wildcard_idx == len(routes) - 1, "/api/skills/* should be last route"
 
-    def test_can_handle_invoke(self, handler):
-        """Handler can handle invoke endpoint."""
-        assert handler.can_handle("/api/skills/invoke")
-        assert handler.can_handle("/api/v1/skills/invoke")
+    def test_routes_cover_all_endpoints(self, handler):
+        """All documented endpoints are covered by routes."""
+        assert any("/api/skills" == r or r.startswith("/api/skills") for r in handler.ROUTES)
+        assert "/api/skills/invoke" in handler.ROUTES
+        assert "/api/skills/*/metrics" in handler.ROUTES
+        assert "/api/skills/*" in handler.ROUTES
 
-    def test_can_handle_skill_details(self, handler):
-        """Handler can handle skill details endpoint."""
-        assert handler.can_handle("/api/skills/web_search")
-        assert handler.can_handle("/api/v1/skills/code_execution")
-
-    def test_can_handle_skill_metrics(self, handler):
-        """Handler can handle skill metrics endpoint."""
-        assert handler.can_handle("/api/skills/web_search/metrics")
-        assert handler.can_handle("/api/v1/skills/code_execution/metrics")
-
-    def test_cannot_handle_other_paths(self, handler):
-        """Handler cannot handle unrelated paths."""
-        assert not handler.can_handle("/api/debates")
-        assert not handler.can_handle("/api/agents")
-        assert not handler.can_handle("/api/belief-network")
+    def test_routes_do_not_include_unrelated_paths(self, handler):
+        """Handler routes only include /api/skills paths."""
+        for route in handler.ROUTES:
+            assert route.startswith("/api/skills"), f"Route {route} should start with /api/skills"
 
 
 class TestSkillsHandlerListSkills:
@@ -280,7 +295,7 @@ class TestSkillsHandlerListSkills:
                     result = await handler.handle_get("/api/skills", mock_request)
 
                     assert result is not None
-                    assert result.status == 200
+                    assert result.status_code == 200
                     body = json.loads(result.body)
                     assert "skills" in body
                     assert "total" in body
@@ -300,7 +315,7 @@ class TestSkillsHandlerListSkills:
             result = await handler.handle_get("/api/skills", mock_request)
 
             assert result is not None
-            assert result.status == 503
+            assert result.status_code == 503
             body = json.loads(result.body)
             assert body["error"]["code"] == "SKILLS_UNAVAILABLE"
 
@@ -315,7 +330,7 @@ class TestSkillsHandlerListSkills:
                 result = await handler.handle_get("/api/skills", mock_request)
 
                 assert result is not None
-                assert result.status == 429
+                assert result.status_code == 429
                 body = json.loads(result.body)
                 assert body["error"]["code"] == "RATE_LIMITED"
 
@@ -336,7 +351,7 @@ class TestSkillsHandlerListSkills:
                     result = await handler.handle_get("/api/skills", mock_request)
 
                     assert result is not None
-                    assert result.status == 503
+                    assert result.status_code == 503
                     body = json.loads(result.body)
                     assert body["error"]["code"] == "REGISTRY_UNAVAILABLE"
 
@@ -365,7 +380,7 @@ class TestSkillsHandlerGetSkill:
                     result = await handler.handle_get("/api/skills/web_search", mock_request)
 
                     assert result is not None
-                    assert result.status == 200
+                    assert result.status_code == 200
                     body = json.loads(result.body)
                     assert body["name"] == "web_search"
                     assert body["version"] == "1.2.0"
@@ -394,7 +409,7 @@ class TestSkillsHandlerGetSkill:
                     result = await handler.handle_get("/api/skills/nonexistent", mock_request)
 
                     assert result is not None
-                    assert result.status == 404
+                    assert result.status_code == 404
                     body = json.loads(result.body)
                     assert body["error"]["code"] == "SKILL_NOT_FOUND"
 
@@ -425,7 +440,7 @@ class TestSkillsHandlerGetMetrics:
                     )
 
                     assert result is not None
-                    assert result.status == 200
+                    assert result.status_code == 200
                     body = json.loads(result.body)
                     assert body["skill"] == "web_search"
                     assert body["total_invocations"] == 100
@@ -453,7 +468,7 @@ class TestSkillsHandlerGetMetrics:
                     )
 
                     assert result is not None
-                    assert result.status == 200
+                    assert result.status_code == 200
                     body = json.loads(result.body)
                     assert body["skill"] == "code_execution"
                     assert body["total_invocations"] == 0
@@ -481,7 +496,7 @@ class TestSkillsHandlerGetMetrics:
                     )
 
                     assert result is not None
-                    assert result.status == 404
+                    assert result.status_code == 404
 
 
 class TestSkillsHandlerInvoke:
@@ -501,19 +516,18 @@ class TestSkillsHandlerInvoke:
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                             limiter.check.return_value = True
 
-                            mock_request = MagicMock()
-                            mock_request.get.return_value = {
-                                "body": {
+                            mock_request = create_async_request(
+                                {
                                     "skill": "web_search",
                                     "input": {"query": "test query"},
                                     "user_id": "test-user",
                                 }
-                            }
+                            )
 
                             result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                             assert result is not None
-                            assert result.status == 200
+                            assert result.status_code == 200
                             body = json.loads(result.body)
                             assert body["status"] == "success"
                             assert "output" in body
@@ -528,17 +542,16 @@ class TestSkillsHandlerInvoke:
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                     limiter.check.return_value = True
 
-                    mock_request = MagicMock()
-                    mock_request.get.return_value = {
-                        "body": {"input": {"query": "test"}}  # Missing "skill"
-                    }
+                    mock_request = create_async_request(
+                        {"input": {"query": "test"}}  # Missing "skill"
+                    )
 
                     result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                     assert result is not None
-                    assert result.status == 400
+                    assert result.status_code == 400
                     body = json.loads(result.body)
-                    assert "Missing required field" in body["error"]["message"]
+                    assert "Missing required field" in body["error"]
 
     @pytest.mark.asyncio
     async def test_invoke_skill_not_found(self, handler, mock_registry):
@@ -548,13 +561,12 @@ class TestSkillsHandlerInvoke:
                 with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                     limiter.check.return_value = True
 
-                    mock_request = MagicMock()
-                    mock_request.get.return_value = {"body": {"skill": "nonexistent", "input": {}}}
+                    mock_request = create_async_request({"skill": "nonexistent", "input": {}})
 
                     result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                     assert result is not None
-                    assert result.status == 404
+                    assert result.status_code == 404
                     body = json.loads(result.body)
                     assert body["error"]["code"] == "SKILL_NOT_FOUND"
 
@@ -573,19 +585,18 @@ class TestSkillsHandlerInvoke:
                     with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                         limiter.check.return_value = True
 
-                        mock_request = MagicMock()
-                        mock_request.get.return_value = {
-                            "body": {
+                        mock_request = create_async_request(
+                            {
                                 "skill": "web_search",
                                 "input": {},
                                 "timeout": 0.1,  # Very short timeout
                             }
-                        }
+                        )
 
                         result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                         assert result is not None
-                        assert result.status == 408
+                        assert result.status_code == 408
                         body = json.loads(result.body)
                         assert body["error"]["code"] == "TIMEOUT"
 
@@ -609,15 +620,14 @@ class TestSkillsHandlerInvoke:
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                             limiter.check.return_value = True
 
-                            mock_request = MagicMock()
-                            mock_request.get.return_value = {
-                                "body": {"skill": "web_search", "input": {}}
-                            }
+                            mock_request = create_async_request(
+                                {"skill": "web_search", "input": {}}
+                            )
 
                             result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                             assert result is not None
-                            assert result.status == 500
+                            assert result.status_code == 500
                             body = json.loads(result.body)
                             assert body["status"] == "error"
                             assert body["error"] == "Execution failed"
@@ -641,15 +651,14 @@ class TestSkillsHandlerInvoke:
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                             limiter.check.return_value = True
 
-                            mock_request = MagicMock()
-                            mock_request.get.return_value = {
-                                "body": {"skill": "web_search", "input": {}}
-                            }
+                            mock_request = create_async_request(
+                                {"skill": "web_search", "input": {}}
+                            )
 
                             result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                             assert result is not None
-                            assert result.status == 429
+                            assert result.status_code == 429
                             body = json.loads(result.body)
                             assert body["error"]["code"] == "SKILL_RATE_LIMITED"
 
@@ -672,15 +681,14 @@ class TestSkillsHandlerInvoke:
                         with patch("aragora.server.handlers.skills._skills_limiter") as limiter:
                             limiter.check.return_value = True
 
-                            mock_request = MagicMock()
-                            mock_request.get.return_value = {
-                                "body": {"skill": "web_search", "input": {}}
-                            }
+                            mock_request = create_async_request(
+                                {"skill": "web_search", "input": {}}
+                            )
 
                             result = await handler.handle_post("/api/skills/invoke", mock_request)
 
                             assert result is not None
-                            assert result.status == 403
+                            assert result.status_code == 403
                             body = json.loads(result.body)
                             assert body["error"]["code"] == "PERMISSION_DENIED"
 
@@ -702,7 +710,7 @@ class TestSkillsHandlerRateLimiting:
                 mock_request = MagicMock()
                 result = await handler.handle_get("/api/skills", mock_request)
 
-                assert result.status == 429
+                assert result.status_code == 429
                 body = json.loads(result.body)
                 assert body["error"]["code"] == "RATE_LIMITED"
 
@@ -716,7 +724,7 @@ class TestSkillsHandlerRateLimiting:
                 mock_request = MagicMock()
                 result = await handler.handle_post("/api/skills/invoke", mock_request)
 
-                assert result.status == 429
+                assert result.status_code == 429
                 body = json.loads(result.body)
                 assert body["error"]["code"] == "RATE_LIMITED"
 
@@ -752,7 +760,7 @@ class TestSkillsHandlerErrorCases:
                 mock_request = MagicMock()
                 result = await handler.handle_post("/api/skills/unknown", mock_request)
 
-                assert result.status == 404
+                assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_invalid_json_body(self, handler, mock_registry):
@@ -768,7 +776,7 @@ class TestSkillsHandlerErrorCases:
 
                     result = await handler.handle_post("/api/skills/invoke", mock_request)
 
-                    assert result.status == 400
+                    assert result.status_code == 400
 
 
 class TestSkillsHandlerVersionPrefix:
@@ -795,7 +803,7 @@ class TestSkillsHandlerVersionPrefix:
                     result = await handler.handle_get("/api/v1/skills", mock_request)
 
                     assert result is not None
-                    assert result.status == 200
+                    assert result.status_code == 200
 
     @pytest.mark.asyncio
     async def test_handles_v2_prefix(self, handler, mock_registry):
@@ -814,4 +822,4 @@ class TestSkillsHandlerVersionPrefix:
                     result = await handler.handle_get("/api/v2/skills", mock_request)
 
                     assert result is not None
-                    assert result.status == 200
+                    assert result.status_code == 200

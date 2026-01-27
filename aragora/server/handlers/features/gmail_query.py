@@ -20,14 +20,18 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from ..secure import SecureHandler
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
+
+# Gmail permissions
+GMAIL_READ_PERMISSION = "gmail:read"
+GMAIL_WRITE_PERMISSION = "gmail:write"
 
 
 @dataclass
@@ -49,8 +53,11 @@ class QueryResponse:
         }
 
 
-class GmailQueryHandler(BaseHandler):
-    """Handler for Gmail Q&A and priority inbox endpoints."""
+class GmailQueryHandler(SecureHandler):
+    """Handler for Gmail Q&A and priority inbox endpoints.
+
+    Requires authentication and gmail:read/gmail:write permissions.
+    """
 
     ROUTES = [
         "/api/v1/gmail/query",

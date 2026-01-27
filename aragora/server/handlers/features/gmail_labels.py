@@ -23,18 +23,25 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
 )
+from ..secure import SecureHandler, UnauthorizedError, ForbiddenError
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
 
+# Gmail permissions
+GMAIL_READ_PERMISSION = "gmail:read"
+GMAIL_WRITE_PERMISSION = "gmail:write"
 
-class GmailLabelsHandler(BaseHandler):
-    """Handler for Gmail labels and message modification endpoints."""
+
+class GmailLabelsHandler(SecureHandler):
+    """Handler for Gmail labels and message modification endpoints.
+
+    Requires authentication and gmail:read/gmail:write permissions.
+    """
 
     ROUTES = [
         "/api/v1/gmail/labels",
@@ -56,13 +63,22 @@ class GmailLabelsHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
+    async def handle(
         self,
         path: str,
         query_params: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route GET requests."""
+        # RBAC: Require authentication and gmail:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         user_id = query_params.get("user_id", "default")
         state = get_user_state(user_id)
 
@@ -77,13 +93,22 @@ class GmailLabelsHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_post(
+    async def handle_post(
         self,
         path: str,
         body: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route POST requests."""
+        # RBAC: Require authentication and gmail:write permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_WRITE_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         user_id = body.get("user_id", "default")
         state = get_user_state(user_id)
 
@@ -118,13 +143,22 @@ class GmailLabelsHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_patch(
+    async def handle_patch(
         self,
         path: str,
         body: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route PATCH requests."""
+        # RBAC: Require authentication and gmail:write permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_WRITE_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         user_id = body.get("user_id", "default")
         state = get_user_state(user_id)
 
@@ -138,13 +172,22 @@ class GmailLabelsHandler(BaseHandler):
 
         return error_response("Not found", 404)
 
-    def handle_delete(
+    async def handle_delete(
         self,
         path: str,
         query_params: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route DELETE requests."""
+        # RBAC: Require authentication and gmail:write permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_WRITE_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         user_id = query_params.get("user_id", "default")
         state = get_user_state(user_id)
 
