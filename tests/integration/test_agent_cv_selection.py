@@ -298,8 +298,8 @@ class TestCVBuilderGeneration:
         """Verify CVBuilder populates calibration data correctly."""
         cv = cv_builder.build_cv("claude-opus")
 
-        # Calibration tracker should have been queried
-        mock_calibration_tracker.get_brier_score.assert_called()
+        # Calibration tracker should have been queried via get_calibration_summary
+        mock_calibration_tracker.get_calibration_summary.assert_called()
         assert cv.brier_score == 0.15
 
     def test_cv_builder_batch_generation(self, cv_builder):
