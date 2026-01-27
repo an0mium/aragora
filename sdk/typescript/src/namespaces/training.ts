@@ -363,7 +363,7 @@ export class TrainingAPI {
     data?: CompleteJobData
   ): Promise<{ success: boolean; message: string }> {
     return this.client.request('POST', `/api/v1/training/jobs/${jobId}/complete`, {
-      json: data,
+      json: data as unknown as Record<string, unknown>,
     });
   }
 
