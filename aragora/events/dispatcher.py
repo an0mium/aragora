@@ -80,7 +80,7 @@ class EventRateLimiter:
     Token bucket rate limiter for events.
 
     Limits event throughput per event type to prevent DoS via event flooding.
-    Uses a per-type token bucket with configurable rate and burst capacity.
+    Uses the shared KeyedTokenBucket for per-type rate limiting.
     """
 
     def __init__(
@@ -95,12 +95,21 @@ class EventRateLimiter:
             rate_per_second: Tokens added per second (event throughput)
             burst_capacity: Maximum tokens (allows burst traffic)
         """
+        from aragora.shared.rate_limiting import KeyedTokenBucket
+
+        # Convert rate per second to rate per minute for KeyedTokenBucket
+        rate_per_minute = rate_per_second * 60.0
+
+        # Delegate to shared implementation
+        self._bucket = KeyedTokenBucket(
+            rate_per_minute=rate_per_minute,
+            burst=burst_capacity,
+            name="event",
+        )
+
+        # Store original config for stats
         self.rate = rate_per_second
         self.burst = burst_capacity
-        self._buckets: dict = {}  # event_type -> (tokens, last_update)
-        self._lock = threading.Lock()
-        self._rejected = 0
-        self._accepted = 0
 
     def is_allowed(self, event_type: str) -> bool:
         """
@@ -112,45 +121,22 @@ class EventRateLimiter:
         Returns:
             True if event is allowed, False if rate limited
         """
-        with self._lock:
-            now = time.time()
-
-            if event_type not in self._buckets:
-                # New bucket starts full
-                self._buckets[event_type] = (float(self.burst), now)
-
-            tokens, last_update = self._buckets[event_type]
-
-            # Add tokens based on time elapsed
-            elapsed = now - last_update
-            tokens = min(self.burst, tokens + elapsed * self.rate)
-
-            # Try to consume a token
-            if tokens >= 1.0:
-                self._buckets[event_type] = (tokens - 1.0, now)
-                self._accepted += 1
-                return True
-            else:
-                self._buckets[event_type] = (tokens, now)
-                self._rejected += 1
-                return False
+        return self._bucket.try_acquire(event_type)
 
     def get_stats(self) -> dict:
         """Get rate limiter statistics."""
-        with self._lock:
-            return {
-                "accepted": self._accepted,
-                "rejected": self._rejected,
-                "rate_per_second": self.rate,
-                "burst_capacity": self.burst,
-                "active_buckets": len(self._buckets),
-            }
+        bucket_stats = self._bucket.stats
+        return {
+            "accepted": bucket_stats.get("acquired", 0),
+            "rejected": bucket_stats.get("rejected", 0),
+            "rate_per_second": self.rate,
+            "burst_capacity": self.burst,
+            "active_buckets": bucket_stats.get("active_keys", 0),
+        }
 
     def reset_stats(self) -> None:
         """Reset statistics."""
-        with self._lock:
-            self._accepted = 0
-            self._rejected = 0
+        self._bucket.reset_stats()
 
 
 # Global event rate limiter
