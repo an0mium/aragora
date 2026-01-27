@@ -322,6 +322,50 @@ class Environment:
             raise ValueError("Task contains invalid null bytes")
 
 
+@dataclass
+class ToolManifest:
+    """
+    Defines available tools and permissions for an agent.
+
+    Used to restrict which tools an agent can use during debate,
+    enabling fine-grained control over agent capabilities.
+
+    Example:
+        manifest = ToolManifest(
+            available_tools=["web_search", "code_execution"],
+            permissions=["read_files", "write_files"],
+            max_parallel=3,
+        )
+        if manifest.has_tool("web_search"):
+            # Agent can use web search
+            pass
+    """
+
+    available_tools: list[str] = field(default_factory=list)
+    permissions: list[str] = field(default_factory=list)
+    max_parallel: int = 3
+    blocked_tools: list[str] = field(default_factory=list)
+    tool_configs: dict[str, Any] = field(default_factory=dict)
+
+    def has_tool(self, tool_name: str) -> bool:
+        """Check if agent has access to a specific tool."""
+        if tool_name in self.blocked_tools:
+            return False
+        if not self.available_tools:
+            return True  # No restrictions if no tools specified
+        return tool_name in self.available_tools
+
+    def has_permission(self, permission: str) -> bool:
+        """Check if agent has a specific permission."""
+        if not self.permissions:
+            return True  # No restrictions if no permissions specified
+        return permission in self.permissions
+
+    def get_tool_config(self, tool_name: str) -> dict[str, Any]:
+        """Get configuration for a specific tool."""
+        return self.tool_configs.get(tool_name, {})
+
+
 class Agent(ABC):
     """Abstract base class for all agents.
 
@@ -340,6 +384,7 @@ class Agent(ABC):
     system_prompt: str
     agent_type: str
     stance: AgentStance
+    tool_manifest: Optional[ToolManifest]
 
     def __init__(self, name: str, model: str, role: AgentRole = "proposer"):
         self.name = name
@@ -353,6 +398,8 @@ class Agent(ABC):
         # - Negative: Challenge/critique proposals
         # - Neutral: Evaluate fairly without bias
         self.stance: AgentStance = "neutral"
+        # Tool manifest for controlling which tools the agent can use
+        self.tool_manifest: Optional[ToolManifest] = None
 
     @abstractmethod
     async def generate(self, prompt: str, context: list[Message] | None = None) -> str:
@@ -424,6 +471,24 @@ REASONING: <brief explanation>"""
     def set_system_prompt(self, prompt: str) -> None:
         """Update the agent's system prompt (for self-improvement)."""
         self.system_prompt = prompt
+
+    def has_tool_permission(self, tool_name: str) -> bool:
+        """
+        Check if agent has permission to use a specific tool.
+
+        Args:
+            tool_name: Name of the tool to check
+
+        Returns:
+            True if agent can use the tool, False otherwise
+        """
+        if self.tool_manifest is None:
+            return True  # No restrictions
+        return self.tool_manifest.has_tool(tool_name)
+
+    def set_tool_manifest(self, manifest: ToolManifest) -> None:
+        """Set the tool manifest for this agent."""
+        self.tool_manifest = manifest
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, model={self.model}, role={self.role})"
