@@ -1393,24 +1393,28 @@ class TelegramConnector(ChatPlatformConnector):
                     if keyboard:
                         data["reply_markup"] = json.dumps(keyboard)
 
+                trace_headers = build_trace_headers()  # Distributed tracing
                 if isinstance(animation, bytes):
                     files = {"animation": ("animation.gif", animation, "image/gif")}
                     response = await client.post(
                         f"{self._api_base}/sendAnimation",
                         data=data,
                         files=files,
+                        headers=trace_headers,
                     )
                 elif animation.startswith(("http://", "https://")):
                     data["animation"] = animation
                     response = await client.post(
                         f"{self._api_base}/sendAnimation",
                         json=data,
+                        headers=trace_headers,
                     )
                 else:
                     data["animation"] = animation
                     response = await client.post(
                         f"{self._api_base}/sendAnimation",
                         json=data,
+                        headers=trace_headers,
                     )
 
                 result = response.json()
@@ -1499,6 +1503,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/sendMediaGroup",
                     data=data,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 result = response.json()
 
@@ -1592,6 +1597,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/answerInlineQuery",
                     json=payload,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 result = response.json()
 
@@ -1698,6 +1704,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/setMyCommands",
                     json=payload,
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 result = response.json()
 
@@ -1727,7 +1734,10 @@ class TelegramConnector(ChatPlatformConnector):
 
         try:
             async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.get(f"{self._api_base}/getMe")
+                response = await client.get(
+                    f"{self._api_base}/getMe",
+                    headers=build_trace_headers(),  # Distributed tracing
+                )
                 result = response.json()
 
                 if not result.get("ok"):
@@ -1763,6 +1773,7 @@ class TelegramConnector(ChatPlatformConnector):
                 response = await client.post(
                     f"{self._api_base}/getChatMemberCount",
                     json={"chat_id": channel_id},
+                    headers=build_trace_headers(),  # Distributed tracing
                 )
                 result = response.json()
 
