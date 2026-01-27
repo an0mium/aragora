@@ -228,12 +228,15 @@ class AgentChannel:
                 self._history = self._history[-self._max_history :]
 
             # Deliver to all mailboxes except sender
+            recipients = []
             for agent_name, mailbox in self._mailboxes.items():
                 if agent_name != sender:
                     await mailbox.put(message)
+                    recipients.append(agent_name)
 
-        # Trigger handlers
-        await self._trigger_handlers(sender, message)
+        # Trigger handlers for all recipients
+        for recipient in recipients:
+            await self._trigger_handlers(recipient, message)
 
         logger.debug(
             f"[{self._channel_id}] {sender} broadcast: {content[:50]}..."

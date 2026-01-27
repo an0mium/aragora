@@ -24,7 +24,7 @@ from ..base import (
     error_response,
     json_response,
 )
-from ..secure import SecureHandler
+from ..secure import SecureHandler, UnauthorizedError, ForbiddenError
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
@@ -71,13 +71,22 @@ class GmailQueryHandler(SecureHandler):
         """Check if this handler can process the path."""
         return path.startswith("/api/v1/gmail/query") or path.startswith("/api/v1/gmail/inbox/")
 
-    def handle(
+    async def handle(
         self,
         path: str,
         query_params: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route GET requests."""
+        # RBAC: Require authentication and gmail:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         user_id = query_params.get("user_id", "default")
 
         if path == "/api/v1/gmail/inbox/priority":
@@ -89,13 +98,22 @@ class GmailQueryHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    def handle_post(
+    async def handle_post(
         self,
         path: str,
         body: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
         """Route POST requests."""
+        # RBAC: Require authentication and gmail:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         user_id = body.get("user_id", "default")
 
         if path == "/api/v1/gmail/query":
