@@ -240,6 +240,47 @@ class OpenRouterRateLimiter:
         """
         return RateLimitContext(self, timeout)
 
+    # Backward-compatible properties for internal state access
+    @property
+    def _tokens(self) -> float:
+        """Backward-compatible access to available tokens."""
+        return self._bucket.available_tokens
+
+    @_tokens.setter
+    def _tokens(self, value: float) -> None:
+        """Backward-compatible setter for tokens (for testing)."""
+        with self._bucket._sync_lock:
+            self._bucket._tokens = value
+
+    @property
+    def _api_limit(self) -> Optional[int]:
+        """Backward-compatible access to API limit."""
+        return self._bucket._api_limit
+
+    @property
+    def _api_remaining(self) -> Optional[int]:
+        """Backward-compatible access to API remaining."""
+        return self._bucket._api_remaining
+
+    @property
+    def _api_reset(self) -> Optional[float]:
+        """Backward-compatible access to API reset time."""
+        return self._bucket._api_reset
+
+    @property
+    def _last_refill(self) -> float:
+        """Backward-compatible access to last refill time."""
+        return self._bucket._last_refill
+
+    @_last_refill.setter
+    def _last_refill(self, value: float) -> None:
+        """Backward-compatible setter for last refill (for testing)."""
+        self._bucket._last_refill = value
+
+    def _refill(self) -> None:
+        """Backward-compatible refill method (for testing)."""
+        self._bucket._refill()
+
 
 class RateLimitContext:
     """Async context manager for rate limit acquisition.
@@ -419,6 +460,47 @@ class ProviderRateLimiter:
     def request(self, timeout: float = 30.0) -> "ProviderRateLimitContext":
         """Context manager for rate-limited API requests."""
         return ProviderRateLimitContext(self, timeout)
+
+    # Backward-compatible properties for internal state access
+    @property
+    def _tokens(self) -> float:
+        """Backward-compatible access to available tokens."""
+        return self._bucket.available_tokens
+
+    @_tokens.setter
+    def _tokens(self, value: float) -> None:
+        """Backward-compatible setter for tokens (for testing)."""
+        with self._bucket._sync_lock:
+            self._bucket._tokens = value
+
+    @property
+    def _api_limit(self) -> Optional[int]:
+        """Backward-compatible access to API limit."""
+        return self._bucket._api_limit
+
+    @property
+    def _api_remaining(self) -> Optional[int]:
+        """Backward-compatible access to API remaining."""
+        return self._bucket._api_remaining
+
+    @property
+    def _api_reset(self) -> Optional[float]:
+        """Backward-compatible access to API reset time."""
+        return self._bucket._api_reset
+
+    @property
+    def _last_refill(self) -> float:
+        """Backward-compatible access to last refill time."""
+        return self._bucket._last_refill
+
+    @_last_refill.setter
+    def _last_refill(self, value: float) -> None:
+        """Backward-compatible setter for last refill (for testing)."""
+        self._bucket._last_refill = value
+
+    def _refill(self) -> None:
+        """Backward-compatible refill method (for testing)."""
+        self._bucket._refill()
 
 
 class ProviderRateLimitContext:
