@@ -116,4 +116,49 @@ CROSS_POLLINATION_ENDPOINTS = {
             },
         },
     },
+    "/api/cross-pollination/km": {
+        "get": {
+            "tags": ["Cross-Pollination"],
+            "summary": "Get Knowledge Mound integration status",
+            "operationId": "listCrossPollinationKm",
+            "description": "Get status of cross-pollination integration with the Knowledge Mound including sync state and adapter health.",
+            "responses": {
+                "200": _ok_response("KM integration status with sync state and adapter health"),
+            },
+        },
+    },
+    "/api/cross-pollination/km/sync": {
+        "post": {
+            "tags": ["Cross-Pollination"],
+            "summary": "Trigger Knowledge Mound sync",
+            "operationId": "createCrossPollinationKmSync",
+            "description": "Manually trigger synchronization of cross-pollination data to the Knowledge Mound.",
+            "responses": {
+                "200": _ok_response("Sync triggered with job ID"),
+                "503": {"description": "Knowledge Mound unavailable"},
+            },
+        },
+    },
+    "/api/cross-pollination/km/staleness-check": {
+        "get": {
+            "tags": ["Cross-Pollination"],
+            "summary": "Check data staleness",
+            "operationId": "listCrossPollinationKmStalenessCheck",
+            "description": "Check for stale cross-pollination data in the Knowledge Mound that needs revalidation.",
+            "responses": {
+                "200": _ok_response("Staleness report with entries needing refresh"),
+            },
+        },
+    },
+    "/api/cross-pollination/km/culture": {
+        "get": {
+            "tags": ["Cross-Pollination"],
+            "summary": "Get debate culture patterns",
+            "operationId": "listCrossPollinationKmCulture",
+            "description": "Get learned debate culture patterns from cross-pollination analysis across debates.",
+            "responses": {
+                "200": _ok_response("Culture patterns with collaboration and dissent metrics"),
+            },
+        },
+    },
 }

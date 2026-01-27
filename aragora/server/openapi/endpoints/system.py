@@ -118,6 +118,164 @@ SYSTEM_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/nomic/metrics": {
+        "get": {
+            "tags": ["System"],
+            "summary": "Get nomic metrics",
+            "description": """Get detailed metrics about nomic loop performance.
+
+**Response includes:**
+- Cycle completion times
+- Phase durations
+- Success/failure rates
+- Resource usage per cycle""",
+            "operationId": "getNomicMetrics",
+            "responses": {"200": _ok_response("Nomic metrics")},
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/proposals": {
+        "get": {
+            "tags": ["System"],
+            "summary": "List nomic proposals",
+            "description": """Get pending and recent nomic improvement proposals.
+
+**Response includes:**
+- Proposal ID and description
+- Proposed changes
+- Debate outcome
+- Approval status""",
+            "operationId": "listNomicProposals",
+            "parameters": [
+                {
+                    "name": "status",
+                    "in": "query",
+                    "description": "Filter by proposal status",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["pending", "approved", "rejected", "implemented"],
+                    },
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of proposals to return",
+                    "schema": {"type": "integer", "default": 50, "minimum": 1, "maximum": 200},
+                },
+            ],
+            "responses": {"200": _ok_response("Nomic proposals")},
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/proposals/{id}": {
+        "post": {
+            "tags": ["System"],
+            "summary": "Update proposal status",
+            "description": "Approve or reject a nomic improvement proposal.",
+            "operationId": "updateNomicProposal",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Proposal ID",
+                },
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "action": {
+                                    "type": "string",
+                                    "enum": ["approve", "reject"],
+                                    "description": "Action to take on the proposal",
+                                },
+                                "reason": {
+                                    "type": "string",
+                                    "description": "Reason for approval/rejection",
+                                },
+                            },
+                            "required": ["action"],
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response("Proposal updated"),
+                "404": {"description": "Proposal not found"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/control/start": {
+        "post": {
+            "tags": ["System"],
+            "summary": "Start nomic loop",
+            "description": "Start or resume the nomic self-improvement loop.",
+            "operationId": "startNomicLoop",
+            "responses": {
+                "200": _ok_response("Loop started"),
+                "409": {"description": "Loop already running"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/control/stop": {
+        "post": {
+            "tags": ["System"],
+            "summary": "Stop nomic loop",
+            "description": "Gracefully stop the nomic self-improvement loop.",
+            "operationId": "stopNomicLoop",
+            "responses": {
+                "200": _ok_response("Loop stopped"),
+                "409": {"description": "Loop not running"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/control/pause": {
+        "post": {
+            "tags": ["System"],
+            "summary": "Pause nomic loop",
+            "description": "Pause the nomic loop at the end of the current phase.",
+            "operationId": "pauseNomicLoop",
+            "responses": {
+                "200": _ok_response("Loop paused"),
+                "409": {"description": "Loop not running or already paused"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/control/resume": {
+        "post": {
+            "tags": ["System"],
+            "summary": "Resume nomic loop",
+            "description": "Resume a paused nomic loop.",
+            "operationId": "resumeNomicLoop",
+            "responses": {
+                "200": _ok_response("Loop resumed"),
+                "409": {"description": "Loop not paused"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/nomic/control/skip-phase": {
+        "post": {
+            "tags": ["System"],
+            "summary": "Skip current phase",
+            "description": "Skip the current nomic phase and move to the next one.",
+            "operationId": "skipNomicPhase",
+            "responses": {
+                "200": _ok_response("Phase skipped"),
+                "409": {"description": "Loop not running"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/modes": {
         "get": {
             "tags": ["System"],

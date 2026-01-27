@@ -304,4 +304,171 @@ WEBHOOK_ENDPOINTS = {
             "security": [{"bearerAuth": []}],
         },
     },
+    "/api/v1/webhooks/dead-letter": {
+        "get": {
+            "tags": ["Webhooks"],
+            "summary": "List dead-letter deliveries",
+            "operationId": "listWebhooksDeadLetter",
+            "description": "List webhook deliveries that failed and are in the dead-letter queue.",
+            "parameters": [
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "default": 100},
+                    "description": "Maximum number of deliveries to return",
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "List of dead-letter deliveries",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "dead_letters": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "id": {"type": "string"},
+                                                "webhook_id": {"type": "string"},
+                                                "event_type": {"type": "string"},
+                                                "payload": {"type": "object"},
+                                                "error": {"type": "string"},
+                                                "attempts": {"type": "integer"},
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                },
+                                                "last_attempt": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                },
+                                            },
+                                        },
+                                    },
+                                    "count": {"type": "integer"},
+                                },
+                            }
+                        }
+                    },
+                }
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/webhooks/dead-letter/{id}": {
+        "get": {
+            "tags": ["Webhooks"],
+            "summary": "Get dead-letter delivery",
+            "operationId": "getWebhooksDeadLetter",
+            "description": "Get details of a specific dead-letter delivery.",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Dead-letter delivery details",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "webhook_id": {"type": "string"},
+                                    "event_type": {"type": "string"},
+                                    "payload": {"type": "object"},
+                                    "error": {"type": "string"},
+                                    "attempts": {"type": "integer"},
+                                    "created_at": {"type": "string", "format": "date-time"},
+                                    "last_attempt": {"type": "string", "format": "date-time"},
+                                },
+                            }
+                        }
+                    },
+                },
+                "404": _ok_response("Delivery not found"),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "delete": {
+            "tags": ["Webhooks"],
+            "summary": "Delete dead-letter delivery",
+            "operationId": "deleteWebhooksDeadLetter",
+            "description": "Remove a delivery from the dead-letter queue without retrying.",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": {"description": "Delivery deleted"},
+                "404": _ok_response("Delivery not found"),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/webhooks/dead-letter/{id}/retry": {
+        "post": {
+            "tags": ["Webhooks"],
+            "summary": "Retry dead-letter delivery",
+            "operationId": "retryWebhooksDeadLetter",
+            "description": "Retry a dead-letter delivery by moving it back to the processing queue.",
+            "parameters": [
+                {
+                    "name": "id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": {"description": "Delivery queued for retry"},
+                "404": _ok_response("Delivery not found or not in dead-letter queue"),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/webhooks/queue/stats": {
+        "get": {
+            "tags": ["Webhooks"],
+            "summary": "Get webhook queue statistics",
+            "operationId": "getWebhooksQueueStats",
+            "description": "Get statistics about the webhook delivery queue including pending, processing, and dead-letter counts.",
+            "responses": {
+                "200": {
+                    "description": "Queue statistics",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "stats": {
+                                        "type": "object",
+                                        "properties": {
+                                            "pending": {"type": "integer"},
+                                            "processing": {"type": "integer"},
+                                            "dead_letter": {"type": "integer"},
+                                            "total_delivered": {"type": "integer"},
+                                            "total_failed": {"type": "integer"},
+                                        },
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
 }
