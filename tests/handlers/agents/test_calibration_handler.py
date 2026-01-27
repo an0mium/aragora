@@ -152,15 +152,19 @@ class TestCalibrationHandlerInit:
 class TestCalibrationCurve:
     """Tests for calibration curve endpoint."""
 
-    def test_returns_503_without_calibration_tracker(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_503_without_calibration_tracker(
+        self, calibration_handler, mock_http_handler
+    ):
         """Returns 503 when CalibrationTracker not available."""
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
-            result = calibration_handler.handle(
+            result = await calibration_handler.handle(
                 "/api/v1/agent/claude/calibration-curve", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_calibration_curve_data(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_calibration_curve_data(self, calibration_handler, mock_http_handler):
         """Returns calibration curve data when available."""
         mock_buckets = [
             MockCalibrationBucket(
@@ -189,7 +193,7 @@ class TestCalibrationCurve:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-curve", {}, mock_http_handler
                 )
                 assert result.status_code == 200
@@ -198,7 +202,8 @@ class TestCalibrationCurve:
                 assert len(data["buckets"]) == 2
                 assert data["count"] == 2
 
-    def test_accepts_buckets_parameter(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_accepts_buckets_parameter(self, calibration_handler, mock_http_handler):
         """Passes buckets parameter to tracker."""
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.return_value = []
@@ -208,7 +213,7 @@ class TestCalibrationCurve:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                calibration_handler.handle(
+                await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-curve",
                     {"buckets": ["15"]},
                     mock_http_handler,
@@ -217,7 +222,8 @@ class TestCalibrationCurve:
                     "claude", num_buckets=15, domain=None
                 )
 
-    def test_accepts_domain_parameter(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_accepts_domain_parameter(self, calibration_handler, mock_http_handler):
         """Passes domain parameter to tracker."""
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.return_value = []
@@ -227,7 +233,7 @@ class TestCalibrationCurve:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                calibration_handler.handle(
+                await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-curve",
                     {"domain": ["technical"]},
                     mock_http_handler,
@@ -236,9 +242,10 @@ class TestCalibrationCurve:
                     "claude", num_buckets=10, domain="technical"
                 )
 
-    def test_rejects_invalid_agent_name(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_agent_name(self, calibration_handler, mock_http_handler):
         """Returns 400 for invalid agent name."""
-        result = calibration_handler.handle(
+        result = await calibration_handler.handle(
             "/api/v1/agent/<script>/calibration-curve", {}, mock_http_handler
         )
         assert result.status_code == 400
@@ -252,15 +259,19 @@ class TestCalibrationCurve:
 class TestCalibrationSummary:
     """Tests for calibration summary endpoint."""
 
-    def test_returns_503_without_calibration_tracker(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_503_without_calibration_tracker(
+        self, calibration_handler, mock_http_handler
+    ):
         """Returns 503 when CalibrationTracker not available."""
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
-            result = calibration_handler.handle(
+            result = await calibration_handler.handle(
                 "/api/v1/agent/claude/calibration-summary", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_calibration_summary_data(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_calibration_summary_data(self, calibration_handler, mock_http_handler):
         """Returns calibration summary data when available."""
         mock_summary = MockCalibrationSummary(
             agent="claude",
@@ -281,7 +292,7 @@ class TestCalibrationSummary:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-summary", {}, mock_http_handler
                 )
                 assert result.status_code == 200
@@ -292,7 +303,8 @@ class TestCalibrationSummary:
                 assert data["brier_score"] == 0.15
                 assert data["is_underconfident"] is True
 
-    def test_accepts_domain_parameter(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_accepts_domain_parameter(self, calibration_handler, mock_http_handler):
         """Passes domain parameter to tracker."""
         mock_summary = MockCalibrationSummary(
             agent="claude",
@@ -313,7 +325,7 @@ class TestCalibrationSummary:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                calibration_handler.handle(
+                await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-summary",
                     {"domain": ["math"]},
                     mock_http_handler,
@@ -331,15 +343,17 @@ class TestCalibrationSummary:
 class TestCalibrationLeaderboard:
     """Tests for calibration leaderboard endpoint."""
 
-    def test_returns_503_without_elo_system(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_503_without_elo_system(self, calibration_handler, mock_http_handler):
         """Returns 503 when EloSystem not available."""
         with patch("aragora.server.handlers.agents.calibration.ELO_AVAILABLE", False):
-            result = calibration_handler.handle(
+            result = await calibration_handler.handle(
                 "/api/v1/calibration/leaderboard", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_leaderboard_data(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_leaderboard_data(self, calibration_handler, mock_http_handler):
         """Returns leaderboard data when available."""
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
@@ -373,7 +387,7 @@ class TestCalibrationLeaderboard:
                 "aragora.server.handlers.agents.calibration.EloSystem",
                 return_value=mock_elo,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/leaderboard", {}, mock_http_handler
                 )
                 assert result.status_code == 200
@@ -381,7 +395,8 @@ class TestCalibrationLeaderboard:
                 assert "agents" in data
                 assert "count" in data
 
-    def test_filters_by_min_predictions(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_filters_by_min_predictions(self, calibration_handler, mock_http_handler):
         """Filters agents by minimum predictions count."""
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
@@ -415,7 +430,7 @@ class TestCalibrationLeaderboard:
                 "aragora.server.handlers.agents.calibration.EloSystem",
                 return_value=mock_elo,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/leaderboard",
                     {"min_predictions": ["5"]},
                     mock_http_handler,
@@ -425,7 +440,8 @@ class TestCalibrationLeaderboard:
                 # Only claude should be included (100 > 5)
                 assert data["count"] == 1
 
-    def test_sorts_by_metric(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_sorts_by_metric(self, calibration_handler, mock_http_handler):
         """Sorts agents by specified metric."""
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.return_value = [
@@ -459,7 +475,7 @@ class TestCalibrationLeaderboard:
                 "aragora.server.handlers.agents.calibration.EloSystem",
                 return_value=mock_elo,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/leaderboard",
                     {"metric": ["brier"]},
                     mock_http_handler,
@@ -479,15 +495,21 @@ class TestCalibrationLeaderboard:
 class TestCalibrationVisualization:
     """Tests for calibration visualization endpoint."""
 
-    def test_returns_503_without_calibration_tracker(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_503_without_calibration_tracker(
+        self, calibration_handler, mock_http_handler
+    ):
         """Returns 503 when CalibrationTracker not available."""
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
-            result = calibration_handler.handle(
+            result = await calibration_handler.handle(
                 "/api/v1/calibration/visualization", {}, mock_http_handler
             )
             assert result.status_code == 503
 
-    def test_returns_empty_result_when_no_agents(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_empty_result_when_no_agents(
+        self, calibration_handler, mock_http_handler
+    ):
         """Returns empty result when no agents have calibration data."""
         mock_tracker = MagicMock()
         mock_tracker.get_all_agents.return_value = []
@@ -497,7 +519,7 @@ class TestCalibrationVisualization:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/visualization", {}, mock_http_handler
                 )
                 assert result.status_code == 200
@@ -506,7 +528,8 @@ class TestCalibrationVisualization:
                 assert data["scatter_data"] == []
                 assert data["summary"]["total_agents"] == 0
 
-    def test_returns_visualization_data(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_visualization_data(self, calibration_handler, mock_http_handler):
         """Returns comprehensive visualization data."""
         mock_summary = MockCalibrationSummary(
             agent="claude",
@@ -541,7 +564,7 @@ class TestCalibrationVisualization:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/visualization", {}, mock_http_handler
                 )
                 assert result.status_code == 200
@@ -551,7 +574,8 @@ class TestCalibrationVisualization:
                 assert len(data["scatter_data"]) == 1
                 assert data["scatter_data"][0]["agent"] == "claude"
 
-    def test_respects_limit_parameter(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_respects_limit_parameter(self, calibration_handler, mock_http_handler):
         """Respects limit parameter for number of agents."""
         mock_tracker = MagicMock()
         mock_tracker.get_all_agents.return_value = ["agent1", "agent2", "agent3"]
@@ -572,7 +596,7 @@ class TestCalibrationVisualization:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/visualization", {"limit": ["2"]}, mock_http_handler
                 )
                 assert result.status_code == 200
@@ -586,7 +610,8 @@ class TestCalibrationVisualization:
 class TestCalibrationRateLimiting:
     """Tests for rate limiting."""
 
-    def test_rate_limit_after_multiple_requests(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_rate_limit_after_multiple_requests(self, calibration_handler, mock_http_handler):
         """Returns 429 after exceeding rate limit."""
         # Use a fresh handler with tight rate limit for testing
         with patch("aragora.server.handlers.agents.calibration.CALIBRATION_AVAILABLE", False):
@@ -596,7 +621,7 @@ class TestCalibrationRateLimiting:
                 mock_handler.client_address = ("192.168.1.50", 12345)
                 mock_handler.headers = {}
 
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-curve", {}, mock_handler
                 )
 
@@ -618,7 +643,8 @@ class TestCalibrationRateLimiting:
 class TestCalibrationErrorHandling:
     """Tests for error handling."""
 
-    def test_handles_tracker_exception(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handles_tracker_exception(self, calibration_handler, mock_http_handler):
         """Handles exceptions from CalibrationTracker gracefully."""
         mock_tracker = MagicMock()
         mock_tracker.get_calibration_curve.side_effect = RuntimeError("Database error")
@@ -628,12 +654,13 @@ class TestCalibrationErrorHandling:
                 "aragora.server.handlers.agents.calibration.CalibrationTracker",
                 return_value=mock_tracker,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/agent/claude/calibration-curve", {}, mock_http_handler
                 )
                 assert result.status_code == 500
 
-    def test_handles_elo_exception(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handles_elo_exception(self, calibration_handler, mock_http_handler):
         """Handles exceptions from EloSystem gracefully."""
         mock_elo = MagicMock()
         mock_elo.get_leaderboard.side_effect = RuntimeError("Database error")
@@ -643,17 +670,21 @@ class TestCalibrationErrorHandling:
                 "aragora.server.handlers.agents.calibration.EloSystem",
                 return_value=mock_elo,
             ):
-                result = calibration_handler.handle(
+                result = await calibration_handler.handle(
                     "/api/v1/calibration/leaderboard", {}, mock_http_handler
                 )
                 assert result.status_code == 500
 
-    def test_returns_none_for_unmatched_path(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_none_for_unmatched_path(self, calibration_handler, mock_http_handler):
         """Returns None for paths that don't match any endpoint."""
-        result = calibration_handler.handle("/api/v1/agent/claude/unknown", {}, mock_http_handler)
+        result = await calibration_handler.handle(
+            "/api/v1/agent/claude/unknown", {}, mock_http_handler
+        )
         assert result is None
 
-    def test_returns_none_for_non_agent_path(self, calibration_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_none_for_non_agent_path(self, calibration_handler, mock_http_handler):
         """Returns None for non-agent paths."""
-        result = calibration_handler.handle("/api/v1/other/endpoint", {}, mock_http_handler)
+        result = await calibration_handler.handle("/api/v1/other/endpoint", {}, mock_http_handler)
         assert result is None

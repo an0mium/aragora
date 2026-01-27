@@ -83,6 +83,42 @@ def mock_auth_for_handler_tests(request, monkeypatch):
     except (ImportError, AttributeError):
         pass
 
+    # Patch get_auth_context in handlers.utils.auth (used by autonomous handlers, etc.)
+    try:
+        from aragora.server.handlers.utils import auth as handlers_auth
+
+        async def mock_handlers_get_auth_context(request, require_auth=False):
+            """Mock get_auth_context that returns admin context."""
+            return mock_auth_ctx
+
+        monkeypatch.setattr(handlers_auth, "get_auth_context", mock_handlers_get_auth_context)
+    except (ImportError, AttributeError):
+        pass
+
+    # Patch get_auth_context in modules that import it directly (Python caches imports)
+    # These modules use "from ... import get_auth_context" so we need to patch where used
+    auth_modules_to_patch = [
+        "aragora.server.handlers.autonomous.approvals",
+        "aragora.server.handlers.autonomous.alerts",
+        "aragora.server.handlers.autonomous.triggers",
+        "aragora.server.handlers.autonomous.monitoring",
+        "aragora.server.handlers.autonomous.learning",
+        "aragora.server.handlers.debates.intervention",
+    ]
+
+    async def mock_direct_get_auth_context(request, require_auth=False):
+        """Mock get_auth_context that returns admin context."""
+        return mock_auth_ctx
+
+    for module_path in auth_modules_to_patch:
+        try:
+            import importlib
+
+            module = importlib.import_module(module_path)
+            monkeypatch.setattr(module, "get_auth_context", mock_direct_get_auth_context)
+        except (ImportError, AttributeError):
+            pass
+
     # Create a mock UserAuthContext for BaseHandler auth methods
     try:
         from aragora.billing.auth.context import UserAuthContext

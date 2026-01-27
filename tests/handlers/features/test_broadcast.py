@@ -376,22 +376,19 @@ class TestErrorHandling:
             traces_dir = nomic_path / "traces"
             traces_dir.mkdir(parents=True)
 
-            # Mock rate_limit decorator to pass through
             with patch(
-                "aragora.server.handlers.features.broadcast.rate_limit",
-                lambda **kw: lambda f: f,
+                "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+                True,
             ):
-                with patch(
-                    "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
-                    True,
-                ):
-                    with patch.object(handler, "get_storage", return_value=mock_storage):
-                        with patch.object(handler, "get_nomic_dir", return_value=nomic_path):
-                            # Call the underlying method directly
-                            result = handler._generate_broadcast.__wrapped__(
-                                handler, "test-err-1", MockHandler()
-                            )
-                            assert result.status_code == 404
+                with patch.object(handler, "get_storage", return_value=mock_storage):
+                    with patch.object(handler, "get_nomic_dir", return_value=nomic_path):
+                        # Call the underlying method directly, bypassing both
+                        # @require_permission (outer) and @rate_limit (inner) decorators
+                        # __wrapped__ once gets past require_permission to rate_limit
+                        # __wrapped__ twice gets to the original function
+                        original_func = handler._generate_broadcast.__wrapped__.__wrapped__
+                        result = original_func(handler, "test-err-1", MockHandler())
+                        assert result.status_code == 404
 
     def test_safe_error_message_used(self):
         """Uses safe_error_message to avoid exposing internals."""
@@ -419,26 +416,19 @@ class TestErrorHandling:
             trace_file = traces_dir / "test-err-2.json"
             trace_file.write_text("invalid json {{{")
 
-            # Mock rate_limit decorator to pass through
             with patch(
-                "aragora.server.handlers.features.broadcast.rate_limit",
-                lambda **kw: lambda f: f,
+                "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
+                True,
             ):
-                with patch(
-                    "aragora.server.handlers.features.broadcast.BROADCAST_AVAILABLE",
-                    True,
-                ):
-                    with patch.object(handler, "get_storage", return_value=mock_storage):
-                        with patch.object(handler, "get_nomic_dir", return_value=nomic_path):
-                            # Call the underlying method directly
-                            result = handler._generate_broadcast.__wrapped__(
-                                handler, "test-err-2", MockHandler()
-                            )
-                            assert result.status_code == 500
-                            # Error message should not contain full path
-                            body = (
-                                result.body.decode()
-                                if isinstance(result.body, bytes)
-                                else result.body
-                            )
-                            assert tmpdir not in body
+                with patch.object(handler, "get_storage", return_value=mock_storage):
+                    with patch.object(handler, "get_nomic_dir", return_value=nomic_path):
+                        # Call the underlying method directly, bypassing both
+                        # @require_permission (outer) and @rate_limit (inner) decorators
+                        original_func = handler._generate_broadcast.__wrapped__.__wrapped__
+                        result = original_func(handler, "test-err-2", MockHandler())
+                        assert result.status_code == 500
+                        # Error message should not contain full path
+                        body = (
+                            result.body.decode() if isinstance(result.body, bytes) else result.body
+                        )
+                        assert tmpdir not in body

@@ -584,8 +584,9 @@ class DecisionExplainHandler(SecureHandler):
             lines.append(f"- **Checksum:** {audit['checksum']}")
 
         content = "\n".join(lines)
-        return HandlerResult(  # type: ignore[call-arg]
+        return HandlerResult(
             status_code=200,
+            content_type="text/markdown; charset=utf-8",
             body=content.encode("utf-8"),
             headers={"Content-Type": "text/markdown; charset=utf-8"},
         )
@@ -699,8 +700,9 @@ class DecisionExplainHandler(SecureHandler):
 </html>
 """
 
-        return HandlerResult(  # type: ignore[call-arg]
+        return HandlerResult(
             status_code=200,
+            content_type="text/html; charset=utf-8",
             body=html.encode("utf-8"),
             headers={"Content-Type": "text/html; charset=utf-8"},
         )

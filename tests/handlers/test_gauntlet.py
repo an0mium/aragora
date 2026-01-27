@@ -160,9 +160,10 @@ class TestRouteNormalization:
     """Tests for route normalization."""
 
     def test_normalize_v1_path(self, handler):
-        """V1 paths are normalized correctly."""
+        """V1 paths are normalized correctly (version prefix stripped)."""
         result = handler._normalize_path("/api/v1/gauntlet/run")
-        assert result == "/api/v1/gauntlet/run"
+        # _normalize_path removes version prefix for internal routing
+        assert result == "/api/gauntlet/run"
 
     def test_is_legacy_route_false_for_v1(self, handler):
         """V1 routes are not marked as legacy."""

@@ -215,7 +215,7 @@ class TestMetricsHandlerPrometheus:
 class TestMetricsHandlerRateLimiting:
     """Test rate limiting for metrics endpoints."""
 
-    @patch("aragora.server.handlers.metrics._metrics_limiter")
+    @patch("aragora.server.handlers.metrics.handler._metrics_limiter")
     def test_rate_limit_exceeded(self, mock_limiter, metrics_handler, mock_handler):
         """Test rate limit exceeded response."""
         mock_limiter.is_allowed.return_value = False

@@ -16,11 +16,24 @@ from unittest.mock import MagicMock, patch
 
 # Import the module-level state for cleanup
 from aragora.server.handlers.debates import intervention
+from aragora.rbac.models import AuthorizationContext
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+@pytest.fixture
+def mock_ctx():
+    """Provide a mock authorization context for handler calls."""
+    return AuthorizationContext(
+        user_id="test-user-001",
+        user_email="test@example.com",
+        org_id="test-org-001",
+        roles={"admin", "owner"},
+        permissions={"*"},
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -44,9 +57,9 @@ class TestPauseResume:
     """Tests for debate pause/resume functionality."""
 
     @pytest.mark.asyncio
-    async def test_pause_debate_success(self):
+    async def test_pause_debate_success(self, mock_ctx):
         """Test pausing a debate successfully."""
-        result = await intervention.handle_pause_debate("debate-123")
+        result = await intervention.handle_pause_debate("debate-123", mock_ctx)
 
         assert result.status_code == 200
         import json
@@ -58,13 +71,13 @@ class TestPauseResume:
         assert "paused_at" in body
 
     @pytest.mark.asyncio
-    async def test_pause_already_paused(self):
+    async def test_pause_already_paused(self, mock_ctx):
         """Test pausing an already paused debate returns error."""
         # First pause
-        await intervention.handle_pause_debate("debate-123")
+        await intervention.handle_pause_debate("debate-123", mock_ctx)
 
         # Try to pause again
-        result = await intervention.handle_pause_debate("debate-123")
+        result = await intervention.handle_pause_debate("debate-123", mock_ctx)
 
         assert result.status_code == 200
         import json
@@ -74,13 +87,13 @@ class TestPauseResume:
         assert "already paused" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_resume_debate_success(self):
+    async def test_resume_debate_success(self, mock_ctx):
         """Test resuming a paused debate successfully."""
         # First pause the debate
-        await intervention.handle_pause_debate("debate-123")
+        await intervention.handle_pause_debate("debate-123", mock_ctx)
 
         # Now resume
-        result = await intervention.handle_resume_debate("debate-123")
+        result = await intervention.handle_resume_debate("debate-123", mock_ctx)
 
         assert result.status_code == 200
         import json
@@ -91,9 +104,9 @@ class TestPauseResume:
         assert "resumed_at" in body
 
     @pytest.mark.asyncio
-    async def test_resume_not_paused(self):
+    async def test_resume_not_paused(self, mock_ctx):
         """Test resuming a non-paused debate returns error."""
-        result = await intervention.handle_resume_debate("debate-123")
+        result = await intervention.handle_resume_debate("debate-123", mock_ctx)
 
         assert result.status_code == 200
         import json
@@ -103,13 +116,13 @@ class TestPauseResume:
         assert "not paused" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_pause_duration_calculated(self):
+    async def test_pause_duration_calculated(self, mock_ctx):
         """Test that pause duration is calculated on resume."""
         # Pause the debate
-        await intervention.handle_pause_debate("debate-123")
+        await intervention.handle_pause_debate("debate-123", mock_ctx)
 
         # Resume immediately
-        result = await intervention.handle_resume_debate("debate-123")
+        result = await intervention.handle_resume_debate("debate-123", mock_ctx)
 
         import json
 
@@ -128,7 +141,7 @@ class TestInjectArgument:
     """Tests for argument injection functionality."""
 
     @pytest.mark.asyncio
-    async def test_inject_argument_success(self):
+    async def test_inject_argument_success(self, mock_ctx):
         """Test injecting an argument successfully."""
         result = await intervention.handle_inject_argument(
             debate_id="debate-123",
@@ -136,6 +149,7 @@ class TestInjectArgument:
             injection_type="argument",
             source="user",
             user_id="user-456",
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -148,13 +162,14 @@ class TestInjectArgument:
         assert body["type"] == "argument"
 
     @pytest.mark.asyncio
-    async def test_inject_follow_up(self):
+    async def test_inject_follow_up(self, mock_ctx):
         """Test injecting a follow-up question."""
         result = await intervention.handle_inject_argument(
             debate_id="debate-123",
             content="Can you elaborate on this point?",
             injection_type="follow_up",
             source="user",
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -165,13 +180,14 @@ class TestInjectArgument:
         assert body["type"] == "follow_up"
 
     @pytest.mark.asyncio
-    async def test_inject_empty_content(self):
+    async def test_inject_empty_content(self, mock_ctx):
         """Test injecting empty content returns 400."""
         result = await intervention.handle_inject_argument(
             debate_id="debate-123",
             content="",
             injection_type="argument",
             source="user",
+            context=mock_ctx,
         )
 
         assert result.status_code == 400
@@ -182,13 +198,14 @@ class TestInjectArgument:
         assert "empty" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_inject_whitespace_content(self):
+    async def test_inject_whitespace_content(self, mock_ctx):
         """Test injecting whitespace-only content returns 400."""
         result = await intervention.handle_inject_argument(
             debate_id="debate-123",
             content="   ",
             injection_type="argument",
             source="user",
+            context=mock_ctx,
         )
 
         assert result.status_code == 400
@@ -198,7 +215,7 @@ class TestInjectArgument:
         assert body["success"] is False
 
     @pytest.mark.asyncio
-    async def test_inject_logged_to_audit(self):
+    async def test_inject_logged_to_audit(self, mock_ctx):
         """Test that injection is logged to audit trail."""
         await intervention.handle_inject_argument(
             debate_id="debate-123",
@@ -206,6 +223,7 @@ class TestInjectArgument:
             injection_type="argument",
             source="user",
             user_id="user-456",
+            context=mock_ctx,
         )
 
         # Check the intervention log
@@ -224,13 +242,14 @@ class TestWeightUpdate:
     """Tests for agent weight update functionality."""
 
     @pytest.mark.asyncio
-    async def test_update_weight_success(self):
+    async def test_update_weight_success(self, mock_ctx):
         """Test updating agent weight successfully."""
         result = await intervention.handle_update_weights(
             debate_id="debate-123",
             agent="claude",
             weight=1.5,
             user_id="admin-789",
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -243,12 +262,13 @@ class TestWeightUpdate:
         assert body["old_weight"] == 1.0  # Default weight
 
     @pytest.mark.asyncio
-    async def test_update_weight_invalid_too_high(self):
+    async def test_update_weight_invalid_too_high(self, mock_ctx):
         """Test updating weight above 2.0 returns 400."""
         result = await intervention.handle_update_weights(
             debate_id="debate-123",
             agent="claude",
             weight=2.5,
+            context=mock_ctx,
         )
 
         assert result.status_code == 400
@@ -259,12 +279,13 @@ class TestWeightUpdate:
         assert "between" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_update_weight_invalid_negative(self):
+    async def test_update_weight_invalid_negative(self, mock_ctx):
         """Test updating weight below 0 returns 400."""
         result = await intervention.handle_update_weights(
             debate_id="debate-123",
             agent="claude",
             weight=-0.5,
+            context=mock_ctx,
         )
 
         assert result.status_code == 400
@@ -274,12 +295,13 @@ class TestWeightUpdate:
         assert body["success"] is False
 
     @pytest.mark.asyncio
-    async def test_update_weight_muted(self):
+    async def test_update_weight_muted(self, mock_ctx):
         """Test setting weight to 0 (muted) works."""
         result = await intervention.handle_update_weights(
             debate_id="debate-123",
             agent="claude",
             weight=0.0,
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -290,12 +312,13 @@ class TestWeightUpdate:
         assert body["new_weight"] == 0.0
 
     @pytest.mark.asyncio
-    async def test_update_weight_double_influence(self):
+    async def test_update_weight_double_influence(self, mock_ctx):
         """Test setting weight to 2.0 (double influence) works."""
         result = await intervention.handle_update_weights(
             debate_id="debate-123",
             agent="claude",
             weight=2.0,
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -315,12 +338,13 @@ class TestThresholdUpdate:
     """Tests for consensus threshold update functionality."""
 
     @pytest.mark.asyncio
-    async def test_update_threshold_success(self):
+    async def test_update_threshold_success(self, mock_ctx):
         """Test updating consensus threshold successfully."""
         result = await intervention.handle_update_threshold(
             debate_id="debate-123",
             threshold=0.8,
             user_id="admin-789",
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -332,11 +356,12 @@ class TestThresholdUpdate:
         assert body["old_threshold"] == 0.75  # Default threshold
 
     @pytest.mark.asyncio
-    async def test_update_threshold_unanimous(self):
+    async def test_update_threshold_unanimous(self, mock_ctx):
         """Test setting threshold to 1.0 (unanimous) works."""
         result = await intervention.handle_update_threshold(
             debate_id="debate-123",
             threshold=1.0,
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -347,11 +372,12 @@ class TestThresholdUpdate:
         assert body["new_threshold"] == 1.0
 
     @pytest.mark.asyncio
-    async def test_update_threshold_simple_majority(self):
+    async def test_update_threshold_simple_majority(self, mock_ctx):
         """Test setting threshold to 0.5 (simple majority) works."""
         result = await intervention.handle_update_threshold(
             debate_id="debate-123",
             threshold=0.5,
+            context=mock_ctx,
         )
 
         assert result.status_code == 200
@@ -362,11 +388,12 @@ class TestThresholdUpdate:
         assert body["new_threshold"] == 0.5
 
     @pytest.mark.asyncio
-    async def test_update_threshold_invalid_too_low(self):
+    async def test_update_threshold_invalid_too_low(self, mock_ctx):
         """Test threshold below 0.5 returns 400."""
         result = await intervention.handle_update_threshold(
             debate_id="debate-123",
             threshold=0.4,
+            context=mock_ctx,
         )
 
         assert result.status_code == 400
@@ -377,11 +404,12 @@ class TestThresholdUpdate:
         assert "between" in body.get("error", "").lower()
 
     @pytest.mark.asyncio
-    async def test_update_threshold_invalid_too_high(self):
+    async def test_update_threshold_invalid_too_high(self, mock_ctx):
         """Test threshold above 1.0 returns 400."""
         result = await intervention.handle_update_threshold(
             debate_id="debate-123",
             threshold=1.5,
+            context=mock_ctx,
         )
 
         assert result.status_code == 400
@@ -400,9 +428,9 @@ class TestInterventionState:
     """Tests for intervention state retrieval."""
 
     @pytest.mark.asyncio
-    async def test_get_state_new_debate(self):
+    async def test_get_state_new_debate(self, mock_ctx):
         """Test getting state for a new debate returns defaults."""
-        result = await intervention.handle_get_intervention_state("debate-new")
+        result = await intervention.handle_get_intervention_state("debate-new", mock_ctx)
 
         assert result.status_code == 200
         import json
@@ -416,17 +444,25 @@ class TestInterventionState:
         assert body["pending_follow_ups"] == 0
 
     @pytest.mark.asyncio
-    async def test_get_state_after_interventions(self):
+    async def test_get_state_after_interventions(self, mock_ctx):
         """Test getting state after making interventions."""
         # Make some interventions
-        await intervention.handle_pause_debate("debate-123")
-        await intervention.handle_update_weights(debate_id="debate-123", agent="claude", weight=1.5)
-        await intervention.handle_update_threshold(debate_id="debate-123", threshold=0.9)
+        await intervention.handle_pause_debate("debate-123", mock_ctx)
+        await intervention.handle_update_weights(
+            debate_id="debate-123", agent="claude", weight=1.5, context=mock_ctx
+        )
+        await intervention.handle_update_threshold(
+            debate_id="debate-123", threshold=0.9, context=mock_ctx
+        )
         await intervention.handle_inject_argument(
-            debate_id="debate-123", content="Test", injection_type="argument", source="user"
+            debate_id="debate-123",
+            content="Test",
+            injection_type="argument",
+            source="user",
+            context=mock_ctx,
         )
 
-        result = await intervention.handle_get_intervention_state("debate-123")
+        result = await intervention.handle_get_intervention_state("debate-123", mock_ctx)
 
         import json
 
@@ -437,16 +473,20 @@ class TestInterventionState:
         assert body["pending_injections"] == 1
 
     @pytest.mark.asyncio
-    async def test_get_intervention_log(self):
+    async def test_get_intervention_log(self, mock_ctx):
         """Test getting intervention log entries."""
         # Make some interventions
-        await intervention.handle_pause_debate("debate-123")
-        await intervention.handle_resume_debate("debate-123")
+        await intervention.handle_pause_debate("debate-123", mock_ctx)
+        await intervention.handle_resume_debate("debate-123", mock_ctx)
         await intervention.handle_inject_argument(
-            debate_id="debate-123", content="Test", injection_type="argument", source="user"
+            debate_id="debate-123",
+            content="Test",
+            injection_type="argument",
+            source="user",
+            context=mock_ctx,
         )
 
-        result = await intervention.handle_get_intervention_log("debate-123")
+        result = await intervention.handle_get_intervention_log("debate-123", context=mock_ctx)
 
         assert result.status_code == 200
         import json
@@ -457,7 +497,7 @@ class TestInterventionState:
         assert len(body["interventions"]) == 3
 
     @pytest.mark.asyncio
-    async def test_get_intervention_log_limit(self):
+    async def test_get_intervention_log_limit(self, mock_ctx):
         """Test intervention log respects limit parameter."""
         # Make several interventions
         for i in range(10):
@@ -466,9 +506,12 @@ class TestInterventionState:
                 content=f"Test {i}",
                 injection_type="argument",
                 source="user",
+                context=mock_ctx,
             )
 
-        result = await intervention.handle_get_intervention_log("debate-123", limit=5)
+        result = await intervention.handle_get_intervention_log(
+            "debate-123", limit=5, context=mock_ctx
+        )
 
         import json
 
@@ -477,12 +520,12 @@ class TestInterventionState:
         assert len(body["interventions"]) == 5
 
     @pytest.mark.asyncio
-    async def test_get_intervention_log_sorted(self):
+    async def test_get_intervention_log_sorted(self, mock_ctx):
         """Test intervention log is sorted by timestamp descending."""
-        await intervention.handle_pause_debate("debate-123")
-        await intervention.handle_resume_debate("debate-123")
+        await intervention.handle_pause_debate("debate-123", mock_ctx)
+        await intervention.handle_resume_debate("debate-123", mock_ctx)
 
-        result = await intervention.handle_get_intervention_log("debate-123")
+        result = await intervention.handle_get_intervention_log("debate-123", context=mock_ctx)
 
         import json
 

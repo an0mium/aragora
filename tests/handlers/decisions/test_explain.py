@@ -227,18 +227,19 @@ class TestExplainRouting:
         assert not explain_handler.can_handle("/api/v1/decisions")
         assert not explain_handler.can_handle("/api/health")
 
-    def test_rate_limiting(self, explain_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_rate_limiting(self, explain_handler, mock_http_handler):
         """Test rate limiter enforces limits."""
         # Make many requests to trigger rate limit
         for i in range(35):
-            explain_handler.handle(
+            await explain_handler.handle(
                 path=f"/api/v1/decisions/request-{i}/explain",
                 query_params={},
                 handler=mock_http_handler,
             )
 
         # Next request should be rate limited
-        result = explain_handler.handle(
+        result = await explain_handler.handle(
             path="/api/v1/decisions/request-new/explain",
             query_params={},
             handler=mock_http_handler,
@@ -255,9 +256,10 @@ class TestExplainRouting:
 class TestExplanationGeneration:
     """Tests for explanation generation."""
 
-    def test_explain_not_found(self, explain_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_explain_not_found(self, explain_handler, mock_http_handler):
         """Test explain returns 404 when decision not found."""
-        result = explain_handler.handle(
+        result = await explain_handler.handle(
             path="/api/v1/decisions/nonexistent/explain",
             query_params={},
             handler=mock_http_handler,
@@ -267,9 +269,10 @@ class TestExplanationGeneration:
         body = json.loads(result.body)
         assert "not found" in body.get("error", "").lower()
 
-    def test_explain_no_nomic_dir(self, explain_handler_no_dir, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_explain_no_nomic_dir(self, explain_handler_no_dir, mock_http_handler):
         """Test explain returns 503 when nomic_dir not configured."""
-        result = explain_handler_no_dir.handle(
+        result = await explain_handler_no_dir.handle(
             path="/api/v1/decisions/request-123/explain",
             query_params={},
             handler=mock_http_handler,
@@ -279,7 +282,8 @@ class TestExplanationGeneration:
         body = json.loads(result.body)
         assert "not configured" in body.get("error", "").lower()
 
-    def test_explain_from_trace(self, explain_handler, mock_trace_file, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_explain_from_trace(self, explain_handler, mock_trace_file, mock_http_handler):
         """Test explanation loads from trace file."""
         mock_result = MockDebateResult(
             final_answer="Yes, proceed",
@@ -294,7 +298,7 @@ class TestExplanationGeneration:
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            result = explain_handler.handle(
+            result = await explain_handler.handle(
                 path="/api/v1/decisions/request-123/explain",
                 query_params={},
                 handler=mock_http_handler,
@@ -306,9 +310,10 @@ class TestExplanationGeneration:
             assert "reasoning" in body
             assert body["request_id"] == "request-123"
 
-    def test_explain_from_replay(self, explain_handler, mock_replay_dir, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_explain_from_replay(self, explain_handler, mock_replay_dir, mock_http_handler):
         """Test explanation falls back to replay events."""
-        result = explain_handler.handle(
+        result = await explain_handler.handle(
             path="/api/v1/decisions/request-456/explain",
             query_params={},
             handler=mock_http_handler,
@@ -417,7 +422,8 @@ class TestExplanationContent:
 class TestOutputFormats:
     """Tests for different output formats."""
 
-    def test_json_format_default(self, explain_handler, mock_trace_file, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_json_format_default(self, explain_handler, mock_trace_file, mock_http_handler):
         """Test JSON format is returned by default."""
         mock_result = MockDebateResult(consensus_proof=MockConsensusProof())
 
@@ -426,7 +432,7 @@ class TestOutputFormats:
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            result = explain_handler.handle(
+            result = await explain_handler.handle(
                 path="/api/v1/decisions/request-123/explain",
                 query_params={},
                 handler=mock_http_handler,
@@ -437,7 +443,8 @@ class TestOutputFormats:
             body = json.loads(result.body)
             assert isinstance(body, dict)
 
-    def test_markdown_format(self, explain_handler, mock_trace_file, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_markdown_format(self, explain_handler, mock_trace_file, mock_http_handler):
         """Test Markdown format output."""
         mock_result = MockDebateResult(
             final_answer="Proceed",
@@ -450,7 +457,7 @@ class TestOutputFormats:
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            result = explain_handler.handle(
+            result = await explain_handler.handle(
                 path="/api/v1/decisions/request-123/explain",
                 query_params={"format": "md"},
                 handler=mock_http_handler,
@@ -463,7 +470,8 @@ class TestOutputFormats:
             assert "# Decision Explanation" in content
             assert "## Summary" in content
 
-    def test_html_format(self, explain_handler, mock_trace_file, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_html_format(self, explain_handler, mock_trace_file, mock_http_handler):
         """Test HTML format output."""
         mock_result = MockDebateResult(
             final_answer="Proceed",
@@ -476,7 +484,7 @@ class TestOutputFormats:
             mock_trace.to_debate_result.return_value = mock_result
             MockTrace.load.return_value = mock_trace
 
-            result = explain_handler.handle(
+            result = await explain_handler.handle(
                 path="/api/v1/decisions/request-123/explain",
                 query_params={"format": "html"},
                 handler=mock_http_handler,
@@ -498,9 +506,10 @@ class TestOutputFormats:
 class TestHelperMethods:
     """Tests for helper methods."""
 
-    def test_invalid_request_id(self, explain_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_invalid_request_id(self, explain_handler, mock_http_handler):
         """Test invalid request ID format returns 400."""
-        result = explain_handler.handle(
+        result = await explain_handler.handle(
             path="/api/v1/decisions//explain",  # Empty ID
             query_params={},
             handler=mock_http_handler,

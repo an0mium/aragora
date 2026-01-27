@@ -72,10 +72,11 @@ class TestLeaderboardViewHandlerInit:
     def test_routes_defined(self, leaderboard_handler):
         """Test that handler routes are defined."""
         assert hasattr(leaderboard_handler, "ROUTES")
-        assert "/api/v1/leaderboard-view" in leaderboard_handler.ROUTES
+        # Routes use canonical path without version prefix
+        assert "/api/leaderboard-view" in leaderboard_handler.ROUTES
 
     def test_can_handle_leaderboard_view_path(self, leaderboard_handler):
-        """Test can_handle recognizes leaderboard-view path."""
+        """Test can_handle recognizes leaderboard-view path (with version prefix)."""
         assert leaderboard_handler.can_handle("/api/v1/leaderboard-view")
 
     def test_cannot_handle_other_paths(self, leaderboard_handler):
@@ -94,7 +95,8 @@ class TestLeaderboardViewHandlerInit:
 class TestLeaderboardView:
     """Tests for leaderboard view endpoint."""
 
-    def test_returns_consolidated_data(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_consolidated_data(self, leaderboard_handler, mock_http_handler):
         """Returns consolidated data with all sections."""
         # Mock all the fetch methods
         with patch.object(
@@ -131,7 +133,7 @@ class TestLeaderboardView:
                                 "_fetch_introspection",
                                 return_value={"agents": {}, "count": 0},
                             ):
-                                result = leaderboard_handler.handle(
+                                result = await leaderboard_handler.handle(
                                     "/api/v1/leaderboard-view", {}, mock_http_handler
                                 )
                                 assert result.status_code == 200
@@ -145,14 +147,16 @@ class TestLeaderboardView:
                                 assert "stats" in data["data"]
                                 assert "introspection" in data["data"]
 
-    def test_returns_none_for_unmatched_path(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_returns_none_for_unmatched_path(self, leaderboard_handler, mock_http_handler):
         """Returns None for paths that don't match."""
-        result = leaderboard_handler.handle("/api/other/endpoint", {}, mock_http_handler)
+        result = await leaderboard_handler.handle("/api/other/endpoint", {}, mock_http_handler)
         assert result is None
 
-    def test_validates_domain_parameter(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_validates_domain_parameter(self, leaderboard_handler, mock_http_handler):
         """Validates domain parameter for safe characters."""
-        result = leaderboard_handler.handle(
+        result = await leaderboard_handler.handle(
             "/api/v1/leaderboard-view",
             {"domain": ["<script>"]},
             mock_http_handler,
@@ -161,9 +165,10 @@ class TestLeaderboardView:
         data = json.loads(result.body)
         assert "domain" in data.get("error", "").lower()
 
-    def test_validates_loop_id_parameter(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_validates_loop_id_parameter(self, leaderboard_handler, mock_http_handler):
         """Validates loop_id parameter for safe characters."""
-        result = leaderboard_handler.handle(
+        result = await leaderboard_handler.handle(
             "/api/v1/leaderboard-view",
             {"loop_id": ["../../../etc/passwd"]},
             mock_http_handler,
@@ -172,7 +177,8 @@ class TestLeaderboardView:
         data = json.loads(result.body)
         assert "loop_id" in data.get("error", "").lower()
 
-    def test_accepts_valid_parameters(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_accepts_valid_parameters(self, leaderboard_handler, mock_http_handler):
         """Accepts valid limit, domain, and loop_id parameters."""
         with patch.object(
             leaderboard_handler, "_fetch_rankings", return_value={"agents": [], "count": 0}
@@ -208,7 +214,7 @@ class TestLeaderboardView:
                                 "_fetch_introspection",
                                 return_value={"agents": {}, "count": 0},
                             ):
-                                result = leaderboard_handler.handle(
+                                result = await leaderboard_handler.handle(
                                     "/api/v1/leaderboard-view",
                                     {
                                         "limit": ["20"],
@@ -423,7 +429,8 @@ class TestFetchIntrospection:
 class TestLeaderboardRateLimiting:
     """Tests for rate limiting."""
 
-    def test_rate_limit_after_multiple_requests(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_rate_limit_after_multiple_requests(self, leaderboard_handler, mock_http_handler):
         """Returns 429 after exceeding rate limit."""
         # Mock all fetch methods to avoid actual data fetching
         with patch.object(
@@ -466,7 +473,7 @@ class TestLeaderboardRateLimiting:
                                     mock_handler.client_address = ("192.168.1.75", 12345)
                                     mock_handler.headers = {}
 
-                                    result = leaderboard_handler.handle(
+                                    result = await leaderboard_handler.handle(
                                         "/api/v1/leaderboard-view", {}, mock_handler
                                     )
 
@@ -487,7 +494,8 @@ class TestLeaderboardRateLimiting:
 class TestLeaderboardErrorHandling:
     """Tests for error handling."""
 
-    def test_handles_partial_failures(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handles_partial_failures(self, leaderboard_handler, mock_http_handler):
         """Returns partial data when some sections fail."""
         # Mock some methods to succeed and some to fail
         with patch.object(
@@ -526,7 +534,7 @@ class TestLeaderboardErrorHandling:
                                 "_fetch_introspection",
                                 return_value={"agents": {}, "count": 0},
                             ):
-                                result = leaderboard_handler.handle(
+                                result = await leaderboard_handler.handle(
                                     "/api/v1/leaderboard-view", {}, mock_http_handler
                                 )
                                 assert result.status_code == 200
@@ -537,7 +545,8 @@ class TestLeaderboardErrorHandling:
                                 # Rankings should still be present
                                 assert data["data"]["rankings"]["count"] == 1
 
-    def test_provides_fallback_on_all_failures(self, leaderboard_handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_provides_fallback_on_all_failures(self, leaderboard_handler, mock_http_handler):
         """Provides fallback data when all sections fail."""
         with patch.object(
             leaderboard_handler,
@@ -569,7 +578,7 @@ class TestLeaderboardErrorHandling:
                                 "_fetch_introspection",
                                 side_effect=RuntimeError("Introspection failed"),
                             ):
-                                result = leaderboard_handler.handle(
+                                result = await leaderboard_handler.handle(
                                     "/api/v1/leaderboard-view", {}, mock_http_handler
                                 )
                                 assert result.status_code == 200
