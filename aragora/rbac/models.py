@@ -111,6 +111,9 @@ class ResourceType(str, Enum):
     # Replay management
     REPLAY = "replays"  # Debate replay recordings
 
+    # User feedback and engagement
+    FEEDBACK = "feedback"  # User feedback and NPS data
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

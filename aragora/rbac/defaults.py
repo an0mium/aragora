@@ -282,6 +282,20 @@ PERM_BOTS_READ = _permission(
     ResourceType.BOT, Action.READ, "View Bot Status", "View bot integration status"
 )
 
+# Feedback permissions
+PERM_FEEDBACK_READ = _permission(
+    ResourceType.FEEDBACK, Action.READ, "View Feedback", "View user feedback and NPS data"
+)
+PERM_FEEDBACK_WRITE = _permission(
+    ResourceType.FEEDBACK, Action.WRITE, "Submit Feedback", "Submit user feedback"
+)
+PERM_FEEDBACK_ALL = _permission(
+    ResourceType.FEEDBACK,
+    Action.UPDATE,
+    "Feedback Admin",
+    "Full feedback administration including summaries",
+)
+
 # Device permissions
 PERM_DEVICE_READ = _permission(
     ResourceType.DEVICE, Action.READ, "View Devices", "View registered devices"
@@ -1212,6 +1226,10 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_CONNECTOR_DELETE,
         # Bots
         PERM_BOTS_READ,
+        # Feedback
+        PERM_FEEDBACK_READ,
+        PERM_FEEDBACK_WRITE,
+        PERM_FEEDBACK_ALL,
         # Devices
         PERM_DEVICE_READ,
         PERM_DEVICE_WRITE,
@@ -1509,6 +1527,10 @@ ROLE_ADMIN = Role(
         PERM_CONNECTOR_DELETE.key,
         # Bots
         PERM_BOTS_READ.key,
+        # Feedback (all operations including admin)
+        PERM_FEEDBACK_READ.key,
+        PERM_FEEDBACK_WRITE.key,
+        PERM_FEEDBACK_ALL.key,
         # Devices
         PERM_DEVICE_READ.key,
         PERM_DEVICE_WRITE.key,
@@ -1767,6 +1789,9 @@ ROLE_MEMBER = Role(
         PERM_INBOX_UPDATE.key,
         # Bots
         PERM_BOTS_READ.key,
+        # Feedback (read + write own)
+        PERM_FEEDBACK_READ.key,
+        PERM_FEEDBACK_WRITE.key,
         # Devices
         PERM_DEVICE_READ.key,
         PERM_DEVICE_WRITE.key,
