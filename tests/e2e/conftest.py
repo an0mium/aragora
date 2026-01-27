@@ -25,8 +25,7 @@ import pytest_asyncio
 
 pytestmark = pytest.mark.e2e
 
-# Configure pytest-asyncio for E2E tests - use function scope to match global config
-pytest_plugins = ["pytest_asyncio"]
+# Note: pytest-asyncio configured in pyproject.toml with asyncio_mode = "auto"
 
 
 def pytest_collection_modifyitems(config, items):
