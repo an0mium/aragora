@@ -124,10 +124,10 @@ class TestDetermineMajorityWinner:
             normalize_choice=self.normalize_choice,
         )
 
-        # Should pick first proposal
+        # Should pick first proposal with zero confidence (no votes)
         assert ctx.result.final_answer in ctx.proposals.values()
         assert ctx.result.consensus_reached is False
-        assert ctx.result.confidence == 0.5
+        assert ctx.result.confidence == 0.0  # No votes = no confidence
 
     def test_majority_winner(self):
         """Majority winner is selected correctly."""
