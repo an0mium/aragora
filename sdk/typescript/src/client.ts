@@ -182,6 +182,8 @@ import {
   NomicAPI,
   CrossPollinationAPI,
   DecisionsAPI,
+  CritiquesAPI,
+  BeliefNetworkAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -419,6 +421,18 @@ export class AragoraClient {
    */
   readonly decisions: DecisionsAPI;
 
+  /**
+   * Critiques API namespace.
+   * Provides methods for accessing critique patterns and archives.
+   */
+  readonly critiques: CritiquesAPI;
+
+  /**
+   * Belief Network API namespace.
+   * Provides methods for analyzing debate belief structures, cruxes, and load-bearing claims.
+   */
+  readonly beliefNetwork: BeliefNetworkAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -464,6 +478,8 @@ export class AragoraClient {
     this.nomic = new NomicAPI(this);
     this.crossPollination = new CrossPollinationAPI(this);
     this.decisions = new DecisionsAPI(this);
+    this.critiques = new CritiquesAPI(this);
+    this.beliefNetwork = new BeliefNetworkAPI(this);
   }
 
   // ===========================================================================
