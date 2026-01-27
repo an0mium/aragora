@@ -216,7 +216,7 @@ class TestResourceAccess:
             owner_only_policy,
         )
 
-        # Not owner - denied
+        # Not owner - denied (can be via custom policy or ABAC conditions)
         decision = checker.check_resource_access(
             context,
             resource_type=ResourceType.DEBATE,
@@ -225,7 +225,7 @@ class TestResourceAccess:
             resource_attrs={"owner_id": "other-user"},
         )
         assert decision.allowed is False
-        assert "policy" in decision.reason.lower()
+        assert "policy" in decision.reason.lower() or "owner" in decision.reason.lower()
 
         # Is owner - allowed
         decision = checker.check_resource_access(
