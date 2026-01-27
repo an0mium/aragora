@@ -27,7 +27,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.responses import HandlerResult
-from aragora.server.handlers.secure import SecureHandler
+from aragora.server.handlers.secure import ForbiddenError, SecureHandler, UnauthorizedError
 from aragora.storage.integration_store import (
     IntegrationConfig,
     VALID_INTEGRATION_TYPES,
@@ -64,22 +64,48 @@ class IntegrationStatus:
 # =============================================================================
 
 
+# Permission constants for integration management
+INTEGRATION_READ_PERMISSION = "integrations:read"
+INTEGRATION_WRITE_PERMISSION = "integrations:write"
+INTEGRATION_DELETE_PERMISSION = "integrations:delete"
+
+
 class IntegrationsHandler(SecureHandler):
     """Handler for integration management endpoints.
 
     Extends SecureHandler for JWT-based authentication and audit logging.
+
+    RBAC Protected:
+    - integrations:read - required for GET endpoints (status, get)
+    - integrations:write - required for PUT/PATCH endpoints (configure, update, test)
+    - integrations:delete - required for DELETE endpoints
     """
 
     RESOURCE_TYPE = "integration"
 
-    """Handler for integration management endpoints."""
+    async def _check_permission(self, handler: Any, permission: str) -> Optional[HandlerResult]:
+        """Check if user has required permission. Returns error response if denied."""
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, permission)
+            return None  # Permission granted
+        except UnauthorizedError:
+            return error_response("Authentication required", status=401)
+        except ForbiddenError as e:
+            return error_response(str(e), status=403)
 
-    async def get_status(self, user_id: str = "default") -> HandlerResult:
+    async def get_status(self, user_id: str = "default", handler: Any = None) -> HandlerResult:
         """Get status of all integrations.
 
         Returns:
             Status for each integration type
         """
+        # RBAC: Require integrations:read permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_READ_PERMISSION)
+            if error:
+                return error
+
         store = get_integration_store()
         statuses: List[IntegrationStatus] = []
 
@@ -111,17 +137,24 @@ class IntegrationsHandler(SecureHandler):
         return json_response({"integrations": [s.to_dict() for s in statuses]})
 
     async def get_integration(
-        self, integration_type: str, user_id: str = "default"
+        self, integration_type: str, user_id: str = "default", handler: Any = None
     ) -> HandlerResult:
         """Get configuration for specific integration.
 
         Args:
             integration_type: Type of integration (slack, discord, etc.)
             user_id: User/workspace ID
+            handler: Optional request handler for RBAC
 
         Returns:
             Integration configuration
         """
+        # RBAC: Require integrations:read permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_READ_PERMISSION)
+            if error:
+                return error
+
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
@@ -138,6 +171,7 @@ class IntegrationsHandler(SecureHandler):
         integration_type: str,
         data: Dict[str, Any],
         user_id: str = "default",
+        handler: Any = None,
     ) -> HandlerResult:
         """Configure or update an integration.
 
@@ -145,10 +179,17 @@ class IntegrationsHandler(SecureHandler):
             integration_type: Type of integration
             data: Configuration data
             user_id: User/workspace ID
+            handler: Optional request handler for RBAC
 
         Returns:
             Updated configuration
         """
+        # RBAC: Require integrations:write permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if error:
+                return error
+
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
@@ -226,6 +267,7 @@ class IntegrationsHandler(SecureHandler):
         integration_type: str,
         data: Dict[str, Any],
         user_id: str = "default",
+        handler: Any = None,
     ) -> HandlerResult:
         """Partial update for integration (e.g., enable/disable).
 
@@ -233,10 +275,17 @@ class IntegrationsHandler(SecureHandler):
             integration_type: Type of integration
             data: Fields to update
             user_id: User/workspace ID
+            handler: Optional request handler for RBAC
 
         Returns:
             Updated configuration
         """
+        # RBAC: Require integrations:write permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if error:
+                return error
+
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
@@ -266,17 +315,24 @@ class IntegrationsHandler(SecureHandler):
         return json_response({"integration": config.to_dict()})
 
     async def delete_integration(
-        self, integration_type: str, user_id: str = "default"
+        self, integration_type: str, user_id: str = "default", handler: Any = None
     ) -> HandlerResult:
         """Delete integration configuration.
 
         Args:
             integration_type: Type of integration
             user_id: User/workspace ID
+            handler: Optional request handler for RBAC
 
         Returns:
             Success message
         """
+        # RBAC: Require integrations:delete permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_DELETE_PERMISSION)
+            if error:
+                return error
+
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 
@@ -290,17 +346,24 @@ class IntegrationsHandler(SecureHandler):
         return json_response({"message": f"Integration {integration_type} deleted"})
 
     async def test_integration(
-        self, integration_type: str, user_id: str = "default"
+        self, integration_type: str, user_id: str = "default", handler: Any = None
     ) -> HandlerResult:
         """Test integration connection.
 
         Args:
             integration_type: Type of integration
             user_id: User/workspace ID
+            handler: Optional request handler for RBAC
 
         Returns:
             Test result
         """
+        # RBAC: Require integrations:write permission
+        if handler:
+            error = await self._check_permission(handler, INTEGRATION_WRITE_PERMISSION)
+            if error:
+                return error
+
         if integration_type not in VALID_INTEGRATION_TYPES:
             return error_response(f"Invalid integration type: {integration_type}", status=400)
 

@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 # Try to import handler base
 try:
     from ..base import (
-        BaseHandler,
         HandlerResult,
         error_response,
         json_response,
     )
+    from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 
     HANDLER_BASE_AVAILABLE = True
 except ImportError:
@@ -32,6 +32,10 @@ except ImportError:
     logger.warning(
         "Handler base not available - CloudStorageHandler will have limited functionality"
     )
+
+# Permission constants for cloud storage operations
+CLOUD_READ_PERMISSION = "cloud:read"
+CLOUD_WRITE_PERMISSION = "cloud:write"
 
 
 # Supported providers
@@ -210,7 +214,7 @@ async def download_file(provider: str, file_id: str) -> Optional[bytes]:
 # HTTP Handler
 if HANDLER_BASE_AVAILABLE:
 
-    class CloudStorageHandler(BaseHandler):
+    class CloudStorageHandler(SecureHandler):
         """HTTP handler for cloud storage operations."""
 
         ROUTES = [
@@ -230,13 +234,22 @@ if HANDLER_BASE_AVAILABLE:
             """Check if this handler can process the given path."""
             return path.startswith("/api/v1/cloud/")
 
-        def handle(
+        async def handle(
             self,
             path: str,
             query_params: Dict[str, Any],
             handler: Any,
         ) -> Optional[HandlerResult]:
             """Route cloud storage requests."""
+            # RBAC: Require authentication and cloud:read permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, CLOUD_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
+
             if path == "/api/v1/cloud/status":
                 return json_response(get_all_provider_status())
 
@@ -268,13 +281,22 @@ if HANDLER_BASE_AVAILABLE:
 
             return error_response("Not found", 404)
 
-        def handle_post(
+        async def handle_post(
             self,
             path: str,
             body: Dict[str, Any],
             handler: Any,
         ) -> Optional[HandlerResult]:
             """Handle POST requests."""
+            # RBAC: Require authentication and cloud:write permission
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, CLOUD_WRITE_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
+
             parts = path.split("/")
             if len(parts) < 6:
                 return error_response("Invalid path", 400)

@@ -31,6 +31,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,7 @@ class IntegrationsHandler(BaseHandler):
             logger.exception(f"Error handling integration request: {e}")
             return error_response(f"Internal error: {str(e)}", 500)
 
+    @require_permission("integrations.read")
     async def _list_integrations(
         self, tenant_id: Optional[str], query_params: Dict[str, str]
     ) -> HandlerResult:
@@ -242,6 +244,7 @@ class IntegrationsHandler(BaseHandler):
             }
         )
 
+    @require_permission("integrations.read")
     async def _get_integration(
         self,
         integration_type: str,
@@ -339,6 +342,7 @@ class IntegrationsHandler(BaseHandler):
 
         return error_response(f"Unknown integration type: {integration_type}", 400)
 
+    @require_permission("integrations.delete")
     async def _disconnect_integration(
         self,
         integration_type: str,
@@ -396,6 +400,7 @@ class IntegrationsHandler(BaseHandler):
 
         return error_response(f"Cannot disconnect {integration_type}: not supported", 400)
 
+    @require_permission("integrations.read")
     async def _test_integration(
         self,
         integration_type: str,
@@ -465,6 +470,7 @@ class IntegrationsHandler(BaseHandler):
 
         return error_response(f"Cannot test {integration_type}", 400)
 
+    @require_permission("integrations.read")
     async def _get_health(
         self,
         integration_type: str,
@@ -606,6 +612,7 @@ class IntegrationsHandler(BaseHandler):
 
         return error_response(f"Unknown integration type: {integration_type}", 400)
 
+    @require_permission("integrations.read")
     async def _get_stats(self, tenant_id: Optional[str]) -> HandlerResult:
         """Get integration statistics."""
         slack_store = self._get_slack_store()

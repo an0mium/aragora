@@ -19,7 +19,48 @@ from typing import Any, Dict, Optional
 
 from aiohttp import web
 
+from aragora.rbac.checker import get_permission_checker
+
 logger = logging.getLogger(__name__)
+
+# Permission constants for quick scan operations
+SCAN_READ_PERMISSION = "codebase:scan:read"
+SCAN_EXECUTE_PERMISSION = "codebase:scan:execute"
+
+
+async def _check_permission(request: web.Request, permission: str) -> Optional[web.Response]:
+    """Check if user has required permission. Returns error response if denied."""
+    try:
+        # Get auth context from request
+        auth_context = getattr(request, "auth_context", None)
+        if not auth_context:
+            return web.json_response(
+                {"success": False, "error": "Authentication required"},
+                status=401,
+            )
+
+        # Check permission
+        checker = get_permission_checker()
+        user_id = getattr(auth_context, "user_id", None)
+        if not user_id:
+            return web.json_response(
+                {"success": False, "error": "Authentication required"},
+                status=401,
+            )
+
+        if not checker.has_permission(user_id, permission):
+            return web.json_response(
+                {"success": False, "error": f"Permission denied: {permission}"},
+                status=403,
+            )
+        return None  # Permission granted
+    except Exception as e:
+        logger.warning(f"Permission check failed: {e}")
+        return web.json_response(
+            {"success": False, "error": "Authentication required"},
+            status=401,
+        )
+
 
 # In-memory storage for scan results
 _quick_scan_results: Dict[str, Dict[str, Any]] = {}
@@ -265,6 +306,11 @@ class QuickScanHandler:
             - severity_threshold: Minimum severity (default: medium)
             - include_secrets: Include secrets scan (default: true)
         """
+        # RBAC: Require codebase:scan:execute permission
+        auth_error = await _check_permission(request, SCAN_EXECUTE_PERMISSION)
+        if auth_error:
+            return auth_error
+
         try:
             body = await request.json()
             repo_path = body.get("repo_path")
@@ -305,6 +351,11 @@ class QuickScanHandler:
 
         Get result of a quick scan.
         """
+        # RBAC: Require codebase:scan:read permission
+        auth_error = await _check_permission(request, SCAN_READ_PERMISSION)
+        if auth_error:
+            return auth_error
+
         try:
             scan_id = request.match_info.get("scan_id")
             if not scan_id:
@@ -335,6 +386,11 @@ class QuickScanHandler:
 
         List recent quick scans.
         """
+        # RBAC: Require codebase:scan:read permission
+        auth_error = await _check_permission(request, SCAN_READ_PERMISSION)
+        if auth_error:
+            return auth_error
+
         try:
             limit = int(request.query.get("limit", "20"))
             offset = int(request.query.get("offset", "0"))

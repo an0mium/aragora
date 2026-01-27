@@ -28,11 +28,19 @@ from aragora.analysis.codebase import (
     MetricsReport,
 )
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.secure import (
+    ForbiddenError,
+    SecureHandler,
+    UnauthorizedError,
+)
+
+# Permission constants for codebase metrics operations
+METRICS_READ_PERMISSION = "codebase:metrics:read"
+METRICS_ANALYZE_PERMISSION = "codebase:metrics:analyze"
 
 logger = logging.getLogger(__name__)
 
@@ -439,7 +447,7 @@ async def handle_list_analyses(
 # =============================================================================
 
 
-class MetricsHandler(BaseHandler):
+class MetricsHandler(SecureHandler):
     """
     HTTP handler for codebase metrics endpoints.
 
@@ -463,13 +471,33 @@ class MetricsHandler(BaseHandler):
                     return True
         return False
 
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route metrics endpoint requests."""
+        # RBAC: Require authentication and metrics:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, METRICS_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
         return None
 
-    async def handle_post_analyze(self, data: Dict[str, Any], repo_id: str) -> HandlerResult:
+    async def handle_post_analyze(
+        self, data: Dict[str, Any], repo_id: str, handler: Any = None
+    ) -> HandlerResult:
+        """POST /api/v1/codebase/{repo}/metrics/analyze"""
+        # RBAC: Require codebase:metrics:analyze permission
+        if handler:
+            try:
+                auth_context = await self.get_auth_context(handler, require_auth=True)
+                self.check_permission(auth_context, METRICS_ANALYZE_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         """POST /api/v1/codebase/{repo}/metrics/analyze"""
         repo_path = data.get("repo_path")
         if not repo_path:

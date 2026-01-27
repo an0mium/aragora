@@ -32,12 +32,17 @@ import logging
 from typing import Any, Dict, Optional
 
 from ..base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     json_response,
     success_response,
 )
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
+
+# Permission constants for DevOps operations
+DEVOPS_READ_PERMISSION = "devops:read"
+DEVOPS_WRITE_PERMISSION = "devops:write"
+DEVOPS_WEBHOOK_PERMISSION = "devops:webhook"
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +99,7 @@ async def get_pagerduty_connector(tenant_id: str):
 # =============================================================================
 
 
-class DevOpsHandler(BaseHandler):
+class DevOpsHandler(SecureHandler):
     """Handler for DevOps incident management API endpoints."""
 
     ROUTES = [
@@ -131,6 +136,21 @@ class DevOpsHandler(BaseHandler):
         self, request: Any, path: str, method: str
     ) -> HandlerResult:
         """Route requests to appropriate handler methods."""
+        # RBAC: Require authentication and appropriate permission
+        try:
+            auth_context = await self.get_auth_context(request, require_auth=True)
+            # Determine required permission based on method and path
+            if path == "/api/v1/webhooks/pagerduty":
+                self.check_permission(auth_context, DEVOPS_WEBHOOK_PERMISSION)
+            elif method in ("POST", "PUT", "DELETE"):
+                self.check_permission(auth_context, DEVOPS_WRITE_PERMISSION)
+            else:
+                self.check_permission(auth_context, DEVOPS_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         try:
             tenant_id = self._get_tenant_id(request)
 

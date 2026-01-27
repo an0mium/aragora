@@ -29,12 +29,21 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.secure import (
+    ForbiddenError,
+    SecureHandler,
+    UnauthorizedError,
+)
 from aragora.services import ServiceRegistry
+
+# Permission constants for codebase intelligence operations
+CODEBASE_READ_PERMISSION = "codebase:read"
+CODEBASE_ANALYZE_PERMISSION = "codebase:analyze"
+CODEBASE_AUDIT_PERMISSION = "codebase:audit"
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +155,7 @@ def _get_or_create_repo_audits(repo_id: str) -> Dict[str, Any]:
 # =============================================================================
 
 
-class IntelligenceHandler(BaseHandler):
+class IntelligenceHandler(SecureHandler):
     """Handler class for code intelligence endpoints."""
 
     ROUTES = [
@@ -177,38 +186,119 @@ class IntelligenceHandler(BaseHandler):
             return True
         return False
 
-    async def analyze(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _check_permission(self, handler: Any, permission: str) -> None:
+        """Check if user has required permission."""
+        auth_context = await self.get_auth_context(handler, require_auth=True)
+        self.check_permission(auth_context, permission)
+
+    async def analyze(
+        self, repo_id: str, body: Dict[str, Any], handler: Any = None
+    ) -> HandlerResult:
         """Analyze codebase structure and extract symbols."""
+        # RBAC: Require codebase:analyze permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_ANALYZE_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_analyze_codebase(repo_id, body)
 
-    async def get_symbols(self, repo_id: str, params: Dict[str, Any]) -> HandlerResult:
+    async def get_symbols(
+        self, repo_id: str, params: Dict[str, Any], handler: Any = None
+    ) -> HandlerResult:
         """Get symbols from the codebase."""
+        # RBAC: Require codebase:read permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_get_symbols(repo_id, params)
 
-    async def get_callgraph(self, repo_id: str, params: Dict[str, Any]) -> HandlerResult:
+    async def get_callgraph(
+        self, repo_id: str, params: Dict[str, Any], handler: Any = None
+    ) -> HandlerResult:
         """Get call graph for the codebase."""
+        # RBAC: Require codebase:analyze permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_ANALYZE_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_get_callgraph(repo_id, params)
 
-    async def find_deadcode(self, repo_id: str, params: Dict[str, Any]) -> HandlerResult:
+    async def find_deadcode(
+        self, repo_id: str, params: Dict[str, Any], handler: Any = None
+    ) -> HandlerResult:
         """Find dead/unreachable code."""
+        # RBAC: Require codebase:analyze permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_ANALYZE_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_find_deadcode(repo_id, params)
 
-    async def analyze_impact(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def analyze_impact(
+        self, repo_id: str, body: Dict[str, Any], handler: Any = None
+    ) -> HandlerResult:
         """Analyze impact of changes to a symbol."""
+        # RBAC: Require codebase:analyze permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_ANALYZE_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_analyze_impact(repo_id, body)
 
-    async def understand(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def understand(
+        self, repo_id: str, body: Dict[str, Any], handler: Any = None
+    ) -> HandlerResult:
         """Answer questions about the codebase."""
+        # RBAC: Require codebase:read permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_understand(repo_id, body)
 
-    async def audit(self, repo_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def audit(self, repo_id: str, body: Dict[str, Any], handler: Any = None) -> HandlerResult:
         """Run comprehensive code audit."""
+        # RBAC: Require codebase:audit permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_AUDIT_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_audit(repo_id, body)
 
     async def get_audit_status(
-        self, repo_id: str, audit_id: str, params: Dict[str, Any]
+        self, repo_id: str, audit_id: str, params: Dict[str, Any], handler: Any = None
     ) -> HandlerResult:
         """Get status of an audit."""
+        # RBAC: Require codebase:read permission
+        if handler:
+            try:
+                await self._check_permission(handler, CODEBASE_READ_PERMISSION)
+            except UnauthorizedError:
+                return error_response("Authentication required", 401)
+            except ForbiddenError as e:
+                return error_response(str(e), 403)
         return await handle_get_audit_status(repo_id, audit_id, params)
 
 

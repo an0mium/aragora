@@ -18,9 +18,28 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from aragora.server.handlers.base import BaseHandler
+
+# RBAC imports - graceful fallback if not available
+try:
+    from aragora.rbac import AuthorizationContext, check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+    AuthorizationContext = None  # type: ignore[misc]
+    check_permission = None
+
+# JWT auth import for extracting user context
+try:
+    from aragora.billing.jwt_auth import extract_user_from_request
+
+    JWT_AUTH_AVAILABLE = True
+except ImportError:
+    JWT_AUTH_AVAILABLE = False
+    extract_user_from_request = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +60,10 @@ class DeliberationsHandler(BaseHandler):
     Handler for vetted decisionmaking dashboard endpoints.
 
     Provides visibility into multi-agent vetted decisionmaking sessions across the system.
+
+    RBAC Permissions:
+    - deliberation.read - View active deliberations, stats, individual deliberation details
+    - deliberation.create - Create new deliberations (via WebSocket stream)
     """
 
     ROUTES = [
@@ -50,27 +73,87 @@ class DeliberationsHandler(BaseHandler):
         "/api/v1/deliberations/{deliberation_id}",
     ]
 
+    def _get_auth_context(self, request: Any) -> Optional["AuthorizationContext"]:
+        """Build RBAC authorization context from request.
+
+        Returns None if RBAC/JWT auth is not available (allows request in dev mode).
+        """
+        if not RBAC_AVAILABLE or not JWT_AUTH_AVAILABLE or AuthorizationContext is None:
+            return None
+
+        try:
+            # Extract user from JWT token
+            auth_ctx = extract_user_from_request(request, user_store=None)
+            if not auth_ctx or not auth_ctx.is_authenticated:
+                return None
+
+            # Build RBAC context
+            roles = set([auth_ctx.role]) if hasattr(auth_ctx, "role") and auth_ctx.role else set()
+
+            return AuthorizationContext(
+                user_id=auth_ctx.user_id,
+                roles=roles,
+                org_id=getattr(auth_ctx, "org_id", None),
+            )
+        except Exception as e:
+            logger.debug(f"Failed to extract auth context: {e}")
+            return None
+
+    def _check_rbac_permission(
+        self, request: Any, permission_key: str
+    ) -> Optional[tuple[dict[str, Any], int]]:
+        """Check RBAC permission.
+
+        Returns None if allowed, or an error response tuple if denied.
+        If RBAC is not available, allows the request (development mode).
+        """
+        if not RBAC_AVAILABLE or check_permission is None:
+            return None
+
+        rbac_ctx = self._get_auth_context(request)
+        if not rbac_ctx:
+            # No auth context - in dev mode, allow request
+            return None
+
+        decision = check_permission(rbac_ctx, permission_key)
+        if not decision.allowed:
+            logger.warning(
+                f"RBAC denied: user={rbac_ctx.user_id} permission={permission_key} "
+                f"reason={decision.reason}"
+            )
+            return {"error": f"Permission denied: {decision.reason}"}, 403
+
+        return None
+
     async def handle_request(self, request: Any) -> Any:
         """Route request to appropriate handler."""
         path = request.path
         method = request.method
 
-        # Active deliberations
+        # Active deliberations - requires deliberation.read
         if path == "/api/v1/deliberations/active" and method == "GET":
+            if rbac_error := self._check_rbac_permission(request, "deliberation.read"):
+                return rbac_error
             return await self._get_active_deliberations(request)
 
-        # Stats
+        # Stats - requires deliberation.read
         if path == "/api/v1/deliberations/stats" and method == "GET":
+            if rbac_error := self._check_rbac_permission(request, "deliberation.read"):
+                return rbac_error
             return await self._get_stats(request)
 
-        # WebSocket stream
+        # WebSocket stream - requires deliberation.create for subscribing to updates
         if path == "/api/v1/deliberations/stream":
+            if rbac_error := self._check_rbac_permission(request, "deliberation.create"):
+                return rbac_error
             return await self._handle_stream(request)
 
-        # Single deliberation
+        # Single deliberation - requires deliberation.read
         if path.startswith("/api/v1/deliberations/") and method == "GET":
             deliberation_id = path.split("/")[-1]
             if deliberation_id not in ("active", "stats", "stream"):
+                if rbac_error := self._check_rbac_permission(request, "deliberation.read"):
+                    return rbac_error
                 return await self._get_deliberation(request, deliberation_id)
 
         return {"error": "Not found"}, 404
