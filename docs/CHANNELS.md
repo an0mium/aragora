@@ -138,6 +138,21 @@ Each platform implements a `ChannelDock` that declares capabilities
 (buttons, threads, files, voice) and renders the normalized message into the
 platform’s native format.
 
+### Dock Registry
+
+Use the dock registry to discover and initialize platform docks:
+
+```python
+from aragora.channels.registry import get_dock_registry
+from aragora.channels.docks.slack import SlackDock
+
+registry = get_dock_registry()
+registry.register(SlackDock)
+
+dock = await registry.get_initialized_dock("slack")
+await dock.send_message("C123456", message)
+```
+
 ---
 
 ## Voice Integration

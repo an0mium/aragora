@@ -131,6 +131,9 @@ class DebateContext:
     available_agents: list["Agent"] = field(default_factory=list)
     """Agents that passed circuit breaker filter."""
 
+    hierarchy_assignments: dict[str, Any] = field(default_factory=dict)
+    """Gastown-inspired role assignments (agent_name -> RoleAssignment)."""
+
     # =========================================================================
     # Core Debate State (mutated during execution)
     # =========================================================================

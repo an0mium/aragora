@@ -36,6 +36,7 @@ from aragora.debate.convergence import (
 from aragora.debate.event_emission import EventEmitter
 from aragora.debate.lifecycle_manager import LifecycleManager
 from aragora.debate.grounded_operations import GroundedOperations
+from aragora.debate.hierarchy import AgentHierarchy, HierarchyConfig
 from aragora.debate.prompt_context import PromptContextBuilder
 from aragora.debate.event_bus import EventBus
 from aragora.debate.judge_selector import JudgeSelector
@@ -204,6 +205,9 @@ class Arena:
         airlock_config=None,  # Optional AirlockConfig for customization
         agent_selector=None,  # Optional AgentSelector for performance-based team selection
         use_performance_selection: bool = False,  # Enable ELO/calibration-based agent selection
+        # Gastown-inspired agent hierarchy (orchestrator/monitor/worker roles)
+        enable_agent_hierarchy: bool = True,  # Assign roles based on capabilities
+        hierarchy_config: HierarchyConfig = None,  # Optional custom hierarchy config
         prompt_evolver=None,  # Optional PromptEvolver for extracting winning patterns
         enable_prompt_evolution: bool = False,  # Auto-create PromptEvolver if True
         # Billing/usage tracking
@@ -462,6 +466,9 @@ class Arena:
 
         # Initialize grounded operations helper (uses position_ledger, elo_system)
         self._init_grounded_operations()
+
+        # Initialize agent hierarchy (Gastown pattern)
+        self._init_agent_hierarchy(enable_agent_hierarchy, hierarchy_config)
 
         # Initialize knowledge mound operations
         self._init_knowledge_ops()
@@ -774,6 +781,85 @@ class Arena:
             elo_system=self.elo_system,
             evidence_grounder=None,  # Set after _init_phases
         )
+
+    def _init_agent_hierarchy(
+        self,
+        enable_agent_hierarchy: bool,
+        hierarchy_config: Optional[HierarchyConfig],
+    ) -> None:
+        """Initialize AgentHierarchy for Gastown-style role assignment.
+
+        The hierarchy assigns agents to roles:
+        - Orchestrator: Coordinates debate flow and synthesis
+        - Monitor: Observes for quality issues and stuck debates
+        - Worker: Executes individual debate tasks (proposals, critiques)
+
+        Args:
+            enable_agent_hierarchy: Whether to enable role assignment
+            hierarchy_config: Optional custom configuration
+        """
+        self.enable_agent_hierarchy = enable_agent_hierarchy
+        self._hierarchy: Optional[AgentHierarchy] = None
+
+        if enable_agent_hierarchy:
+            config = hierarchy_config or HierarchyConfig()
+            self._hierarchy = AgentHierarchy(config)
+            logger.info(
+                f"[hierarchy] AgentHierarchy initialized "
+                f"(max_orchestrators={config.max_orchestrators}, "
+                f"max_monitors={config.max_monitors})"
+            )
+
+    def _assign_hierarchy_roles(
+        self,
+        ctx: "DebateContext",
+        task_type: Optional[str] = None,
+    ) -> None:
+        """Assign hierarchy roles to agents for this debate.
+
+        Called during _run_inner after agent selection to assign roles.
+        Results are stored in ctx.hierarchy_assignments.
+
+        Args:
+            ctx: Debate context to update
+            task_type: Optional task type for affinity matching
+        """
+        if not self.enable_agent_hierarchy or self._hierarchy is None:
+            return
+
+        try:
+            # Build agent profiles from agents
+            from aragora.routing.selection import AgentProfile
+
+            profiles = []
+            for agent in ctx.agents:
+                profile = AgentProfile(
+                    name=agent.name,
+                    elo_rating=getattr(agent, "elo_rating", 1500.0),
+                    capabilities=getattr(agent, "capabilities", set()),
+                    task_affinity=getattr(agent, "task_affinity", {}),
+                )
+                profiles.append(profile)
+
+            # Assign roles
+            assignments = self._hierarchy.assign_roles(
+                debate_id=ctx.debate_id,
+                agents=profiles,
+                task_type=task_type,
+            )
+
+            ctx.hierarchy_assignments = assignments
+
+            # Log assignments
+            role_summary = {
+                role.value: [name for name, assign in assignments.items() if assign.role == role]
+                for role in set(a.role for a in assignments.values())
+            }
+            logger.info(f"[hierarchy] Roles assigned for debate {ctx.debate_id}: {role_summary}")
+
+        except Exception as e:
+            logger.warning(f"[hierarchy] Role assignment failed: {e}")
+            ctx.hierarchy_assignments = {}
 
     def _init_knowledge_ops(self) -> None:
         """Initialize ArenaKnowledgeManager for knowledge retrieval and ingestion.
