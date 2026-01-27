@@ -8,6 +8,83 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
+
+
+# ============================================================================
+# RBAC Auto-Bypass Fixture
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_for_handler_tests(request, monkeypatch):
+    """Bypass RBAC authentication for handler unit tests.
+
+    This autouse fixture patches get_auth_context to return an authenticated
+    admin context by default, and patches _get_context_from_args to inject
+    context into already-decorated functions.
+
+    To test authentication/authorization behavior specifically, use the
+    @pytest.mark.no_auto_auth marker to opt-out of auto-mocking:
+
+        @pytest.mark.no_auto_auth
+        def test_unauthenticated_returns_401(handler, mock_http_handler):
+            # get_auth_context will NOT be mocked for this test
+            result = handler.handle("/api/v1/resource", {}, mock_http_handler)
+            assert result.status_code == 401
+    """
+    # Check if test has opted out of auto-auth
+    if "no_auto_auth" in [m.name for m in request.node.iter_markers()]:
+        yield
+        return
+
+    # Create a mock auth context with admin permissions
+    mock_auth_ctx = AuthorizationContext(
+        user_id="test-user-001",
+        user_email="test@example.com",
+        org_id="test-org-001",
+        roles={"admin", "owner"},
+        permissions={"*"},  # Wildcard grants all permissions
+    )
+
+    async def mock_get_auth_context(request, require_auth=False):
+        """Mock get_auth_context that returns admin context."""
+        return mock_auth_ctx
+
+    # Patch _get_context_from_args to return mock context when no context found
+    try:
+        from aragora.rbac import decorators
+
+        original_get_context = decorators._get_context_from_args
+
+        def patched_get_context_from_args(args, kwargs, context_param):
+            result = original_get_context(args, kwargs, context_param)
+            if result is None:
+                return mock_auth_ctx
+            return result
+
+        monkeypatch.setattr(decorators, "_get_context_from_args", patched_get_context_from_args)
+    except (ImportError, AttributeError):
+        pass
+
+    # Patch SecureHandler.get_auth_context for handlers extending SecureHandler
+    try:
+        from aragora.server.handlers.secure import SecureHandler
+
+        monkeypatch.setattr(SecureHandler, "get_auth_context", mock_get_auth_context)
+    except (ImportError, AttributeError):
+        pass
+
+    # Patch standalone get_auth_context in billing.auth
+    try:
+        from aragora.billing import auth
+
+        monkeypatch.setattr(auth, "get_auth_context", mock_get_auth_context)
+    except (ImportError, AttributeError):
+        pass
+
+    yield mock_auth_ctx
+
 
 class AgentStatus(Enum):
     """Mock agent status enum."""
