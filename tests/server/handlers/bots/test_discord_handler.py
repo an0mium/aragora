@@ -151,14 +151,15 @@ class TestRouting:
 class TestStatusEndpoint:
     """Tests for GET /api/bots/discord/status."""
 
-    def test_get_status(self, handler):
+    @pytest.mark.asyncio
+    async def test_get_status(self, handler):
         """Test getting Discord bot status."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json"},
             method="GET",
         )
 
-        result = handler.handle("/api/v1/bots/discord/status", {}, mock_http)
+        result = await handler.handle("/api/v1/bots/discord/status", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
