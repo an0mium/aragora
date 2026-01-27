@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 if TYPE_CHECKING:
+    from aragora.agents.cv import AgentCV, CVBuilder
     from aragora.core import Agent
     from aragora.debate.context import DebateContext
     from aragora.debate.delegation import DelegationStrategy
@@ -109,6 +110,12 @@ class TeamSelectionConfig:
     # Gastown hierarchy role filtering
     enable_hierarchy_filtering: bool = False  # Enable Gastown role-based filtering
     hierarchy_filter_fallback: bool = True  # Fall back to all agents if no role match
+    # Agent CV-based selection (unified capability profiles)
+    enable_cv_selection: bool = True  # Enable CV-based agent scoring
+    cv_weight: float = 0.35  # Weight for CV composite score
+    cv_reliability_threshold: float = 0.7  # Min reliability for agent inclusion
+    cv_filter_unreliable: bool = False  # Filter out unreliable agents entirely
+    cv_cache_ttl: int = 60  # CV cache TTL in seconds (1 minute)
 
 
 class TeamSelector:
@@ -137,6 +144,7 @@ class TeamSelector:
         ranking_adapter: Optional[Any] = None,
         critique_store: Optional["CritiqueStore"] = None,
         pattern_matcher: Optional["TaskPatternMatcher"] = None,
+        cv_builder: Optional["CVBuilder"] = None,
         config: Optional[TeamSelectionConfig] = None,
     ):
         self.elo_system = elo_system
@@ -147,10 +155,13 @@ class TeamSelector:
         self.ranking_adapter = ranking_adapter
         self.critique_store = critique_store
         self.pattern_matcher = pattern_matcher
+        self.cv_builder = cv_builder
         self.config = config or TeamSelectionConfig()
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
+        # CV cache: agent_id -> (timestamp, AgentCV)
+        self._cv_cache: dict[str, tuple[float, "AgentCV"]] = {}
 
     def select(
         self,
@@ -203,7 +214,30 @@ class TeamSelector:
             except Exception as e:
                 logger.debug(f"Batch calibration lookup failed: {e}")
 
-        # 4. Score remaining agents (using ELO, calibration, delegation, and domain)
+        # 3.5. Pre-fetch Agent CVs in batch for performance
+        agent_cvs: dict[str, "AgentCV"] = {}
+        if self.cv_builder and self.config.enable_cv_selection:
+            try:
+                agent_names = [a.name for a in domain_filtered if a.name in available_names]
+                agent_cvs = self._get_agent_cvs_batch(agent_names)
+            except Exception as e:
+                logger.debug(f"Batch CV lookup failed: {e}")
+
+        # 3.6. Filter unreliable agents if configured
+        if self.config.cv_filter_unreliable and agent_cvs:
+            reliable_names = set()
+            for name, cv in agent_cvs.items():
+                if cv.reliability.success_rate >= self.config.cv_reliability_threshold:
+                    reliable_names.add(name)
+                else:
+                    logger.info(
+                        f"agent_filtered_by_reliability agent={name} "
+                        f"success_rate={cv.reliability.success_rate:.2f} "
+                        f"threshold={self.config.cv_reliability_threshold}"
+                    )
+            available_names = available_names & reliable_names
+
+        # 4. Score remaining agents (using ELO, calibration, delegation, domain, and CV)
         scored: list[tuple["Agent", float]] = []
         for agent in domain_filtered:
             if agent.name not in available_names:
@@ -216,6 +250,7 @@ class TeamSelector:
                 task=task,
                 context=context,
                 calibration_scores=calibration_scores,
+                agent_cvs=agent_cvs,
             )
             scored.append((agent, score))
 

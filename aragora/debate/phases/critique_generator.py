@@ -17,6 +17,7 @@ from aragora.server.stream.arena_hooks import streaming_task_context
 if TYPE_CHECKING:
     from aragora.core import Agent, Critique, Message
     from aragora.debate.context import DebateContext
+    from aragora.debate.molecules import MoleculeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,8 @@ class CritiqueGenerator:
         notify_spectator: Optional[Callable] = None,
         heartbeat_callback: Optional[Callable] = None,
         max_concurrent: int = MAX_CONCURRENT_CRITIQUES,
+        # Molecule tracking for work unit management (Gastown pattern)
+        molecule_tracker: Optional["MoleculeTracker"] = None,
     ):
         """
         Initialize the critique generator.
@@ -109,6 +112,10 @@ class CritiqueGenerator:
         self._notify_spectator = notify_spectator
         self._emit_heartbeat = heartbeat_callback
         self._max_concurrent = max_concurrent
+
+        # Molecule tracking for work unit management
+        self._molecule_tracker = molecule_tracker
+        self._active_molecules: dict[str, str] = {}  # "critic:target" -> molecule_id
 
     @staticmethod
     def _classify_error(error: Exception) -> str:
@@ -236,6 +243,8 @@ class CritiqueGenerator:
         async def generate_critique_bounded(critic: "Agent", proposal_agent: str, proposal: str):
             """Wrap critique generation with semaphore for bounded concurrency."""
             async with critique_semaphore:
+                # Mark molecule as in_progress
+                self._start_molecule(critic.name, proposal_agent)
                 return await generate_critique(critic, proposal_agent, proposal)
 
         # Filter out empty/placeholder proposals
@@ -248,8 +257,10 @@ class CritiqueGenerator:
             skipped = [a for a in proposals if a not in valid_proposals]
             logger.warning(f"critique_skip_empty_proposals skipped={skipped}")
 
-        # Create tasks
+        # Create tasks and molecules
         critique_tasks = []
+        debate_id = getattr(ctx, "debate_id", None) or (ctx.env.task[:50] if ctx.env else "unknown")
+
         for proposal_agent, proposal in valid_proposals.items():
             if self._select_critics_for_proposal:
                 selected_critics = self._select_critics_for_proposal(proposal_agent, critics)
@@ -257,6 +268,8 @@ class CritiqueGenerator:
                 selected_critics = [c for c in critics if c.name != proposal_agent]
 
             for critic in selected_critics:
+                # Create molecule for this critique task
+                self._create_critique_molecule(debate_id, round_num, critic.name, proposal_agent)
                 critique_tasks.append(
                     asyncio.create_task(generate_critique_bounded(critic, proposal_agent, proposal))
                 )
@@ -378,6 +391,8 @@ class CritiqueGenerator:
                     full_content=placeholder.to_prompt(),
                     error=str(crit_result.error),
                 )
+            # Mark molecule as failed
+            self._fail_molecule(critic.name, proposal_agent, str(crit_result.error))
             return placeholder
 
         if crit_result.critique is None:
@@ -425,6 +440,10 @@ class CritiqueGenerator:
                     round_num=round_num,
                     full_content=placeholder.to_prompt(),
                 )
+            # Mark molecule as failed
+            self._fail_molecule(
+                critic.name, proposal_agent, "Critique unavailable - agent timed out"
+            )
             return placeholder
 
         # Successful critique
@@ -483,4 +502,113 @@ class CritiqueGenerator:
         partial_messages.append(msg)
         new_messages.append(msg)
 
+        # Mark molecule as completed
+        self._complete_molecule(
+            critic.name,
+            proposal_agent,
+            {
+                "issues": len(critique.issues),
+                "severity": critique.severity,
+            },
+        )
+
         return critique
+
+    # Molecule tracking methods (Gastown pattern)
+
+    def _create_critique_molecule(
+        self,
+        debate_id: str,
+        round_num: int,
+        critic_name: str,
+        target_name: str,
+    ) -> None:
+        """Create a critique molecule for tracking.
+
+        Args:
+            debate_id: ID of the current debate
+            round_num: Current round number
+            critic_name: Name of the critic agent
+            target_name: Name of the target agent being critiqued
+        """
+        if not self._molecule_tracker:
+            return
+
+        try:
+            from aragora.debate.molecules import MoleculeType
+
+            molecule = self._molecule_tracker.create_molecule(
+                debate_id=debate_id,
+                molecule_type=MoleculeType.CRITIQUE,
+                round_number=round_num,
+                input_data={"critic": critic_name, "target": target_name},
+            )
+            key = f"{critic_name}:{target_name}"
+            self._active_molecules[key] = molecule.molecule_id
+            logger.debug(
+                f"[molecule] Created critique molecule {molecule.molecule_id} "
+                f"critic={critic_name} target={target_name}"
+            )
+        except ImportError:
+            logger.debug("[molecule] Molecule imports unavailable")
+        except Exception as e:
+            logger.debug(f"[molecule] Failed to create critique molecule: {e}")
+
+    def _start_molecule(self, critic_name: str, target_name: str) -> None:
+        """Mark a critique molecule as in_progress.
+
+        Args:
+            critic_name: Name of the critic agent
+            target_name: Name of the target agent
+        """
+        if not self._molecule_tracker:
+            return
+
+        key = f"{critic_name}:{target_name}"
+        molecule_id = self._active_molecules.get(key)
+        if molecule_id:
+            try:
+                self._molecule_tracker.start_molecule(molecule_id)
+                logger.debug(f"[molecule] Started critique molecule {molecule_id}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to start molecule: {e}")
+
+    def _complete_molecule(self, critic_name: str, target_name: str, output: dict) -> None:
+        """Mark a critique molecule as completed.
+
+        Args:
+            critic_name: Name of the critic agent
+            target_name: Name of the target agent
+            output: Output data from the critique
+        """
+        if not self._molecule_tracker:
+            return
+
+        key = f"{critic_name}:{target_name}"
+        molecule_id = self._active_molecules.get(key)
+        if molecule_id:
+            try:
+                self._molecule_tracker.complete_molecule(molecule_id, output)
+                logger.debug(f"[molecule] Completed critique molecule {molecule_id}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to complete molecule: {e}")
+
+    def _fail_molecule(self, critic_name: str, target_name: str, error: str) -> None:
+        """Mark a critique molecule as failed.
+
+        Args:
+            critic_name: Name of the critic agent
+            target_name: Name of the target agent
+            error: Error message
+        """
+        if not self._molecule_tracker:
+            return
+
+        key = f"{critic_name}:{target_name}"
+        molecule_id = self._active_molecules.get(key)
+        if molecule_id:
+            try:
+                self._molecule_tracker.fail_molecule(molecule_id, error)
+                logger.debug(f"[molecule] Failed critique molecule {molecule_id}: {error}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to record molecule failure: {e}")

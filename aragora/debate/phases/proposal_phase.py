@@ -16,7 +16,7 @@ __all__ = [
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from aragora.config import (
     AGENT_TIMEOUT_SECONDS,
@@ -26,6 +26,9 @@ from aragora.config import (
 from aragora.debate.complexity_governor import get_complexity_governor
 from aragora.debate.types import AgentType, DebateContextType
 from aragora.server.stream.arena_hooks import streaming_task_context
+
+if TYPE_CHECKING:
+    from aragora.debate.molecules import MoleculeTracker
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +80,8 @@ class ProposalPhase:
         # Propulsion engine for push-based work assignment (Gastown pattern)
         propulsion_engine: Any = None,
         enable_propulsion: bool = False,
+        # Molecule tracking for work unit management (Gastown pattern)
+        molecule_tracker: Optional["MoleculeTracker"] = None,
     ):
         """
         Initialize the proposal phase.
@@ -115,6 +120,10 @@ class ProposalPhase:
         # Propulsion engine for push-based work assignment
         self._propulsion_engine = propulsion_engine
         self._enable_propulsion = enable_propulsion
+
+        # Molecule tracking for work unit management
+        self._molecule_tracker = molecule_tracker
+        self._active_molecules: dict[str, str] = {}  # agent_name -> molecule_id
 
     @staticmethod
     def _is_effectively_empty_response(content: Any) -> bool:
@@ -230,6 +239,10 @@ class ProposalPhase:
             logger.warning("No proposers available for proposal phase")
             return
 
+        # Create molecules for tracking if tracker is available
+        debate_id = getattr(ctx, "debate_id", None) or (ctx.env.task[:50] if ctx.env else "unknown")
+        self._create_proposal_molecules(debate_id, proposers, ctx.env.task if ctx.env else "")
+
         # Use semaphore for bounded concurrency (matching critique/revision phases)
         # Legacy stagger mode available via PROPOSAL_STAGGER_SECONDS > 0
         proposal_semaphore = asyncio.Semaphore(MAX_CONCURRENT_PROPOSALS)
@@ -243,6 +256,8 @@ class ProposalPhase:
                 await asyncio.sleep(PROPOSAL_STAGGER_SECONDS * idx)
             async with proposal_semaphore:
                 logger.info(f"proposal_started agent={agent.name} idx={idx}")
+                # Mark molecule as in_progress
+                self._start_molecule(agent.name)
                 return await self._generate_single_proposal(ctx, agent)
 
         # Create all tasks immediately (semaphore controls actual concurrency)
@@ -348,6 +363,8 @@ class ProposalPhase:
             ctx.proposals[agent.name] = f"[Error generating proposal: {result_or_error}]"
             if self.circuit_breaker:
                 self.circuit_breaker.record_failure(agent.name)
+            # Mark molecule as failed
+            self._fail_molecule(agent.name, str(result_or_error))
         else:
             ctx.proposals[agent.name] = result_or_error
             logger.info(
@@ -367,6 +384,15 @@ class ProposalPhase:
 
             # Record positions
             self._record_positions(ctx, agent, result_or_error)
+
+            # Mark molecule as completed
+            self._complete_molecule(
+                agent.name,
+                {
+                    "proposal": result_or_error[:500],  # Truncate for storage
+                    "chars": len(result_or_error),
+                },
+            )
 
         # Create and add message
         msg = Message(
@@ -522,3 +548,94 @@ class ProposalPhase:
             logger.debug("[propulsion] PropulsionEngine imports unavailable")
         except Exception as e:
             logger.warning(f"[propulsion] Failed to fire proposals_ready: {e}")
+
+    # Molecule tracking methods (Gastown pattern)
+
+    def _create_proposal_molecules(
+        self,
+        debate_id: str,
+        proposers: list["AgentType"],
+        task: str,
+    ) -> None:
+        """Create proposal molecules for all proposers.
+
+        Args:
+            debate_id: ID of the current debate
+            proposers: List of proposer agents
+            task: The debate task description
+        """
+        if not self._molecule_tracker:
+            return
+
+        try:
+            from aragora.debate.molecules import MoleculeType
+
+            for agent in proposers:
+                molecule = self._molecule_tracker.create_molecule(
+                    debate_id=debate_id,
+                    molecule_type=MoleculeType.PROPOSAL,
+                    round_number=0,
+                    input_data={"task": task, "agent": agent.name},
+                )
+                self._active_molecules[agent.name] = molecule.molecule_id
+                logger.debug(
+                    f"[molecule] Created proposal molecule {molecule.molecule_id} "
+                    f"for agent={agent.name}"
+                )
+        except ImportError:
+            logger.debug("[molecule] Molecule imports unavailable")
+        except Exception as e:
+            logger.debug(f"[molecule] Failed to create proposal molecules: {e}")
+
+    def _start_molecule(self, agent_name: str) -> None:
+        """Mark a molecule as in_progress.
+
+        Args:
+            agent_name: Name of the agent whose molecule to start
+        """
+        if not self._molecule_tracker:
+            return
+
+        molecule_id = self._active_molecules.get(agent_name)
+        if molecule_id:
+            try:
+                self._molecule_tracker.start_molecule(molecule_id)
+                logger.debug(f"[molecule] Started molecule {molecule_id} for {agent_name}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to start molecule: {e}")
+
+    def _complete_molecule(self, agent_name: str, output: dict) -> None:
+        """Mark a molecule as completed.
+
+        Args:
+            agent_name: Name of the agent whose molecule to complete
+            output: Output data from the proposal generation
+        """
+        if not self._molecule_tracker:
+            return
+
+        molecule_id = self._active_molecules.get(agent_name)
+        if molecule_id:
+            try:
+                self._molecule_tracker.complete_molecule(molecule_id, output)
+                logger.debug(f"[molecule] Completed molecule {molecule_id} for {agent_name}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to complete molecule: {e}")
+
+    def _fail_molecule(self, agent_name: str, error: str) -> None:
+        """Mark a molecule as failed.
+
+        Args:
+            agent_name: Name of the agent whose molecule failed
+            error: Error message
+        """
+        if not self._molecule_tracker:
+            return
+
+        molecule_id = self._active_molecules.get(agent_name)
+        if molecule_id:
+            try:
+                self._molecule_tracker.fail_molecule(molecule_id, error)
+                logger.debug(f"[molecule] Failed molecule {molecule_id} for {agent_name}: {error}")
+            except Exception as e:
+                logger.debug(f"[molecule] Failed to record molecule failure: {e}")

@@ -1403,6 +1403,56 @@ class CheckpointManager:
 
         return list(debates.values())
 
+    async def save(self, checkpoint: DebateCheckpoint) -> str:
+        """
+        Save a checkpoint directly.
+
+        This is a convenience method for checkpoint bridge integration.
+
+        Args:
+            checkpoint: Checkpoint to save
+
+        Returns:
+            Storage path or identifier
+        """
+        return await self.store.save(checkpoint)
+
+    async def load(self, checkpoint_id: str) -> Optional[DebateCheckpoint]:
+        """
+        Load a checkpoint directly.
+
+        This is a convenience method for checkpoint bridge integration.
+
+        Args:
+            checkpoint_id: ID of checkpoint to load
+
+        Returns:
+            DebateCheckpoint if found, None otherwise
+        """
+        return await self.store.load(checkpoint_id)
+
+    async def get_latest(self, debate_id: str) -> Optional[DebateCheckpoint]:
+        """
+        Get the latest checkpoint for a debate.
+
+        Args:
+            debate_id: Debate identifier
+
+        Returns:
+            Latest checkpoint if found, None otherwise
+        """
+        checkpoints = await self.store.list_checkpoints(debate_id=debate_id, limit=1)
+
+        if not checkpoints:
+            return None
+
+        # list_checkpoints returns dicts, sorted by created_at desc
+        latest_id = checkpoints[0].get("checkpoint_id")
+        if latest_id:
+            return await self.store.load(latest_id)
+
+        return None
+
     async def _cleanup_old_checkpoints(self, debate_id: str):
         """Remove old checkpoints beyond the limit."""
         checkpoints = await self.store.list_checkpoints(debate_id=debate_id)
