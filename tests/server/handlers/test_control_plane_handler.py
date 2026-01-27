@@ -553,8 +553,11 @@ class TestControlPlaneHandlerDeliberations:
     """Test deliberation endpoints."""
 
     @pytest.mark.no_auto_auth
-    def test_submit_deliberation_requires_auth(self, control_plane_handler, mock_coordinator):
+    def test_submit_deliberation_requires_auth(
+        self, control_plane_handler, mock_coordinator, monkeypatch
+    ):
         """Test submitting a deliberation requires authentication."""
+        monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "true")
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_request_body({"content": "Test deliberation"})
 
@@ -823,9 +826,10 @@ class TestControlPlaneHandlerUnregisterAgent:
 
     @pytest.mark.no_auto_auth
     def test_unregister_agent_requires_auth(
-        self, control_plane_handler, mock_coordinator, mock_http_handler
+        self, control_plane_handler, mock_coordinator, mock_http_handler, monkeypatch
     ):
         """Test unregistering agent requires authentication."""
+        monkeypatch.setenv("ARAGORA_TEST_REAL_AUTH", "true")
         ControlPlaneHandler.coordinator = mock_coordinator
 
         result = control_plane_handler.handle_delete(
