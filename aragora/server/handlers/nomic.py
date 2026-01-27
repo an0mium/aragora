@@ -7,6 +7,7 @@ Endpoints:
 - GET /api/nomic/metrics - Get nomic loop Prometheus metrics summary
 - GET /api/nomic/log - Get nomic loop logs
 - GET /api/nomic/risk-register - Get risk register entries
+- GET /api/nomic/witness/status - Get Gas Town witness patrol status
 - GET /api/modes - Get available operational modes
 - WS /api/nomic/stream - Real-time WebSocket event stream
 
@@ -69,6 +70,7 @@ class NomicHandler(SecureHandler):
         "/api/nomic/metrics",
         "/api/nomic/log",
         "/api/nomic/risk-register",
+        "/api/nomic/witness/status",
         "/api/nomic/control/start",
         "/api/nomic/control/stop",
         "/api/nomic/control/pause",
@@ -181,6 +183,7 @@ class NomicHandler(SecureHandler):
             "/api/nomic/health": self._get_nomic_health,
             "/api/nomic/metrics": self._get_nomic_metrics,
             "/api/nomic/proposals": self._get_proposals,
+            "/api/nomic/witness/status": self._get_witness_status,
             "/api/modes": self._get_modes,
         }
 
@@ -471,6 +474,92 @@ class NomicHandler(SecureHandler):
             logger.debug(f"Could not load custom modes: {type(e).__name__}: {e}")
 
         return json_response({"modes": modes, "total": len(modes)})
+
+    def _get_witness_status(self) -> HandlerResult:
+        """Get witness patrol status and health report.
+
+        Returns the current state of the Gas Town witness patrol, including:
+        - patrolling: whether the patrol loop is active
+        - statistics: patrol cycle stats (checks, alerts, escalations)
+        - health_report: latest agent and convoy health summary
+        - alerts: active alerts from the witness
+        """
+        try:
+            from aragora.server.startup import get_witness_behavior
+
+            witness = get_witness_behavior()
+            if not witness:
+                return json_response(
+                    {
+                        "patrolling": False,
+                        "initialized": False,
+                        "message": "Witness patrol not initialized",
+                    }
+                )
+
+            # Build response from witness state
+            response: dict[str, Any] = {
+                "patrolling": witness._running,
+                "initialized": True,
+                "config": {
+                    "patrol_interval_seconds": witness.config.patrol_interval_seconds,
+                    "heartbeat_timeout_seconds": witness.config.heartbeat_timeout_seconds,
+                    "stuck_threshold_minutes": witness.config.stuck_threshold_minutes,
+                    "notify_mayor_on_critical": witness.config.notify_mayor_on_critical,
+                },
+                "statistics": {
+                    "total_patrol_cycles": getattr(witness, "_patrol_cycles", 0),
+                    "total_alerts_generated": len(witness._alerts)
+                    if hasattr(witness, "_alerts")
+                    else 0,
+                    "agents_monitored": len(witness.hierarchy._assignments)
+                    if witness.hierarchy
+                    else 0,
+                },
+            }
+
+            # Include active alerts
+            if hasattr(witness, "_alerts") and witness._alerts:
+                response["alerts"] = [
+                    {
+                        "id": alert.id,
+                        "severity": alert.severity.value,
+                        "target": alert.target,
+                        "message": alert.message,
+                        "timestamp": alert.timestamp.isoformat(),
+                        "acknowledged": alert.acknowledged,
+                    }
+                    for alert in list(witness._alerts.values())[:10]  # Latest 10
+                ]
+
+            # Try to get health report if available
+            try:
+                report = _run_async(witness.generate_health_report())
+                if report:
+                    response["health_report"] = {
+                        "report_id": report.report_id,
+                        "overall_status": report.overall_status.value,
+                        "agent_count": len(report.agent_checks),
+                        "convoy_count": len(report.convoy_checks),
+                        "recommendations": report.recommendations[:5],  # Top 5
+                    }
+            except Exception as e:
+                logger.debug(f"Could not generate health report: {e}")
+
+            return json_response(response)
+
+        except ImportError as e:
+            logger.debug(f"Witness behavior not available: {e}")
+            return json_response(
+                {
+                    "patrolling": False,
+                    "initialized": False,
+                    "error": "Witness module not available",
+                }
+            )
+        except Exception as e:
+            logger.error(f"Failed to get witness status: {e}")
+            return error_response(f"Failed to get witness status: {e}", 500)
 
     # =========================================================================
     # POST Handlers - Control Operations

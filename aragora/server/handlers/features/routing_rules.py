@@ -14,6 +14,13 @@ Usage:
     POST   /api/v1/routing-rules/{id}/toggle  - Enable/disable a rule
     POST   /api/v1/routing-rules/evaluate     - Test rules against context
     GET    /api/v1/routing-rules/templates    - Get predefined rule templates
+
+Security:
+    All endpoints require RBAC permissions:
+    - policies.read: List, get, evaluate, templates
+    - policies.create: Create new rules
+    - policies.update: Update existing rules, toggle
+    - policies.delete: Delete rules
 """
 
 from __future__ import annotations
@@ -23,7 +30,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from aragora.server.handlers.base import BaseHandler
+from aragora.server.handlers.secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +56,18 @@ def _get_routing_engine():
     return engine
 
 
-class RoutingRulesHandler(BaseHandler):
+class RoutingRulesHandler(SecureHandler):
     """
     Handler for routing rules CRUD and evaluation endpoints.
 
     Provides management of decision routing rules that control how
     deliberation decisions are delivered to various channels.
+
+    RBAC Permissions:
+    - policies.read: List, get, evaluate, templates
+    - policies.create: Create new rules
+    - policies.update: Update existing rules, toggle
+    - policies.delete: Delete rules
     """
 
     ROUTES = [
@@ -64,6 +77,8 @@ class RoutingRulesHandler(BaseHandler):
         "/api/v1/routing-rules/evaluate",
         "/api/v1/routing-rules/templates",
     ]
+
+    RESOURCE_TYPE = "policy"  # For audit logging
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""

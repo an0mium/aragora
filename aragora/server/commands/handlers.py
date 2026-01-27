@@ -199,10 +199,10 @@ class StatusCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()
+            memory.initialize()
 
-            # Get recent debates
-            debates = await memory.list_debates(limit=5)
+            # Get recent verified debates
+            debates = memory.list_verified_debates(verified_only=False, limit=5)
 
             if not debates:
                 return CommandResult.ok(
@@ -212,10 +212,10 @@ class StatusCommandHandler(BaseCommandHandler):
 
             lines = ["*Recent Debates:*\n"]
             for d in debates:
-                status = d.get("status", "unknown")
-                task = d.get("task", "Unknown")[:50]
+                status = d.get("proof_status", "unknown")
+                verified = "verified" if d.get("is_verified") else "pending"
                 debate_id = d.get("debate_id", "?")
-                lines.append(f"  `{debate_id}` - {status} - {task}")
+                lines.append(f"  `{debate_id}` - {verified} - {status}")
 
             lines.append("\n\nUse `/status <id>` for details.")
             return CommandResult.ok("\n".join(lines), ephemeral=True)

@@ -83,7 +83,7 @@ class CVStore(SQLiteStore):
         cache_ttl_seconds: int = DEFAULT_CACHE_TTL_SECONDS,
     ):
         if db_path is None:
-            db_path = get_db_path(DatabaseType.AGENT)
+            db_path = get_db_path(DatabaseType.AGENT_MEMORIES)
         super().__init__(db_path, timeout=DB_TIMEOUT_SECONDS)
 
         self._cv_builder = cv_builder

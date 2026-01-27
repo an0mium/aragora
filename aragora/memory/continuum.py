@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional, TypedDic
 if TYPE_CHECKING:
     from aragora.types.protocols import EventEmitterProtocol
     from aragora.knowledge.mound.adapters.continuum_adapter import ContinuumAdapter
-    from aragora.memory.hybrid_search import HybridMemorySearch
 
 logger = logging.getLogger(__name__)
 
@@ -227,8 +226,8 @@ class ContinuumMemory(SQLiteStore, ContinuumGlacialMixin, ContinuumSnapshotMixin
     SCHEMA_NAME = "continuum_memory"
     SCHEMA_VERSION = CONTINUUM_SCHEMA_VERSION
 
-    # Type annotations for lazy-initialized attributes
-    _hybrid_search: Optional["HybridMemorySearch"] = None
+    # Type annotations for lazy-initialized attributes (HybridMemorySearch is lazy-imported)
+    _hybrid_search: Optional[Any] = None
 
     INITIAL_SCHEMA = """
         -- Main continuum memory table
