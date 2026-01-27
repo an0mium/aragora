@@ -421,12 +421,19 @@ class TestGoogleAuthStart:
                 mock_auth.return_value = MockAuthContext(
                     is_authenticated=True, user_id="existing_user"
                 )
-                oauth_handler._handle_google_auth_start(mock_handler, {})
+                result = oauth_handler._handle_google_auth_start(mock_handler, {})
 
-        # Find the state that was created
-        states = list(oauth_module._OAUTH_STATES.values())
-        assert len(states) == 1
-        assert states[0]["user_id"] == "existing_user"
+        # Extract state from redirect URL and validate it contains user_id
+        location = result.headers["Location"]
+        parsed = urlparse(location)
+        query = parse_qs(parsed.query)
+        assert "state" in query
+        state = query["state"][0]
+
+        # Validate the state and check user_id
+        state_data = oauth_module._validate_state(state)
+        assert state_data is not None
+        assert state_data.get("user_id") == "existing_user"
 
 
 # ============================================================================
