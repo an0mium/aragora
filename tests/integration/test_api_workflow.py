@@ -27,6 +27,7 @@ from aragora.server.handlers import (
     NomicHandler,
 )
 from aragora.server.handlers.base import json_response, HandlerResult
+from aragora.rbac.models import AuthorizationContext
 
 
 def parse_handler_result(result: HandlerResult) -> tuple:
@@ -296,13 +297,20 @@ class TestDebateHistoryWorkflow:
 class TestModesSwitchWorkflow:
     """Test modes API workflow."""
 
-    @pytest.mark.skip(
-        reason="NomicHandler requires authentication - covered by authenticated API tests"
-    )
     @pytest.mark.asyncio
     async def test_modes_list_returns_available_modes(self, handler_context):
         """Test modes list endpoint."""
         handler = NomicHandler(handler_context)
+
+        # Mock auth context to bypass authentication
+        mock_auth = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            roles={"admin"},
+            permissions={"nomic.read", "nomic.admin"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=mock_auth)
+        handler.check_permission = MagicMock(return_value=None)
 
         result = await handler.handle("/api/v1/modes", {}, None)
         data, status = parse_handler_result(result)

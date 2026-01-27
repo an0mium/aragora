@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any, Optional
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.belief_adapter import BeliefAdapter
 
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.validation import validate_debate_id, validate_id
 from aragora.server.versioning.compat import strip_version_prefix
 from aragora.utils.optional_imports import try_import
@@ -196,6 +198,38 @@ class BeliefHandler(BaseHandler):
             return True
         return False
 
+    def _check_reasoning_permission(self, handler: Any, user: Any) -> Optional[HandlerResult]:
+        """Check RBAC permission for reasoning/belief network access.
+
+        Args:
+            handler: HTTP handler with request context
+            user: Authenticated user
+
+        Returns:
+            Error response if permission denied, None if allowed
+        """
+        user_id = getattr(user, "id", None) or getattr(user, "user_id", "anonymous")
+        org_id = getattr(handler, "org_id", None) or getattr(user, "org_id", None)
+        roles_header = ""
+        if hasattr(handler, "headers"):
+            roles_header = handler.headers.get("X-User-Roles", "")
+        roles = set(roles_header.split(",")) if roles_header else {"member"}
+
+        context = AuthorizationContext(
+            user_id=str(user_id),
+            org_id=org_id,
+            roles=roles,
+        )
+
+        checker = get_permission_checker()
+        decision = checker.check_permission(context, "reasoning.read")
+
+        if not decision.allowed:
+            logger.warning(f"Permission denied for reasoning access: {decision.reason}")
+            return error_response(f"Permission denied: {decision.reason}", 403)
+
+        return None
+
     def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
         """Route belief network requests to appropriate methods."""
         normalized = strip_version_prefix(path)
@@ -204,6 +238,20 @@ class BeliefHandler(BaseHandler):
         if not _belief_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for belief endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # Require authentication for belief network endpoints
+        try:
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+        except Exception as e:
+            logger.warning(f"Authentication failed for belief endpoint: {e}")
+            return error_response("Authentication required", 401)
+
+        # Check RBAC permission for reasoning access
+        rbac_err = self._check_reasoning_permission(handler, user)
+        if rbac_err:
+            return rbac_err
 
         # Get nomic_dir from server context
         nomic_dir = self.ctx.get("nomic_dir")

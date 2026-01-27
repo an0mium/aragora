@@ -12,10 +12,11 @@ Endpoints tested:
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 
 from aragora.server.handlers.admin.health import HealthHandler
 from aragora.server.handlers.base import clear_cache
+from aragora.rbac.models import AuthorizationContext
 
 
 # ============================================================================
@@ -32,25 +33,43 @@ def mock_nomic_dir(tmp_path):
 
 
 @pytest.fixture
-def health_handler(mock_nomic_dir):
-    """Create a HealthHandler with mock dependencies."""
+def mock_auth_context():
+    """Create a mock auth context that grants all permissions."""
+    return AuthorizationContext(
+        user_id="test-user",
+        user_email="test@example.com",
+        roles={"admin"},
+        permissions={"system.health.read"},
+    )
+
+
+@pytest.fixture
+def health_handler(mock_nomic_dir, mock_auth_context):
+    """Create a HealthHandler with mock dependencies and auth."""
     ctx = {
         "storage": None,
         "elo_system": None,
         "nomic_dir": mock_nomic_dir,
     }
-    return HealthHandler(ctx)
+    handler = HealthHandler(ctx)
+    # Patch auth methods to bypass authentication in tests
+    handler.get_auth_context = AsyncMock(return_value=mock_auth_context)
+    handler.check_permission = Mock(return_value=None)
+    return handler
 
 
 @pytest.fixture
-def health_handler_no_nomic():
+def health_handler_no_nomic(mock_auth_context):
     """Create a HealthHandler without nomic_dir."""
     ctx = {
         "storage": None,
         "elo_system": None,
         "nomic_dir": None,
     }
-    return HealthHandler(ctx)
+    handler = HealthHandler(ctx)
+    handler.get_auth_context = AsyncMock(return_value=mock_auth_context)
+    handler.check_permission = Mock(return_value=None)
+    return handler
 
 
 @pytest.fixture
@@ -70,14 +89,17 @@ def mock_elo_system():
 
 
 @pytest.fixture
-def health_handler_with_deps(mock_nomic_dir, mock_storage, mock_elo_system):
+def health_handler_with_deps(mock_nomic_dir, mock_storage, mock_elo_system, mock_auth_context):
     """Create a HealthHandler with working mock dependencies."""
     ctx = {
         "storage": mock_storage,
         "elo_system": mock_elo_system,
         "nomic_dir": mock_nomic_dir,
     }
-    return HealthHandler(ctx)
+    handler = HealthHandler(ctx)
+    handler.get_auth_context = AsyncMock(return_value=mock_auth_context)
+    handler.check_permission = Mock(return_value=None)
+    return handler
 
 
 @pytest.fixture(autouse=True)

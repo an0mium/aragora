@@ -94,6 +94,15 @@ class ConsensusHandler(BaseHandler):
             logger.warning(f"Rate limit exceeded for consensus endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # Require authentication for consensus endpoints
+        try:
+            user, err = self.require_auth_or_error(handler)
+            if err:
+                return err
+        except Exception as e:
+            logger.warning(f"Authentication failed for consensus endpoint: {e}")
+            return error_response("Authentication required", 401)
+
         if path == "/api/consensus/similar":
             # Validate raw topic length before truncation
             raw_topic = query_params.get("topic", "")

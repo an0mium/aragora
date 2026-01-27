@@ -225,11 +225,8 @@ class TestGetIntegration:
         assert result["status_code"] == 404
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(
-        reason="Handler allows None workspace_id - behavior differs from test expectation"
-    )
-    async def test_get_integration_missing_workspace_id(self, handler_with_mocks):
-        """Test getting integration without workspace_id returns 400."""
+    async def test_get_integration_without_workspace_id_lists_all(self, handler_with_mocks):
+        """Test getting integration without workspace_id lists all workspaces for tenant."""
         raw_result = await handler_with_mocks._get_integration(
             integration_type="slack",
             workspace_id=None,
@@ -237,8 +234,12 @@ class TestGetIntegration:
         )
         result = parse_result(raw_result)
 
-        assert result["success"] is False
-        assert result["status_code"] == 400
+        # When workspace_id is None, handler returns a list of workspaces
+        assert result["success"] is True
+        assert result["status_code"] == 200
+        data = result["data"]
+        assert "workspaces" in data
+        assert "count" in data
 
     @pytest.mark.asyncio
     async def test_get_unsupported_integration_type(self, handler_with_mocks):

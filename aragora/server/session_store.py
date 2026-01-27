@@ -43,6 +43,12 @@ from aragora.control_plane.leader import (
 
 logger = logging.getLogger(__name__)
 
+# Additional TTL settings for extended session types
+_SESSION_VOICE_TTL = int(os.getenv("ARAGORA_SESSION_VOICE_TTL", "86400"))  # 24 hours
+_SESSION_DEVICE_TTL = int(os.getenv("ARAGORA_SESSION_DEVICE_TTL", "2592000"))  # 30 days
+_SESSION_MAX_VOICE_SESSIONS = int(os.getenv("ARAGORA_SESSION_MAX_VOICE", "1000"))
+_SESSION_MAX_DEVICE_SESSIONS = int(os.getenv("ARAGORA_SESSION_MAX_DEVICES", "10000"))
+
 # Configurable session store limits via environment variables
 _SESSION_DEBATE_STATE_TTL = int(os.getenv("ARAGORA_SESSION_DEBATE_TTL", "3600"))
 _SESSION_ACTIVE_LOOP_TTL = int(os.getenv("ARAGORA_SESSION_LOOP_TTL", "86400"))
@@ -77,6 +83,12 @@ class SessionStoreConfig:
     max_debate_states: int = field(default=_SESSION_MAX_DEBATE_STATES)
     max_active_loops: int = field(default=_SESSION_MAX_ACTIVE_LOOPS)
     max_auth_states: int = field(default=_SESSION_MAX_AUTH_STATES)
+    max_voice_sessions: int = field(default=_SESSION_MAX_VOICE_SESSIONS)
+    max_device_sessions: int = field(default=_SESSION_MAX_DEVICE_SESSIONS)
+
+    # Extended session TTLs
+    voice_session_ttl: int = field(default=_SESSION_VOICE_TTL)
+    device_session_ttl: int = field(default=_SESSION_DEVICE_TTL)
 
     # Redis key prefix
     key_prefix: str = "aragora:session:"
@@ -144,6 +156,173 @@ class DebateSession:
             context=data.get("context", {}),
             created_at=data.get("created_at", time.time()),
             last_active=data.get("last_active", time.time()),
+        )
+
+
+@dataclass
+class VoiceSession:
+    """Session tracking for persistent voice connections.
+
+    Enables long-lived voice sessions (up to 24h) with reconnection support
+    for always-on voice assistants and hands-free interfaces.
+
+    Attributes:
+        session_id: Unique session identifier
+        user_id: User identifier
+        debate_id: Optional linked debate ID
+        reconnect_token: Token for reconnection after disconnect
+        reconnect_expires_at: When reconnect window expires (Unix epoch)
+        is_persistent: Whether this is a persistent (always-on) session
+        audio_format: Audio format preference (e.g., "pcm_16khz", "opus")
+        last_heartbeat: Last keepalive timestamp (Unix epoch)
+        created_at: Session creation timestamp (Unix epoch)
+        metadata: Additional session metadata
+    """
+
+    session_id: str
+    user_id: str
+    debate_id: Optional[str] = None
+    reconnect_token: Optional[str] = None
+    reconnect_expires_at: Optional[float] = None
+    is_persistent: bool = False
+    audio_format: str = "pcm_16khz"
+    last_heartbeat: float = field(default_factory=time.time)
+    created_at: float = field(default_factory=time.time)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def is_reconnectable(self) -> bool:
+        """Check if session can be reconnected."""
+        if not self.reconnect_token or not self.reconnect_expires_at:
+            return False
+        return time.time() < self.reconnect_expires_at
+
+    @property
+    def heartbeat_age(self) -> float:
+        """Get seconds since last heartbeat."""
+        return time.time() - self.last_heartbeat
+
+    def touch_heartbeat(self) -> None:
+        """Update heartbeat timestamp."""
+        self.last_heartbeat = time.time()
+
+    def set_reconnect_token(self, token: str, ttl_seconds: float = 300.0) -> None:
+        """Set reconnection token with TTL."""
+        self.reconnect_token = token
+        self.reconnect_expires_at = time.time() + ttl_seconds
+
+    def clear_reconnect_token(self) -> None:
+        """Clear reconnection token after successful reconnect."""
+        self.reconnect_token = None
+        self.reconnect_expires_at = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize session to dictionary."""
+        return {
+            "session_id": self.session_id,
+            "user_id": self.user_id,
+            "debate_id": self.debate_id,
+            "reconnect_token": self.reconnect_token,
+            "reconnect_expires_at": self.reconnect_expires_at,
+            "is_persistent": self.is_persistent,
+            "audio_format": self.audio_format,
+            "last_heartbeat": self.last_heartbeat,
+            "created_at": self.created_at,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "VoiceSession":
+        """Deserialize session from dictionary."""
+        return cls(
+            session_id=data["session_id"],
+            user_id=data["user_id"],
+            debate_id=data.get("debate_id"),
+            reconnect_token=data.get("reconnect_token"),
+            reconnect_expires_at=data.get("reconnect_expires_at"),
+            is_persistent=data.get("is_persistent", False),
+            audio_format=data.get("audio_format", "pcm_16khz"),
+            last_heartbeat=data.get("last_heartbeat", time.time()),
+            created_at=data.get("created_at", time.time()),
+            metadata=data.get("metadata", {}),
+        )
+
+
+@dataclass
+class DeviceSession:
+    """Session tracking for registered devices (push notifications).
+
+    Enables device registration for push notifications across platforms:
+    - iOS (APNs)
+    - Android (FCM)
+    - Web (Web Push / VAPID)
+
+    Attributes:
+        device_id: Unique device identifier (server-generated)
+        user_id: User identifier
+        device_type: Device platform ("ios", "android", "web")
+        push_token: Platform-specific push token
+        device_name: Optional human-readable device name
+        app_version: Application version for compatibility
+        last_notified: When last notification was sent (Unix epoch)
+        notification_count: Total notifications sent
+        created_at: Registration timestamp (Unix epoch)
+        last_active: Last activity timestamp (Unix epoch)
+        metadata: Additional device metadata (OS version, model, etc.)
+    """
+
+    device_id: str
+    user_id: str
+    device_type: str  # "ios", "android", "web"
+    push_token: str
+    device_name: Optional[str] = None
+    app_version: Optional[str] = None
+    last_notified: Optional[float] = None
+    notification_count: int = 0
+    created_at: float = field(default_factory=time.time)
+    last_active: float = field(default_factory=time.time)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def touch(self) -> None:
+        """Update last activity timestamp."""
+        self.last_active = time.time()
+
+    def record_notification(self) -> None:
+        """Record a notification being sent."""
+        self.last_notified = time.time()
+        self.notification_count += 1
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize session to dictionary."""
+        return {
+            "device_id": self.device_id,
+            "user_id": self.user_id,
+            "device_type": self.device_type,
+            "push_token": self.push_token,
+            "device_name": self.device_name,
+            "app_version": self.app_version,
+            "last_notified": self.last_notified,
+            "notification_count": self.notification_count,
+            "created_at": self.created_at,
+            "last_active": self.last_active,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DeviceSession":
+        """Deserialize session from dictionary."""
+        return cls(
+            device_id=data["device_id"],
+            user_id=data["user_id"],
+            device_type=data["device_type"],
+            push_token=data["push_token"],
+            device_name=data.get("device_name"),
+            app_version=data.get("app_version"),
+            last_notified=data.get("last_notified"),
+            notification_count=data.get("notification_count", 0),
+            created_at=data.get("created_at", time.time()),
+            last_active=data.get("last_active", time.time()),
+            metadata=data.get("metadata", {}),
         )
 
 
@@ -254,6 +433,58 @@ class SessionStore(ABC):
         """Find all sessions linked to a debate."""
         pass
 
+    # Voice session methods (for always-on voice)
+    @abstractmethod
+    def get_voice_session(self, session_id: str) -> Optional["VoiceSession"]:
+        """Get a voice session by ID."""
+        pass
+
+    @abstractmethod
+    def set_voice_session(self, session: "VoiceSession") -> None:
+        """Store or update a voice session."""
+        pass
+
+    @abstractmethod
+    def delete_voice_session(self, session_id: str) -> bool:
+        """Delete a voice session. Returns True if deleted."""
+        pass
+
+    @abstractmethod
+    def find_voice_session_by_token(self, reconnect_token: str) -> Optional["VoiceSession"]:
+        """Find voice session by reconnection token."""
+        pass
+
+    @abstractmethod
+    def find_voice_sessions_by_user(self, user_id: str) -> list["VoiceSession"]:
+        """Find all voice sessions for a user."""
+        pass
+
+    # Device session methods (for push notifications)
+    @abstractmethod
+    def get_device_session(self, device_id: str) -> Optional["DeviceSession"]:
+        """Get a device session by ID."""
+        pass
+
+    @abstractmethod
+    def set_device_session(self, session: "DeviceSession") -> None:
+        """Store or update a device session."""
+        pass
+
+    @abstractmethod
+    def delete_device_session(self, device_id: str) -> bool:
+        """Delete a device session. Returns True if deleted."""
+        pass
+
+    @abstractmethod
+    def find_device_by_token(self, push_token: str) -> Optional["DeviceSession"]:
+        """Find device session by push token."""
+        pass
+
+    @abstractmethod
+    def find_devices_by_user(self, user_id: str) -> list["DeviceSession"]:
+        """Find all devices for a user."""
+        pass
+
 
 class InMemorySessionStore(SessionStore):
     """In-memory session store for single-server deployment."""
@@ -281,6 +512,15 @@ class InMemorySessionStore(SessionStore):
         # Debate sessions (for multi-channel session tracking)
         self._debate_sessions: Dict[str, DebateSession] = {}
         self._debate_sessions_lock = threading.Lock()
+
+        # Voice sessions (for always-on voice)
+        self._voice_sessions: Dict[str, VoiceSession] = {}
+        self._voice_sessions_lock = threading.Lock()
+
+        # Device sessions (for push notifications)
+        self._device_sessions: Dict[str, DeviceSession] = {}
+        self._device_token_index: Dict[str, str] = {}  # push_token -> device_id
+        self._device_sessions_lock = threading.Lock()
 
     @property
     def is_distributed(self) -> bool:
@@ -424,6 +664,94 @@ class InMemorySessionStore(SessionStore):
         with self._debate_sessions_lock:
             return [s for s in self._debate_sessions.values() if s.debate_id == debate_id]
 
+    # Voice session methods
+    def get_voice_session(self, session_id: str) -> Optional[VoiceSession]:
+        with self._voice_sessions_lock:
+            session = self._voice_sessions.get(session_id)
+            if session:
+                session.touch_heartbeat()
+            return session
+
+    def set_voice_session(self, session: VoiceSession) -> None:
+        with self._voice_sessions_lock:
+            # Enforce max limit with LRU eviction (remove oldest by created_at)
+            while len(self._voice_sessions) >= self._config.max_voice_sessions:
+                oldest_id = min(
+                    self._voice_sessions.keys(),
+                    key=lambda k: self._voice_sessions[k].created_at,
+                )
+                del self._voice_sessions[oldest_id]
+
+            session.touch_heartbeat()
+            self._voice_sessions[session.session_id] = session
+
+    def delete_voice_session(self, session_id: str) -> bool:
+        with self._voice_sessions_lock:
+            if session_id in self._voice_sessions:
+                del self._voice_sessions[session_id]
+                return True
+            return False
+
+    def find_voice_session_by_token(self, reconnect_token: str) -> Optional[VoiceSession]:
+        with self._voice_sessions_lock:
+            for session in self._voice_sessions.values():
+                if session.reconnect_token == reconnect_token and session.is_reconnectable:
+                    return session
+            return None
+
+    def find_voice_sessions_by_user(self, user_id: str) -> list[VoiceSession]:
+        with self._voice_sessions_lock:
+            return [s for s in self._voice_sessions.values() if s.user_id == user_id]
+
+    # Device session methods
+    def get_device_session(self, device_id: str) -> Optional[DeviceSession]:
+        with self._device_sessions_lock:
+            session = self._device_sessions.get(device_id)
+            if session:
+                session.touch()
+            return session
+
+    def set_device_session(self, session: DeviceSession) -> None:
+        with self._device_sessions_lock:
+            # Enforce max limit with LRU eviction
+            while len(self._device_sessions) >= self._config.max_device_sessions:
+                oldest_id = min(
+                    self._device_sessions.keys(),
+                    key=lambda k: self._device_sessions[k].last_active,
+                )
+                old_session = self._device_sessions[oldest_id]
+                self._device_token_index.pop(old_session.push_token, None)
+                del self._device_sessions[oldest_id]
+
+            # Update token index
+            old_session = self._device_sessions.get(session.device_id)
+            if old_session and old_session.push_token != session.push_token:
+                self._device_token_index.pop(old_session.push_token, None)
+
+            session.touch()
+            self._device_sessions[session.device_id] = session
+            self._device_token_index[session.push_token] = session.device_id
+
+    def delete_device_session(self, device_id: str) -> bool:
+        with self._device_sessions_lock:
+            if device_id in self._device_sessions:
+                session = self._device_sessions[device_id]
+                self._device_token_index.pop(session.push_token, None)
+                del self._device_sessions[device_id]
+                return True
+            return False
+
+    def find_device_by_token(self, push_token: str) -> Optional[DeviceSession]:
+        with self._device_sessions_lock:
+            device_id = self._device_token_index.get(push_token)
+            if device_id:
+                return self._device_sessions.get(device_id)
+            return None
+
+    def find_devices_by_user(self, user_id: str) -> list[DeviceSession]:
+        with self._device_sessions_lock:
+            return [s for s in self._device_sessions.values() if s.user_id == user_id]
+
     # Cleanup
     def cleanup_expired(self) -> Dict[str, int]:
         now = time.time()
@@ -455,6 +783,24 @@ class InMemorySessionStore(SessionStore):
                 self._auth_states.pop(k, None)
                 self._auth_states_access.pop(k, None)
             counts["auth_states"] = len(expired)
+
+        # Cleanup voice sessions (based on last_heartbeat)
+        cutoff = now - self._config.voice_session_ttl
+        with self._voice_sessions_lock:
+            expired = [k for k, v in self._voice_sessions.items() if v.last_heartbeat < cutoff]
+            for k in expired:
+                del self._voice_sessions[k]
+            counts["voice_sessions"] = len(expired)
+
+        # Cleanup device sessions (based on last_active)
+        cutoff = now - self._config.device_session_ttl
+        with self._device_sessions_lock:
+            expired = [k for k, v in self._device_sessions.items() if v.last_active < cutoff]
+            for k in expired:
+                session = self._device_sessions[k]
+                self._device_token_index.pop(session.push_token, None)
+                del self._device_sessions[k]
+            counts["device_sessions"] = len(expired)
 
         return counts
 
@@ -770,6 +1116,175 @@ class RedisSessionStore(SessionStore):
             logger.warning(f"Redis find_sessions_by_debate error: {e}")
             return []
 
+    # Voice session methods
+    def get_voice_session(self, session_id: str) -> Optional[VoiceSession]:
+        try:
+            data = self._redis.get(self._key("vsession", session_id))
+            if data:
+                # Refresh TTL on access
+                self._redis.expire(
+                    self._key("vsession", session_id),
+                    self._config.voice_session_ttl,
+                )
+                session_dict = json.loads(data)
+                session = VoiceSession.from_dict(session_dict)
+                session.touch_heartbeat()
+                return session
+            return None
+        except Exception as e:
+            logger.warning(f"Redis get_voice_session error: {e}")
+            return None
+
+    def set_voice_session(self, session: VoiceSession) -> None:
+        try:
+            session.touch_heartbeat()
+            session_dict = session.to_dict()
+            # Store session with TTL
+            self._redis.setex(
+                self._key("vsession", session.session_id),
+                self._config.voice_session_ttl,
+                json.dumps(session_dict, default=str),
+            )
+            # Add to user index
+            self._redis.sadd(self._key("vsession_user", session.user_id), session.session_id)
+            # Add reconnect token to index if present
+            if session.reconnect_token:
+                self._redis.setex(
+                    self._key("vsession_token", session.reconnect_token),
+                    300,  # 5-minute reconnect window
+                    session.session_id,
+                )
+        except Exception as e:
+            logger.warning(f"Redis set_voice_session error: {e}")
+
+    def delete_voice_session(self, session_id: str) -> bool:
+        try:
+            session = self.get_voice_session(session_id)
+            if session:
+                # Remove from user index
+                self._redis.srem(self._key("vsession_user", session.user_id), session_id)
+                # Remove reconnect token if present
+                if session.reconnect_token:
+                    self._redis.delete(self._key("vsession_token", session.reconnect_token))
+            return self._redis.delete(self._key("vsession", session_id)) > 0
+        except Exception as e:
+            logger.warning(f"Redis delete_voice_session error: {e}")
+            return False
+
+    def find_voice_session_by_token(self, reconnect_token: str) -> Optional[VoiceSession]:
+        try:
+            session_id = self._redis.get(self._key("vsession_token", reconnect_token))
+            if session_id:
+                if isinstance(session_id, bytes):
+                    session_id = session_id.decode()
+                session = self.get_voice_session(session_id)
+                if session and session.is_reconnectable:
+                    return session
+            return None
+        except Exception as e:
+            logger.warning(f"Redis find_voice_session_by_token error: {e}")
+            return None
+
+    def find_voice_sessions_by_user(self, user_id: str) -> list[VoiceSession]:
+        try:
+            session_ids = self._redis.smembers(self._key("vsession_user", user_id))
+            results = []
+            for sid in session_ids:
+                if isinstance(sid, bytes):
+                    sid = sid.decode()
+                session = self.get_voice_session(sid)
+                if session:
+                    results.append(session)
+            return results
+        except Exception as e:
+            logger.warning(f"Redis find_voice_sessions_by_user error: {e}")
+            return []
+
+    # Device session methods
+    def get_device_session(self, device_id: str) -> Optional[DeviceSession]:
+        try:
+            data = self._redis.get(self._key("device", device_id))
+            if data:
+                # Refresh TTL on access
+                self._redis.expire(
+                    self._key("device", device_id),
+                    self._config.device_session_ttl,
+                )
+                session_dict = json.loads(data)
+                session = DeviceSession.from_dict(session_dict)
+                session.touch()
+                return session
+            return None
+        except Exception as e:
+            logger.warning(f"Redis get_device_session error: {e}")
+            return None
+
+    def set_device_session(self, session: DeviceSession) -> None:
+        try:
+            # Remove old token mapping if token changed
+            old_session = self.get_device_session(session.device_id)
+            if old_session and old_session.push_token != session.push_token:
+                self._redis.delete(self._key("device_token", old_session.push_token))
+
+            session.touch()
+            session_dict = session.to_dict()
+            # Store session with TTL
+            self._redis.setex(
+                self._key("device", session.device_id),
+                self._config.device_session_ttl,
+                json.dumps(session_dict, default=str),
+            )
+            # Add to user index
+            self._redis.sadd(self._key("device_user", session.user_id), session.device_id)
+            # Add token to index
+            self._redis.setex(
+                self._key("device_token", session.push_token),
+                self._config.device_session_ttl,
+                session.device_id,
+            )
+        except Exception as e:
+            logger.warning(f"Redis set_device_session error: {e}")
+
+    def delete_device_session(self, device_id: str) -> bool:
+        try:
+            session = self.get_device_session(device_id)
+            if session:
+                # Remove from user index
+                self._redis.srem(self._key("device_user", session.user_id), device_id)
+                # Remove token mapping
+                self._redis.delete(self._key("device_token", session.push_token))
+            return self._redis.delete(self._key("device", device_id)) > 0
+        except Exception as e:
+            logger.warning(f"Redis delete_device_session error: {e}")
+            return False
+
+    def find_device_by_token(self, push_token: str) -> Optional[DeviceSession]:
+        try:
+            device_id = self._redis.get(self._key("device_token", push_token))
+            if device_id:
+                if isinstance(device_id, bytes):
+                    device_id = device_id.decode()
+                return self.get_device_session(device_id)
+            return None
+        except Exception as e:
+            logger.warning(f"Redis find_device_by_token error: {e}")
+            return None
+
+    def find_devices_by_user(self, user_id: str) -> list[DeviceSession]:
+        try:
+            device_ids = self._redis.smembers(self._key("device_user", user_id))
+            results = []
+            for did in device_ids:
+                if isinstance(did, bytes):
+                    did = did.decode()
+                session = self.get_device_session(did)
+                if session:
+                    results.append(session)
+            return results
+        except Exception as e:
+            logger.warning(f"Redis find_devices_by_user error: {e}")
+            return []
+
     def cleanup_expired(self) -> Dict[str, int]:
         """Redis handles expiry automatically via TTL."""
         return {"debate_states": 0, "active_loops": 0, "auth_states": 0}
@@ -852,6 +1367,9 @@ def reset_session_store() -> None:
 __all__ = [
     "SessionStore",
     "SessionStoreConfig",
+    "DebateSession",
+    "VoiceSession",
+    "DeviceSession",
     "InMemorySessionStore",
     "RedisSessionStore",
     "get_session_store",

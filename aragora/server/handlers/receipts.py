@@ -9,6 +9,7 @@ Provides REST API endpoints for decision receipt management:
 
 Endpoints:
     GET  /api/v2/receipts                              - List receipts with filters
+    GET  /api/v2/receipts/search                       - Full-text search receipts
     GET  /api/v2/receipts/:receipt_id                  - Get specific receipt
     GET  /api/v2/receipts/:receipt_id/export           - Export (format=json|html|md|pdf)
     POST /api/v2/receipts/:receipt_id/verify           - Verify integrity checksum
@@ -90,6 +91,10 @@ class ReceiptsHandler(BaseHandler):
             # Stats endpoint
             if path == "/api/v2/receipts/stats" and method == "GET":
                 return await self._get_stats()
+
+            # Search endpoint
+            if path == "/api/v2/receipts/search" and method == "GET":
+                return await self._search_receipts(query_params)
 
             # Batch verification
             if path == "/api/v2/receipts/verify-batch" and method == "POST":
@@ -209,6 +214,68 @@ class ReceiptsHandler(BaseHandler):
                     "date_from": date_from,
                     "date_to": date_to,
                     "signed_only": signed_only,
+                },
+            }
+        )
+
+    @require_permission("receipts:read")
+    async def _search_receipts(self, query_params: Dict[str, str]) -> HandlerResult:
+        """
+        Full-text search across receipt content.
+
+        Query params:
+            q: Search query (required, minimum 3 characters)
+            limit: Max results (default 50, max 100)
+            offset: Pagination offset
+            verdict: Optional filter by verdict (APPROVED, REJECTED, etc.)
+            risk_level: Optional filter by risk (LOW, MEDIUM, HIGH, CRITICAL)
+        """
+        query = query_params.get("q", "").strip()
+
+        if not query:
+            return error_response("Query parameter 'q' is required", 400)
+
+        if len(query) < 3:
+            return error_response("Search query must be at least 3 characters", 400)
+
+        store = self._get_store()
+
+        # Parse pagination
+        limit = min(int(query_params.get("limit", "50")), 100)
+        offset = int(query_params.get("offset", "0"))
+
+        # Optional filters
+        verdict = query_params.get("verdict")
+        risk_level = query_params.get("risk_level")
+
+        # Perform search
+        receipts = store.search(
+            query=query,
+            limit=limit,
+            offset=offset,
+            verdict=verdict,
+            risk_level=risk_level,
+        )
+
+        total = store.search_count(
+            query=query,
+            verdict=verdict,
+            risk_level=risk_level,
+        )
+
+        return json_response(
+            {
+                "receipts": [r.to_dict() for r in receipts],
+                "query": query,
+                "pagination": {
+                    "limit": limit,
+                    "offset": offset,
+                    "total": total,
+                    "has_more": offset + len(receipts) < total,
+                },
+                "filters": {
+                    "verdict": verdict,
+                    "risk_level": risk_level,
                 },
             }
         )

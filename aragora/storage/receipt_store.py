@@ -573,6 +573,151 @@ class ReceiptStore:
         return row[0] if row else 0
 
     # =========================================================================
+    # Full-Text Search
+    # =========================================================================
+
+    def search(
+        self,
+        query: str,
+        limit: int = 50,
+        offset: int = 0,
+        verdict: Optional[str] = None,
+        risk_level: Optional[str] = None,
+    ) -> List[StoredReceipt]:
+        """
+        Full-text search across receipt content.
+
+        Searches verdict reasoning, task descriptions, and findings.
+        Uses PostgreSQL TSVECTOR for PostgreSQL backend, LIKE for SQLite.
+
+        Args:
+            query: Search query (minimum 3 characters)
+            limit: Maximum results to return (max 100)
+            offset: Pagination offset
+            verdict: Optional filter by verdict
+            risk_level: Optional filter by risk level
+
+        Returns:
+            List of StoredReceipt objects matching the query
+        """
+        if self._backend is None:
+            return []
+
+        if not query or len(query) < 3:
+            return []
+
+        # Sanitize and limit
+        limit = min(limit, 100)
+        params: List[Any] = []
+        conditions = []
+
+        if self.backend_type == "postgresql":
+            # PostgreSQL: Use TSVECTOR for efficient full-text search on JSONB
+            search_condition = """
+                (to_tsvector('english', COALESCE(data_json->>'verdict_reasoning', '')) ||
+                 to_tsvector('english', COALESCE(data_json->>'task', '')) ||
+                 to_tsvector('english', COALESCE(data_json->>'description', '')) ||
+                 to_tsvector('english', COALESCE(data_json::text, '')))
+                @@ plainto_tsquery('english', ?)
+            """
+            conditions.append(search_condition)
+            params.append(query)
+        else:
+            # SQLite: Use LIKE for text search (case-insensitive)
+            search_pattern = f"%{query}%"
+            search_condition = """
+                (data_json LIKE ? OR verdict LIKE ?)
+            """
+            conditions.append(search_condition)
+            params.extend([search_pattern, search_pattern])
+
+        # Apply optional filters
+        if verdict:
+            conditions.append("verdict = ?")
+            params.append(verdict)
+        if risk_level:
+            conditions.append("risk_level = ?")
+            params.append(risk_level)
+
+        where_clause = " AND ".join(conditions)
+        params.extend([limit, offset])
+
+        rows = self._backend.fetch_all(
+            f"""
+            SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                   verdict, confidence, risk_level, risk_score, checksum,
+                   signature, signature_algorithm, signature_key_id, signed_at,
+                   audit_trail_id, data_json
+            FROM receipts
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+            """,  # nosec B608 - where_clause built from hardcoded conditions
+            tuple(params),
+        )
+
+        return [self._row_to_stored_receipt(row) for row in rows]
+
+    def search_count(
+        self,
+        query: str,
+        verdict: Optional[str] = None,
+        risk_level: Optional[str] = None,
+    ) -> int:
+        """
+        Get total count of receipts matching search query.
+
+        Args:
+            query: Search query (minimum 3 characters)
+            verdict: Optional filter by verdict
+            risk_level: Optional filter by risk level
+
+        Returns:
+            Total count of matching receipts
+        """
+        if self._backend is None:
+            return 0
+
+        if not query or len(query) < 3:
+            return 0
+
+        params: List[Any] = []
+        conditions = []
+
+        if self.backend_type == "postgresql":
+            search_condition = """
+                (to_tsvector('english', COALESCE(data_json->>'verdict_reasoning', '')) ||
+                 to_tsvector('english', COALESCE(data_json->>'task', '')) ||
+                 to_tsvector('english', COALESCE(data_json->>'description', '')) ||
+                 to_tsvector('english', COALESCE(data_json::text, '')))
+                @@ plainto_tsquery('english', ?)
+            """
+            conditions.append(search_condition)
+            params.append(query)
+        else:
+            search_pattern = f"%{query}%"
+            search_condition = """
+                (data_json LIKE ? OR verdict LIKE ?)
+            """
+            conditions.append(search_condition)
+            params.extend([search_pattern, search_pattern])
+
+        if verdict:
+            conditions.append("verdict = ?")
+            params.append(verdict)
+        if risk_level:
+            conditions.append("risk_level = ?")
+            params.append(risk_level)
+
+        where_clause = " AND ".join(conditions)
+
+        row = self._backend.fetch_one(
+            f"SELECT COUNT(*) FROM receipts WHERE {where_clause}",  # nosec B608
+            tuple(params),
+        )
+        return row[0] if row else 0
+
+    # =========================================================================
     # Signature Operations
     # =========================================================================
 
