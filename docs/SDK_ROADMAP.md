@@ -193,8 +193,22 @@ python scripts/generate_sdk.py --spec api/openapi.yaml --output sdk/
 
 Update this document as endpoints are implemented:
 
-```markdown
 ### Weekly Status Update
+
+**Week of 2026-01-27**
+- TypeScript: 53 namespaces implemented (was 47)
+- New namespaces added:
+  - `DeliberationsAPI` - Vetted decisionmaking visibility
+  - `GenesisAPI` - Evolution and genome lineage
+  - `LaboratoryAPI` - Emergent traits and cross-pollination
+  - `TeamsAPI` - Microsoft Teams bot integration
+  - `LearningAPI` - Meta-learning analytics
+  - `BatchAPI` - Batch debate operations
+- Total new endpoints covered: ~35
+- Blockers: None
+
+```markdown
+### Template for Future Updates
 
 **Week of YYYY-MM-DD**
 - TypeScript: X/358 (Y.Y%)
