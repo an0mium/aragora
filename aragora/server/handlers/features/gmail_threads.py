@@ -66,7 +66,7 @@ class GmailThreadsHandler(SecureHandler):
             return True
         return False
 
-    async def handle(
+    async def handle(  # type: ignore[override]
         self,
         path: str,
         query_params: Dict[str, Any],
@@ -119,7 +119,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_post(
+    async def handle_post(  # type: ignore[override]
         self,
         path: str,
         body: Dict[str, Any],
@@ -170,7 +170,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_put(
+    async def handle_put(  # type: ignore[override]
         self,
         path: str,
         body: Dict[str, Any],
@@ -201,7 +201,7 @@ class GmailThreadsHandler(SecureHandler):
 
         return error_response("Not found", 404)
 
-    async def handle_delete(
+    async def handle_delete(  # type: ignore[override]
         self,
         path: str,
         query_params: Dict[str, Any],

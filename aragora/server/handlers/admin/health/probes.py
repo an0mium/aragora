@@ -12,7 +12,7 @@ import concurrent.futures
 import logging
 import os
 import time
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 from ...base import HandlerResult, json_response
 
@@ -67,8 +67,8 @@ class ProbesMixin:
 
     def readiness_probe(
         self,
-        cache_get: callable,
-        cache_set: callable,
+        cache_get: Callable[[str], Any],
+        cache_set: Callable[[str, Any], None],
     ) -> HandlerResult:
         """Kubernetes readiness probe - check if ready to serve traffic.
 

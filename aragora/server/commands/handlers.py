@@ -60,7 +60,7 @@ class DebateCommandHandler(BaseCommandHandler):
 
         try:
             from aragora import Arena, Environment, DebateProtocol
-            from aragora.agents import get_default_agents
+            from aragora.agents import get_default_agents  # type: ignore[attr-defined]
 
             # Create debate
             env = Environment(task=topic)
@@ -73,7 +73,7 @@ class DebateCommandHandler(BaseCommandHandler):
             arena = Arena(env, agents, protocol)
             debate_id = arena.debate_id
 
-            register_debate_origin(
+            register_debate_origin(  # type: ignore[call-arg]
                 debate_id=debate_id,
                 platform=ctx.platform,
                 channel_id=ctx.channel_id,
@@ -142,9 +142,9 @@ class StatusCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()
+            await memory.initialize()  # type: ignore[attr-defined]
 
-            debate = await memory.get_debate(debate_id)
+            debate = await memory.get_debate(debate_id)  # type: ignore[attr-defined]
             if not debate:
                 return CommandResult.error(
                     f"Debate `{debate_id}` not found.\n\n"
@@ -308,9 +308,9 @@ class HistoryCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()
+            await memory.initialize()  # type: ignore[attr-defined]
 
-            debates = await memory.list_debates(limit=count)
+            debates = await memory.list_debates(limit=count)  # type: ignore[attr-defined]
 
             if not debates:
                 return CommandResult.ok(
@@ -363,9 +363,9 @@ class ResultsCommandHandler(BaseCommandHandler):
             from aragora.memory.consensus import ConsensusMemory
 
             memory = ConsensusMemory()
-            await memory.initialize()
+            await memory.initialize()  # type: ignore[attr-defined]
 
-            debate = await memory.get_debate(debate_id)
+            debate = await memory.get_debate(debate_id)  # type: ignore[attr-defined]
             if not debate:
                 return CommandResult.error(f"Debate `{debate_id}` not found.", ephemeral=True)
 
