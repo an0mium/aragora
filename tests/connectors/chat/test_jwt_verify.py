@@ -56,7 +56,6 @@ class TestJWTVerifier:
         verifier2 = get_jwt_verifier()
         assert verifier1 is verifier2
 
-    @pytest.mark.skipif(not HAS_JWT, reason="PyJWT not installed")
     def test_microsoft_token_invalid_format(self):
         """Microsoft verification fails for invalid token format."""
         verifier = JWTVerifier()
@@ -64,7 +63,6 @@ class TestJWTVerifier:
         assert result.valid is False
         assert result.error is not None
 
-    @pytest.mark.skipif(not HAS_JWT, reason="PyJWT not installed")
     def test_google_token_invalid_format(self):
         """Google verification fails for invalid token format."""
         verifier = JWTVerifier()
@@ -86,7 +84,6 @@ class TestVerifyTeamsWebhook:
         result = verify_teams_webhook("", "app123")
         assert result is False
 
-    @pytest.mark.skipif(not HAS_JWT, reason="PyJWT not installed")
     def test_invalid_token(self):
         """Verification fails for invalid JWT."""
         result = verify_teams_webhook("Bearer invalid.token.here", "app123")
@@ -114,7 +111,6 @@ class TestVerifyGoogleChatWebhook:
         result = verify_google_chat_webhook("")
         assert result is False
 
-    @pytest.mark.skipif(not HAS_JWT, reason="PyJWT not installed")
     def test_invalid_token(self):
         """Verification fails for invalid JWT."""
         result = verify_google_chat_webhook("Bearer invalid.token.here")
@@ -194,7 +190,6 @@ class TestGoogleChatConnectorVerification:
 class TestJWKSClientCaching:
     """Test JWKS client caching behavior."""
 
-    @pytest.mark.skipif(not HAS_JWT, reason="PyJWT not installed")
     def test_jwks_client_cached(self):
         """JWKS client is cached after first creation."""
         verifier = JWTVerifier()
@@ -215,7 +210,6 @@ class TestJWKSClientCaching:
             assert mock_client.call_count == 1  # No new call
             assert client1 is client2
 
-    @pytest.mark.skipif(not HAS_JWT, reason="PyJWT not installed")
     def test_jwks_client_refreshes_after_ttl(self):
         """JWKS client refreshes after cache TTL."""
         import time
