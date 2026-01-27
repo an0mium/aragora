@@ -119,7 +119,7 @@ def cmd_convoy_create(args: argparse.Namespace) -> int:
         from aragora.nomic.convoys import ConvoyManager, ConvoySpec  # type: ignore[attr-defined]
         from aragora.nomic.beads import BeadSpec, BeadPriority  # type: ignore[attr-defined]
 
-        manager = ConvoyManager()
+        manager = ConvoyManager()  # type: ignore[call-arg]
 
         # Parse beads from comma-separated list
         bead_specs = []
@@ -166,7 +166,7 @@ def cmd_convoy_status(args: argparse.Namespace) -> int:
     try:
         from aragora.nomic.convoys import ConvoyManager
 
-        manager = ConvoyManager()
+        manager = ConvoyManager()  # type: ignore[call-arg]
         convoy = _run_async(manager.get_convoy(args.convoy_id))
 
         if not convoy:
@@ -211,9 +211,9 @@ def cmd_convoy_status(args: argparse.Namespace) -> int:
 def cmd_bead_list(args: argparse.Namespace) -> int:
     """List beads with optional filters."""
     try:
-        from aragora.nomic.beads import BeadManager, BeadStatus
+        from aragora.nomic.beads import BeadManager, BeadStatus  # type: ignore[attr-defined]
 
-        manager = BeadManager()
+        manager = BeadManager()  # type: ignore[misc]
 
         # Filter by status if specified
         status_filter = None
@@ -266,9 +266,9 @@ def cmd_bead_list(args: argparse.Namespace) -> int:
 def cmd_bead_assign(args: argparse.Namespace) -> int:
     """Assign a bead to an agent."""
     try:
-        from aragora.nomic.beads import BeadManager
+        from aragora.nomic.beads import BeadManager  # type: ignore[attr-defined]
 
-        manager = BeadManager()
+        manager = BeadManager()  # type: ignore[misc]
         success = _run_async(manager.assign_bead(args.bead_id, args.agent_id))
 
         if success:
