@@ -37,6 +37,13 @@ from aragora.memory.embeddings import (
     OpenAIEmbedding,
     SemanticRetriever,
 )
+from aragora.memory.hybrid_search import (
+    HybridMemoryConfig,
+    HybridMemorySearch,
+    KeywordIndex,
+    MemorySearchResult,
+    get_hybrid_memory_search,
+)
 from aragora.memory.store import CritiqueStore, Pattern
 from aragora.memory.surprise import (
     SurpriseScorer,
@@ -67,6 +74,11 @@ __all__ = [
     "OpenAIEmbedding",
     "GeminiEmbedding",
     "OllamaEmbedding",
+    "HybridMemorySearch",
+    "HybridMemoryConfig",
+    "MemorySearchResult",
+    "KeywordIndex",
+    "get_hybrid_memory_search",
     # Consensus Memory
     "ConsensusMemory",
     "ConsensusRecord",
