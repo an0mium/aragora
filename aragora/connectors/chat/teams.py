@@ -38,6 +38,18 @@ except ImportError:
     HTTPX_AVAILABLE = False
     logger.warning("httpx not available - Teams connector will have limited functionality")
 
+# Distributed tracing support
+try:
+    from aragora.observability.tracing import build_trace_headers
+
+    TRACING_AVAILABLE = True
+except ImportError:
+    TRACING_AVAILABLE = False
+
+    def build_trace_headers() -> dict[str, str]:
+        return {}
+
+
 from .base import ChatPlatformConnector
 from .models import (
     BotCommand,

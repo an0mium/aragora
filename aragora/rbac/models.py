@@ -50,6 +50,7 @@ class ResourceType(str, Enum):
     REASONING = "reasoning"  # Belief networks and reasoning analysis
     KNOWLEDGE = "knowledge"  # Knowledge base and mound operations
     INBOX = "inbox"  # Action items and meeting management
+    SKILLS = "skills"  # Skill marketplace operations
 
     # Governance and orchestration
     POLICY = "policies"  # Governance policies

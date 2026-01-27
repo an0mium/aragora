@@ -16,6 +16,8 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import json
+
 from aragora.server.handlers.endpoint_analytics import (
     EndpointAnalyticsHandler,
     EndpointMetrics,
@@ -23,6 +25,23 @@ from aragora.server.handlers.endpoint_analytics import (
     record_endpoint_request,
     get_metrics_store,
 )
+from aragora.server.handlers.base import HandlerResult
+
+
+def parse_result(result: HandlerResult) -> tuple[dict, int]:
+    """Parse HandlerResult into (body dict, status_code)."""
+    if hasattr(result, "body") and result.body:
+        try:
+            body = json.loads(result.body)
+        except (json.JSONDecodeError, TypeError):
+            body = {}
+    elif hasattr(result, "data"):
+        body = result.data if result.data else {}
+    else:
+        body = {}
+
+    status_code = getattr(result, "status_code", 200)
+    return body, status_code
 
 
 # ============================================================================
@@ -254,8 +273,8 @@ class TestEndpointAnalyticsHandler:
                     )
 
                     assert result is not None
-                    assert result[1] == 200
-                    body = result[0]
+                    body, status_code = parse_result(result)
+                    assert status_code == 200
                     assert "endpoints" in body
                     assert len(body["endpoints"]) == 4
                     # Should be sorted by requests (desc by default)
@@ -283,8 +302,8 @@ class TestEndpointAnalyticsHandler:
                     )
 
                     assert result is not None
-                    assert result[1] == 200
-                    body = result[0]
+                    body, status_code = parse_result(result)
+                    assert status_code == 200
                     assert "slowest_endpoints" in body
                     # /api/batch should be slowest (2s latency)
                     assert body["slowest_endpoints"][0]["endpoint"] == "/api/batch"
@@ -308,8 +327,8 @@ class TestEndpointAnalyticsHandler:
                     )
 
                     assert result is not None
-                    assert result[1] == 200
-                    body = result[0]
+                    body, status_code = parse_result(result)
+                    assert status_code == 200
                     assert "error_endpoints" in body
                     # /api/analyze should have highest error rate (~33%)
                     if body["error_endpoints"]:
@@ -334,8 +353,8 @@ class TestEndpointAnalyticsHandler:
                     )
 
                     assert result is not None
-                    assert result[1] == 200
-                    body = result[0]
+                    body, status_code = parse_result(result)
+                    assert status_code == 200
                     assert "status" in body
                     assert body["status"] in ["healthy", "warning", "degraded"]
                     assert "summary" in body
@@ -361,8 +380,8 @@ class TestEndpointAnalyticsHandler:
                     )
 
                     assert result is not None
-                    assert result[1] == 200
-                    body = result[0]
+                    body, status_code = parse_result(result)
+                    assert status_code == 200
                     assert "endpoint" in body
                     assert body["endpoint"]["endpoint"] == "/api/health"
                     assert body["endpoint"]["total_requests"] == 100
@@ -378,7 +397,8 @@ class TestEndpointAnalyticsHandler:
             result = await handler.handle("/api/analytics/endpoints", {}, mock_handler)
 
             assert result is not None
-            assert result[1] == 401
+            _, status_code = parse_result(result)
+            assert status_code == 401
 
     @pytest.mark.asyncio
     async def test_forbidden_access(self, handler, mock_handler, mock_auth_context):
@@ -395,7 +415,8 @@ class TestEndpointAnalyticsHandler:
                 result = await handler.handle("/api/analytics/endpoints", {}, mock_handler)
 
                 assert result is not None
-                assert result[1] == 403
+                _, status_code = parse_result(result)
+                assert status_code == 403
 
 
 # ============================================================================

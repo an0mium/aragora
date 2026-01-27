@@ -286,6 +286,10 @@ markers = [
     "benchmark: marks benchmark tests (run separately from unit suite)",
     "flaky: marks tests with known intermittent failures",
     "requires_server: marks tests that need a running Aragora server",
+    "audit: marks tests for audit trail retention and SOC 2 compliance",
+    "compliance: marks tests for compliance APIs (SOC 2, GDPR, CCPA)",
+    "performance: marks tests for performance SLA validation (latency, throughput)",
+    "privacy: marks tests for privacy workflows (GDPR/CCPA/consent)",
 ]
 # Automatically rerun flaky tests up to 3 times
 addopts = "--reruns 2 --reruns-delay 1 --only-rerun AssertionError"
