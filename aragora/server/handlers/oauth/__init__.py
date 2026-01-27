@@ -29,6 +29,11 @@ from .handler import (
     _validate_state,
     _cleanup_expired_states,
     _generate_state,
+)
+from .._oauth_impl import _OAUTH_STATES
+
+# Re-export for backward compatibility
+from .handler import (
     # Google
     _get_google_client_id,
     _get_google_client_secret,
@@ -74,6 +79,7 @@ __all__ = [
     "_validate_state",
     "_cleanup_expired_states",
     "_generate_state",
+    "_OAUTH_STATES",
     # Google
     "_get_google_client_id",
     "_get_google_client_secret",

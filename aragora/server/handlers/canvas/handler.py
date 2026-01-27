@@ -86,8 +86,8 @@ class CanvasHandler(BaseHandler):
             if err:
                 return err
             if user:
-                user_id = user.get("sub") or user.get("user_id") or user.get("id")
-                workspace_id = user.get("workspace_id")
+                user_id = user.user_id
+                workspace_id = user.org_id  # Use org_id as workspace identifier
         except Exception as e:
             logger.warning(f"Authentication failed for canvas: {e}")
             return error_response("Authentication required", 401)
