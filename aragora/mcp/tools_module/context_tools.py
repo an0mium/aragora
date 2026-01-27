@@ -277,7 +277,7 @@ async def get_user_context_tool(
         if not connector:
             return {"error": f"No connector for platform: {platform}"}
 
-        result = {
+        result: dict[str, Any] = {
             "user_id": user_id,
             "platform": platform,
         }

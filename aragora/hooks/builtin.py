@@ -137,7 +137,7 @@ async def send_webhook(
         import httpx
 
         # Build payload
-        payload = {}
+        payload: dict[str, Any] = {}
         if payload_template:
             for key, value in payload_template.items():
                 if isinstance(value, str) and "{" in value:
@@ -309,15 +309,11 @@ async def store_fact(
         confidence = context.get(confidence_field, 0.5)
         debate_id = context.get("debate_id", "unknown")
 
-        await mound.store_fact(
+        await mound.store_verified_fact(
             content=str(content),
-            fact_type=fact_type,
+            source=f"{source}:{fact_type}",
             confidence=float(confidence),
-            source=source,
-            metadata={
-                "debate_id": debate_id,
-                "timestamp": datetime.utcnow().isoformat(),
-            },
+            topics=[fact_type] if fact_type else None,
         )
 
         logger.info(f"Fact stored: {fact_type} from debate {debate_id}")

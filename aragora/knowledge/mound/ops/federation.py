@@ -270,7 +270,7 @@ class KnowledgeFederationMixin:
             ]
 
             # Query items without filters (filter visibility post-query)
-            result = await self.query(
+            result = await self.query(  # type: ignore[attr-defined]
                 query="",  # Get all matching items
                 workspace_id=ws_id,
                 limit=1000,
@@ -403,7 +403,7 @@ class KnowledgeFederationMixin:
                             **item_data.get("metadata", {}),
                         },
                     )
-                    await self.store(request)
+                    await self.store(request)  # type: ignore[attr-defined]
                     nodes_synced += 1
                 except Exception as e:
                     logger.warning(f"Failed to ingest item from {region_id}: {e}")

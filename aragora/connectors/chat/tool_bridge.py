@@ -404,7 +404,7 @@ class ToolBridge:
 
         # Execute with retries
         timeout_val = timeout or self.timeout_seconds
-        last_error = None
+        last_error: Exception | None = None
 
         for attempt in range(self.max_retries + 1):
             try:

@@ -455,7 +455,7 @@ class AutonomicExecutor:
                     "generate",
                     start_time,
                     success=False,
-                    error="empty output",
+                    error=None,  # Empty output is not an exception
                     input_text=prompt,
                 )
                 self._emit_agent_error(
