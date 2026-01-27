@@ -35,6 +35,7 @@ try:
         json_response,
     )
     from ..utils.rate_limit import rate_limit  # noqa: F401
+    from aragora.rbac.decorators import require_permission
 
     HANDLER_BASE_AVAILABLE = True
 except ImportError:
@@ -695,6 +696,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return error_response("Not found", 404)
 
+        @require_permission("upload:create")
         def _handle_smart_upload(
             self,
             body: Dict[str, Any],
@@ -742,6 +744,7 @@ if HANDLER_BASE_AVAILABLE:
                 }
             )
 
+        @require_permission("upload:create")
         def _handle_batch_upload(
             self,
             body: Dict[str, Any],

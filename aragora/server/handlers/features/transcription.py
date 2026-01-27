@@ -29,6 +29,7 @@ from ..base import (
     json_response,
     require_user_auth,
 )
+from aragora.rbac.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -371,6 +372,7 @@ class TranscriptionHandler(BaseHandler):
                         setattr(job, key, value)
 
     @require_user_auth
+    @require_permission("transcription:create")
     @handle_errors("transcription upload")
     def _upload_and_transcribe(self, handler, user=None) -> HandlerResult:
         """Handle audio/video upload and queue for transcription."""
