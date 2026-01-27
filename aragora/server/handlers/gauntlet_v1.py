@@ -20,7 +20,6 @@ from datetime import datetime
 from typing import Any, Dict, Optional, cast
 
 from .base import (
-    BaseHandler,
     HandlerResult,
     ServerContext,
     get_string_param,
@@ -120,7 +119,7 @@ class GauntletSchemaHandler(GauntletSecureHandler):
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
-        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
             return error
 
         try:
@@ -181,7 +180,7 @@ class GauntletAllSchemasHandler(GauntletSecureHandler):
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
-        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
             return error
 
         try:
@@ -230,7 +229,7 @@ class GauntletTemplatesListHandler(GauntletSecureHandler):
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
-        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
             return error
 
         try:
@@ -305,7 +304,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
         **kwargs: Any,
     ) -> HandlerResult:
         # RBAC check
-        if error := await self.check_gauntlet_permission(kwargs, "gauntlet:read"):
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
             return error
 
         try:
@@ -344,7 +343,7 @@ class GauntletTemplateHandler(GauntletSecureHandler):
             )
 
 
-class GauntletReceiptExportHandler(BaseHandler):
+class GauntletReceiptExportHandler(GauntletSecureHandler):
     """
     POST /api/v1/gauntlet/{id}/export
 
@@ -375,6 +374,10 @@ class GauntletReceiptExportHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check - export is a read operation
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
+            return error
+
         try:
             gauntlet_id = path_params.get("gauntlet_id") if path_params else None
 
@@ -565,7 +568,7 @@ class GauntletReceiptExportHandler(BaseHandler):
             )
 
 
-class GauntletHeatmapExportHandler(BaseHandler):
+class GauntletHeatmapExportHandler(GauntletSecureHandler):
     """
     GET /api/v1/gauntlet/{id}/heatmap/export
 
@@ -591,6 +594,10 @@ class GauntletHeatmapExportHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
+            return error
+
         try:
             gauntlet_id = path_params.get("gauntlet_id") if path_params else None
 
@@ -684,7 +691,7 @@ class GauntletHeatmapExportHandler(BaseHandler):
             )
 
 
-class GauntletValidateReceiptHandler(BaseHandler):
+class GauntletValidateReceiptHandler(GauntletSecureHandler):
     """
     POST /api/v1/gauntlet/validate/receipt
 
@@ -710,6 +717,10 @@ class GauntletValidateReceiptHandler(BaseHandler):
         query_params: Optional[Dict[str, str]] = None,
         **kwargs: Any,
     ) -> HandlerResult:
+        # RBAC check - validation is a read operation
+        if error := await self.check_gauntlet_permission(kwargs, "gauntlet.read"):
+            return error
+
         try:
             if not body:
                 return rfc7807_error(

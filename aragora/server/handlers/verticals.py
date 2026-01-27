@@ -77,9 +77,9 @@ class VerticalsHandler(SecureHandler):
             auth_context = await self.get_auth_context(handler, require_auth=True)
             # Determine permission based on HTTP method
             if method in ("POST", "PUT", "PATCH", "DELETE"):
-                self.check_permission(auth_context, "verticals:write")
+                self.check_permission(auth_context, "verticals.update")
             else:
-                self.check_permission(auth_context, "verticals:read")
+                self.check_permission(auth_context, "verticals.read")
         except UnauthorizedError:
             return error_response("Authentication required", 401)
         except ForbiddenError as e:

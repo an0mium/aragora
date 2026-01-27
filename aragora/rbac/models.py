@@ -93,6 +93,9 @@ class ResourceType(str, Enum):
     ORCHESTRATION = "orchestration"  # Multi-agent orchestration
     SYSTEM = "system"  # System-wide operations (health, etc.)
 
+    # Domain specialists
+    VERTICALS = "verticals"  # Domain-specific AI specialists (legal, medical, etc.)
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

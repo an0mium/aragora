@@ -88,10 +88,10 @@ class AnalyticsHandler(BaseHandler):
             try:
                 auth_ctx = RBACContext(
                     user_id=user_id or "anonymous",
-                    user_email=user.get("email"),  # type: ignore[union-attr]
-                    org_id=user.get("org_id"),  # type: ignore[union-attr]
+                    user_email=user.get("email"),  # type: ignore[attr-defined]
+                    org_id=user.get("org_id"),  # type: ignore[attr-defined]
                     workspace_id=query_params.get("workspace_id"),
-                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[union-attr]
+                    roles=set(user.get("roles", ["member"])) if user else {"member"},  # type: ignore[attr-defined]
                 )
                 checker = get_permission_checker()
                 decision = checker.check_permission(auth_ctx, KNOWLEDGE_ANALYTICS_READ_PERMISSION)

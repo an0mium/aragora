@@ -450,6 +450,14 @@ PERM_SYSTEM_HEALTH_READ = _permission(
     ResourceType.SYSTEM, Action.READ, "View System Health", "View system health and diagnostics"
 )
 
+# Verticals permissions (domain specialists)
+PERM_VERTICALS_READ = _permission(
+    ResourceType.VERTICALS, Action.READ, "View Verticals", "View domain specialists"
+)
+PERM_VERTICALS_WRITE = _permission(
+    ResourceType.VERTICALS, Action.UPDATE, "Update Verticals", "Configure domain specialists"
+)
+
 
 # ============================================================================
 # ENTERPRISE PERMISSIONS - Data Governance
@@ -1232,6 +1240,9 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_ORCHESTRATION_READ,
         PERM_ORCHESTRATION_EXECUTE,
         PERM_SYSTEM_HEALTH_READ,
+        # Verticals
+        PERM_VERTICALS_READ,
+        PERM_VERTICALS_WRITE,
     ]
 }
 
@@ -1394,6 +1405,9 @@ ROLE_ADMIN = Role(
         PERM_ORCHESTRATION_READ.key,
         PERM_ORCHESTRATION_EXECUTE.key,
         PERM_SYSTEM_HEALTH_READ.key,
+        # Verticals
+        PERM_VERTICALS_READ.key,
+        PERM_VERTICALS_WRITE.key,
     },
     parent_roles=[],
     priority=80,
@@ -1458,6 +1472,8 @@ ROLE_DEBATE_CREATOR = Role(
         # Decisions
         PERM_DECISION_CREATE.key,
         PERM_DECISION_READ.key,
+        # Verticals
+        PERM_VERTICALS_READ.key,
     },
     priority=50,
     is_system=True,
