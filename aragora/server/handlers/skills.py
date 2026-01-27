@@ -74,15 +74,15 @@ class SkillsHandler(BaseHandler):
             self._registry = get_skill_registry()
         return self._registry
 
-    @handle_errors
+    @handle_errors("skills GET request")
     async def handle_get(self, path: str, request: Any) -> HandlerResult:
         """Handle GET requests for skills endpoints."""
         path = strip_version_prefix(path)
 
         if not SKILLS_AVAILABLE:
             return error_response(
-                503,
                 "Skills system not available",
+                503,
                 code="SKILLS_UNAVAILABLE",
             )
 
@@ -90,8 +90,8 @@ class SkillsHandler(BaseHandler):
         client_ip = get_client_ip(request)
         if not _skills_limiter.check(client_ip):
             return error_response(
-                429,
                 "Rate limit exceeded for skills endpoints",
+                429,
                 code="RATE_LIMITED",
             )
 
@@ -112,17 +112,17 @@ class SkillsHandler(BaseHandler):
             skill_name = parts[3]
             return await self._get_skill(skill_name, request)
 
-        return error_response(404, f"Unknown skills endpoint: {path}")
+        return error_response(f"Unknown skills endpoint: {path}", 404)
 
-    @handle_errors
+    @handle_errors("skills POST request")
     async def handle_post(self, path: str, request: Any) -> HandlerResult:
         """Handle POST requests for skills endpoints."""
         path = strip_version_prefix(path)
 
         if not SKILLS_AVAILABLE:
             return error_response(
-                503,
                 "Skills system not available",
+                503,
                 code="SKILLS_UNAVAILABLE",
             )
 
@@ -130,8 +130,8 @@ class SkillsHandler(BaseHandler):
         client_ip = get_client_ip(request)
         if not _skills_limiter.check(client_ip):
             return error_response(
-                429,
                 "Rate limit exceeded for skill invocations",
+                429,
                 code="RATE_LIMITED",
             )
 
@@ -139,7 +139,7 @@ class SkillsHandler(BaseHandler):
         if path == "/api/skills/invoke":
             return await self._invoke_skill(request)
 
-        return error_response(404, f"Unknown skills endpoint: {path}")
+        return error_response(f"Unknown skills endpoint: {path}", 404)
 
     @require_permission("skills:read")
     async def _list_skills(self, request: Any) -> HandlerResult:
@@ -147,8 +147,8 @@ class SkillsHandler(BaseHandler):
         registry = self._get_registry()
         if not registry:
             return error_response(
-                503,
                 "Skill registry not available",
+                503,
                 code="REGISTRY_UNAVAILABLE",
             )
 
@@ -179,16 +179,16 @@ class SkillsHandler(BaseHandler):
         registry = self._get_registry()
         if not registry:
             return error_response(
-                503,
                 "Skill registry not available",
+                503,
                 code="REGISTRY_UNAVAILABLE",
             )
 
         skill = registry.get(name)
         if not skill:
             return error_response(
-                404,
                 f"Skill not found: {name}",
+                404,
                 code="SKILL_NOT_FOUND",
             )
 
@@ -213,16 +213,16 @@ class SkillsHandler(BaseHandler):
         registry = self._get_registry()
         if not registry:
             return error_response(
-                503,
                 "Skill registry not available",
+                503,
                 code="REGISTRY_UNAVAILABLE",
             )
 
         skill = registry.get(name)
         if not skill:
             return error_response(
-                404,
                 f"Skill not found: {name}",
+                404,
                 code="SKILL_NOT_FOUND",
             )
 
@@ -257,8 +257,8 @@ class SkillsHandler(BaseHandler):
         registry = self._get_registry()
         if not registry:
             return error_response(
-                503,
                 "Skill registry not available",
+                503,
                 code="REGISTRY_UNAVAILABLE",
             )
 
@@ -269,11 +269,11 @@ class SkillsHandler(BaseHandler):
             else:
                 body = request.get("body", {})
         except Exception:
-            return error_response(400, "Invalid JSON body")
+            return error_response("Invalid JSON body", 400)
 
         skill_name = body.get("skill")
         if not skill_name:
-            return error_response(400, "Missing required field: skill")
+            return error_response("Missing required field: skill", 400)
 
         input_data = body.get("input", {})
         user_id = body.get("user_id", "api")
@@ -284,8 +284,8 @@ class SkillsHandler(BaseHandler):
         skill = registry.get(skill_name)
         if not skill:
             return error_response(
-                404,
                 f"Skill not found: {skill_name}",
+                404,
                 code="SKILL_NOT_FOUND",
             )
 
@@ -323,14 +323,14 @@ class SkillsHandler(BaseHandler):
                 )
             elif result.status == SkillStatus.RATE_LIMITED:
                 return error_response(
-                    429,
                     result.error or "Skill rate limited",
+                    429,
                     code="SKILL_RATE_LIMITED",
                 )
             elif result.status == SkillStatus.PERMISSION_DENIED:
                 return error_response(
-                    403,
                     result.error or "Permission denied",
+                    403,
                     code="PERMISSION_DENIED",
                 )
             else:
@@ -345,14 +345,14 @@ class SkillsHandler(BaseHandler):
 
         except asyncio.TimeoutError:
             return error_response(
-                408,
                 f"Skill invocation timed out after {timeout}s",
+                408,
                 code="TIMEOUT",
             )
         except Exception as e:
             logger.exception(f"Skill invocation error for {skill_name}")
             return error_response(
-                500,
                 f"Skill invocation failed: {str(e)}",
+                500,
                 code="INVOCATION_ERROR",
             )

@@ -41,6 +41,7 @@ from .dock import (
 )
 from .normalized import NormalizedMessage, MessageFormat
 from .registry import DockRegistry, get_dock_registry
+from .router import ChannelRouter, get_channel_router
 
 __all__ = [
     # Legacy formatters
@@ -59,4 +60,7 @@ __all__ = [
     "MessageFormat",
     "DockRegistry",
     "get_dock_registry",
+    # Router
+    "ChannelRouter",
+    "get_channel_router",
 ]

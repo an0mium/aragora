@@ -76,15 +76,15 @@ class BindingsHandler(BaseHandler):
             self._router = get_binding_router()
         return self._router
 
-    @handle_errors
+    @handle_errors("bindings GET request")
     async def handle_get(self, path: str, request: Any) -> HandlerResult:
         """Handle GET requests for bindings endpoints."""
         path = strip_version_prefix(path)
 
         if not BINDINGS_AVAILABLE:
             return error_response(
-                503,
                 "Bindings system not available",
+                503,
                 code="BINDINGS_UNAVAILABLE",
             )
 
@@ -92,8 +92,8 @@ class BindingsHandler(BaseHandler):
         client_ip = get_client_ip(request)
         if not _bindings_limiter.check(client_ip):
             return error_response(
-                429,
                 "Rate limit exceeded for bindings endpoints",
+                429,
                 code="RATE_LIMITED",
             )
 
@@ -111,17 +111,17 @@ class BindingsHandler(BaseHandler):
             provider = parts[3]
             return await self._list_bindings_by_provider(provider, request)
 
-        return error_response(404, f"Unknown bindings endpoint: {path}")
+        return error_response(f"Unknown bindings endpoint: {path}", 404)
 
-    @handle_errors
+    @handle_errors("bindings POST request")
     async def handle_post(self, path: str, request: Any) -> HandlerResult:
         """Handle POST requests for bindings endpoints."""
         path = strip_version_prefix(path)
 
         if not BINDINGS_AVAILABLE:
             return error_response(
-                503,
                 "Bindings system not available",
+                503,
                 code="BINDINGS_UNAVAILABLE",
             )
 
@@ -129,8 +129,8 @@ class BindingsHandler(BaseHandler):
         client_ip = get_client_ip(request)
         if not _bindings_limiter.check(client_ip):
             return error_response(
-                429,
                 "Rate limit exceeded for bindings endpoints",
+                429,
                 code="RATE_LIMITED",
             )
 
@@ -142,17 +142,17 @@ class BindingsHandler(BaseHandler):
         if path == "/api/bindings":
             return await self._create_binding(request)
 
-        return error_response(404, f"Unknown bindings endpoint: {path}")
+        return error_response(f"Unknown bindings endpoint: {path}", 404)
 
-    @handle_errors
+    @handle_errors("bindings DELETE request")
     async def handle_delete(self, path: str, request: Any) -> HandlerResult:
         """Handle DELETE requests for bindings endpoints."""
         path = strip_version_prefix(path)
 
         if not BINDINGS_AVAILABLE:
             return error_response(
-                503,
                 "Bindings system not available",
+                503,
                 code="BINDINGS_UNAVAILABLE",
             )
 
@@ -160,8 +160,8 @@ class BindingsHandler(BaseHandler):
         client_ip = get_client_ip(request)
         if not _bindings_limiter.check(client_ip):
             return error_response(
-                429,
                 "Rate limit exceeded for bindings endpoints",
+                429,
                 code="RATE_LIMITED",
             )
 
@@ -174,8 +174,8 @@ class BindingsHandler(BaseHandler):
         router = self._get_router()
         if not router:
             return error_response(
-                503,
                 "Binding router not available",
+                503,
                 code="ROUTER_UNAVAILABLE",
             )
 
@@ -193,8 +193,8 @@ class BindingsHandler(BaseHandler):
         router = self._get_router()
         if not router:
             return error_response(
-                503,
                 "Binding router not available",
+                503,
                 code="ROUTER_UNAVAILABLE",
             )
 
@@ -213,8 +213,8 @@ class BindingsHandler(BaseHandler):
         router = self._get_router()
         if not router:
             return error_response(
-                503,
                 "Binding router not available",
+                503,
                 code="ROUTER_UNAVAILABLE",
             )
 
@@ -227,8 +227,8 @@ class BindingsHandler(BaseHandler):
         router = self._get_router()
         if not router:
             return error_response(
-                503,
                 "Binding router not available",
+                503,
                 code="ROUTER_UNAVAILABLE",
             )
 
@@ -239,21 +239,21 @@ class BindingsHandler(BaseHandler):
             else:
                 body = request.get("body", {})
         except Exception:
-            return error_response(400, "Invalid JSON body")
+            return error_response("Invalid JSON body", 400)
 
         # Validate required fields
         required = ["provider", "account_id", "peer_pattern", "agent_binding"]
         missing = [f for f in required if f not in body]
         if missing:
-            return error_response(400, f"Missing required fields: {', '.join(missing)}")
+            return error_response(f"Missing required fields: {', '.join(missing)}", 400)
 
         # Create binding
         try:
             binding_type = BindingType(body.get("binding_type", "default"))
         except ValueError:
             return error_response(
-                400,
                 f"Invalid binding_type: {body.get('binding_type')}",
+                400,
             )
 
         binding = MessageBinding(
@@ -294,8 +294,8 @@ class BindingsHandler(BaseHandler):
         router = self._get_router()
         if not router:
             return error_response(
-                503,
                 "Binding router not available",
+                503,
                 code="ROUTER_UNAVAILABLE",
             )
 
@@ -306,13 +306,13 @@ class BindingsHandler(BaseHandler):
             else:
                 body = request.get("body", {})
         except Exception:
-            return error_response(400, "Invalid JSON body")
+            return error_response("Invalid JSON body", 400)
 
         # Validate required fields
         required = ["provider", "account_id", "peer_id"]
         missing = [f for f in required if f not in body]
         if missing:
-            return error_response(400, f"Missing required fields: {', '.join(missing)}")
+            return error_response(f"Missing required fields: {', '.join(missing)}", 400)
 
         # Resolve binding
         resolution = router.resolve(
@@ -341,8 +341,8 @@ class BindingsHandler(BaseHandler):
         router = self._get_router()
         if not router:
             return error_response(
-                503,
                 "Binding router not available",
+                503,
                 code="ROUTER_UNAVAILABLE",
             )
 
@@ -350,8 +350,8 @@ class BindingsHandler(BaseHandler):
         parts = path.split("/")
         if len(parts) < 6:
             return error_response(
-                400,
                 "Delete path must be /api/bindings/:provider/:account/:pattern",
+                400,
             )
 
         provider = parts[3]
@@ -364,7 +364,7 @@ class BindingsHandler(BaseHandler):
             return json_response({"status": "deleted"})
         else:
             return error_response(
-                404,
                 f"Binding not found: {provider}/{account_id}/{peer_pattern}",
+                404,
                 code="BINDING_NOT_FOUND",
             )

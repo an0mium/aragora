@@ -322,9 +322,9 @@ class HandoffStore:
             with open(mol_path) as f:
                 for line in f:
                     if line.strip():
-                        data = json.loads(line)
-                        handoff = MoleculeHandoffContext.from_dict(data)
-                        self._molecule_handoffs[handoff.id] = handoff
+                        mol_data = json.loads(line)
+                        mol_handoff = MoleculeHandoffContext.from_dict(mol_data)
+                        self._molecule_handoffs[mol_handoff.id] = mol_handoff
             logger.info(f"Loaded {len(self._molecule_handoffs)} molecule handoffs")
 
     async def save_bead_handoff(self, handoff: BeadHandoffContext) -> None:

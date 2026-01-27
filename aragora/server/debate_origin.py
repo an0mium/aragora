@@ -52,6 +52,14 @@ _origin_store: Dict[str, "DebateOrigin"] = {}
 # TTL for origin records (24 hours)
 ORIGIN_TTL_SECONDS = int(os.environ.get("DEBATE_ORIGIN_TTL", 86400))
 
+# Feature flag for dock-based routing (default: enabled)
+# Set DEBATE_ORIGIN_USE_DOCKS=0 to disable
+USE_DOCK_ROUTING = os.environ.get("DEBATE_ORIGIN_USE_DOCKS", "1").lower() not in (
+    "0",
+    "false",
+    "no",
+)
+
 
 class SQLiteOriginStore:
     """SQLite-backed debate origin store for durability without Redis."""
@@ -612,6 +620,39 @@ async def route_debate_result(
     platform = origin.platform.lower()
     logger.info(f"Routing result for {debate_id} to {platform}:{origin.channel_id}")
 
+    # Use dock-based routing if enabled
+    if USE_DOCK_ROUTING:
+        try:
+            from aragora.channels.router import get_channel_router
+
+            router = get_channel_router()
+            send_result = await router.route_result(
+                platform=platform,
+                channel_id=origin.channel_id,
+                result=result,
+                thread_id=origin.thread_id,
+                message_id=origin.message_id,
+                include_voice=include_voice,
+                webhook_url=origin.metadata.get("webhook_url"),  # Teams
+            )
+
+            if send_result.success:
+                mark_result_sent(debate_id)
+                # Post receipt if provided
+                if receipt and receipt_url:
+                    try:
+                        await post_receipt_to_channel(origin, receipt, receipt_url)
+                    except Exception as e:
+                        logger.warning(f"Failed to post receipt for {debate_id}: {e}")
+                return True
+            else:
+                logger.warning(f"Dock routing failed for {platform}: {send_result.error}")
+                # Fall through to legacy routing
+        except Exception as e:
+            logger.warning(f"Dock routing error, falling back to legacy: {e}")
+            # Fall through to legacy routing
+
+    # Legacy platform-specific routing (fallback)
     try:
         # Route to appropriate platform
         if platform == "telegram":
@@ -669,10 +710,35 @@ async def post_receipt_to_channel(
     Returns:
         True if receipt was posted successfully
     """
-    summary = _format_receipt_summary(receipt, receipt_url)
     platform = origin.platform.lower()
-
     logger.info(f"Posting receipt to {platform}:{origin.channel_id}")
+
+    # Use dock-based routing if enabled
+    if USE_DOCK_ROUTING:
+        try:
+            from aragora.channels.router import get_channel_router
+
+            router = get_channel_router()
+            send_result = await router.route_receipt(
+                platform=platform,
+                channel_id=origin.channel_id,
+                receipt=receipt,
+                receipt_url=receipt_url,
+                thread_id=origin.thread_id,
+                webhook_url=origin.metadata.get("webhook_url"),  # Teams
+            )
+
+            if send_result.success:
+                return True
+            else:
+                logger.warning(f"Dock receipt routing failed: {send_result.error}")
+                # Fall through to legacy routing
+        except Exception as e:
+            logger.warning(f"Dock receipt routing error, falling back: {e}")
+            # Fall through to legacy routing
+
+    # Legacy routing (fallback)
+    summary = _format_receipt_summary(receipt, receipt_url)
 
     try:
         if platform == "slack":
@@ -1607,10 +1673,36 @@ async def send_error_to_channel(
     Returns:
         True if the message was sent successfully
     """
-    friendly_message = format_error_for_chat(error, debate_id)
     platform = origin.platform.lower()
-
     logger.info(f"Sending error to {platform}:{origin.channel_id}")
+
+    # Use dock-based routing if enabled
+    if USE_DOCK_ROUTING:
+        try:
+            from aragora.channels.router import get_channel_router
+
+            router = get_channel_router()
+            send_result = await router.route_error(
+                platform=platform,
+                channel_id=origin.channel_id,
+                error_message=error,
+                debate_id=debate_id,
+                thread_id=origin.thread_id,
+                message_id=origin.message_id,
+                webhook_url=origin.metadata.get("webhook_url"),  # Teams
+            )
+
+            if send_result.success:
+                return True
+            else:
+                logger.warning(f"Dock error routing failed: {send_result.error}")
+                # Fall through to legacy routing
+        except Exception as e:
+            logger.warning(f"Dock error routing error, falling back: {e}")
+            # Fall through to legacy routing
+
+    # Legacy routing (fallback)
+    friendly_message = format_error_for_chat(error, debate_id)
 
     try:
         if platform == "slack":

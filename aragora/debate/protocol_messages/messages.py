@@ -193,7 +193,7 @@ class ProtocolMessage:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary for serialization."""
-        result = {
+        result: Dict[str, Any] = {
             "message_id": self.message_id,
             "message_type": self.message_type.value,
             "debate_id": self.debate_id,

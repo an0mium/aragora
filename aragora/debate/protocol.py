@@ -354,6 +354,15 @@ class DebateProtocol:
     enable_hook_tracking: bool = False  # Enable GUPP-style hook tracking
     hook_max_recovery_age_hours: int = 24  # Max age of recoverable debate work (hours)
 
+    # Molecule tracking: Gastown-inspired work decomposition for multi-phase debates
+    # When enabled, debate phases are tracked as molecules with:
+    # - Capability requirements: what skills are needed per phase
+    # - Agent affinity: which agents perform best on each phase type
+    # - Dependency resolution: phases execute in proper order
+    # - Failure recovery: failed phases can be reassigned to other agents
+    enable_molecule_tracking: bool = False  # Enable molecule-based phase tracking
+    molecule_max_attempts: int = 3  # Max retry attempts per molecule
+
     def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
         """Get the phase configuration for a specific round.
 

@@ -218,7 +218,7 @@ class BM25Index:
             if term not in doc.token_counts:
                 # Try fuzzy matching
                 if self.config.enable_fuzzy:
-                    fuzzy_match = self._fuzzy_match(term, doc.token_counts.keys())
+                    fuzzy_match = self._fuzzy_match(term, list(doc.token_counts.keys()))
                     if fuzzy_match:
                         term = fuzzy_match
                     else:
@@ -445,7 +445,7 @@ class HybridSearcher:
             )
 
         # Sort by fused score
-        fused.sort(key=lambda x: x["score"], reverse=True)
+        fused.sort(key=lambda x: float(x["score"]), reverse=True)
         return fused[:limit]
 
     @staticmethod

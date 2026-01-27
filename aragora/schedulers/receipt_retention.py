@@ -28,7 +28,10 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
+
+if TYPE_CHECKING:
+    from aragora.storage.receipt_store import ReceiptStore
 
 logger = logging.getLogger(__name__)
 
