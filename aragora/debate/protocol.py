@@ -343,7 +343,7 @@ class DebateProtocol:
     # Bead tracking: Git-backed audit trail for debate decisions (Gastown pattern)
     # When enabled, creates a Bead for each debate decision that meets confidence threshold
     # Beads are stored in JSONL format with optional git backing for auditability
-    enable_bead_tracking: bool = False  # Enable bead creation for debate decisions
+    enable_bead_tracking: bool = True  # Enable bead creation for debate decisions
     bead_min_confidence: float = 0.5  # Min confidence to create a bead (0.0-1.0)
     bead_auto_commit: bool = False  # Auto-commit beads to git after creation
 
@@ -351,7 +351,7 @@ class DebateProtocol:
     # When enabled, debate work is tracked via hook queues for crash recovery.
     # If an agent crashes mid-debate, work is recovered on startup.
     # Requires enable_bead_tracking=True for full functionality.
-    enable_hook_tracking: bool = False  # Enable GUPP-style hook tracking
+    enable_hook_tracking: bool = True  # Enable GUPP-style hook tracking
     hook_max_recovery_age_hours: int = 24  # Max age of recoverable debate work (hours)
 
     # Molecule tracking: Gastown-inspired work decomposition for multi-phase debates
@@ -360,8 +360,14 @@ class DebateProtocol:
     # - Agent affinity: which agents perform best on each phase type
     # - Dependency resolution: phases execute in proper order
     # - Failure recovery: failed phases can be reassigned to other agents
-    enable_molecule_tracking: bool = False  # Enable molecule-based phase tracking
+    enable_molecule_tracking: bool = True  # Enable molecule-based phase tracking
     molecule_max_attempts: int = 3  # Max retry attempts per molecule
+
+    # Agent channels: Peer-to-peer messaging between agents during debates
+    # When enabled, agents can communicate directly via broadcast/direct messages
+    # Supports threaded conversations, message handlers, and context injection
+    enable_agent_channels: bool = True  # Enable peer messaging during debates
+    agent_channel_max_history: int = 100  # Max messages to retain in channel history
 
     def get_round_phase(self, round_number: int) -> Optional[RoundPhase]:
         """Get the phase configuration for a specific round.
