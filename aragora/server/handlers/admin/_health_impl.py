@@ -716,6 +716,28 @@ class HealthHandler(SecureHandler):
 
         return json_response(health, status=status_code)
 
+    def _websocket_health(self) -> HandlerResult:
+        """Basic WebSocket health check for availability and client count."""
+        ws_manager = self.ctx.get("ws_manager")
+        if ws_manager is None:
+            return json_response(
+                {
+                    "status": "unavailable",
+                    "clients": 0,
+                    "message": "WebSocket manager not configured",
+                },
+                status=200,
+            )
+
+        try:
+            client_count = len(getattr(ws_manager, "clients", []))
+            return json_response({"status": "healthy", "clients": client_count}, status=200)
+        except Exception as e:
+            return json_response(
+                {"status": "error", "clients": 0, "message": str(e)[:120]},
+                status=503,
+            )
+
     def _check_filesystem_health(self) -> Dict[str, Any]:
         """Check filesystem write access to data directory."""
         nomic_dir = self.get_nomic_dir()

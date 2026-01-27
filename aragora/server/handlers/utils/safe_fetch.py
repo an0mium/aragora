@@ -45,7 +45,7 @@ def safe_fetch(
     data_exceptions: tuple = DATA_EXCEPTIONS,
     log_data_errors: bool = True,
     log_level_data: int = logging.WARNING,
-    log_level_unexpected: int = logging.EXCEPTION,
+    log_level_unexpected: int = logging.ERROR,
     include_error_in_fallback: bool = True,
 ) -> T:
     """
@@ -72,7 +72,7 @@ def safe_fetch(
             logger.log(log_level_data, f"Data error fetching {context}: {e}")
         return _make_fallback(fallback, str(e), include_error_in_fallback)
     except Exception as e:
-        if log_level_unexpected == logging.EXCEPTION:
+        if log_level_unexpected == logging.ERROR:
             logger.exception(f"Unexpected error fetching {context}: {e}")
         else:
             logger.log(log_level_unexpected, f"Unexpected error fetching {context}: {e}")
@@ -88,7 +88,7 @@ async def safe_fetch_async(
     data_exceptions: tuple = DATA_EXCEPTIONS,
     log_data_errors: bool = True,
     log_level_data: int = logging.WARNING,
-    log_level_unexpected: int = logging.EXCEPTION,
+    log_level_unexpected: int = logging.ERROR,
     include_error_in_fallback: bool = True,
 ) -> T:
     """
@@ -115,7 +115,7 @@ async def safe_fetch_async(
             logger.log(log_level_data, f"Data error fetching {context}: {e}")
         return _make_fallback(fallback, str(e), include_error_in_fallback)
     except Exception as e:
-        if log_level_unexpected == logging.EXCEPTION:
+        if log_level_unexpected == logging.ERROR:
             logger.exception(f"Unexpected error fetching {context}: {e}")
         else:
             logger.log(log_level_unexpected, f"Unexpected error fetching {context}: {e}")
@@ -167,7 +167,7 @@ class SafeFetchContext:
         data_exceptions: tuple = DATA_EXCEPTIONS,
         log_data_errors: bool = True,
         log_level_data: int = logging.WARNING,
-        log_level_unexpected: int = logging.EXCEPTION,
+        log_level_unexpected: int = logging.ERROR,
         include_error_in_fallback: bool = True,
     ):
         self.logger = logger
