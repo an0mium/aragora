@@ -621,7 +621,7 @@ class CanvasStateManager:
 
             # Create environment and run debate
             env = Environment(task=question)
-            protocol = DebateProtocol(
+            protocol = DebateProtocol(  # type: ignore[misc]
                 rounds=params.get("rounds", 3),
                 consensus=params.get("consensus", "majority"),
             )
@@ -834,9 +834,7 @@ class CanvasStateManager:
             from aragora.workflow.templates import get_template
 
             template = get_template(workflow_id)
-            if template:
-                return template.to_definition()
-            return None
+            return template  # get_template already returns a dict definition
         except ImportError:
             return None
 
@@ -943,7 +941,7 @@ class CanvasStateManager:
 
             # Format results
             formatted = []
-            for result in results:
+            for result in results.items:
                 confidence = getattr(result, "confidence", 0.0)
                 if confidence >= min_confidence:
                     formatted.append(

@@ -294,7 +294,7 @@ class StuckDetector:
         from aragora.nomic.beads import BeadStatus
 
         # Get running beads
-        running_beads = await self.bead_store.list_beads(status=BeadStatus.RUNNING)
+        running_beads = await self.bead_store.list_by_status(BeadStatus.RUNNING)
 
         for bead in running_beads:
             last_update = bead.updated_at or bead.created_at
@@ -305,7 +305,7 @@ class StuckDetector:
                 id=bead.id,
                 work_type="bead",
                 title=bead.title,
-                agent_id=bead.assigned_to,
+                agent_id=bead.claimed_by,
                 age=age,
                 last_update=last_update,
                 time_since_update=time_since,
@@ -429,7 +429,7 @@ class StuckDetector:
                 from aragora.nomic.beads import BeadStatus
 
                 bead.status = BeadStatus.PENDING
-                bead.assigned_to = None
+                bead.claimed_by = None
                 await self.bead_store.update(bead)
                 logger.info(f"Reset stuck bead {item.id} to pending")
                 return True
@@ -515,7 +515,7 @@ class StuckDetector:
                     id=bead.id,
                     work_type="bead",
                     title=bead.title,
-                    agent_id=bead.assigned_to,
+                    agent_id=bead.claimed_by,
                     age=age,
                     last_update=last_update,
                     time_since_update=time_since,
