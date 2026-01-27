@@ -12,6 +12,7 @@ Tests the Canvas system end-to-end:
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,6 +21,9 @@ import pytest
 import pytest_asyncio
 
 pytestmark = pytest.mark.e2e
+
+# Environment flag for full server integration tests
+HAS_FULL_SERVER = os.environ.get("ARAGORA_E2E_FULL_SERVER", "").lower() == "true"
 
 
 # ============================================================================
@@ -433,7 +437,7 @@ class TestCanvasHandlerE2E:
         assert canvas_handler.can_handle("/api/v1/debates") is False
         assert canvas_handler.can_handle("/api/v1/agents") is False
 
-    @pytest.mark.skip(reason="Handler tests require full server setup")
+    @pytest.mark.skipif(not HAS_FULL_SERVER, reason="Handler tests require full server setup")
     def test_list_canvases_endpoint(self, canvas_handler):
         """Test listing canvases via handler."""
         mock_handler = MagicMock()
@@ -445,7 +449,7 @@ class TestCanvasHandlerE2E:
         assert result is not None
         assert result.status_code == 200
 
-    @pytest.mark.skip(reason="Handler tests require full server setup")
+    @pytest.mark.skipif(not HAS_FULL_SERVER, reason="Handler tests require full server setup")
     def test_create_canvas_endpoint(self, canvas_handler):
         """Test creating canvas via handler."""
         import json
