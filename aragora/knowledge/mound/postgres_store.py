@@ -13,7 +13,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional, cast
 
 from aragora.knowledge.mound.types import (
     AccessGrant,
@@ -412,7 +412,7 @@ class PostgresStore:
                         topic,
                     )
 
-        return node_data["id"]
+        return cast(str, node_data["id"])
 
     async def get_node_async(self, node_id: str) -> Optional[KnowledgeItem]:
         """Get a knowledge node by ID."""
@@ -478,7 +478,7 @@ class PostgresStore:
                 "DELETE FROM knowledge_nodes WHERE id = $1",
                 node_id,
             )
-            return result == "DELETE 1"
+            return str(result) == "DELETE 1"
 
     async def find_by_content_hash_async(
         self, content_hash: str, workspace_id: str
