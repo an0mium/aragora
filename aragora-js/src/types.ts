@@ -1124,3 +1124,108 @@ export interface MFAVerifyResponse {
   success: boolean;
   backup_codes_remaining: number;
 }
+
+// =============================================================================
+// Codebase API Types
+// =============================================================================
+
+export type CodebaseScanStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type VulnerabilitySeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+export interface CodebaseScanResult {
+  scan_id: string;
+  repo_id: string;
+  status: CodebaseScanStatus;
+  started_at: string;
+  completed_at?: string;
+  files_scanned: number;
+  lines_scanned: number;
+  vulnerabilities_found: number;
+  risk_score: number;
+  summary: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+  };
+}
+
+export interface CodebaseVulnerability {
+  id: string;
+  scan_id: string;
+  severity: VulnerabilitySeverity;
+  title: string;
+  description: string;
+  file_path: string;
+  line_number?: number;
+  code_snippet?: string;
+  cwe_id?: string;
+  cvss_score?: number;
+  recommendation?: string;
+  category: string;
+  confidence: number;
+  created_at: string;
+}
+
+export interface CodebaseScanRequest {
+  repo_path: string;
+  include_patterns?: string[];
+  exclude_patterns?: string[];
+  severity_threshold?: VulnerabilitySeverity;
+  include_secrets?: boolean;
+  include_dependencies?: boolean;
+}
+
+export interface CodebaseDependency {
+  name: string;
+  version: string;
+  license?: string;
+  vulnerabilities: number;
+  outdated: boolean;
+  latest_version?: string;
+  ecosystem: string;
+}
+
+export interface CodebaseDependencyAnalysis {
+  total_dependencies: number;
+  direct_dependencies: number;
+  transitive_dependencies: number;
+  vulnerable_dependencies: number;
+  outdated_dependencies: number;
+  dependencies: CodebaseDependency[];
+  risk_score: number;
+}
+
+export interface CodebaseMetrics {
+  repo_id: string;
+  total_files: number;
+  total_lines: number;
+  languages: Record<string, number>;
+  avg_complexity: number;
+  max_complexity: number;
+  maintainability_index: number;
+  test_coverage?: number;
+  hotspots: Array<{
+    file_path: string;
+    complexity: number;
+    risk_score: number;
+  }>;
+  duplicates: Array<{
+    hash: string;
+    lines: number;
+    occurrences: Array<{
+      file: string;
+      start: number;
+      end: number;
+    }>;
+  }>;
+}
+
+export interface CodebaseAnalysisRequest {
+  repo_path: string;
+  include_patterns?: string[];
+  exclude_patterns?: string[];
+  complexity_warning?: number;
+  complexity_error?: number;
+}
