@@ -308,7 +308,7 @@ def cmd_agent_list(args: argparse.Namespace) -> int:
                 print(f"Valid: {', '.join(r.value for r in AgentRole)}")
                 return 1
 
-        agents = _run_async(hierarchy.list_agents(role=role_filter))
+        agents = _run_async(hierarchy.list_agents(role=role_filter))  # type: ignore[attr-defined]
 
         if not agents:
             print("No agents found")
@@ -354,7 +354,7 @@ def cmd_agent_promote(args: argparse.Namespace) -> int:
             return 1
 
         # Update role
-        success = _run_async(hierarchy.update_agent_role(args.agent_id, new_role))
+        success = _run_async(hierarchy.update_agent_role(args.agent_id, new_role))  # type: ignore[attr-defined]
 
         if success:
             print(f"Agent {args.agent_id} promoted to {new_role.value.upper()}")
