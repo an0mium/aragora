@@ -102,6 +102,9 @@ class ResourceType(str, Enum):
     VERIFICATION = "verification"  # Formal verification operations
     CODEBASE = "codebase"  # Codebase analysis operations
 
+    # Replay management
+    REPLAY = "replays"  # Debate replay recordings
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""

@@ -282,6 +282,11 @@ PERM_CHECKPOINT_DELETE = _permission(
     ResourceType.CHECKPOINT, Action.DELETE, "Delete Checkpoints", "Remove saved checkpoints"
 )
 
+# Replay permissions
+PERM_REPLAYS_READ = _permission(
+    ResourceType.REPLAY, Action.READ, "View Replays", "View debate replay recordings"
+)
+
 # Gauntlet permissions (adversarial stress-testing)
 PERM_GAUNTLET_RUN = _permission(
     ResourceType.GAUNTLET, Action.RUN, "Run Gauntlet", "Execute adversarial stress-tests"
@@ -1644,6 +1649,8 @@ ROLE_MEMBER = Role(
         # Checkpoints
         PERM_CHECKPOINT_READ.key,
         PERM_CHECKPOINT_CREATE.key,
+        # Replays (read)
+        PERM_REPLAYS_READ.key,
         # Gauntlet (run and read)
         PERM_GAUNTLET_RUN.key,
         PERM_GAUNTLET_READ.key,

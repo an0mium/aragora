@@ -42,6 +42,7 @@ from ..base import (
 )
 from ..utils.rate_limit import get_client_ip, rate_limit
 from ..secure import SecureHandler
+from aragora.server.versioning.compat import strip_version_prefix
 from .validation import validate_email, validate_password
 
 # Unified audit logging
@@ -96,10 +97,11 @@ class AuthHandler(SecureHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        if path in self.ROUTES:
+        normalized = strip_version_prefix(path)
+        if normalized in self.ROUTES:
             return True
         # Handle wildcard routes for session management
-        if path.startswith("/api/auth/sessions/"):
+        if normalized.startswith("/api/auth/sessions/"):
             return True
         return False
 
@@ -108,8 +110,11 @@ class AuthHandler(SecureHandler):
     ) -> Optional[HandlerResult]:
         """Route auth requests to appropriate methods.
 
-        Note: Paths are normalized by handler_registry (e.g., /api/v1/auth/me -> /api/auth/me)
+        Paths are normalized (e.g., /api/v1/auth/me -> /api/auth/me).
         """
+        # Normalize path to handle v1 routes
+        path = strip_version_prefix(path)
+
         # Determine HTTP method from handler if not provided
         if hasattr(handler, "command"):
             method = handler.command
