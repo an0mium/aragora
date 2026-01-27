@@ -6,6 +6,12 @@ from typing import Optional
 from aiohttp import web
 
 from aragora.autonomous import ScheduledTrigger
+from aragora.server.handlers.utils.auth import (
+    get_auth_context,
+    UnauthorizedError,
+    ForbiddenError,
+)
+from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +43,19 @@ class TriggerHandler:
 
         GET /api/autonomous/triggers
 
+        Requires authentication and 'triggers:read' permission.
+
         Returns:
             List of scheduled triggers
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trigger = get_scheduled_trigger()
             triggers = trigger.list_triggers()
 
@@ -66,6 +81,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error listing triggers: {e}")
             return web.json_response(
@@ -80,6 +99,8 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers
 
+        Requires authentication and 'triggers:create' permission.
+
         Body:
             trigger_id: str - Unique identifier
             name: str - Human-readable name
@@ -93,6 +114,13 @@ class TriggerHandler:
             Created trigger
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:create")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
             trigger_id = data.get("trigger_id")
             name = data.get("name")
@@ -127,6 +155,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error adding trigger: {e}")
             return web.json_response(
@@ -141,12 +173,21 @@ class TriggerHandler:
 
         DELETE /api/autonomous/triggers/{trigger_id}
 
+        Requires authentication and 'triggers:delete' permission.
+
         Returns:
             Success status
         """
         trigger_id = request.match_info.get("trigger_id")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:delete")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trigger = get_scheduled_trigger()
             success = trigger.remove_trigger(trigger_id)
 
@@ -164,6 +205,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error removing trigger: {e}")
             return web.json_response(
@@ -178,12 +223,21 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/{trigger_id}/enable
 
+        Requires authentication and 'triggers:write' permission.
+
         Returns:
             Success status
         """
         trigger_id = request.match_info.get("trigger_id")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trigger = get_scheduled_trigger()
             success = trigger.enable_trigger(trigger_id)
 
@@ -201,6 +255,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error enabling trigger: {e}")
             return web.json_response(
@@ -215,12 +273,21 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/{trigger_id}/disable
 
+        Requires authentication and 'triggers:write' permission.
+
         Returns:
             Success status
         """
         trigger_id = request.match_info.get("trigger_id")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trigger = get_scheduled_trigger()
             success = trigger.disable_trigger(trigger_id)
 
@@ -238,6 +305,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error disabling trigger: {e}")
             return web.json_response(
@@ -252,10 +323,19 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/start
 
+        Requires authentication and 'triggers:admin' permission.
+
         Returns:
             Success status
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:admin")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trigger = get_scheduled_trigger()
             await trigger.start()
 
@@ -266,6 +346,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error starting scheduler: {e}")
             return web.json_response(
@@ -280,10 +364,19 @@ class TriggerHandler:
 
         POST /api/autonomous/triggers/stop
 
+        Requires authentication and 'triggers:admin' permission.
+
         Returns:
             Success status
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "triggers:admin")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trigger = get_scheduled_trigger()
             await trigger.stop()
 
@@ -294,6 +387,10 @@ class TriggerHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error stopping scheduler: {e}")
             return web.json_response(

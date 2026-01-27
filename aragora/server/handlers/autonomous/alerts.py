@@ -6,6 +6,12 @@ from typing import Optional
 from aiohttp import web
 
 from aragora.autonomous import AlertAnalyzer
+from aragora.server.handlers.utils.auth import (
+    get_auth_context,
+    UnauthorizedError,
+    ForbiddenError,
+)
+from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +43,19 @@ class AlertHandler:
 
         GET /api/autonomous/alerts/active
 
+        Requires authentication and 'alerts:read' permission.
+
         Returns:
             List of active alerts
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "alerts:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             analyzer = get_alert_analyzer()
             alerts = analyzer.get_active_alerts()
 
@@ -67,6 +82,10 @@ class AlertHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error listing alerts: {e}")
             return web.json_response(
@@ -81,6 +100,8 @@ class AlertHandler:
 
         POST /api/autonomous/alerts/{alert_id}/acknowledge
 
+        Requires authentication and 'alerts:write' permission.
+
         Body:
             acknowledged_by: str - Who is acknowledging
 
@@ -90,8 +111,15 @@ class AlertHandler:
         alert_id = request.match_info.get("alert_id")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "alerts:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
-            acknowledged_by = data.get("acknowledged_by", "api_user")
+            acknowledged_by = data.get("acknowledged_by") or auth_ctx.user_id
 
             analyzer = get_alert_analyzer()
             success = analyzer.acknowledge_alert(alert_id, acknowledged_by)
@@ -110,6 +138,10 @@ class AlertHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error acknowledging alert: {e}")
             return web.json_response(
@@ -124,12 +156,21 @@ class AlertHandler:
 
         POST /api/autonomous/alerts/{alert_id}/resolve
 
+        Requires authentication and 'alerts:write' permission.
+
         Returns:
             Success status
         """
         alert_id = request.match_info.get("alert_id")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "alerts:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             analyzer = get_alert_analyzer()
             success = analyzer.resolve_alert(alert_id)
 
@@ -147,6 +188,10 @@ class AlertHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error resolving alert: {e}")
             return web.json_response(
@@ -161,6 +206,8 @@ class AlertHandler:
 
         POST /api/autonomous/alerts/thresholds
 
+        Requires authentication and 'alerts:admin' permission.
+
         Body:
             metric_name: str - Name of the metric
             warning_threshold: float (optional)
@@ -172,6 +219,13 @@ class AlertHandler:
             Success status
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "alerts:admin")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
             metric_name = data.get("metric_name")
 
@@ -198,6 +252,10 @@ class AlertHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error setting threshold: {e}")
             return web.json_response(
@@ -212,6 +270,8 @@ class AlertHandler:
 
         POST /api/autonomous/alerts/check
 
+        Requires authentication and 'alerts:write' permission.
+
         Body:
             metric_name: str - Name of the metric
             value: float - Current value
@@ -221,6 +281,13 @@ class AlertHandler:
             Alert if threshold exceeded, null otherwise
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "alerts:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
             metric_name = data.get("metric_name")
             value = data.get("value")
@@ -260,6 +327,10 @@ class AlertHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error checking metric: {e}")
             return web.json_response(

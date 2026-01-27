@@ -6,6 +6,12 @@ from typing import Optional
 from aiohttp import web
 
 from aragora.autonomous import TrendMonitor, AnomalyDetector
+from aragora.server.handlers.utils.auth import (
+    get_auth_context,
+    UnauthorizedError,
+    ForbiddenError,
+)
+from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +58,8 @@ class MonitoringHandler:
 
         POST /api/autonomous/monitoring/record
 
+        Requires authentication and 'autonomous:write' permission.
+
         Body:
             metric_name: str - Name of the metric
             value: float - Current value
@@ -60,6 +68,13 @@ class MonitoringHandler:
             Trend data and anomaly if detected
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "autonomous:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
             metric_name = data.get("metric_name")
             value = data.get("value")
@@ -98,6 +113,10 @@ class MonitoringHandler:
 
             return web.json_response(response)
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error recording metric: {e}")
             return web.json_response(
@@ -112,6 +131,8 @@ class MonitoringHandler:
 
         GET /api/autonomous/monitoring/trends/{metric_name}
 
+        Requires authentication and 'autonomous:read' permission.
+
         Query params:
             period_seconds: int (optional) - Time period to analyze
 
@@ -122,6 +143,13 @@ class MonitoringHandler:
         period_seconds = request.query.get("period_seconds")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trend_monitor = get_trend_monitor()
             trend = trend_monitor.get_trend(
                 metric_name,
@@ -154,6 +182,10 @@ class MonitoringHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting trend: {e}")
             return web.json_response(
@@ -168,10 +200,19 @@ class MonitoringHandler:
 
         GET /api/autonomous/monitoring/trends
 
+        Requires authentication and 'autonomous:read' permission.
+
         Returns:
             Dict of metric_name -> trend data
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             trend_monitor = get_trend_monitor()
             trends = trend_monitor.get_all_trends()
 
@@ -192,6 +233,10 @@ class MonitoringHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting trends: {e}")
             return web.json_response(
@@ -206,6 +251,8 @@ class MonitoringHandler:
 
         GET /api/autonomous/monitoring/anomalies
 
+        Requires authentication and 'autonomous:read' permission.
+
         Query params:
             hours: int (optional) - Hours to look back (default: 24)
             metric_name: str (optional) - Filter by metric
@@ -214,6 +261,13 @@ class MonitoringHandler:
             List of recent anomalies
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             hours = int(request.query.get("hours", "24"))
             metric_name = request.query.get("metric_name")
 
@@ -243,6 +297,10 @@ class MonitoringHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting anomalies: {e}")
             return web.json_response(
@@ -257,12 +315,21 @@ class MonitoringHandler:
 
         GET /api/autonomous/monitoring/baseline/{metric_name}
 
+        Requires authentication and 'autonomous:read' permission.
+
         Returns:
             Baseline statistics (mean, stdev, min, max, median)
         """
         metric_name = request.match_info.get("metric_name")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "autonomous:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             anomaly_detector = get_anomaly_detector()
             stats = anomaly_detector.get_baseline_stats(metric_name)
 
@@ -283,6 +350,10 @@ class MonitoringHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting baseline stats: {e}")
             return web.json_response(

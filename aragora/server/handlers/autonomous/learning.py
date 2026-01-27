@@ -6,6 +6,12 @@ from typing import Optional
 from aiohttp import web
 
 from aragora.autonomous import ContinuousLearner
+from aragora.server.handlers.utils.auth import (
+    get_auth_context,
+    UnauthorizedError,
+    ForbiddenError,
+)
+from aragora.rbac.checker import get_permission_checker
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +43,19 @@ class LearningHandler:
 
         GET /api/autonomous/learning/ratings
 
+        Requires authentication and 'learning:read' permission.
+
         Returns:
             Dict of agent_id -> rating
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             learner = get_continuous_learner()
             ratings = learner.elo_updater.get_all_ratings()
 
@@ -52,6 +67,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting ratings: {e}")
             return web.json_response(
@@ -66,12 +85,21 @@ class LearningHandler:
 
         GET /api/autonomous/learning/calibration/{agent_id}
 
+        Requires authentication and 'learning:read' permission.
+
         Returns:
             Agent calibration data
         """
         agent_id = request.match_info.get("agent_id")
 
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             learner = get_continuous_learner()
             calibration = learner.get_calibration(agent_id)
 
@@ -104,6 +132,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting calibration: {e}")
             return web.json_response(
@@ -118,10 +150,19 @@ class LearningHandler:
 
         GET /api/autonomous/learning/calibrations
 
+        Requires authentication and 'learning:read' permission.
+
         Returns:
             Dict of agent_id -> calibration data
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             learner = get_continuous_learner()
             calibrations = learner.get_all_calibrations()
 
@@ -143,6 +184,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting calibrations: {e}")
             return web.json_response(
@@ -157,6 +202,8 @@ class LearningHandler:
 
         POST /api/autonomous/learning/debate
 
+        Requires authentication and 'learning:write' permission.
+
         Body:
             debate_id: str - ID of the debate
             agents: list[str] - Agents that participated
@@ -169,6 +216,13 @@ class LearningHandler:
             Learning event created
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
             debate_id = data.get("debate_id")
             agents = data.get("agents", [])
@@ -208,6 +262,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error recording debate outcome: {e}")
             return web.json_response(
@@ -222,6 +280,8 @@ class LearningHandler:
 
         POST /api/autonomous/learning/feedback
 
+        Requires authentication and 'learning:write' permission.
+
         Body:
             debate_id: str - Related debate ID
             agent_id: str - Agent receiving feedback
@@ -232,6 +292,13 @@ class LearningHandler:
             Learning event created
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:write")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             data = await request.json()
             debate_id = data.get("debate_id")
             agent_id = data.get("agent_id")
@@ -267,6 +334,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error recording feedback: {e}")
             return web.json_response(
@@ -281,6 +352,8 @@ class LearningHandler:
 
         GET /api/autonomous/learning/patterns
 
+        Requires authentication and 'learning:read' permission.
+
         Query params:
             pattern_type: str (optional) - Filter by pattern type
 
@@ -288,6 +361,13 @@ class LearningHandler:
             List of extracted patterns
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:read")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             pattern_type = request.query.get("pattern_type")
 
             learner = get_continuous_learner()
@@ -314,6 +394,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error getting patterns: {e}")
             return web.json_response(
@@ -328,10 +412,19 @@ class LearningHandler:
 
         POST /api/autonomous/learning/run
 
+        Requires authentication and 'learning:admin' permission.
+
         Returns:
             Summary of actions taken
         """
         try:
+            # RBAC check
+            auth_ctx = await get_auth_context(request, require_auth=True)
+            checker = get_permission_checker()
+            decision = checker.check_permission(auth_ctx, "learning:admin")
+            if not decision.allowed:
+                raise ForbiddenError(f"Permission denied: {decision.reason}")
+
             learner = get_continuous_learner()
             summary = await learner.run_periodic_learning()
 
@@ -342,6 +435,10 @@ class LearningHandler:
                 }
             )
 
+        except UnauthorizedError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=401)
+        except ForbiddenError as e:
+            return web.json_response({"success": False, "error": str(e)}, status=403)
         except Exception as e:
             logger.error(f"Error running periodic learning: {e}")
             return web.json_response(
