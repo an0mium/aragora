@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from aragora.core import Agent
     from aragora.debate.context import DebateContext
     from aragora.debate.delegation import DelegationStrategy
+    from aragora.debate.hierarchy import AgentHierarchy
     from aragora.debate.protocol import CircuitBreaker
     from aragora.memory.store import CritiqueStore
     from aragora.ranking.pattern_matcher import TaskPatternMatcher
@@ -145,6 +146,7 @@ class TeamSelector:
         critique_store: Optional["CritiqueStore"] = None,
         pattern_matcher: Optional["TaskPatternMatcher"] = None,
         cv_builder: Optional["CVBuilder"] = None,
+        agent_hierarchy: Optional["AgentHierarchy"] = None,
         config: Optional[TeamSelectionConfig] = None,
     ):
         self.elo_system = elo_system
@@ -156,12 +158,15 @@ class TeamSelector:
         self.critique_store = critique_store
         self.pattern_matcher = pattern_matcher
         self.cv_builder = cv_builder
+        self.agent_hierarchy = agent_hierarchy
         self.config = config or TeamSelectionConfig()
         self._culture_recommendations_cache: dict[str, list[str]] = {}
         self._km_expertise_cache: dict[str, tuple[float, list[Any]]] = {}
         self._pattern_affinities_cache: dict[str, dict[str, float]] = {}
         # CV cache: agent_id -> (timestamp, AgentCV)
         self._cv_cache: dict[str, tuple[float, "AgentCV"]] = {}
+        # Hierarchy role assignments cache: debate_id -> {agent_name -> RoleAssignment}
+        self._hierarchy_assignments: dict[str, dict[str, Any]] = {}
 
     def select(
         self,
@@ -170,6 +175,7 @@ class TeamSelector:
         task: str = "",
         context: Optional["DebateContext"] = None,
         required_hierarchy_roles: Optional[set[str]] = None,
+        debate_id: Optional[str] = None,
     ) -> list["Agent"]:
         """Select and rank agents for debate participation.
 
@@ -179,13 +185,20 @@ class TeamSelector:
             task: Task description for delegation-based routing
             context: Optional debate context for state-aware selection
             required_hierarchy_roles: Optional set of Gastown hierarchy roles to filter by
-                                      (e.g., {"mayor", "crew"} for coordinators and workers)
+                                      (e.g., {"orchestrator", "worker"} for coordinators and workers)
+            debate_id: Optional debate ID for hierarchy role assignment caching
 
         Returns:
             Agents sorted by performance score (highest first)
         """
-        # 0. Filter by Gastown hierarchy role if specified
-        hierarchy_filtered = self._filter_by_hierarchy_role(agents, required_hierarchy_roles)
+        # 0. Assign hierarchy roles if AgentHierarchy is available
+        if self.agent_hierarchy and debate_id:
+            self._assign_hierarchy_roles(agents, debate_id, domain)
+
+        # 0.5. Filter by Gastown hierarchy role if specified
+        hierarchy_filtered = self._filter_by_hierarchy_role(
+            agents, required_hierarchy_roles, debate_id
+        )
 
         # 1. Filter by domain capability first (before circuit breaker)
         domain_filtered = self._filter_by_domain_capability(hierarchy_filtered, domain)
