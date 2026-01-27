@@ -374,13 +374,14 @@ class TestConcurrentRequests:
             # Health check may return 200 or 503 depending on components
             assert status in (200, 503)
 
-    def test_multiple_leaderboard_requests(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_multiple_leaderboard_requests(self, handler_context):
         """Test multiple sequential leaderboard requests."""
         handler = AgentsHandler(handler_context)
 
-        # Make 10 sequential requests (AgentsHandler is synchronous)
+        # Make 10 sequential requests (AgentsHandler is async)
         for _ in range(10):
-            result = handler.handle("/api/v1/leaderboard", {}, None)
+            result = await handler.handle("/api/v1/leaderboard", {}, None)
             data, status = parse_handler_result(result)
             assert status == 200
 
@@ -395,12 +396,13 @@ class TestErrorHandling:
         # Check if handler can handle this path
         assert not handler.can_handle("/api/v1/nonexistent/endpoint")
 
-    def test_invalid_query_params_handled(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_invalid_query_params_handled(self, handler_context):
         """Test invalid query parameters are handled gracefully."""
         handler = AgentsHandler(handler_context)
 
-        # Pass invalid limit (AgentsHandler is synchronous)
-        result = handler.handle("/api/v1/leaderboard", {"limit": "not-a-number"}, None)
+        # Pass invalid limit (AgentsHandler is async)
+        result = await handler.handle("/api/v1/leaderboard", {"limit": "not-a-number"}, None)
         data, status = parse_handler_result(result)
 
         # Should handle gracefully (either default or error response)
@@ -438,15 +440,16 @@ class TestResponseFormat:
         # Liveness probe has simpler format
         assert "status" in data
 
-    def test_leaderboard_response_format(self, handler_context):
+    @pytest.mark.asyncio
+    async def test_leaderboard_response_format(self, handler_context):
         """Test leaderboard response format."""
         elo = handler_context["elo_system"]
         elo.record_match("agent-x", "agent-y", {"agent-x": 1.0, "agent-y": 0.0}, "test")
 
         handler = AgentsHandler(handler_context)
 
-        # AgentsHandler.handle is synchronous
-        result = handler.handle("/api/v1/leaderboard", {}, None)
+        # AgentsHandler.handle is async
+        result = await handler.handle("/api/v1/leaderboard", {}, None)
         data, status = parse_handler_result(result)
 
         # Response can be list or dict with rankings
