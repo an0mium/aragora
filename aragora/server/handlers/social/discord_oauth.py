@@ -38,8 +38,8 @@ from ..base import (
 from ..secure import SecureHandler, UnauthorizedError
 
 # RBAC Permissions for Discord OAuth operations
-CONNECTOR_READ = "connector:read"
-CONNECTOR_AUTHORIZE = "connector:authorize"
+CONNECTOR_READ = "connectors.read"
+CONNECTOR_AUTHORIZE = "connectors.authorize"
 
 # Environment configuration
 DISCORD_CLIENT_ID = os.environ.get("DISCORD_CLIENT_ID", "")

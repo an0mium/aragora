@@ -146,7 +146,7 @@ def _cleanup_expired_sessions():
 # =============================================================================
 
 
-@require_permission("auth:read")
+# NOTE: SSO login is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_sso_login(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -202,7 +202,7 @@ async def handle_sso_login(
         return error_response(f"SSO login failed: {str(e)}", status=500)
 
 
-@require_permission("auth:read")
+# NOTE: SSO callback is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_sso_callback(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -378,7 +378,7 @@ async def handle_sso_logout(
 # =============================================================================
 
 
-@require_permission("auth:read")
+# NOTE: List providers is a public endpoint - auth handled by middleware (allow_unauthenticated=True)
 async def handle_list_providers(
     data: Dict[str, Any],
     user_id: str = "default",

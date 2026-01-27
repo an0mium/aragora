@@ -37,7 +37,7 @@ from ..base import (
 from ..secure import SecureHandler, UnauthorizedError
 
 # RBAC Permissions for Teams OAuth operations
-CONNECTOR_AUTHORIZE = "connector:authorize"
+CONNECTOR_AUTHORIZE = "connectors.authorize"
 
 # Environment configuration
 TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID", "")
