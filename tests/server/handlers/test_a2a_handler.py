@@ -247,10 +247,10 @@ class TestA2AHandlerTasks:
         assert result is not None
         assert result.status_code == 204
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers.a2a.get_a2a_server")
-    def test_cancel_task_not_found(self, mock_get_server, a2a_handler, mock_http_handler):
+    async def test_cancel_task_not_found(self, mock_get_server, a2a_handler, mock_http_handler):
         """Cancel task returns 404 when task not found."""
-        import asyncio
 
         async def mock_cancel(task_id):
             return False
@@ -259,7 +259,7 @@ class TestA2AHandlerTasks:
         mock_server.cancel_task = mock_cancel
         mock_get_server.return_value = mock_server
 
-        result = a2a_handler._handle_cancel_task("nonexistent")
+        result = await a2a_handler._handle_cancel_task("nonexistent")
 
         assert result is not None
         assert result.status_code == 404
