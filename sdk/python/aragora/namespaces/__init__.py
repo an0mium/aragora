@@ -9,6 +9,7 @@ from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .audit import AsyncAuditAPI, AuditAPI
 from .auth import AsyncAuthAPI, AuthAPI
+from .backups import AsyncBackupsAPI, BackupsAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
@@ -16,8 +17,10 @@ from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .genesis import AsyncGenesisAPI, GenesisAPI
 from .health import AsyncHealthAPI, HealthAPI
+from .integrations import AsyncIntegrationsAPI, IntegrationsAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
+from .monitoring import AsyncMonitoringAPI, MonitoringAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
@@ -26,6 +29,8 @@ from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
 from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
+from .teams import AsyncTeamsAPI, TeamsAPI
+from .tenants import AsyncTenantsAPI, TenantsAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
@@ -43,10 +48,10 @@ __all__ = [
     "AsyncAuditAPI",
     "AuthAPI",
     "AsyncAuthAPI",
+    "BackupsAPI",
+    "AsyncBackupsAPI",
     "BeliefAPI",
     "AsyncBeliefAPI",
-    "HealthAPI",
-    "AsyncHealthAPI",
     "ConsensusAPI",
     "AsyncConsensusAPI",
     "DebatesAPI",
@@ -57,16 +62,22 @@ __all__ = [
     "AsyncGauntletAPI",
     "GenesisAPI",
     "AsyncGenesisAPI",
+    "HealthAPI",
+    "AsyncHealthAPI",
+    "IntegrationsAPI",
+    "AsyncIntegrationsAPI",
     "KnowledgeAPI",
     "AsyncKnowledgeAPI",
     "MemoryAPI",
     "AsyncMemoryAPI",
+    "MonitoringAPI",
+    "AsyncMonitoringAPI",
     "NotificationsAPI",
     "AsyncNotificationsAPI",
-    "OrganizationsAPI",
-    "AsyncOrganizationsAPI",
     "OnboardingAPI",
     "AsyncOnboardingAPI",
+    "OrganizationsAPI",
+    "AsyncOrganizationsAPI",
     "PulseAPI",
     "AsyncPulseAPI",
     "RankingAPI",
@@ -77,6 +88,10 @@ __all__ = [
     "AsyncReceiptsAPI",
     "RelationshipsAPI",
     "AsyncRelationshipsAPI",
+    "TeamsAPI",
+    "AsyncTeamsAPI",
+    "TenantsAPI",
+    "AsyncTenantsAPI",
     "UsageAPI",
     "AsyncUsageAPI",
     "VerificationAPI",
