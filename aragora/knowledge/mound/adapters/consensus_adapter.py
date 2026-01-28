@@ -794,3 +794,99 @@ class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin):
         )
 
         return result
+
+    # =========================================================================
+    # FusionMixin Implementation
+    # =========================================================================
+
+    def _get_fusion_sources(self) -> List[str]:
+        """Return list of adapter names this adapter can fuse data from.
+
+        ConsensusAdapter can fuse validations from ELO (agent performance),
+        Evidence (supporting data), and Belief (claim confidence) adapters.
+        """
+        return ["elo", "evidence", "belief", "continuum"]
+
+    def _extract_fusible_data(self, km_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract data from a KM item that can be used for fusion.
+
+        Args:
+            km_item: Knowledge Mound item dict
+
+        Returns:
+            Dict with fusible fields, or None if not fusible
+        """
+        metadata = km_item.get("metadata", {})
+
+        # Extract consensus-relevant fields
+        item_id = metadata.get("source_id") or metadata.get("consensus_id") or km_item.get("id")
+
+        if not item_id:
+            return None
+
+        confidence = km_item.get("confidence", 0.5)
+        if isinstance(confidence, str):
+            confidence = {"low": 0.3, "medium": 0.6, "high": 0.9}.get(confidence.lower(), 0.5)
+
+        return {
+            "item_id": item_id,
+            "confidence": confidence,
+            "source_adapter": metadata.get("source_adapter", "unknown"),
+            "consensus_strength": metadata.get("consensus_strength"),
+            "validation_count": metadata.get("validation_count", 1),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,  # FusedValidation from ops.fusion
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to a consensus record.
+
+        Args:
+            record: The ConsensusRecord to update
+            fusion_result: FusedValidation with fused confidence/validity
+            metadata: Optional additional metadata
+
+        Returns:
+            True if successfully applied, False otherwise
+        """
+        from datetime import datetime
+
+        try:
+            # Update record metadata with fusion results
+            record.metadata["fusion_applied"] = True
+            record.metadata["fused_confidence"] = fusion_result.fused_confidence
+            record.metadata["fusion_is_valid"] = fusion_result.is_valid
+            record.metadata["fusion_strategy"] = fusion_result.strategy_used.value
+            record.metadata["fusion_source_count"] = len(fusion_result.source_validations)
+            record.metadata["fusion_timestamp"] = datetime.now().isoformat()
+
+            if metadata:
+                record.metadata["fusion_metadata"] = metadata
+
+            # Emit event for fusion application
+            self._emit_event(
+                "km_adapter_fusion_applied",
+                {
+                    "adapter": "consensus",
+                    "record_id": getattr(record, "id", None)
+                    or getattr(record, "debate_id", "unknown"),
+                    "fused_confidence": fusion_result.fused_confidence,
+                    "is_valid": fusion_result.is_valid,
+                    "source_count": len(fusion_result.source_validations),
+                },
+            )
+
+            logger.debug(
+                f"Applied fusion to consensus record: "
+                f"confidence={fusion_result.fused_confidence:.2f}, "
+                f"sources={len(fusion_result.source_validations)}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result: {e}")
+            return False
