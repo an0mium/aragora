@@ -44,8 +44,8 @@ except ImportError:
     _ForbiddenError = Exception
     _UnauthorizedError = Exception
     # Create module-level aliases for decorator compatibility
-    ForbiddenError = Exception  # noqa: N816
-    UnauthorizedError = Exception  # noqa: N816
+    ForbiddenError = Exception  # noqa: N816  # type: ignore[misc]
+    UnauthorizedError = Exception  # noqa: N816  # type: ignore[misc]
 
 # Track if auth module is available
 _AUTH_AVAILABLE = _AUTH_EXCEPTIONS_AVAILABLE
