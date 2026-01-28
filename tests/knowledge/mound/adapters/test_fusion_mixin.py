@@ -30,7 +30,34 @@ from aragora.knowledge.mound.ops.fusion import (
     ConflictResolution,
     AdapterValidation,
     FusedValidation,
+    FusionOutcome,
 )
+
+
+def make_fused_validation(
+    fused_confidence: float = 0.85,
+    strategy: FusionStrategy = FusionStrategy.WEIGHTED_AVERAGE,
+    participating_adapters: Optional[List[str]] = None,
+    conflict_detected: bool = False,
+    conflict_resolved: bool = False,
+    resolution_method: Optional[ConflictResolution] = None,
+) -> MagicMock:
+    """Create a mock FusedValidation for tests."""
+    mock = MagicMock()
+    mock.item_id = "item1"
+    mock.fused_confidence = fused_confidence
+    mock.is_valid = fused_confidence >= 0.5
+    mock.strategy_used = strategy
+    mock.source_validations = []
+    mock.outcome = FusionOutcome.SUCCESS
+    mock.conflict_detected = conflict_detected
+    mock.conflict_resolved = conflict_resolved
+    mock.resolution_method = resolution_method
+    mock.agreement_ratio = 0.9
+    mock.confidence_variance = 0.01
+    mock.participating_adapters = participating_adapters or ["elo", "consensus"]
+    mock.escalation_reason = None
+    return mock
 
 
 class MockFusionAdapter(FusionMixin, KnowledgeMoundAdapter):
@@ -409,15 +436,10 @@ class TestFuseValidationsFromKm:
 
         # Configure mock coordinator
         mock_coordinator = MagicMock()
-        mock_coordinator.fuse_validations.return_value = FusedValidation(
+        mock_coordinator.fuse_validations.return_value = make_fused_validation(
             fused_confidence=0.85,
-            strategy_used=FusionStrategy.WEIGHTED_AVERAGE,
+            strategy=FusionStrategy.WEIGHTED_AVERAGE,
             participating_adapters=["elo", "consensus"],
-            conflict_detected=False,
-            conflict_resolved=False,
-            resolution_method=None,
-            source_confidences={"elo": 0.9, "consensus": 0.8},
-            consensus_strength=0.9,
         )
         mock_get_coordinator.return_value = mock_coordinator
 
@@ -451,15 +473,13 @@ class TestFuseValidationsFromKm:
 
         # Configure mock coordinator with conflict
         mock_coordinator = MagicMock()
-        mock_coordinator.fuse_validations.return_value = FusedValidation(
+        mock_coordinator.fuse_validations.return_value = make_fused_validation(
             fused_confidence=0.75,
-            strategy_used=FusionStrategy.WEIGHTED_AVERAGE,
+            strategy=FusionStrategy.WEIGHTED_AVERAGE,
             participating_adapters=["elo", "consensus"],
             conflict_detected=True,
             conflict_resolved=True,
             resolution_method=ConflictResolution.PREFER_HIGHER_CONFIDENCE,
-            source_confidences={"elo": 0.9, "consensus": 0.5},
-            consensus_strength=0.6,
         )
         mock_get_coordinator.return_value = mock_coordinator
 
@@ -492,15 +512,10 @@ class TestFuseValidationsFromKm:
 
         # Configure mock coordinator
         mock_coordinator = MagicMock()
-        mock_coordinator.fuse_validations.return_value = FusedValidation(
+        mock_coordinator.fuse_validations.return_value = make_fused_validation(
             fused_confidence=0.85,
-            strategy_used=FusionStrategy.WEIGHTED_AVERAGE,
+            strategy=FusionStrategy.WEIGHTED_AVERAGE,
             participating_adapters=["elo", "consensus"],
-            conflict_detected=False,
-            conflict_resolved=False,
-            resolution_method=None,
-            source_confidences={"elo": 0.9, "consensus": 0.8},
-            consensus_strength=0.9,
         )
         mock_get_coordinator.return_value = mock_coordinator
 

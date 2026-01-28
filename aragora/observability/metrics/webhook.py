@@ -56,6 +56,10 @@ def _init_metrics():
     try:
         from prometheus_client import Counter, Gauge, Histogram
 
+        # Set flag BEFORE registering metrics (optimistic locking)
+        # This prevents duplicate registration if called concurrently
+        _metrics_initialized = True
+
         _DELIVERIES_TOTAL = Counter(
             "aragora_webhook_deliveries_total",
             "Total webhook delivery attempts",
@@ -92,7 +96,6 @@ def _init_metrics():
             ["event_type", "status_code"],
         )
 
-        _metrics_initialized = True
         logger.debug("Webhook Prometheus metrics initialized")
         return True
 

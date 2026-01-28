@@ -141,21 +141,26 @@ class SQLiteBackend(DatabaseBackend):
             db_path: Path to the SQLite database file.
             timeout: Connection timeout in seconds.
             pool_size: Number of connections to maintain in pool.
+                       Note: For :memory: databases, pool_size is forced to 1
+                       since each connection creates a separate database.
         """
         self.db_path = Path(db_path)
         self.timeout = timeout
-        self.pool_size = pool_size
+        # In-memory SQLite databases are unique per connection, so we must
+        # use pool_size=1 to ensure all operations share the same database
+        self._is_memory_db = str(db_path) == ":memory:"
+        self.pool_size = 1 if self._is_memory_db else pool_size
 
         # Connection pool
-        self._pool: Queue[sqlite3.Connection] = Queue(maxsize=pool_size)
+        self._pool: Queue[sqlite3.Connection] = Queue(maxsize=self.pool_size)
         self._pool_lock = threading.Lock()
         self._initialized = False
 
-        # Ensure parent directory exists
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Initialize with WAL mode
-        self._init_database()
+        # For file-based databases, ensure parent directory exists
+        if not self._is_memory_db:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            # Initialize with WAL mode (not applicable for :memory:)
+            self._init_database()
 
         # Pre-populate the connection pool
         self._init_pool()
