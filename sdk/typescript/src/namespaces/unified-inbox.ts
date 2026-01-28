@@ -308,10 +308,9 @@ export class UnifiedInboxAPI {
     results: TriageResult[];
     total_triaged: number;
   }> {
-    return this.request('POST', '/inbox/triage', request) as Promise<{
-      results: TriageResult[];
-      total_triaged: number;
-    }>;
+    return this.client.request('POST', '/inbox/triage', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -326,12 +325,9 @@ export class UnifiedInboxAPI {
     error_count: number;
     errors: Array<{ id: string; error: string }> | null;
   }> {
-    return this.request('POST', '/inbox/bulk-action', request) as Promise<{
-      action: BulkAction;
-      success_count: number;
-      error_count: number;
-      errors: Array<{ id: string; error: string }> | null;
-    }>;
+    return this.client.request('POST', '/inbox/bulk-action', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   // ===========================================================================
@@ -344,7 +340,7 @@ export class UnifiedInboxAPI {
    * @returns Comprehensive inbox metrics
    */
   async getStats(): Promise<{ stats: InboxStats }> {
-    return this.request('GET', '/inbox/stats') as Promise<{ stats: InboxStats }>;
+    return this.client.request('GET', '/inbox/stats');
   }
 
   /**
@@ -354,6 +350,6 @@ export class UnifiedInboxAPI {
    * @returns Trend analysis
    */
   async getTrends(days: number = 7): Promise<{ trends: InboxTrends }> {
-    return this.request('GET', '/inbox/trends', undefined, { days }) as Promise<{ trends: InboxTrends }>;
+    return this.client.request('GET', '/inbox/trends', { params: { days } });
   }
 }
