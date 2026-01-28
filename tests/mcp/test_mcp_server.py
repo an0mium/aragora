@@ -161,7 +161,6 @@ class TestAragoraMCPServerInit:
             assert server._debates_cache == {}
             assert server._agents_cache == {}
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
     def test_server_init_with_custom_rate_limits(self):
         """Test server initialization with custom rate limits."""
         from aragora.mcp.server import AragoraMCPServer
