@@ -20,7 +20,7 @@ Storage:
 import logging
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Protocol, cast, runtime_checkable
 
 from aragora.server.handlers.base import (
     error_response,
@@ -42,6 +42,41 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 IntegrationType = Literal["slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"]
+
+
+def _cast_integration_type(value: str) -> IntegrationType:
+    """Cast a string to IntegrationType after validation."""
+    if value in ("slack", "discord", "telegram", "email", "teams", "whatsapp", "matrix"):
+        return cast(IntegrationType, value)
+    raise ValueError(f"Invalid integration type: {value}")
+
+
+@runtime_checkable
+class WebhookIntegration(Protocol):
+    """Protocol for integrations with webhook verification."""
+
+    async def verify_webhook(self) -> bool:
+        """Verify webhook connectivity."""
+        ...
+
+
+@runtime_checkable
+class ConnectionIntegration(Protocol):
+    """Protocol for integrations with connection verification."""
+
+    async def verify_connection(self) -> bool:
+        """Verify connection to service."""
+        ...
+
+
+@runtime_checkable
+class ConfigurableIntegration(Protocol):
+    """Protocol for integrations with is_configured property."""
+
+    @property
+    def is_configured(self) -> bool:
+        """Check if integration is properly configured."""
+        ...
 
 
 @dataclass
@@ -114,7 +149,7 @@ class IntegrationsHandler(SecureHandler):
 
             if config:
                 status = IntegrationStatus(
-                    type=config.type,  # type: ignore
+                    type=_cast_integration_type(config.type),
                     enabled=config.enabled,
                     status=config.status,
                     messages_sent=config.messages_sent,
@@ -127,7 +162,7 @@ class IntegrationsHandler(SecureHandler):
                 )
             else:
                 status = IntegrationStatus(
-                    type=int_type,  # type: ignore
+                    type=_cast_integration_type(int_type),
                     enabled=False,
                     status="not_configured",
                 )
@@ -424,33 +459,29 @@ class IntegrationsHandler(SecureHandler):
             if integration_type == "slack":
                 from aragora.integrations.slack import SlackConfig, SlackIntegration
 
-                integration = SlackIntegration(
-                    SlackConfig(  # type: ignore[call-arg]
-                        webhook_url=settings.get("webhook_url", ""),
-                    )
+                slack_integration: WebhookIntegration = SlackIntegration(
+                    SlackConfig(webhook_url=settings.get("webhook_url", ""))
                 )
-                return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
+                return await slack_integration.verify_webhook()
 
             elif integration_type == "discord":
                 from aragora.integrations.discord import DiscordConfig, DiscordIntegration
 
-                integration = DiscordIntegration(  # type: ignore[assignment]
-                    DiscordConfig(  # type: ignore[call-arg]
-                        webhook_url=settings.get("webhook_url", ""),
-                    )
+                discord_integration: WebhookIntegration = DiscordIntegration(
+                    DiscordConfig(webhook_url=settings.get("webhook_url", ""))
                 )
-                return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
+                return await discord_integration.verify_webhook()
 
             elif integration_type == "telegram":
                 from aragora.integrations.telegram import TelegramConfig, TelegramIntegration
 
-                integration = TelegramIntegration(  # type: ignore[assignment]
-                    TelegramConfig(  # type: ignore[call-arg]
+                telegram_integration: ConnectionIntegration = TelegramIntegration(
+                    TelegramConfig(
                         bot_token=settings.get("bot_token", ""),
                         chat_id=settings.get("chat_id", ""),
                     )
                 )
-                return await integration.verify_connection()  # type: ignore[return-value,attr-defined]
+                return await telegram_integration.verify_connection()
 
             elif integration_type == "email":
                 # For email, we just validate config structure
@@ -464,36 +495,34 @@ class IntegrationsHandler(SecureHandler):
             elif integration_type == "teams":
                 from aragora.integrations.teams import TeamsConfig, TeamsIntegration
 
-                integration = TeamsIntegration(  # type: ignore[assignment]
-                    TeamsConfig(  # type: ignore[call-arg]
-                        webhook_url=settings.get("webhook_url", ""),
-                    )
+                teams_integration: WebhookIntegration = TeamsIntegration(
+                    TeamsConfig(webhook_url=settings.get("webhook_url", ""))
                 )
-                return await integration.verify_webhook()  # type: ignore[return-value,attr-defined]
+                return await teams_integration.verify_webhook()
 
             elif integration_type == "whatsapp":
                 from aragora.integrations.whatsapp import WhatsAppConfig, WhatsAppIntegration
 
-                integration = WhatsAppIntegration(  # type: ignore[assignment]
-                    WhatsAppConfig(  # type: ignore[call-arg]
+                whatsapp_integration: ConfigurableIntegration = WhatsAppIntegration(
+                    WhatsAppConfig(
                         phone_number_id=settings.get("phone_number_id", ""),
                         access_token=settings.get("access_token", ""),
                         recipient=settings.get("recipient", ""),
                     )
                 )
-                return integration.is_configured  # type: ignore[attr-defined]
+                return whatsapp_integration.is_configured
 
             elif integration_type == "matrix":
                 from aragora.integrations.matrix import MatrixConfig, MatrixIntegration
 
-                integration = MatrixIntegration(  # type: ignore[arg-type, assignment]
-                    MatrixConfig(  # type: ignore[call-arg]
+                matrix_integration: ConnectionIntegration = MatrixIntegration(
+                    MatrixConfig(
                         homeserver_url=settings.get("homeserver_url", ""),
                         access_token=settings.get("access_token", ""),
                         room_id=settings.get("room_id", ""),
                     )
                 )
-                return await integration.verify_connection()  # type: ignore[return-value,attr-defined]
+                return await matrix_integration.verify_connection()
 
             return False
 
@@ -510,6 +539,12 @@ class IntegrationsHandler(SecureHandler):
 # =============================================================================
 
 
+def _get_user_id_from_request(request: Any) -> str:
+    """Extract user_id from request, defaulting to 'default'."""
+    user_id = request.get("user_id")
+    return str(user_id) if user_id else "default"
+
+
 def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     """Register integration routes with the application.
 
@@ -520,7 +555,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
     from aiohttp import web
 
     async def get_status(request: web.Request) -> web.Response:
-        user_id = request.get("user_id", "default")  # type: ignore[union-attr]
+        user_id = _get_user_id_from_request(request)
         result = await handler.get_status(user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
@@ -528,7 +563,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
 
     async def get_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
-        user_id = request.get("user_id", "default")  # type: ignore[union-attr]
+        user_id = _get_user_id_from_request(request)
         result = await handler.get_integration(integration_type, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
@@ -536,7 +571,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
 
     async def configure_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
-        user_id = request.get("user_id", "default")  # type: ignore[union-attr]
+        user_id = _get_user_id_from_request(request)
         data = await request.json()
         result = await handler.configure_integration(integration_type, data, user_id)
         return web.Response(
@@ -545,7 +580,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
 
     async def update_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
-        user_id = request.get("user_id", "default")  # type: ignore[union-attr]
+        user_id = _get_user_id_from_request(request)
         data = await request.json()
         result = await handler.update_integration(integration_type, data, user_id)
         return web.Response(
@@ -554,7 +589,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
 
     async def delete_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
-        user_id = request.get("user_id", "default")  # type: ignore[union-attr]
+        user_id = _get_user_id_from_request(request)
         result = await handler.delete_integration(integration_type, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
@@ -562,7 +597,7 @@ def register_integration_routes(app: Any, handler: IntegrationsHandler) -> None:
 
     async def test_integration(request: web.Request) -> web.Response:
         integration_type = request.match_info["type"]
-        user_id = request.get("user_id", "default")  # type: ignore[union-attr]
+        user_id = _get_user_id_from_request(request)
         result = await handler.test_integration(integration_type, user_id)
         return web.Response(
             body=result.body, status=result.status_code, content_type=result.content_type
