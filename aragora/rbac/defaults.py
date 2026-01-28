@@ -568,6 +568,225 @@ PERM_CONTROL_PLANE_DELIBERATE = _permission(
     "Start multi-agent deliberation processes",
 )
 
+# Control plane sub-permissions (granular access)
+PERM_CONTROL_PLANE_AGENTS = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.ADMIN_OP,
+    "Manage Agents",
+    "Full control over agent registry",
+)
+PERM_CONTROL_PLANE_AGENTS_READ = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.AGENTS_READ,
+    "View Agents",
+    "Read agent registry information",
+)
+PERM_CONTROL_PLANE_AGENTS_REGISTER = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.AGENTS_REGISTER,
+    "Register Agents",
+    "Register new agents in the control plane",
+)
+PERM_CONTROL_PLANE_AGENTS_UNREGISTER = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.AGENTS_UNREGISTER,
+    "Unregister Agents",
+    "Remove agents from the control plane",
+)
+PERM_CONTROL_PLANE_TASKS = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.MANAGE,
+    "Manage Tasks",
+    "Full control over task queue",
+)
+PERM_CONTROL_PLANE_TASKS_READ = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.TASKS_READ,
+    "View Tasks",
+    "Read task queue information",
+)
+PERM_CONTROL_PLANE_TASKS_SUBMIT = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.TASKS_SUBMIT,
+    "Submit Tasks",
+    "Submit new tasks to the control plane",
+)
+PERM_CONTROL_PLANE_TASKS_CLAIM = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.TASKS_CLAIM,
+    "Claim Tasks",
+    "Claim tasks for processing",
+)
+PERM_CONTROL_PLANE_TASKS_COMPLETE = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.TASKS_COMPLETE,
+    "Complete Tasks",
+    "Mark tasks as completed",
+)
+PERM_CONTROL_PLANE_HEALTH_READ = _permission(
+    ResourceType.CONTROL_PLANE,
+    Action.HEALTH_READ,
+    "View Health",
+    "Read control plane health status",
+)
+
+
+# ============================================================================
+# FINANCE PERMISSIONS
+# ============================================================================
+
+PERM_FINANCE_READ = _permission(
+    ResourceType.FINANCE,
+    Action.READ,
+    "View Finance",
+    "View financial data, invoices, and transactions",
+)
+PERM_FINANCE_WRITE = _permission(
+    ResourceType.FINANCE,
+    Action.WRITE,
+    "Manage Finance",
+    "Create and modify financial records",
+)
+PERM_FINANCE_APPROVE = _permission(
+    ResourceType.FINANCE,
+    Action.APPROVE,
+    "Approve Finance",
+    "Approve financial transactions and invoices",
+)
+
+
+# ============================================================================
+# RECEIPT PERMISSIONS
+# ============================================================================
+
+PERM_RECEIPT_READ = _permission(
+    ResourceType.RECEIPT,
+    Action.READ,
+    "View Receipts",
+    "View decision receipts and audit trails",
+)
+PERM_RECEIPT_VERIFY = _permission(
+    ResourceType.RECEIPT,
+    Action.VERIFY,
+    "Verify Receipts",
+    "Verify integrity of decision receipts",
+)
+PERM_RECEIPT_EXPORT = _permission(
+    ResourceType.RECEIPT,
+    Action.EXPORT_DATA,
+    "Export Receipts",
+    "Export receipts for compliance reporting",
+)
+PERM_RECEIPT_SEND = _permission(
+    ResourceType.RECEIPT,
+    Action.SEND,
+    "Send Receipts",
+    "Send receipts to stakeholders",
+)
+
+
+# ============================================================================
+# SCHEDULER PERMISSIONS
+# ============================================================================
+
+PERM_SCHEDULER_READ = _permission(
+    ResourceType.SCHEDULER,
+    Action.READ,
+    "View Scheduler",
+    "View scheduled jobs and their status",
+)
+PERM_SCHEDULER_CREATE = _permission(
+    ResourceType.SCHEDULER,
+    Action.CREATE,
+    "Create Schedules",
+    "Create new scheduled jobs",
+)
+PERM_SCHEDULER_EXECUTE = _permission(
+    ResourceType.SCHEDULER,
+    Action.EXECUTE,
+    "Execute Schedules",
+    "Manually trigger scheduled jobs",
+)
+
+
+# ============================================================================
+# COST PERMISSIONS
+# ============================================================================
+
+PERM_COST_READ = _permission(
+    ResourceType.COST,
+    Action.READ,
+    "View Costs",
+    "View cost dashboards and optimization recommendations",
+)
+PERM_COST_WRITE = _permission(
+    ResourceType.COST,
+    Action.WRITE,
+    "Manage Costs",
+    "Modify cost allocations and budgets",
+)
+
+
+# ============================================================================
+# COMPLIANCE SUB-PERMISSIONS
+# ============================================================================
+
+PERM_COMPLIANCE_GDPR = _permission(
+    ResourceType.COMPLIANCE,
+    Action.GDPR,
+    "GDPR Operations",
+    "Perform GDPR compliance operations (data export, deletion)",
+)
+PERM_COMPLIANCE_SOC2 = _permission(
+    ResourceType.COMPLIANCE,
+    Action.SOC2,
+    "SOC2 Operations",
+    "Access SOC2 compliance reports and controls",
+)
+PERM_COMPLIANCE_LEGAL = _permission(
+    ResourceType.COMPLIANCE,
+    Action.LEGAL,
+    "Legal Operations",
+    "Manage legal holds and compliance requirements",
+)
+PERM_COMPLIANCE_AUDIT = _permission(
+    ResourceType.COMPLIANCE,
+    Action.AUDIT,
+    "Audit Operations",
+    "Perform compliance audit verification",
+)
+
+
+# ============================================================================
+# ADMIN SUB-PERMISSIONS
+# ============================================================================
+
+PERM_ADMIN_AUDIT = _permission(
+    ResourceType.ADMIN,
+    Action.AUDIT,
+    "Admin Audit",
+    "Access administrative audit functions",
+)
+PERM_ADMIN_SECURITY = _permission(
+    ResourceType.ADMIN,
+    Action.SECURITY,
+    "Admin Security",
+    "Manage security configurations and policies",
+)
+PERM_ADMIN_SYSTEM = _permission(
+    ResourceType.ADMIN,
+    Action.SYSTEM,
+    "Admin System",
+    "System-wide administrative operations",
+)
+
+
+# ============================================================================
+# POLICIES PERMISSIONS (using colon format for compatibility)
+# ============================================================================
+# Note: These are aliased for handlers using colon notation (policies:read, etc.)
+# The base policy permissions (PERM_POLICY_*) use dot notation (policies.read)
+
 
 # ============================================================================
 # SYSTEM OPERATIONS PERMISSIONS
@@ -1493,6 +1712,42 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_SKILLS_INSTALL,
         PERM_SKILLS_PUBLISH,
         PERM_SKILLS_RATE,
+        # Finance
+        PERM_FINANCE_READ,
+        PERM_FINANCE_WRITE,
+        PERM_FINANCE_APPROVE,
+        # Receipts
+        PERM_RECEIPT_READ,
+        PERM_RECEIPT_VERIFY,
+        PERM_RECEIPT_EXPORT,
+        PERM_RECEIPT_SEND,
+        # Scheduler
+        PERM_SCHEDULER_READ,
+        PERM_SCHEDULER_CREATE,
+        PERM_SCHEDULER_EXECUTE,
+        # Costs
+        PERM_COST_READ,
+        PERM_COST_WRITE,
+        # Compliance sub-permissions
+        PERM_COMPLIANCE_GDPR,
+        PERM_COMPLIANCE_SOC2,
+        PERM_COMPLIANCE_LEGAL,
+        PERM_COMPLIANCE_AUDIT,
+        # Admin sub-permissions
+        PERM_ADMIN_AUDIT,
+        PERM_ADMIN_SECURITY,
+        PERM_ADMIN_SYSTEM,
+        # Control Plane sub-permissions
+        PERM_CONTROL_PLANE_AGENTS,
+        PERM_CONTROL_PLANE_AGENTS_READ,
+        PERM_CONTROL_PLANE_AGENTS_REGISTER,
+        PERM_CONTROL_PLANE_AGENTS_UNREGISTER,
+        PERM_CONTROL_PLANE_TASKS,
+        PERM_CONTROL_PLANE_TASKS_READ,
+        PERM_CONTROL_PLANE_TASKS_SUBMIT,
+        PERM_CONTROL_PLANE_TASKS_CLAIM,
+        PERM_CONTROL_PLANE_TASKS_COMPLETE,
+        PERM_CONTROL_PLANE_HEALTH_READ,
     ]
 }
 

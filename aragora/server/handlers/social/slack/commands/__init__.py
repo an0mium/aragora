@@ -12,7 +12,14 @@ Contains implementations for individual slash commands:
 - gauntlet: Run a gauntlet challenge
 - debate: Start a debate
 
-Each command module exports a function that handles that specific command.
+Mixins:
+
+    from aragora.server.handlers.social.slack.commands import CommandsMixin
+
+    class MyHandler(CommandsMixin):
+        pass
 """
 
-# Commands will be migrated here incrementally from _slack_impl.py
+from .base import CommandsMixin
+
+__all__ = ["CommandsMixin"]

@@ -499,7 +499,10 @@ class TestHTTPIntegration:
 
         # Set up request body
         body = json.dumps({"query": "test query", "workspace_id": "ws_123"}).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(body))}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/json",
+        }
         mock_http_handler.rfile = MagicMock()
         mock_http_handler.rfile.read.return_value = body
 
@@ -537,7 +540,10 @@ class TestHTTPIntegration:
                 "workspace_id": "ws_123",
             }
         ).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(body))}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/json",
+        }
         mock_http_handler.rfile = MagicMock()
         mock_http_handler.rfile.read.return_value = body
 
@@ -574,7 +580,10 @@ class TestHTTPIntegration:
                 "channel_id": "C123",
             }
         ).encode()
-        mock_http_handler.headers = {"Content-Length": str(len(body))}
+        mock_http_handler.headers = {
+            "Content-Length": str(len(body)),
+            "Content-Type": "application/json",
+        }
         mock_http_handler.rfile = MagicMock()
         mock_http_handler.rfile.read.return_value = body
 
@@ -595,7 +604,8 @@ class TestHTTPIntegration:
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["success"] is True
-        assert data["node_id"] == "node_abc"
+        # Response data is nested under "data" key by success_response wrapper
+        assert data["data"]["node_id"] == "node_abc"
 
     @pytest.mark.asyncio
     async def test_handle_channel_summary_via_handle(self, handler, mock_http_handler, mock_bridge):
@@ -623,12 +633,16 @@ class TestHTTPIntegration:
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["success"] is True
-        assert data["channel_id"] == "C123"
+        # Response data is nested under "data" key by success_response wrapper
+        assert data["data"]["channel_id"] == "C123"
 
     @pytest.mark.asyncio
     async def test_handle_invalid_json_body(self, handler, mock_http_handler):
         """Test handle_post with invalid JSON body."""
-        mock_http_handler.headers = {"Content-Length": "10"}
+        mock_http_handler.headers = {
+            "Content-Length": "10",
+            "Content-Type": "application/json",
+        }
         mock_http_handler.rfile = MagicMock()
         mock_http_handler.rfile.read.return_value = b"not json!"
 
