@@ -129,6 +129,7 @@ class AragoraClient:
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.organizations import OrganizationsAPI
+        from .namespaces.outlook import OutlookAPI
         from .namespaces.payments import PaymentsAPI
         from .namespaces.plugins import PluginsAPI
         from .namespaces.policies import PoliciesAPI
@@ -151,6 +152,7 @@ class AragoraClient:
         from .namespaces.unified_inbox import UnifiedInboxAPI
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
+        from .namespaces.verticals import VerticalsAPI
         from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflows import WorkflowsAPI
         from .namespaces.workspaces import WorkspacesAPI
@@ -204,6 +206,7 @@ class AragoraClient:
         self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
+        self.outlook = OutlookAPI(self)
         self.payments = PaymentsAPI(self)
         self.plugins = PluginsAPI(self)
         self.policies = PoliciesAPI(self)
@@ -226,6 +229,7 @@ class AragoraClient:
         self.unified_inbox = UnifiedInboxAPI(self)
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
+        self.verticals = VerticalsAPI(self)
         self.webhooks = WebhooksAPI(self)
         self.workflows = WorkflowsAPI(self)
         self.workspaces = WorkspacesAPI(self)
