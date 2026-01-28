@@ -248,14 +248,15 @@ class TestSharingStatsIntegration:
 class TestAnalyticsSummary:
     """Test combined analytics summary."""
 
-    def test_summary_combines_all_stats(self):
+    @pytest.mark.asyncio
+    async def test_summary_combines_all_stats(self):
         """Test that summary includes all stat types."""
         from aragora.server.handlers.knowledge.analytics import AnalyticsHandler
 
         mock_ctx = MagicMock()
         handler = AnalyticsHandler(mock_ctx)
 
-        result = handler._get_summary("ws_123", "user_456")
+        result = await handler._get_summary("ws_123", "user_456")
 
         assert result is not None
 
