@@ -408,7 +408,7 @@ class UsageMeteringHandler(SecureHandler):
 
     @handle_errors("export usage")
     @require_permission("org:billing")
-    def _export_usage(
+    async def _export_usage(
         self,
         handler,
         query_params: dict,
@@ -425,7 +425,6 @@ class UsageMeteringHandler(SecureHandler):
         Returns:
             CSV file download or JSON response
         """
-        import asyncio
         import csv
         import io
 
@@ -467,17 +466,11 @@ class UsageMeteringHandler(SecureHandler):
         meter = self._get_usage_meter()
 
         # Get detailed breakdown
-        loop = asyncio.new_event_loop()
-        try:
-            breakdown = loop.run_until_complete(
-                meter.get_usage_breakdown(
-                    org_id=org.id,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-            )
-        finally:
-            loop.close()
+        breakdown = await meter.get_usage_breakdown(
+            org_id=org.id,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         if export_format == "json":
             return json_response(breakdown.to_dict())

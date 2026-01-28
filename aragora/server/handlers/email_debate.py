@@ -47,17 +47,19 @@ class EmailDebateHandler(BaseHandler):
         return error_response("Use POST method for email vetted decisionmaking", 405)
 
     @require_permission("email:create")
-    def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    async def handle_post(
+        self, path: str, query_params: dict, handler=None
+    ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/email/prioritize":
-            return self._prioritize_single(handler)
+            return await self._prioritize_single(handler)
         elif path == "/api/v1/email/prioritize/batch":
-            return self._prioritize_batch(handler)
+            return await self._prioritize_batch(handler)
         elif path == "/api/v1/email/triage":
-            return self._triage_inbox(handler)
+            return await self._triage_inbox(handler)
         return None
 
-    def _prioritize_single(self, handler) -> HandlerResult:
+    async def _prioritize_single(self, handler) -> HandlerResult:
         """
         Prioritize a single email.
 
@@ -71,8 +73,6 @@ class EmailDebateHandler(BaseHandler):
             "user_id": "user-456"
         }
         """
-        import asyncio
-
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -109,13 +109,7 @@ class EmailDebateHandler(BaseHandler):
 
             user_id = body.get("user_id", "default")
 
-            # Run async in sync context
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(service.prioritize_email(email, user_id))
-            finally:
-                loop.close()
+            result = await service.prioritize_email(email, user_id)
 
             return json_response(result.to_dict())
 
@@ -123,7 +117,7 @@ class EmailDebateHandler(BaseHandler):
             logger.exception(f"Email prioritization failed: {e}")
             return error_response(f"Prioritization failed: {e}", 500)
 
-    def _prioritize_batch(self, handler) -> HandlerResult:
+    async def _prioritize_batch(self, handler) -> HandlerResult:
         """
         Prioritize multiple emails.
 
@@ -142,8 +136,6 @@ class EmailDebateHandler(BaseHandler):
             "max_concurrent": 5
         }
         """
-        import asyncio
-
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -186,15 +178,7 @@ class EmailDebateHandler(BaseHandler):
             user_id = body.get("user_id", "default")
             max_concurrent = body.get("max_concurrent", 5)
 
-            # Run async in sync context
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(
-                    service.prioritize_batch(emails, user_id, max_concurrent)
-                )
-            finally:
-                loop.close()
+            result = await service.prioritize_batch(emails, user_id, max_concurrent)
 
             return json_response(
                 {
@@ -212,7 +196,7 @@ class EmailDebateHandler(BaseHandler):
             logger.exception(f"Batch prioritization failed: {e}")
             return error_response(f"Batch prioritization failed: {e}", 500)
 
-    def _triage_inbox(self, handler) -> HandlerResult:
+    async def _triage_inbox(self, handler) -> HandlerResult:
         """
         Full inbox triage with categorization and sorting.
 
@@ -224,8 +208,6 @@ class EmailDebateHandler(BaseHandler):
             "group_by": "category"
         }
         """
-        import asyncio
-
         body, err = self.read_json_body_validated(handler)
         if err:
             return err
@@ -267,13 +249,7 @@ class EmailDebateHandler(BaseHandler):
 
             user_id = body.get("user_id", "default")
 
-            # Run async in sync context
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(service.prioritize_batch(emails, user_id))
-            finally:
-                loop.close()
+            result = await service.prioritize_batch(emails, user_id)
 
             # Sort results (sort_by parameter reserved for future use)
             _sort_by = body.get("sort_by", "priority")
