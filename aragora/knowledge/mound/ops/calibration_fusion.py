@@ -204,7 +204,7 @@ class CalibrationConsensus:
 
 
 @dataclass
-class FusionConfig:
+class CalibrationFusionConfig:
     """Configuration for calibration fusion."""
 
     min_predictions: int = 2
@@ -229,6 +229,10 @@ class FusionConfig:
     """Confidence level for interval estimation."""
 
 
+# Alias for backward compatibility
+FusionConfig = CalibrationFusionConfig
+
+
 class CalibrationFusionEngine:
     """Engine for fusing multi-party calibration predictions.
 
@@ -236,13 +240,13 @@ class CalibrationFusionEngine:
     outliers and computing consensus metrics for reliability assessment.
     """
 
-    def __init__(self, config: Optional[FusionConfig] = None):
+    def __init__(self, config: Optional[CalibrationFusionConfig] = None):
         """Initialize the calibration fusion engine.
 
         Args:
             config: Optional configuration. Uses defaults if not provided.
         """
-        self.config = config or FusionConfig()
+        self.config = config or CalibrationFusionConfig()
         self._fusion_history: List[CalibrationConsensus] = []
 
     def fuse_predictions(
@@ -806,7 +810,8 @@ __all__ = [
     # Dataclasses
     "AgentPrediction",
     "CalibrationConsensus",
-    "FusionConfig",
+    "CalibrationFusionConfig",
+    "FusionConfig",  # Alias
     # Engine
     "CalibrationFusionEngine",
     "get_calibration_fusion_engine",
