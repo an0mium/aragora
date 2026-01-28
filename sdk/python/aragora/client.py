@@ -458,6 +458,7 @@ class AragoraAsyncClient:
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
+        from .namespaces.outlook import AsyncOutlookAPI
         from .namespaces.payments import AsyncPaymentsAPI
         from .namespaces.plugins import AsyncPluginsAPI
         from .namespaces.policies import AsyncPoliciesAPI
@@ -480,6 +481,7 @@ class AragoraAsyncClient:
         from .namespaces.unified_inbox import AsyncUnifiedInboxAPI
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
+        from .namespaces.verticals import AsyncVerticalsAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
         from .namespaces.workspaces import AsyncWorkspacesAPI
@@ -533,6 +535,7 @@ class AragoraAsyncClient:
         self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)
+        self.outlook = AsyncOutlookAPI(self)
         self.payments = AsyncPaymentsAPI(self)
         self.plugins = AsyncPluginsAPI(self)
         self.policies = AsyncPoliciesAPI(self)
@@ -555,6 +558,7 @@ class AragoraAsyncClient:
         self.unified_inbox = AsyncUnifiedInboxAPI(self)
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
+        self.verticals = AsyncVerticalsAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
         self.workspaces = AsyncWorkspacesAPI(self)
