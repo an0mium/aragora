@@ -1,26 +1,39 @@
 #!/bin/bash
 # Aragora Self-Hosted Setup Script
-# Usage: ./init.sh [--verify]
+# Usage: ./init.sh [--verify] [--validate]
 #
 # Options:
 #   --verify    Run smoke test after setup completes
+#   --validate  Validate configuration after generation
 #   --help      Show this help message
 
 set -e
 
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
 # Parse arguments
 RUN_VERIFY=false
+RUN_VALIDATE=false
 for arg in "$@"; do
     case $arg in
         --verify)
             RUN_VERIFY=true
             shift
             ;;
+        --validate)
+            RUN_VALIDATE=true
+            shift
+            ;;
         --help|-h)
-            echo "Usage: ./init.sh [--verify]"
+            echo "Usage: ./init.sh [--verify] [--validate]"
             echo ""
             echo "Options:"
             echo "  --verify    Run smoke test after setup completes"
+            echo "  --validate  Validate configuration after generation"
             echo "  --help      Show this help message"
             exit 0
             ;;
@@ -76,20 +89,43 @@ if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
 fi
 
 echo
-echo "Setup complete!"
+echo -e "${GREEN}Setup complete!${NC}"
 echo
-echo "Next steps:"
-echo "  1. Review configuration: nano .env"
-echo "  2. Start services: docker compose up -d"
-echo "  3. Check status: docker compose ps"
-echo "  4. View logs: docker compose logs -f aragora"
-echo "  5. Verify deployment: ./smoke_test.sh"
+echo -e "${BLUE}Next steps:${NC}"
+echo "  1. Review configuration:     nano .env"
+echo "  2. Validate configuration:   ./validate_env.sh"
+echo "  3. Start services:           docker compose up -d"
+echo "  4. Check status:             docker compose ps"
+echo "  5. Verify deployment:        ./smoke_test.sh"
 echo
-echo "Optional profiles:"
+echo -e "${BLUE}Optional profiles:${NC}"
 echo "  docker compose --profile monitoring up -d  # Add Grafana/Prometheus"
 echo "  docker compose --profile workers up -d     # Add queue workers"
 echo "  docker compose --profile backup up -d      # Enable daily backups"
 echo
+echo -e "${BLUE}Quick start (all services):${NC}"
+echo "  docker compose --profile monitoring --profile workers up -d"
+echo
+echo -e "${BLUE}Access points after startup:${NC}"
+echo "  API:        http://localhost:\${ARAGORA_PORT:-8080}"
+echo "  Health:     http://localhost:\${ARAGORA_PORT:-8080}/healthz"
+echo "  Docs:       http://localhost:\${ARAGORA_PORT:-8080}/docs"
+echo "  Grafana:    http://localhost:3000 (if monitoring profile enabled)"
+echo
+echo -e "${YELLOW}For production: See QUICK_TLS_SETUP.md for HTTPS configuration${NC}"
+echo
+
+# Run validation if requested
+if [ "$RUN_VALIDATE" = true ]; then
+    echo -e "${BLUE}Running configuration validation...${NC}"
+    echo
+    if [ -f "./validate_env.sh" ]; then
+        chmod +x ./validate_env.sh
+        ./validate_env.sh || true
+    else
+        echo "Warning: validate_env.sh not found"
+    fi
+fi
 
 # Run verification if requested
 if [ "$RUN_VERIFY" = true ]; then
