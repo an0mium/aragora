@@ -1751,6 +1751,25 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
     ]
 }
 
+# Add colon-formatted aliases for permissions that use colon notation in handlers
+# This ensures compatibility with both dot and colon formats
+_COLON_ALIASES: dict[str, Permission] = {}
+for _perm in SYSTEM_PERMISSIONS.values():
+    _colon_key = _perm.key.replace(".", ":")
+    if _colon_key != _perm.key:
+        _COLON_ALIASES[_colon_key] = _perm
+
+# Merge colon aliases into SYSTEM_PERMISSIONS
+SYSTEM_PERMISSIONS.update(_COLON_ALIASES)
+
+# Add special aliases for controlplane (handlers use "controlplane:" without underscore)
+_CONTROLPLANE_ALIASES = {
+    k.replace("control_plane:", "controlplane:"): v
+    for k, v in SYSTEM_PERMISSIONS.items()
+    if k.startswith("control_plane:")
+}
+SYSTEM_PERMISSIONS.update(_CONTROLPLANE_ALIASES)
+
 
 # ============================================================================
 # SYSTEM ROLES

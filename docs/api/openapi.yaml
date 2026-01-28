@@ -35153,16 +35153,18 @@
     "/api/v1/admin/impersonate/{user_id}": {
       "post": {
         "tags": [
-          "Admin"
+          "Admin",
+          "Security"
         ],
         "summary": "Impersonate user",
-        "operationId": "adminImpersonateUser",
-        "description": "Start an impersonation session for a user. All actions are logged.",
+        "description": "Create an impersonation token to act as another user.\n\n**Requires:** `admin.users.impersonate` permission\n\n**Audit:** This action is logged with full audit trail including:\n- Admin performing the impersonation\n- Target user being impersonated\n- Timestamp and IP address\n\n**Security notes:**\n- Impersonation tokens have limited validity\n- All actions during impersonation are tracked\n- Cannot impersonate other admins without explicit permission",
+        "operationId": "impersonateUser",
         "parameters": [
           {
             "name": "user_id",
             "in": "path",
             "required": true,
+            "description": "ID of the user to impersonate",
             "schema": {
               "type": "string"
             }
@@ -35170,14 +35172,20 @@
         ],
         "responses": {
           "200": {
-            "description": "Impersonation session started",
+            "description": "Impersonation token",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "impersonation_token": {
-                      "type": "string"
+                    "token": {
+                      "type": "string",
+                      "description": "Impersonation JWT token"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Token expiration timestamp"
                     },
                     "target_user": {
                       "type": "object",
@@ -35186,41 +35194,12 @@
                           "type": "string"
                         },
                         "email": {
-                          "type": "string",
-                          "format": "email"
+                          "type": "string"
                         },
                         "name": {
                           "type": "string"
-                        },
-                        "role": {
-                          "type": "string"
-                        },
-                        "status": {
-                          "type": "string",
-                          "enum": [
-                            "active",
-                            "suspended",
-                            "deleted"
-                          ]
-                        },
-                        "organization_id": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "last_login": {
-                          "type": "string",
-                          "format": "date-time",
-                          "nullable": true
-                        },
-                        "created_at": {
-                          "type": "string",
-                          "format": "date-time"
                         }
                       }
-                    },
-                    "expires_at": {
-                      "type": "string",
-                      "format": "date-time"
                     }
                   }
                 }
@@ -35228,13 +35207,84 @@
             }
           },
           "401": {
-            "description": "Authentication required"
+            "description": "Unauthorized - Authentication required or token invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "missing_token": {
+                    "summary": "No authentication token",
+                    "value": {
+                      "error": "Authentication required",
+                      "code": "AUTH_REQUIRED",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_token": {
+                    "summary": "Invalid or expired token",
+                    "value": {
+                      "error": "Invalid or expired authentication token",
+                      "code": "INVALID_TOKEN",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           },
           "403": {
-            "description": "Admin privileges required"
+            "description": "Forbidden - Insufficient permissions for this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "insufficient_permissions": {
+                    "summary": "Insufficient permissions",
+                    "value": {
+                      "error": "You do not have permission to access this resource",
+                      "code": "FORBIDDEN",
+                      "required_role": "admin",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "resource_owner": {
+                    "summary": "Not resource owner",
+                    "value": {
+                      "error": "You do not have permission to modify this debate",
+                      "code": "NOT_OWNER",
+                      "resource_type": "debate",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
-            "description": "User not found"
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
