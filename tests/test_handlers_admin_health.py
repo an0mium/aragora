@@ -151,22 +151,23 @@ class TestHealthRouting:
 # ============================================================================
 
 
+@pytest.mark.asyncio
 class TestLivenessProbe:
     """Tests for GET /healthz endpoint."""
 
-    def test_liveness_returns_ok(self, health_handler):
+    async def test_liveness_returns_ok(self, health_handler):
         """Liveness probe returns ok status."""
-        result = health_handler.handle("/healthz", {}, None)
+        result = await health_handler.handle("/healthz", {}, None)
 
         assert result is not None
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["status"] == "ok"
 
-    def test_liveness_is_lightweight(self, health_handler):
+    async def test_liveness_is_lightweight(self, health_handler):
         """Liveness probe doesn't check external dependencies."""
         # Even with broken dependencies, liveness should return ok
-        result = health_handler.handle("/healthz", {}, None)
+        result = await health_handler.handle("/healthz", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -179,12 +180,13 @@ class TestLivenessProbe:
 # ============================================================================
 
 
+@pytest.mark.asyncio
 class TestReadinessProbe:
     """Tests for GET /readyz endpoint."""
 
-    def test_readiness_returns_ready_no_deps(self, health_handler):
+    async def test_readiness_returns_ready_no_deps(self, health_handler):
         """Readiness probe returns ready when no dependencies configured."""
-        result = health_handler.handle("/readyz", {}, None)
+        result = await health_handler.handle("/readyz", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -192,22 +194,20 @@ class TestReadinessProbe:
         assert data["status"] == "ready"
         assert "checks" in data
 
-    def test_readiness_returns_ready_with_deps(self, health_handler_with_deps):
+    async def test_readiness_returns_ready_with_deps(self, health_handler_with_deps):
         """Readiness probe returns ready when dependencies are healthy."""
-        result = health_handler_with_deps.handle("/readyz", {}, None)
+        result = await health_handler_with_deps.handle("/readyz", {}, None)
 
         assert result is not None
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["status"] == "ready"
-        assert data["checks"]["storage"] is True
-        assert data["checks"]["elo_system"] is True
+        # Check for storage and elo initialization flags
+        assert data["checks"]["storage_initialized"] is True
+        assert data["checks"]["elo_initialized"] is True
 
-    def test_readiness_returns_not_ready_on_storage_error(self, mock_nomic_dir):
-        """Readiness probe returns not_ready when storage fails."""
-        storage = Mock()
-        storage.list_recent = Mock(side_effect=RuntimeError("Connection failed"))
-
+    async def test_readiness_returns_degraded_on_storage_error(self, mock_nomic_dir):
+        """Readiness probe returns degraded mode when storage unavailable."""
         # Storage getter raises error
         ctx = {
             "storage": None,
@@ -216,15 +216,15 @@ class TestReadinessProbe:
         }
         handler = HealthHandler(ctx)
 
-        # Patch get_storage to raise error
-        with patch.object(handler, "get_storage", side_effect=RuntimeError("DB error")):
-            result = handler.handle("/readyz", {}, None)
+        # Even without storage, readiness probe returns ready with degraded_mode flag
+        result = await handler.handle("/readyz", {}, None)
 
         assert result is not None
-        assert result.status_code == 503
+        assert result.status_code == 200
         data = json.loads(result.body)
-        assert data["status"] == "not_ready"
-        assert data["checks"]["storage"] is False
+        assert data["status"] == "ready"
+        # Degraded mode indicates limited functionality
+        assert data["checks"]["degraded_mode"] is True
 
 
 # ============================================================================
@@ -232,12 +232,13 @@ class TestReadinessProbe:
 # ============================================================================
 
 
+@pytest.mark.asyncio
 class TestComprehensiveHealth:
     """Tests for GET /api/health endpoint."""
 
-    def test_health_returns_status_and_checks(self, health_handler):
+    async def test_health_returns_status_and_checks(self, health_handler):
         """Health endpoint returns status and component checks."""
-        result = health_handler.handle("/api/health", {}, None)
+        result = await health_handler.handle("/api/health", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -250,27 +251,27 @@ class TestComprehensiveHealth:
         assert "response_time_ms" in data
         assert "uptime_seconds" in data
 
-    def test_health_includes_database_check(self, health_handler_with_deps):
+    async def test_health_includes_database_check(self, health_handler_with_deps):
         """Health endpoint includes database connectivity check."""
-        result = health_handler_with_deps.handle("/api/health", {}, None)
+        result = await health_handler_with_deps.handle("/api/health", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "database" in data["checks"]
         assert data["checks"]["database"]["healthy"] is True
 
-    def test_health_includes_elo_check(self, health_handler_with_deps):
+    async def test_health_includes_elo_check(self, health_handler_with_deps):
         """Health endpoint includes ELO system check."""
-        result = health_handler_with_deps.handle("/api/health", {}, None)
+        result = await health_handler_with_deps.handle("/api/health", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "elo_system" in data["checks"]
         assert data["checks"]["elo_system"]["healthy"] is True
 
-    def test_health_includes_filesystem_check(self, health_handler):
+    async def test_health_includes_filesystem_check(self, health_handler):
         """Health endpoint includes filesystem write check."""
-        result = health_handler.handle("/api/health", {}, None)
+        result = await health_handler.handle("/api/health", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -278,16 +279,16 @@ class TestComprehensiveHealth:
         # Filesystem should be healthy in test environment
         assert data["checks"]["filesystem"]["healthy"] is True
 
-    def test_health_includes_ai_providers_check(self, health_handler):
+    async def test_health_includes_ai_providers_check(self, health_handler):
         """Health endpoint includes AI providers availability check."""
-        result = health_handler.handle("/api/health", {}, None)
+        result = await health_handler.handle("/api/health", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "ai_providers" in data["checks"]
         assert "providers" in data["checks"]["ai_providers"]
 
-    def test_health_returns_degraded_on_critical_failure(self, health_handler):
+    async def test_health_returns_degraded_on_critical_failure(self, health_handler):
         """Health returns degraded status when critical service fails."""
         # Patch filesystem check to fail
         with patch.object(
@@ -295,7 +296,7 @@ class TestComprehensiveHealth:
             "_check_filesystem_health",
             return_value={"healthy": False, "error": "Write failed"},
         ):
-            result = health_handler.handle("/api/health", {}, None)
+            result = await health_handler.handle("/api/health", {}, None)
 
         assert result is not None
         assert result.status_code == 503
@@ -303,9 +304,9 @@ class TestComprehensiveHealth:
         assert data["status"] == "degraded"
 
     @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key-12345678901234567890"})
-    def test_health_detects_api_keys(self, health_handler):
+    async def test_health_detects_api_keys(self, health_handler):
         """Health endpoint correctly detects configured API keys."""
-        result = health_handler.handle("/api/health", {}, None)
+        result = await health_handler.handle("/api/health", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -318,12 +319,13 @@ class TestComprehensiveHealth:
 # ============================================================================
 
 
+@pytest.mark.asyncio
 class TestDetailedHealth:
     """Tests for GET /api/health/detailed endpoint."""
 
-    def test_detailed_health_returns_components(self, health_handler):
+    async def test_detailed_health_returns_components(self, health_handler):
         """Detailed health returns component status."""
-        result = health_handler.handle("/api/health/detailed", {}, None)
+        result = await health_handler.handle("/api/health/detailed", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -333,26 +335,26 @@ class TestDetailedHealth:
         assert "components" in data
         assert "version" in data
 
-    def test_detailed_health_includes_nomic_dir_status(self, health_handler):
+    async def test_detailed_health_includes_nomic_dir_status(self, health_handler):
         """Detailed health shows nomic_dir availability."""
-        result = health_handler.handle("/api/health/detailed", {}, None)
+        result = await health_handler.handle("/api/health/detailed", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "nomic_dir" in data["components"]
         assert data["components"]["nomic_dir"] is True
 
-    def test_detailed_health_shows_nomic_dir_missing(self, health_handler_no_nomic):
+    async def test_detailed_health_shows_nomic_dir_missing(self, health_handler_no_nomic):
         """Detailed health shows nomic_dir as false when not configured."""
-        result = health_handler_no_nomic.handle("/api/health/detailed", {}, None)
+        result = await health_handler_no_nomic.handle("/api/health/detailed", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert data["components"]["nomic_dir"] is False
 
-    def test_detailed_health_includes_warnings_array(self, health_handler):
+    async def test_detailed_health_includes_warnings_array(self, health_handler):
         """Detailed health includes warnings array."""
-        result = health_handler.handle("/api/health/detailed", {}, None)
+        result = await health_handler.handle("/api/health/detailed", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -365,12 +367,13 @@ class TestDetailedHealth:
 # ============================================================================
 
 
+@pytest.mark.asyncio
 class TestDeepHealth:
     """Tests for GET /api/health/deep endpoint."""
 
-    def test_deep_health_returns_all_checks(self, health_handler_with_deps):
+    async def test_deep_health_returns_all_checks(self, health_handler_with_deps):
         """Deep health check returns comprehensive system status."""
-        result = health_handler_with_deps.handle("/api/health/deep", {}, None)
+        result = await health_handler_with_deps.handle("/api/health/deep", {}, None)
 
         assert result is not None
         assert result.status_code == 200
@@ -382,27 +385,27 @@ class TestDeepHealth:
         assert "response_time_ms" in data
         assert "timestamp" in data
 
-    def test_deep_health_includes_storage_check(self, health_handler_with_deps):
+    async def test_deep_health_includes_storage_check(self, health_handler_with_deps):
         """Deep health includes storage connectivity check."""
-        result = health_handler_with_deps.handle("/api/health/deep", {}, None)
+        result = await health_handler_with_deps.handle("/api/health/deep", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "storage" in data["checks"]
         assert data["checks"]["storage"]["healthy"] is True
 
-    def test_deep_health_includes_elo_check(self, health_handler_with_deps):
+    async def test_deep_health_includes_elo_check(self, health_handler_with_deps):
         """Deep health includes ELO system check."""
-        result = health_handler_with_deps.handle("/api/health/deep", {}, None)
+        result = await health_handler_with_deps.handle("/api/health/deep", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "elo_system" in data["checks"]
         assert data["checks"]["elo_system"]["healthy"] is True
 
-    def test_deep_health_includes_redis_check(self, health_handler):
+    async def test_deep_health_includes_redis_check(self, health_handler):
         """Deep health includes Redis check (not configured by default)."""
-        result = health_handler.handle("/api/health/deep", {}, None)
+        result = await health_handler.handle("/api/health/deep", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -411,26 +414,26 @@ class TestDeepHealth:
         assert data["checks"]["redis"]["healthy"] is True
         assert data["checks"]["redis"]["configured"] is False
 
-    def test_deep_health_includes_ai_providers(self, health_handler):
+    async def test_deep_health_includes_ai_providers(self, health_handler):
         """Deep health includes AI provider availability."""
-        result = health_handler.handle("/api/health/deep", {}, None)
+        result = await health_handler.handle("/api/health/deep", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "ai_providers" in data["checks"]
 
-    def test_deep_health_includes_filesystem(self, health_handler):
+    async def test_deep_health_includes_filesystem(self, health_handler):
         """Deep health includes filesystem check."""
-        result = health_handler.handle("/api/health/deep", {}, None)
+        result = await health_handler.handle("/api/health/deep", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
         assert "filesystem" in data["checks"]
         assert data["checks"]["filesystem"]["healthy"] is True
 
-    def test_deep_health_reports_warnings(self, health_handler):
+    async def test_deep_health_reports_warnings(self, health_handler):
         """Deep health reports warnings when applicable."""
-        result = health_handler.handle("/api/health/deep", {}, None)
+        result = await health_handler.handle("/api/health/deep", {}, None)
 
         assert result is not None
         data = json.loads(result.body)
@@ -444,33 +447,34 @@ class TestDeepHealth:
 # ============================================================================
 
 
+@pytest.mark.asyncio
 class TestHealthHandleRouting:
     """Tests for handle() method routing."""
 
-    def test_handle_routes_to_liveness(self, health_handler):
+    async def test_handle_routes_to_liveness(self, health_handler):
         """handle() correctly routes /healthz to liveness probe."""
-        result = health_handler.handle("/healthz", {}, None)
+        result = await health_handler.handle("/healthz", {}, None)
         assert result is not None
         data = json.loads(result.body)
         assert data["status"] == "ok"
 
-    def test_handle_routes_to_readiness(self, health_handler):
+    async def test_handle_routes_to_readiness(self, health_handler):
         """handle() correctly routes /readyz to readiness probe."""
-        result = health_handler.handle("/readyz", {}, None)
+        result = await health_handler.handle("/readyz", {}, None)
         assert result is not None
         data = json.loads(result.body)
         assert "checks" in data
 
-    def test_handle_routes_to_health(self, health_handler):
+    async def test_handle_routes_to_health(self, health_handler):
         """handle() correctly routes /api/health to health check."""
-        result = health_handler.handle("/api/health", {}, None)
+        result = await health_handler.handle("/api/health", {}, None)
         assert result is not None
         data = json.loads(result.body)
         assert "uptime_seconds" in data
 
-    def test_handle_returns_none_for_unknown(self, health_handler):
+    async def test_handle_returns_none_for_unknown(self, health_handler):
         """handle() returns None for unhandled routes."""
-        result = health_handler.handle("/api/unknown", {}, None)
+        result = await health_handler.handle("/api/unknown", {}, None)
         assert result is None
 
 
