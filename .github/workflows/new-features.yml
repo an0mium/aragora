@@ -179,7 +179,7 @@ jobs:
 
           # Test webhook metrics
           set_webhook_queue_size(5)
-          record_webhook_delivery('https://example.com/hook', True, 0.5)
+          record_webhook_delivery(event_type='debate_end', success=True, duration_seconds=0.5)
           print('Webhook metrics recorded')
 
           print('All metrics tests passed')
