@@ -32,7 +32,9 @@ from .base import (
     json_response,
     safe_error_message,
 )
-from .secure import SecureHandler, ForbiddenError, UnauthorizedError
+from .secure import SecureHandler
+from .utils.auth import ForbiddenError, UnauthorizedError
+from .utils.auth_mixins import SecureEndpointMixin
 from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -73,7 +75,7 @@ async def _get_queue() -> Optional[Any]:
             return None
 
 
-class QueueHandler(SecureHandler, PaginatedHandlerMixin):
+class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):
     """Handler for job queue management endpoints.
 
     RBAC Permissions:
