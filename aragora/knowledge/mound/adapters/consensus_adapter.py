@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 # Import mixins for shared adapter functionality
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
 
 
 @dataclass
@@ -67,7 +68,7 @@ class ConsensusSearchResult:
             self.dissents = []
 
 
-class ConsensusAdapter(SemanticSearchMixin):
+class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
     """
     Adapter that bridges ConsensusMemory to the Knowledge Mound.
 
@@ -216,6 +217,33 @@ class ConsensusAdapter(SemanticSearchMixin):
         if source_id.startswith("cs_"):
             return source_id[3:]
         return source_id
+
+    # ReverseFlowMixin required methods
+    def _get_record_for_validation(self, source_id: str) -> Optional[Any]:
+        """Get a consensus record for validation (required by ReverseFlowMixin)."""
+        return self.get(source_id)
+
+    def _apply_km_validation(
+        self,
+        record: Any,
+        km_confidence: float,
+        cross_refs: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Apply KM validation to a consensus record (required by ReverseFlowMixin)."""
+        record.metadata["km_validated"] = True
+        record.metadata["km_validation_confidence"] = km_confidence
+        if metadata:
+            for key, value in metadata.items():
+                record.metadata[key] = value
+        if cross_refs:
+            record.metadata["km_cross_references"] = cross_refs
+        return True
+
+    def _extract_source_id(self, item: Dict[str, Any]) -> Optional[str]:
+        """Extract source ID from KM item (override for ReverseFlowMixin)."""
+        meta = item.get("metadata", {})
+        return meta.get("source_id") or meta.get("consensus_id") or item.get("id")
 
     async def search_by_topic(
         self,

@@ -1804,6 +1804,8 @@ ROLE_MEMBER = Role(
         PERM_REASONING_READ.key,
         # Knowledge
         PERM_KNOWLEDGE_READ.key,
+        # Provenance
+        PERM_PROVENANCE_READ.key,
         # Inbox
         PERM_INBOX_READ.key,
         PERM_INBOX_UPDATE.key,
