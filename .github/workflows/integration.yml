@@ -66,18 +66,32 @@ jobs:
           SECRETS=$(aws secretsmanager get-secret-value \
             --secret-id "$SECRET_NAME" \
             --query SecretString \
-            --output text)
+            --output text 2>&1) || {
+            echo "::error::Failed to fetch secrets from AWS Secrets Manager"
+            echo "::error::$SECRETS"
+            exit 1
+          }
 
           # Export API keys as environment variables
           # Using mask to hide values in logs
+          LOADED_COUNT=0
           for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
             value=$(echo "$SECRETS" | jq -r ".$key // empty")
             if [ -n "$value" ]; then
               echo "::add-mask::$value"
               echo "$key=$value" >> $GITHUB_ENV
               echo "Loaded $key"
+              LOADED_COUNT=$((LOADED_COUNT + 1))
+            else
+              echo "::warning::$key not found in secrets"
             fi
           done
+
+          if [ "$LOADED_COUNT" -eq 0 ]; then
+            echo "::error::No API keys were loaded from secrets manager"
+            exit 1
+          fi
+          echo "Successfully loaded $LOADED_COUNT API keys"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -93,9 +107,11 @@ jobs:
 
       - name: Run E2E harness tests
         run: |
+          mkdir -p test-results
           pytest tests/e2e/ -v --tb=short --timeout=180 \
             --junit-xml=test-results/e2e-results.xml
         env:
+          PYTHONPATH: .
           REDIS_URL: redis://localhost:6379
           ARAGORA_CI: "true"
           PYTHONUNBUFFERED: "1"
@@ -169,17 +185,31 @@ jobs:
           SECRETS=$(aws secretsmanager get-secret-value \
             --secret-id "$SECRET_NAME" \
             --query SecretString \
-            --output text)
+            --output text 2>&1) || {
+            echo "::error::Failed to fetch secrets from AWS Secrets Manager"
+            echo "::error::$SECRETS"
+            exit 1
+          }
 
           # Export API keys as environment variables
+          LOADED_COUNT=0
           for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
             value=$(echo "$SECRETS" | jq -r ".$key // empty")
             if [ -n "$value" ]; then
               echo "::add-mask::$value"
               echo "$key=$value" >> $GITHUB_ENV
               echo "Loaded $key"
+              LOADED_COUNT=$((LOADED_COUNT + 1))
+            else
+              echo "::warning::$key not found in secrets"
             fi
           done
+
+          if [ "$LOADED_COUNT" -eq 0 ]; then
+            echo "::error::No API keys were loaded from secrets manager"
+            exit 1
+          fi
+          echo "Successfully loaded $LOADED_COUNT API keys"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -196,6 +226,7 @@ jobs:
       - name: Run integration tests with coverage
         run: |
           pip install pytest-cov
+          mkdir -p test-results
           # Integration tests focus on specific scenarios, not comprehensive coverage
           # Override the global 45% threshold from pyproject.toml
           pytest tests/integration/ -v --tb=short --timeout=120 \
@@ -205,6 +236,7 @@ jobs:
             --cov-fail-under=0 \
             --junit-xml=test-results/integration-results.xml
         env:
+          PYTHONPATH: .
           REDIS_URL: redis://localhost:6379
           DATABASE_URL: postgresql://aragora:aragora_test@localhost:5432/aragora_test
           ARAGORA_CI: "true"
@@ -273,17 +305,31 @@ jobs:
           SECRETS=$(aws secretsmanager get-secret-value \
             --secret-id "$SECRET_NAME" \
             --query SecretString \
-            --output text)
+            --output text 2>&1) || {
+            echo "::error::Failed to fetch secrets from AWS Secrets Manager"
+            echo "::error::$SECRETS"
+            exit 1
+          }
 
           # Export API keys as environment variables
+          LOADED_COUNT=0
           for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
             value=$(echo "$SECRETS" | jq -r ".$key // empty")
             if [ -n "$value" ]; then
               echo "::add-mask::$value"
               echo "$key=$value" >> $GITHUB_ENV
               echo "Loaded $key"
+              LOADED_COUNT=$((LOADED_COUNT + 1))
+            else
+              echo "::warning::$key not found in secrets"
             fi
           done
+
+          if [ "$LOADED_COUNT" -eq 0 ]; then
+            echo "::error::No API keys were loaded from secrets manager"
+            exit 1
+          fi
+          echo "Successfully loaded $LOADED_COUNT API keys"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -294,14 +340,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,test]"
           pip install pytest pytest-asyncio pytest-timeout redis
 
       - name: Run control plane tests
         run: |
+          mkdir -p test-results
           pytest tests/control_plane/ -v --tb=short --timeout=120 \
             --junit-xml=test-results/control-plane-results.xml
         env:
+          PYTHONPATH: .
           REDIS_URL: redis://localhost:6379
           ARAGORA_CI: "true"
           PYTHONUNBUFFERED: "1"
