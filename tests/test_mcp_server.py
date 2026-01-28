@@ -90,21 +90,18 @@ class TestAragoraMCPServerInitialization:
     """Test server initialization."""
 
     def test_server_creation_without_mcp_raises(self):
-        """Test that server raises ImportError without MCP package."""
-        with patch.dict("sys.modules", {"mcp": None, "mcp.server": None}):
-            # Force reimport with mocked modules
-            import importlib
-            from aragora.mcp import server as mcp_server
+        """Test that server raises ImportError when MCP_AVAILABLE is False."""
+        from aragora.mcp import server as mcp_server
 
-            # Store original value
-            original_available = mcp_server.MCP_AVAILABLE
-            mcp_server.MCP_AVAILABLE = False
+        # Store original value
+        original_available = mcp_server.MCP_AVAILABLE
+        mcp_server.MCP_AVAILABLE = False
 
-            try:
-                with pytest.raises(ImportError, match="MCP package not installed"):
-                    mcp_server.AragoraMCPServer()
-            finally:
-                mcp_server.MCP_AVAILABLE = original_available
+        try:
+            with pytest.raises(ImportError, match="MCP package not installed"):
+                mcp_server.AragoraMCPServer()
+        finally:
+            mcp_server.MCP_AVAILABLE = original_available
 
     def test_server_creation_with_mcp(self):
         """Test successful server creation when MCP is available."""
