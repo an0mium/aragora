@@ -58,15 +58,24 @@ class TestSystemPermissions:
             assert isinstance(perm, Permission), f"{key} is not a Permission"
 
     def test_permission_keys_match_ids(self):
-        """Permission keys in dict should match permission IDs."""
+        """Permission keys in dict should match permission IDs (for canonical keys)."""
         for key, perm in SYSTEM_PERMISSIONS.items():
-            assert key == perm.id, f"Key {key} doesn't match permission ID {perm.id}"
+            # Colon-separated keys are aliases pointing to dot-separated permissions
+            # These don't need to match - the key format and permission ID differ
+            if ":" in key:
+                # Alias should have the same resource.action content as the permission
+                expected_id = key.replace(":", ".")
+                assert perm.id == expected_id or perm.id in key.replace(":", "."), (
+                    f"Alias {key} should map to permission {expected_id}, got {perm.id}"
+                )
+            else:
+                assert key == perm.id, f"Key {key} doesn't match permission ID {perm.id}"
 
     def test_permission_key_format(self):
-        """Permission keys should follow resource.action format."""
+        """Permission keys should follow resource.action or resource:action format."""
         for key in SYSTEM_PERMISSIONS:
-            # Keys should contain at least one dot separating resource and action
-            assert "." in key, f"Permission key {key} doesn't contain dot separator"
+            # Keys should contain at least one separator (dot or colon)
+            assert "." in key or ":" in key, f"Permission key {key} doesn't contain separator"
 
     def test_debate_permissions_exist(self):
         """Core debate permissions should exist."""

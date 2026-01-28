@@ -24,14 +24,14 @@ from __future__ import annotations
 import importlib
 import logging
 import threading
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Generic, Optional, TypeVar
 
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
 
-class LazyStore:
+class LazyStore(Generic[T]):
     """
     Simple thread-safe lazy-initialized store using a callable factory.
 
