@@ -393,7 +393,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
-    def _handle_video_transcription(self, handler) -> HandlerResult:
+    async def _handle_video_transcription(self, handler) -> HandlerResult:
         """Handle video file transcription (extract audio and transcribe)."""
         available, error = _check_transcription_available()
         if not available:
@@ -434,16 +434,9 @@ class TranscriptionHandler(BaseHandler):
 
                 from aragora.transcription import transcribe_video
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    language = params.get("language")
-                    backend = params.get("backend")
-                    result = loop.run_until_complete(
-                        transcribe_video(temp_path, language=language, backend=backend)
-                    )
-                finally:
-                    loop.close()
+                language = params.get("language")
+                backend = params.get("backend")
+                result = await transcribe_video(temp_path, language=language, backend=backend)
 
                 _save_job(
                     job_id,
@@ -484,7 +477,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected video transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
-    def _handle_youtube_transcription(self, handler) -> HandlerResult:
+    async def _handle_youtube_transcription(self, handler) -> HandlerResult:
         """Handle YouTube video transcription."""
         available, error = _check_transcription_available()
         if not available:
@@ -519,22 +512,15 @@ class TranscriptionHandler(BaseHandler):
             try:
                 from aragora.transcription import transcribe_youtube
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    language = body.get("language")
-                    backend = body.get("backend")
-                    use_cache = body.get("use_cache", True)
-                    result = loop.run_until_complete(
-                        transcribe_youtube(
-                            url,
-                            language=language,
-                            backend=backend,
-                            use_cache=use_cache,
-                        )
-                    )
-                finally:
-                    loop.close()
+                language = body.get("language")
+                backend = body.get("backend")
+                use_cache = body.get("use_cache", True)
+                result = await transcribe_youtube(
+                    url,
+                    language=language,
+                    backend=backend,
+                    use_cache=use_cache,
+                )
 
                 _save_job(
                     job_id,

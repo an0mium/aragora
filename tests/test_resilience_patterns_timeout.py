@@ -1,0 +1,239 @@
+"""
+Tests for resilience_patterns.timeout module.
+
+Tests cover:
+- Async timeout decorator
+- Sync timeout decorator
+- Timeout configuration
+- Callback invocation
+- Context managers
+"""
+
+import asyncio
+import pytest
+from unittest.mock import MagicMock
+
+from aragora.resilience_patterns import (
+    TimeoutConfig,
+    with_timeout,
+    with_timeout_sync,
+)
+from aragora.resilience_patterns.timeout import TimeoutError as PatternTimeoutError
+
+
+class TestTimeoutConfig:
+    """Tests for TimeoutConfig dataclass."""
+
+    def test_default_config(self):
+        """Test default configuration values."""
+        config = TimeoutConfig()
+        assert config.timeout_seconds == 30.0
+        assert config.error_message is None
+        assert config.on_timeout is None
+
+    def test_custom_config(self):
+        """Test custom configuration."""
+        callback = MagicMock()
+        config = TimeoutConfig(
+            timeout_seconds=5.0,
+            error_message="Custom timeout message",
+            on_timeout=callback,
+        )
+        assert config.timeout_seconds == 5.0
+        assert config.error_message == "Custom timeout message"
+        assert config.on_timeout == callback
+
+
+class TestWithTimeoutAsync:
+    """Tests for async with_timeout decorator."""
+
+    @pytest.mark.asyncio
+    async def test_fast_operation_completes(self):
+        """Test that fast operations complete successfully."""
+
+        @with_timeout(1.0)
+        async def fast_op():
+            await asyncio.sleep(0.01)
+            return "success"
+
+        result = await fast_op()
+        assert result == "success"
+
+    @pytest.mark.asyncio
+    async def test_slow_operation_times_out(self):
+        """Test that slow operations time out."""
+
+        @with_timeout(0.1)
+        async def slow_op():
+            await asyncio.sleep(1.0)
+            return "should not reach"
+
+        with pytest.raises((asyncio.TimeoutError, PatternTimeoutError)):
+            await slow_op()
+
+    @pytest.mark.asyncio
+    async def test_timeout_with_config(self):
+        """Test timeout with TimeoutConfig."""
+        config = TimeoutConfig(timeout_seconds=0.1)
+
+        @with_timeout(config)
+        async def slow_op():
+            await asyncio.sleep(1.0)
+
+        with pytest.raises((asyncio.TimeoutError, PatternTimeoutError)):
+            await slow_op()
+
+    @pytest.mark.asyncio
+    async def test_timeout_callback(self):
+        """Test timeout callback invocation."""
+        callback_called = False
+        timeout_value = None
+
+        def on_timeout(seconds):
+            nonlocal callback_called, timeout_value
+            callback_called = True
+            timeout_value = seconds
+
+        config = TimeoutConfig(
+            timeout_seconds=0.1,
+            on_timeout=on_timeout,
+        )
+
+        @with_timeout(config)
+        async def slow_op():
+            await asyncio.sleep(1.0)
+
+        with pytest.raises((asyncio.TimeoutError, PatternTimeoutError)):
+            await slow_op()
+
+        assert callback_called is True
+        assert timeout_value == 0.1
+
+    @pytest.mark.asyncio
+    async def test_exception_propagation(self):
+        """Test that non-timeout exceptions propagate correctly."""
+
+        @with_timeout(1.0)
+        async def error_op():
+            raise ValueError("test error")
+
+        with pytest.raises(ValueError, match="test error"):
+            await error_op()
+
+    @pytest.mark.asyncio
+    async def test_return_value_preserved(self):
+        """Test that return values are preserved."""
+
+        @with_timeout(1.0)
+        async def return_dict():
+            return {"key": "value", "number": 42}
+
+        result = await return_dict()
+        assert result == {"key": "value", "number": 42}
+
+    @pytest.mark.asyncio
+    async def test_zero_timeout(self):
+        """Test behavior with zero timeout."""
+
+        @with_timeout(0.0)
+        async def instant_op():
+            return "instant"
+
+        # Zero timeout should still allow instant completion
+        # or immediately timeout - both are acceptable behaviors
+        try:
+            result = await instant_op()
+            assert result == "instant"
+        except (asyncio.TimeoutError, PatternTimeoutError):
+            pass  # Also acceptable
+
+
+class TestWithTimeoutSync:
+    """Tests for sync with_timeout_sync decorator."""
+
+    def test_fast_operation_completes(self):
+        """Test that fast operations complete successfully."""
+
+        @with_timeout_sync(1.0)
+        def fast_op():
+            return "success"
+
+        result = fast_op()
+        assert result == "success"
+
+    def test_exception_propagation(self):
+        """Test that exceptions propagate correctly."""
+
+        @with_timeout_sync(1.0)
+        def error_op():
+            raise ValueError("test error")
+
+        with pytest.raises(ValueError, match="test error"):
+            error_op()
+
+
+class TestPatternTimeoutError:
+    """Tests for custom TimeoutError exception."""
+
+    def test_error_message(self):
+        """Test error message format."""
+        error = PatternTimeoutError(timeout_seconds=5.0, operation="test_operation")
+        assert "5.0" in str(error) or "5" in str(error)
+        assert "test_operation" in str(error)
+
+    def test_error_attributes(self):
+        """Test error attributes."""
+        error = PatternTimeoutError(timeout_seconds=10.0, operation="my_operation")
+        assert error.timeout_seconds == 10.0
+        assert error.operation == "my_operation"
+
+
+class TestTimeoutEdgeCases:
+    """Test edge cases and special scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_nested_timeouts(self):
+        """Test nested timeout decorators."""
+
+        @with_timeout(0.5)
+        async def outer():
+            @with_timeout(0.1)
+            async def inner():
+                await asyncio.sleep(0.05)
+                return "inner_success"
+
+            return await inner()
+
+        result = await outer()
+        assert result == "inner_success"
+
+    @pytest.mark.asyncio
+    async def test_timeout_with_multiple_awaits(self):
+        """Test timeout across multiple await points."""
+
+        @with_timeout(0.5)
+        async def multiple_awaits():
+            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)
+            return "success"
+
+        result = await multiple_awaits()
+        assert result == "success"
+
+    @pytest.mark.asyncio
+    async def test_timeout_cancellation_cleanup(self):
+        """Test that cancellation is handled cleanly."""
+        cleanup_called = False
+
+        @with_timeout(0.1)
+        async def with_cleanup():
+            try:
+                await asyncio.sleep(1.0)
+            except asyncio.CancelledError:
+                nonlocal cleanup_called
+                cleanup_called = True
+                raise
+
+        with pytest.raises((asyncio.TimeoutError, PatternTimeoutError, asyncio.CancelledError)):
+            await with_cleanup()

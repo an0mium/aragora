@@ -35,6 +35,7 @@ from aragora.server.handlers.base import (
     error_response,
     json_response,
 )
+from aragora.server.handlers.utils.decorators import require_permission
 
 logger = logging.getLogger(__name__)
 
@@ -545,6 +546,7 @@ async def handle_github_webhook(ctx: ServerContext) -> HandlerResult:
         )
 
 
+@require_permission("webhooks:read")
 async def handle_github_app_status(ctx: ServerContext) -> HandlerResult:
     """
     Get GitHub App integration status.
