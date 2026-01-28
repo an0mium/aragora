@@ -30,6 +30,7 @@ from .dashboard import AsyncDashboardAPI, DashboardAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .decisions import AsyncDecisionsAPI, DecisionsAPI
 from .deliberations import AsyncDeliberationsAPI, DeliberationsAPI
+from .devices import AsyncDevicesAPI, DevicesAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
@@ -63,8 +64,10 @@ from .sme import SMEAPI, AsyncSMEAPI
 from .system import AsyncSystemAPI, SystemAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
 from .tenants import AsyncTenantsAPI, TenantsAPI
+from .threat_intel import AsyncThreatIntelAPI, ThreatIntelAPI
 from .tournaments import AsyncTournamentsAPI, TournamentsAPI
 from .training import AsyncTrainingAPI, TrainingAPI
+from .unified_inbox import AsyncUnifiedInboxAPI, UnifiedInboxAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
@@ -124,6 +127,8 @@ __all__ = [
     "AsyncDecisionsAPI",
     "DeliberationsAPI",
     "AsyncDeliberationsAPI",
+    "DevicesAPI",
+    "AsyncDevicesAPI",
     "DocumentsAPI",
     "AsyncDocumentsAPI",
     "ExpensesAPI",
@@ -192,8 +197,12 @@ __all__ = [
     "AsyncTournamentsAPI",
     "TenantsAPI",
     "AsyncTenantsAPI",
+    "ThreatIntelAPI",
+    "AsyncThreatIntelAPI",
     "TrainingAPI",
     "AsyncTrainingAPI",
+    "UnifiedInboxAPI",
+    "AsyncUnifiedInboxAPI",
     "UsageAPI",
     "AsyncUsageAPI",
     "VerificationAPI",

@@ -44,7 +44,7 @@ class DeliberationsAPI:
         Returns:
             Active deliberations with count and timestamp.
         """
-        return self._client.request("GET", "/api/v2/deliberations/active")
+        return self._client.request("GET", "/api/v1/deliberations/active")
 
     def get_stats(self) -> dict[str, Any]:
         """
@@ -53,7 +53,7 @@ class DeliberationsAPI:
         Returns:
             Stats including active count, completed today, averages.
         """
-        return self._client.request("GET", "/api/v2/deliberations/stats")
+        return self._client.request("GET", "/api/v1/deliberations/stats")
 
     def get(self, deliberation_id: str) -> dict[str, Any]:
         """
@@ -65,7 +65,7 @@ class DeliberationsAPI:
         Returns:
             Deliberation details with status, agents, rounds.
         """
-        return self._client.request("GET", f"/api/v2/deliberations/{deliberation_id}")
+        return self._client.request("GET", f"/api/v1/deliberations/{deliberation_id}")
 
     def get_stream_config(self) -> dict[str, Any]:
         """
@@ -74,7 +74,9 @@ class DeliberationsAPI:
         Returns:
             Stream configuration with type, path, and events.
         """
-        return self._client.request("GET", "/api/v2/deliberations/stream/config")
+        raise NotImplementedError(
+            "Deliberations stream uses WebSocket at /api/v1/deliberations/stream"
+        )
 
 
 class AsyncDeliberationsAPI:
@@ -85,16 +87,18 @@ class AsyncDeliberationsAPI:
 
     async def list_active(self) -> dict[str, Any]:
         """List all active deliberation sessions."""
-        return await self._client.request("GET", "/api/v2/deliberations/active")
+        return await self._client.request("GET", "/api/v1/deliberations/active")
 
     async def get_stats(self) -> dict[str, Any]:
         """Get deliberation statistics."""
-        return await self._client.request("GET", "/api/v2/deliberations/stats")
+        return await self._client.request("GET", "/api/v1/deliberations/stats")
 
     async def get(self, deliberation_id: str) -> dict[str, Any]:
         """Get a specific deliberation by ID."""
-        return await self._client.request("GET", f"/api/v2/deliberations/{deliberation_id}")
+        return await self._client.request("GET", f"/api/v1/deliberations/{deliberation_id}")
 
     async def get_stream_config(self) -> dict[str, Any]:
         """Get WebSocket stream configuration for real-time updates."""
-        return await self._client.request("GET", "/api/v2/deliberations/stream/config")
+        raise NotImplementedError(
+            "Deliberations stream uses WebSocket at /api/v1/deliberations/stream"
+        )
