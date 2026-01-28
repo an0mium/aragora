@@ -441,6 +441,117 @@ export interface DecisionExplanation {
   generated_at?: string;
 }
 
+export interface EvidenceLink {
+  id: string;
+  content: string;
+  source: string;
+  relevance_score: number;
+  quality_scores?: Record<string, any>;
+  cited_by?: string[];
+  grounding_type?: string;
+  timestamp?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface EvidenceChain {
+  debate_id: string;
+  evidence_count: number;
+  evidence_quality_score?: number;
+  evidence: EvidenceLink[];
+}
+
+export interface VotePivot {
+  agent: string;
+  choice: string;
+  confidence: number;
+  weight: number;
+  reasoning_summary: string;
+  influence_score?: number;
+  calibration_adjustment?: number;
+  elo_rating?: number;
+  flip_detected?: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface VotePivots {
+  debate_id: string;
+  total_votes?: number;
+  pivotal_votes?: number;
+  agent_agreement_score?: number;
+  votes: VotePivot[];
+}
+
+export interface Counterfactual {
+  condition: string;
+  outcome_change: string;
+  likelihood: number;
+  sensitivity: number;
+  affected_agents?: string[];
+  metadata?: Record<string, any>;
+}
+
+export interface Counterfactuals {
+  debate_id: string;
+  counterfactual_count?: number;
+  counterfactuals: Counterfactual[];
+}
+
+export interface DebateSummary {
+  debate_id: string;
+  summary: string;
+  confidence?: number;
+  consensus_reached?: boolean;
+}
+
+export interface ExplainabilityBatch {
+  batch_id: string;
+  status: string;
+  total_debates: number;
+  status_url?: string;
+  results_url?: string;
+}
+
+export interface ExplainabilityBatchStatus {
+  batch_id: string;
+  status: string;
+  total_debates: number;
+  processed_count?: number;
+  success_count?: number;
+  error_count?: number;
+  created_at?: number;
+  started_at?: number;
+  completed_at?: number;
+  progress_pct?: number;
+}
+
+export interface BatchDebateResult {
+  debate_id: string;
+  status: string;
+  processing_time_ms?: number;
+  explanation?: Record<string, any>;
+  error?: string;
+}
+
+export interface ExplainabilityBatchResults {
+  batch_id: string;
+  status: string;
+  total_debates: number;
+  processed_count?: number;
+  success_count?: number;
+  error_count?: number;
+  created_at?: number;
+  started_at?: number;
+  completed_at?: number;
+  progress_pct?: number;
+  results: BatchDebateResult[];
+  pagination?: {
+    offset?: number;
+    limit?: number;
+    total?: number;
+    has_more?: boolean;
+  };
+}
+
 export interface ControlPlaneAgent {
   agent_id: string;
   capabilities: string[];
