@@ -48,7 +48,7 @@ jobs:
       - name: Install OpenAPI generation dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[dev]"
 
       - name: Check version alignment
         run: python scripts/check_version_alignment.py
@@ -578,8 +578,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,research]"
-          pip install redis asyncpg supabase z3-solver PyJWT websockets
+          pip install -e ".[dev,test,research]"
           pip install mcp || true
 
       - name: Run optional-deps test suite
