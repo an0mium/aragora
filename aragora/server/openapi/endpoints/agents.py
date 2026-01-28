@@ -555,4 +555,142 @@ Lower calibration error = better calibrated agent.""",
             "responses": {"200": _ok_response("All personas")},
         },
     },
+    "/api/v1/agents/health": {
+        "get": {
+            "tags": ["Agents"],
+            "summary": "Agent health check",
+            "description": """Check health and availability of all configured agents.
+
+**Response includes:**
+- Per-agent availability status
+- Response times and latency
+- Error rates and failure counts
+- API key validity indicators""",
+            "operationId": "getAgentHealth",
+            "responses": {
+                "200": _ok_response(
+                    "Agent health status",
+                    {
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "status": {
+                                        "type": "string",
+                                        "enum": ["healthy", "degraded", "unavailable"],
+                                    },
+                                    "latency_ms": {"type": "number"},
+                                    "last_check": {"type": "string", "format": "date-time"},
+                                },
+                            },
+                        },
+                        "healthy_count": {"type": "integer"},
+                        "total_count": {"type": "integer"},
+                    },
+                ),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/agents/availability": {
+        "get": {
+            "tags": ["Agents"],
+            "summary": "Agent availability matrix",
+            "description": """Get detailed availability information for all agents.
+
+**Response includes:**
+- API key configuration status
+- Model availability per provider
+- Fallback options via OpenRouter
+- Required environment variables""",
+            "operationId": "getAgentAvailability",
+            "responses": {
+                "200": _ok_response(
+                    "Agent availability",
+                    {
+                        "agents": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "available": {"type": "boolean"},
+                                    "provider": {"type": "string"},
+                                    "model": {"type": "string"},
+                                    "has_api_key": {"type": "boolean"},
+                                    "fallback_available": {"type": "boolean"},
+                                },
+                            },
+                        },
+                    },
+                ),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/agents/local": {
+        "get": {
+            "tags": ["Agents"],
+            "summary": "List local LLM servers",
+            "description": """Detect and list locally running LLM servers.
+
+**Supported local servers:**
+- Ollama (default port 11434)
+- LM Studio (default port 1234)
+- LocalAI (default port 8080)
+- vLLM (default port 8000)
+
+**Response includes:**
+- Server type and URL
+- Available models
+- Connection status""",
+            "operationId": "listLocalAgents",
+            "responses": {
+                "200": _ok_response(
+                    "Local LLM servers",
+                    {
+                        "servers": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string"},
+                                    "url": {"type": "string"},
+                                    "models": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "status": {"type": "string"},
+                                },
+                            },
+                        },
+                    },
+                ),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/agents/local/status": {
+        "get": {
+            "tags": ["Agents"],
+            "summary": "Local LLM status",
+            "description": """Get status of local LLM servers.
+
+Returns quick health check for all detected local servers.""",
+            "operationId": "getLocalAgentStatus",
+            "responses": {
+                "200": _ok_response(
+                    "Local server status",
+                    {
+                        "available": {"type": "boolean"},
+                        "servers": {"type": "integer"},
+                        "total_models": {"type": "integer"},
+                    },
+                ),
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
 }
