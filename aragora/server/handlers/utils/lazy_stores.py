@@ -31,6 +31,93 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
+class LazyStore:
+    """
+    Simple thread-safe lazy-initialized store using a callable factory.
+
+    Use this when you have a direct factory function. For dynamic import-based
+    initialization, use LazyStoreFactory instead.
+
+    Usage:
+        # Simple callable factory
+        _store = LazyStore(lambda: MyStore())
+
+        # Or with a factory function
+        def create_store():
+            return MyStore(config=get_config())
+
+        _store = LazyStore(create_store)
+
+        # Use in handler
+        store = _store.get()
+    """
+
+    def __init__(
+        self,
+        factory: Callable[[], T],
+        store_name: str = "store",
+        logger_context: str = "Handler",
+    ):
+        """
+        Initialize a lazy store.
+
+        Args:
+            factory: Callable that creates the store instance
+            store_name: Name for logging purposes
+            logger_context: Context for log messages
+        """
+        self._factory = factory
+        self.store_name = store_name
+        self.logger_context = logger_context
+
+        self._store: Optional[T] = None
+        self._lock = threading.Lock()
+        self._initialized = False
+        self._init_error: Optional[str] = None
+
+    def get(self) -> Optional[T]:
+        """Get the store instance, initializing lazily if needed."""
+        if self._initialized:
+            return self._store
+
+        with self._lock:
+            if self._initialized:
+                return self._store
+
+            try:
+                self._store = self._factory()
+                logger.info(f"[{self.logger_context}] Initialized {self.store_name}")
+            except Exception as e:
+                self._init_error = f"Init failed: {e}"
+                logger.warning(f"[{self.logger_context}] Failed to init {self.store_name}: {e}")
+
+            self._initialized = True
+
+        return self._store
+
+    def reset(self) -> None:
+        """Reset the store, allowing re-initialization."""
+        with self._lock:
+            self._store = None
+            self._initialized = False
+            self._init_error = None
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the store has been initialized."""
+        return self._initialized
+
+    @property
+    def is_available(self) -> bool:
+        """Check if the store is initialized and available."""
+        return self._initialized and self._store is not None
+
+    @property
+    def initialization_error(self) -> Optional[str]:
+        """Get the error message if initialization failed."""
+        return self._init_error
+
+
 class LazyStoreFactory:
     """
     Thread-safe factory for lazy-initialized stores.

@@ -40,86 +40,49 @@ from aragora.server.handlers.base import (
     require_permission,
     success_response,
 )
+from aragora.server.handlers.utils.lazy_stores import LazyStoreFactory
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# Persistent Storage Access
+# Persistent Storage Access (using LazyStoreFactory)
 # =============================================================================
 
-_email_store = None
-_email_store_lock = threading.Lock()
+_email_store = LazyStoreFactory(
+    store_name="email_store",
+    import_path="aragora.storage.email_store",
+    factory_name="get_email_store",
+    logger_context="SharedInbox",
+)
 
-_rules_store = None
-_rules_store_lock = threading.Lock()
+_rules_store = LazyStoreFactory(
+    store_name="rules_store",
+    import_path="aragora.services.rules_store",
+    factory_name="get_rules_store",
+    logger_context="SharedInbox",
+)
+
+_activity_store = LazyStoreFactory(
+    store_name="activity_store",
+    import_path="aragora.storage.inbox_activity_store",
+    factory_name="get_inbox_activity_store",
+    logger_context="SharedInbox",
+)
 
 
 def _get_email_store():
-    """Get or create the email store (lazy init, thread-safe)."""
-    global _email_store
-    if _email_store is not None:
-        return _email_store
-    with _email_store_lock:
-        if _email_store is None:
-            try:
-                from aragora.storage.email_store import get_email_store
-
-                _email_store = get_email_store()
-                logger.info("[SharedInbox] Initialized persistent email store")
-            except ImportError as e:
-                logger.warning(f"[SharedInbox] Email store module not available: {e}")
-            except (OSError, IOError, RuntimeError) as e:
-                logger.warning(f"[SharedInbox] Email store init failed: {type(e).__name__}: {e}")
-            except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to init email store: {e}")
-        return _email_store
+    """Get the email store (lazy init, thread-safe)."""
+    return _email_store.get()
 
 
 def _get_rules_store():
-    """Get or create the rules store (lazy init, thread-safe)."""
-    global _rules_store
-    if _rules_store is not None:
-        return _rules_store
-    with _rules_store_lock:
-        if _rules_store is None:
-            try:
-                from aragora.services.rules_store import get_rules_store
-
-                _rules_store = get_rules_store()
-                logger.info("[SharedInbox] Initialized persistent rules store")
-            except ImportError as e:
-                logger.warning(f"[SharedInbox] Rules store module not available: {e}")
-            except (OSError, IOError, RuntimeError) as e:
-                logger.warning(f"[SharedInbox] Rules store init failed: {type(e).__name__}: {e}")
-            except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to init rules store: {e}")
-        return _rules_store
-
-
-# Activity store for audit logging
-_activity_store = None
-_activity_store_lock = threading.Lock()
+    """Get the rules store (lazy init, thread-safe)."""
+    return _rules_store.get()
 
 
 def _get_activity_store():
-    """Get or create the activity store (lazy init, thread-safe)."""
-    global _activity_store
-    if _activity_store is not None:
-        return _activity_store
-    with _activity_store_lock:
-        if _activity_store is None:
-            try:
-                from aragora.storage.inbox_activity_store import get_inbox_activity_store
-
-                _activity_store = get_inbox_activity_store()
-                logger.info("[SharedInbox] Initialized inbox activity store")
-            except ImportError as e:
-                logger.warning(f"[SharedInbox] Activity store module not available: {e}")
-            except (OSError, IOError, RuntimeError) as e:
-                logger.warning(f"[SharedInbox] Activity store init failed: {type(e).__name__}: {e}")
-            except Exception as e:
-                logger.warning(f"[SharedInbox] Failed to init activity store: {e}")
-        return _activity_store
+    """Get the activity store (lazy init, thread-safe)."""
+    return _activity_store.get()
 
 
 def _log_activity(
