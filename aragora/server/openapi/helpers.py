@@ -168,13 +168,26 @@ ERROR_EXAMPLES: dict[str, dict[str, Any]] = {
 # =============================================================================
 
 
-def _ok_response(description: str, schema_ref: str | None = None) -> dict[str, Any]:
-    """Build a successful response definition."""
+def _ok_response(description: str, schema: str | dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build a successful response definition.
+
+    Args:
+        description: Response description
+        schema: Either a schema reference string (e.g., "AgentResponse")
+                or an inline schema dict (e.g., {"type": "object", ...})
+    """
     resp: dict[str, Any] = {"description": description}
-    if schema_ref:
-        resp["content"] = {
-            "application/json": {"schema": {"$ref": f"#/components/schemas/{schema_ref}"}}
-        }
+    if schema:
+        if isinstance(schema, str):
+            # Schema reference
+            resp["content"] = {
+                "application/json": {"schema": {"$ref": f"#/components/schemas/{schema}"}}
+            }
+        else:
+            # Inline schema dict
+            resp["content"] = {
+                "application/json": {"schema": {"type": "object", "properties": schema}}
+            }
     return resp
 
 
