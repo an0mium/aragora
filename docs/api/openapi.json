@@ -3475,7 +3475,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/{'agents': {'type': 'array', 'items': {'type': 'object', 'properties': {'name': {'type': 'string'}, 'status': {'type': 'string', 'enum': ['healthy', 'degraded', 'unavailable']}, 'latency_ms': {'type': 'number'}, 'last_check': {'type': 'string', 'format': 'date-time'}}}}, 'healthy_count': {'type': 'integer'}, 'total_count': {'type': 'integer'}}"
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "healthy",
+                              "degraded",
+                              "unavailable"
+                            ]
+                          },
+                          "latency_ms": {
+                            "type": "number"
+                          },
+                          "last_check": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    },
+                    "healthy_count": {
+                      "type": "integer"
+                    },
+                    "total_count": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
@@ -3502,7 +3536,35 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/{'agents': {'type': 'array', 'items': {'type': 'object', 'properties': {'name': {'type': 'string'}, 'available': {'type': 'boolean'}, 'provider': {'type': 'string'}, 'model': {'type': 'string'}, 'has_api_key': {'type': 'boolean'}, 'fallback_available': {'type': 'boolean'}}}}}"
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "has_api_key": {
+                            "type": "boolean"
+                          },
+                          "fallback_available": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -3529,7 +3591,32 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/{'servers': {'type': 'array', 'items': {'type': 'object', 'properties': {'type': {'type': 'string'}, 'url': {'type': 'string'}, 'models': {'type': 'array', 'items': {'type': 'string'}}, 'status': {'type': 'string'}}}}}"
+                  "type": "object",
+                  "properties": {
+                    "servers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "models": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -3556,7 +3643,18 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/{'available': {'type': 'boolean'}, 'servers': {'type': 'integer'}, 'total_models': {'type': 'integer'}}"
+                  "type": "object",
+                  "properties": {
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "servers": {
+                      "type": "integer"
+                    },
+                    "total_models": {
+                      "type": "integer"
+                    }
+                  }
                 }
               }
             }
