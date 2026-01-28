@@ -770,3 +770,166 @@ class TestReceiptsHandlerTimestampParsing:
         """Test parse_timestamp with invalid string."""
         result = receipts_handler._parse_timestamp("invalid")
         assert result is None
+
+
+# ===========================================================================
+# GDPR Compliance Tests
+# ===========================================================================
+
+
+class TestReceiptsHandlerGDPR:
+    """Tests for GDPR compliance endpoints (DSAR and retention status)."""
+
+    @pytest.mark.asyncio
+    async def test_retention_status(self, receipts_handler, mock_receipt_store):
+        """Test retention status endpoint."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/retention-status")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert "retention_policy" in data
+        assert "current_stats" in data
+        assert "age_distribution" in data
+        assert data["retention_policy"]["max_retention_days"] == 2555
+
+    @pytest.mark.asyncio
+    async def test_retention_status_empty_store(self, receipts_handler):
+        """Test retention status with empty store."""
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/retention-status")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["current_stats"]["total_receipts"] == 0
+
+    @pytest.mark.asyncio
+    async def test_dsar_with_matches(self, receipts_handler, mock_receipt_store):
+        """Test DSAR endpoint finds user receipts."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r1",
+                "gauntlet_id": "g1",
+                "user_id": "user-123",
+            }
+        )
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r2",
+                "gauntlet_id": "g2",
+                "user_id": "other-user",
+            }
+        )
+
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/dsar/user-123")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["dsar_request"]["user_id"] == "user-123"
+        assert data["dsar_request"]["gdpr_article"] == "Article 15 - Right of access"
+        assert data["summary"]["total_receipts"] == 1
+
+    @pytest.mark.asyncio
+    async def test_dsar_no_matches(self, receipts_handler, mock_receipt_store):
+        """Test DSAR endpoint with no matches."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r1",
+                "gauntlet_id": "g1",
+                "user_id": "other-user",
+            }
+        )
+
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/dsar/user-123")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["summary"]["total_receipts"] == 0
+        assert len(data["receipts"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_dsar_matches_requestor_id(self, receipts_handler, mock_receipt_store):
+        """Test DSAR matches requestor_id field."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r1",
+                "gauntlet_id": "g1",
+                "requestor_id": "user-456",
+            }
+        )
+
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/dsar/user-456")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["summary"]["total_receipts"] == 1
+
+    @pytest.mark.asyncio
+    async def test_dsar_matches_created_by(self, receipts_handler, mock_receipt_store):
+        """Test DSAR matches created_by field."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r1",
+                "gauntlet_id": "g1",
+                "created_by": "user-789",
+            }
+        )
+
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/dsar/user-789")
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["summary"]["total_receipts"] == 1
+
+    @pytest.mark.asyncio
+    async def test_dsar_pagination(self, receipts_handler, mock_receipt_store):
+        """Test DSAR pagination parameters."""
+        for i in range(5):
+            mock_receipt_store.save(
+                {
+                    "receipt_id": f"r{i}",
+                    "gauntlet_id": f"g{i}",
+                    "user_id": "test-user",
+                }
+            )
+
+        result = await receipts_handler.handle(
+            "GET",
+            "/api/v2/receipts/dsar/test-user",
+            query_params={"limit": "2", "offset": "1"},
+        )
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["pagination"]["limit"] == 2
+        assert data["pagination"]["offset"] == 1
+        assert data["summary"]["total_receipts"] == 5
+        assert data["summary"]["returned_receipts"] == 2
+
+    @pytest.mark.asyncio
+    async def test_dsar_invalid_user_id_too_short(self, receipts_handler):
+        """Test DSAR rejects user_id shorter than 3 characters."""
+        result = await receipts_handler.handle("GET", "/api/v2/receipts/dsar/ab")
+
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_dsar_limit_capped(self, receipts_handler, mock_receipt_store):
+        """Test DSAR limit is capped at 1000."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r1",
+                "gauntlet_id": "g1",
+                "user_id": "test-user",
+            }
+        )
+
+        result = await receipts_handler.handle(
+            "GET",
+            "/api/v2/receipts/dsar/test-user",
+            query_params={"limit": "5000"},
+        )
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert data["pagination"]["limit"] == 1000

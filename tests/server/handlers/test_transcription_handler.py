@@ -498,7 +498,7 @@ class TestErrorResponses:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
+        result = await handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
         if result:
             if result.status_code >= 400:
