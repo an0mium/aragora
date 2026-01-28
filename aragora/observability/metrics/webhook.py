@@ -45,18 +45,34 @@ _FAILURES_BY_STATUS = None
 
 
 def _get_or_create_metric(metric_class, name: str, description: str, labelnames=None, **kwargs):
-    """Get existing metric from registry or create new one."""
+    """Get existing metric from registry or create new one.
+
+    If a metric with the same name exists (even with different labels),
+    we return the existing one since prometheus doesn't allow duplicate names.
+    """
     from prometheus_client import REGISTRY
 
-    # Check if metric already exists in the default registry
-    for collector in list(REGISTRY._names_to_collectors.values()):
-        if hasattr(collector, "_name") and collector._name == name:
-            return collector
+    # Check if metric already exists by name in the default registry
+    # _names_to_collectors is keyed by metric name
+    if name in REGISTRY._names_to_collectors:
+        return REGISTRY._names_to_collectors[name]
+
+    # Also check for metrics with suffixes (Counter has _total, _created)
+    # and Histogram has _bucket, _count, _sum
+    base_name = name.replace("_total", "").replace("_created", "")
+    if base_name in REGISTRY._names_to_collectors:
+        return REGISTRY._names_to_collectors[base_name]
 
     # Create new metric
-    if labelnames:
-        return metric_class(name, description, labelnames, **kwargs)
-    return metric_class(name, description, **kwargs)
+    try:
+        if labelnames:
+            return metric_class(name, description, labelnames, **kwargs)
+        return metric_class(name, description, **kwargs)
+    except ValueError:
+        # Metric was registered by another thread/module - try to get it
+        if name in REGISTRY._names_to_collectors:
+            return REGISTRY._names_to_collectors[name]
+        raise
 
 
 def _init_metrics():
