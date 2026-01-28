@@ -243,7 +243,8 @@ class TestAgentRegistration:
 
         assert get_status(result) == 401
 
-    def test_register_agent_success(
+    @pytest.mark.asyncio
+    async def test_register_agent_success(
         self, handler, mock_http_handler, mock_coordinator, mock_admin_user
     ):
         """Should register agent successfully with auth."""
@@ -266,7 +267,7 @@ class TestAgentRegistration:
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/agents", {}, mock_http_handler
                     )
 
@@ -274,7 +275,8 @@ class TestAgentRegistration:
         body = get_body(result)
         assert body["id"] == "agent-1"
 
-    def test_register_agent_missing_id(
+    @pytest.mark.asyncio
+    async def test_register_agent_missing_id(
         self, handler, mock_http_handler, mock_coordinator, mock_admin_user
     ):
         """Should reject registration without agent_id."""
@@ -289,7 +291,7 @@ class TestAgentRegistration:
                     "read_json_body_validated",
                     return_value=({"capabilities": ["debate"]}, None),  # Missing agent_id
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/agents", {}, mock_http_handler
                     )
 

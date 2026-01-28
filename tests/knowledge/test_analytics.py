@@ -62,7 +62,8 @@ class TestAnalyticsCanHandle:
 class TestAnalyticsInternalMethods:
     """Test analytics internal methods."""
 
-    def test_get_mound_stats_returns_structure(self):
+    @pytest.mark.asyncio
+    async def test_get_mound_stats_returns_structure(self):
         """Test mound stats returns valid structure."""
         from aragora.server.handlers.knowledge.analytics import AnalyticsHandler
 
@@ -84,7 +85,7 @@ class TestAnalyticsInternalMethods:
         mock_mound.get_stats = AsyncMock(return_value=mock_stats)
 
         with patch("aragora.knowledge.mound.get_knowledge_mound", return_value=mock_mound):
-            result = handler._get_mound_stats(None)
+            result = await handler._get_mound_stats(None)
 
         assert result is not None
         # HandlerResult is a dataclass with .body attribute
