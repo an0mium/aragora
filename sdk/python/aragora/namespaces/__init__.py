@@ -4,8 +4,10 @@ Aragora SDK Namespace APIs
 Provides namespaced access to Aragora API endpoints.
 """
 
+from .a2a import A2AAPI, AsyncA2AAPI
 from .accounting import AccountingAPI, AsyncAccountingAPI
 from .admin import AdminAPI, AsyncAdminAPI
+from .advertising import AdvertisingAPI, AsyncAdvertisingAPI
 from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .ap_automation import APAutomationAPI, AsyncAPAutomationAPI
@@ -23,25 +25,31 @@ from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .cost_management import AsyncCostManagementAPI, CostManagementAPI
 from .critiques import AsyncCritiquesAPI, CritiquesAPI
+from .cross_pollination import AsyncCrossPollinationAPI, CrossPollinationAPI
+from .dashboard import AsyncDashboardAPI, DashboardAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .decisions import AsyncDecisionsAPI, DecisionsAPI
+from .deliberations import AsyncDeliberationsAPI, DeliberationsAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .genesis import AsyncGenesisAPI, GenesisAPI
+from .gmail import AsyncGmailAPI, GmailAPI
 from .health import AsyncHealthAPI, HealthAPI
 from .integrations import AsyncIntegrationsAPI, IntegrationsAPI
 from .invoice_processing import AsyncInvoiceProcessingAPI, InvoiceProcessingAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
+from .metrics import AsyncMetricsAPI, MetricsAPI
 from .monitoring import AsyncMonitoringAPI, MonitoringAPI
 from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI
+from .plugins import AsyncPluginsAPI, PluginsAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
 from .pulse import AsyncPulseAPI, PulseAPI
 from .ranking import AsyncRankingAPI, RankingAPI
@@ -52,6 +60,7 @@ from .replays import AsyncReplaysAPI, ReplaysAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
 from .sme import SMEAPI, AsyncSMEAPI
+from .system import AsyncSystemAPI, SystemAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
 from .tenants import AsyncTenantsAPI, TenantsAPI
 from .tournaments import AsyncTournamentsAPI, TournamentsAPI
@@ -63,8 +72,12 @@ from .workflows import AsyncWorkflowsAPI, WorkflowsAPI
 from .workspaces import AsyncWorkspacesAPI, WorkspacesAPI
 
 __all__ = [
+    "A2AAPI",
+    "AsyncA2AAPI",
     "AccountingAPI",
     "AsyncAccountingAPI",
+    "AdvertisingAPI",
+    "AsyncAdvertisingAPI",
     "AdminAPI",
     "AsyncAdminAPI",
     "AgentsAPI",
@@ -99,12 +112,18 @@ __all__ = [
     "AsyncControlPlaneAPI",
     "CostManagementAPI",
     "AsyncCostManagementAPI",
+    "CrossPollinationAPI",
+    "AsyncCrossPollinationAPI",
     "CritiquesAPI",
     "AsyncCritiquesAPI",
+    "DashboardAPI",
+    "AsyncDashboardAPI",
     "DebatesAPI",
     "AsyncDebatesAPI",
     "DecisionsAPI",
     "AsyncDecisionsAPI",
+    "DeliberationsAPI",
+    "AsyncDeliberationsAPI",
     "DocumentsAPI",
     "AsyncDocumentsAPI",
     "ExpensesAPI",
@@ -115,6 +134,8 @@ __all__ = [
     "AsyncGauntletAPI",
     "GenesisAPI",
     "AsyncGenesisAPI",
+    "GmailAPI",
+    "AsyncGmailAPI",
     "HealthAPI",
     "AsyncHealthAPI",
     "IntegrationsAPI",
@@ -127,6 +148,8 @@ __all__ = [
     "AsyncMarketplaceAPI",
     "MemoryAPI",
     "AsyncMemoryAPI",
+    "MetricsAPI",
+    "AsyncMetricsAPI",
     "MonitoringAPI",
     "AsyncMonitoringAPI",
     "NomicAPI",
@@ -139,6 +162,8 @@ __all__ = [
     "AsyncOrganizationsAPI",
     "PaymentsAPI",
     "AsyncPaymentsAPI",
+    "PluginsAPI",
+    "AsyncPluginsAPI",
     "PoliciesAPI",
     "AsyncPoliciesAPI",
     "PulseAPI",
@@ -159,6 +184,8 @@ __all__ = [
     "AsyncRoutingAPI",
     "SMEAPI",
     "AsyncSMEAPI",
+    "SystemAPI",
+    "AsyncSystemAPI",
     "TeamsAPI",
     "AsyncTeamsAPI",
     "TournamentsAPI",

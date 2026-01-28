@@ -34,11 +34,23 @@ from .oidc import (
     OIDCError,
     OIDCProvider,
 )
-from .saml import (
-    SAMLConfig,
-    SAMLError,
-    SAMLProvider,
-)
+
+# SAML requires python3-saml optional dependency
+try:
+    from .saml import (
+        SAMLConfig,
+        SAMLError,
+        SAMLProvider,
+    )
+
+    HAS_SAML = True
+except ImportError:
+    # SAML unavailable - define placeholders
+    SAMLConfig = None  # type: ignore[assignment, misc]
+    SAMLError = None  # type: ignore[assignment, misc]
+    SAMLProvider = None  # type: ignore[assignment, misc]
+    HAS_SAML = False
+
 from .sso import (
     SSOAuthenticationError,
     SSOConfig,
@@ -62,10 +74,6 @@ __all__ = [
     "SSOConfigurationError",
     "get_sso_provider",
     "reset_sso_provider",
-    # SAML
-    "SAMLProvider",
-    "SAMLConfig",
-    "SAMLError",
     # OIDC
     "OIDCProvider",
     "OIDCConfig",
@@ -75,4 +83,10 @@ __all__ = [
     "LockoutEntry",
     "get_lockout_tracker",
     "reset_lockout_tracker",
+    # SAML availability flag
+    "HAS_SAML",
 ]
+
+# Add SAML exports only if available
+if HAS_SAML:
+    __all__.extend(["SAMLProvider", "SAMLConfig", "SAMLError"])
