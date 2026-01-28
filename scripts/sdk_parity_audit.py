@@ -74,7 +74,7 @@ def load_openapi(path: Path) -> tuple[set[Endpoint], int]:
 
 
 REQUEST_RE = re.compile(
-    r"\brequest(?:<[^>]+>)?\(\s*['\"](?P<method>GET|POST|PUT|PATCH|DELETE)['\"]\s*,\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
+    r"\brequest[^\n]*?\(\s*['\"](?P<method>GET|POST|PUT|PATCH|DELETE)['\"]\s*,\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
     re.MULTILINE,
 )
 

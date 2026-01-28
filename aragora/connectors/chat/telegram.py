@@ -26,6 +26,15 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorError,
+    ConnectorNetworkError,
+    ConnectorRateLimitError,
+    ConnectorTimeoutError,
+)
+
 # Distributed tracing support
 try:
     from aragora.observability.tracing import build_trace_headers
@@ -36,6 +45,46 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
+
+
+def _classify_telegram_error(
+    error_str: str,
+    error_code: int | None = None,
+    retry_after: float | None = None,
+) -> ConnectorError:
+    """Classify a Telegram error into a specific ConnectorError type."""
+    error_lower = error_str.lower()
+
+    # Rate limit errors
+    if error_code == 429 or "rate" in error_lower or "too many" in error_lower:
+        return ConnectorRateLimitError(
+            error_str,
+            connector_name="telegram",
+            retry_after=retry_after or 60.0,
+        )
+
+    # Auth errors
+    if error_code == 401 or "unauthorized" in error_lower or "token" in error_lower:
+        return ConnectorAuthError(error_str, connector_name="telegram")
+
+    # Not found
+    if error_code == 404 or "not found" in error_lower or "chat not found" in error_lower:
+        return ConnectorAPIError(error_str, connector_name="telegram", status_code=404)
+
+    # Timeout errors
+    if "timeout" in error_lower:
+        return ConnectorTimeoutError(error_str, connector_name="telegram")
+
+    # Network errors
+    if "connection" in error_lower or "network" in error_lower:
+        return ConnectorNetworkError(error_str, connector_name="telegram")
+
+    # Default to generic API error
+    return ConnectorAPIError(
+        error_str,
+        connector_name="telegram",
+        status_code=error_code,
+    )
 
 
 from .base import ChatPlatformConnector
@@ -159,19 +208,24 @@ class TelegramConnector(ChatPlatformConnector):
 
                 # Check for rate limit (429)
                 if data.get("error_code") == 429:
-                    self._record_failure(Exception("Rate limit exceeded (429)"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=data.get("description", "Rate limit exceeded"),
+                    error_desc = data.get("description", "Rate limit exceeded")
+                    classified = _classify_telegram_error(
+                        error_desc,
+                        error_code=429,
+                        retry_after=data.get("parameters", {}).get("retry_after"),
                     )
+                    self._record_failure(classified)
+                    return SendMessageResponse(success=False, error=error_desc)
 
                 if not data.get("ok"):
-                    logger.error(f"Telegram send failed: {data.get('description')}")
-                    self._record_failure(Exception(data.get("description", "Unknown error")))
-                    return SendMessageResponse(
-                        success=False,
-                        error=data.get("description", "Unknown error"),
+                    error_desc = data.get("description", "Unknown error")
+                    error_code = data.get("error_code")
+                    classified = _classify_telegram_error(error_desc, error_code=error_code)
+                    logger.error(
+                        f"[telegram] send failed [{type(classified).__name__}]: {error_desc}"
                     )
+                    self._record_failure(classified)
+                    return SendMessageResponse(success=False, error=error_desc)
 
                 self._record_success()
                 result = data.get("result", {})
@@ -181,8 +235,20 @@ class TelegramConnector(ChatPlatformConnector):
                     channel_id=str(result.get("chat", {}).get("id")),
                     timestamp=datetime.fromtimestamp(result.get("date", 0)).isoformat(),
                 )
+        except httpx.TimeoutException as e:
+            classified = _classify_telegram_error(f"Timeout: {e}")
+            self._record_failure(classified)
+            raise ConnectorTimeoutError(str(e), connector_name="telegram") from e
+        except httpx.ConnectError as e:
+            classified = _classify_telegram_error(f"Connection error: {e}")
+            self._record_failure(classified)
+            raise ConnectorNetworkError(str(e), connector_name="telegram") from e
         except Exception as e:
-            self._record_failure(e)
+            classified = _classify_telegram_error(str(e))
+            logger.exception(
+                f"[telegram] sendMessage unexpected error [{type(classified).__name__}]: {e}"
+            )
+            self._record_failure(classified)
             raise
 
     async def update_message(

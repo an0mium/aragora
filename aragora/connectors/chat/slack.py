@@ -39,6 +39,14 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
 
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+    ConnectorAuthError,
+    ConnectorError,
+    ConnectorNetworkError,
+    ConnectorRateLimitError,
+    ConnectorTimeoutError,
+)
 from aragora.resilience import get_circuit_breaker
 
 try:
@@ -47,6 +55,61 @@ except ImportError:
 
     def build_trace_headers() -> dict[str, str]:
         return {}
+
+
+def _classify_slack_error(
+    error_str: str,
+    status_code: int = 0,
+    retry_after: float | None = None,
+) -> ConnectorError:
+    """Classify a Slack error string into a specific ConnectorError type.
+
+    This helper ensures proper error classification for logging and metrics
+    while maintaining the tuple-return pattern for backward compatibility.
+    """
+    error_lower = error_str.lower()
+
+    # Rate limit errors
+    if status_code == 429 or "rate" in error_lower or "ratelimited" in error_lower:
+        return ConnectorRateLimitError(
+            error_str,
+            connector_name="slack",
+            retry_after=retry_after or 60.0,
+        )
+
+    # Auth errors
+    auth_keywords = {
+        "invalid_auth",
+        "token_expired",
+        "token_revoked",
+        "not_authed",
+        "account_inactive",
+    }
+    if any(kw in error_lower for kw in auth_keywords):
+        return ConnectorAuthError(error_str, connector_name="slack")
+
+    # Timeout errors
+    if "timeout" in error_lower:
+        return ConnectorTimeoutError(error_str, connector_name="slack")
+
+    # Network errors
+    if "connection" in error_lower or "network" in error_lower:
+        return ConnectorNetworkError(error_str, connector_name="slack")
+
+    # Server errors
+    if status_code >= 500:
+        return ConnectorAPIError(
+            error_str,
+            connector_name="slack",
+            status_code=status_code,
+        )
+
+    # Default to generic API error
+    return ConnectorAPIError(
+        error_str,
+        connector_name="slack",
+        status_code=status_code if status_code >= 400 else None,
+    )
 
 
 from .base import ChatPlatformConnector
@@ -529,9 +592,11 @@ class SlackConnector(ChatPlatformConnector):
 
             except httpx.TimeoutException:
                 last_error = f"Request timeout after {request_timeout}s"
+                classified = _classify_slack_error(last_error)
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        f"[slack] {operation} timeout (attempt {attempt + 1}/{self._max_retries})"
+                        f"[slack] {operation} timeout (attempt {attempt + 1}/{self._max_retries}) "
+                        f"[{type(classified).__name__}]"
                     )
                     await _exponential_backoff(attempt)
                     continue
@@ -540,9 +605,11 @@ class SlackConnector(ChatPlatformConnector):
 
             except httpx.ConnectError as e:
                 last_error = f"Connection error: {e}"
+                classified = _classify_slack_error(last_error)
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        f"[slack] {operation} connection error (attempt {attempt + 1}/{self._max_retries})"
+                        f"[slack] {operation} network error (attempt {attempt + 1}/{self._max_retries}) "
+                        f"[{type(classified).__name__}]"
                     )
                     await _exponential_backoff(attempt)
                     continue
@@ -552,14 +619,20 @@ class SlackConnector(ChatPlatformConnector):
                 )
 
             except Exception as e:
-                # Unexpected error - don't retry
+                # Unexpected error - don't retry, classify for metrics
                 last_error = f"Unexpected error: {e}"
-                logger.exception(f"[slack] {operation} unexpected error: {e}")
+                classified = _classify_slack_error(last_error)
+                logger.exception(
+                    f"[slack] {operation} unexpected error [{type(classified).__name__}]: {e}"
+                )
                 break
 
-        # All retries exhausted
+        # All retries exhausted - classify final error for metrics
         if self._circuit_breaker:
             self._circuit_breaker.record_failure()
+        if last_error:
+            classified = _classify_slack_error(last_error)
+            logger.debug(f"[slack] {operation} final error type: {type(classified).__name__}")
         return False, None, last_error or "Unknown error"
 
     async def send_message(

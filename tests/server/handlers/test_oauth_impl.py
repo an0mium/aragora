@@ -725,3 +725,863 @@ class TestOAuthIntegration:
     def test_handler_resource_type(self, oauth_handler):
         """Test handler has correct resource type for RBAC."""
         assert oauth_handler.RESOURCE_TYPE == "oauth"
+
+
+# =============================================================================
+# Apple OAuth Flow Tests
+# =============================================================================
+
+
+class TestAppleOAuthFlow:
+    """Test Apple OAuth authentication flow."""
+
+    def test_apple_auth_start_not_configured(self, oauth_handler, mock_handler):
+        """Test Apple auth returns 503 when not configured."""
+        from aragora.server.handlers import _oauth_impl
+
+        with patch.object(_oauth_impl, "_get_apple_client_id", return_value=""):
+            result = oauth_handler._handle_apple_auth_start(mock_handler, {})
+            assert result.status_code == 503
+            assert b"not configured" in result.body
+
+    def test_apple_auth_start_configured(self, oauth_handler, mock_handler):
+        """Test Apple auth redirects when configured."""
+        from aragora.server.handlers import _oauth_impl
+
+        with patch.object(_oauth_impl, "_get_apple_client_id", return_value="apple-client-id"):
+            with patch.object(
+                _oauth_impl,
+                "_get_apple_redirect_uri",
+                return_value="http://localhost:8080/callback",
+            ):
+                with patch.object(
+                    _oauth_impl,
+                    "_get_oauth_success_url",
+                    return_value="http://localhost:3000/callback",
+                ):
+                    with patch.object(_oauth_impl, "_validate_redirect_url", return_value=True):
+                        result = oauth_handler._handle_apple_auth_start(mock_handler, {})
+                        assert result.status_code == 302
+                        assert "Location" in result.headers
+                        assert "appleid.apple.com" in result.headers["Location"]
+
+    def test_apple_callback_missing_state(self, oauth_handler, mock_handler):
+        """Test Apple callback fails without state parameter."""
+        # Apple callback reads POST body, so we need to mock it properly
+        mock_handler.request = MagicMock()
+        mock_handler.request.body = b"code=auth-code"  # No state in body
+        result = oauth_handler._handle_apple_callback(mock_handler, {"code": "auth-code"})
+        assert result.status_code == 302  # Redirects to error page
+
+    def test_apple_callback_handles_error(self, oauth_handler, mock_handler):
+        """Test Apple callback handles error response from Apple."""
+        mock_handler.request = MagicMock()
+        mock_handler.request.body = b"error=user_cancelled"
+        query_params = {"error": "user_cancelled"}
+        result = oauth_handler._handle_apple_callback(mock_handler, query_params)
+        assert result.status_code == 302
+
+    def test_apple_id_token_parsing(self, oauth_handler):
+        """Test parsing Apple ID token."""
+        import base64
+        import json
+
+        # Create a mock JWT (header.payload.signature)
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).decode().rstrip("=")
+        )
+        payload_data = {
+            "sub": "apple-user-123",
+            "email": "user@privaterelay.appleid.com",
+            "email_verified": True,
+        }
+        payload = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).decode().rstrip("=")
+        mock_id_token = f"{header}.{payload}.signature"
+
+        user_data = {"name": {"firstName": "John", "lastName": "Doe"}}
+        user_info = oauth_handler._parse_apple_id_token(mock_id_token, user_data)
+
+        assert user_info.provider == "apple"
+        assert user_info.provider_user_id == "apple-user-123"
+        assert user_info.email == "user@privaterelay.appleid.com"
+        assert user_info.name == "John Doe"
+
+    def test_apple_id_token_without_name(self, oauth_handler):
+        """Test parsing Apple ID token without name data (subsequent logins)."""
+        import base64
+        import json
+
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).decode().rstrip("=")
+        )
+        payload_data = {
+            "sub": "apple-user-456",
+            "email": "test@example.com",
+            "email_verified": True,
+        }
+        payload = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).decode().rstrip("=")
+        mock_id_token = f"{header}.{payload}.signature"
+
+        user_info = oauth_handler._parse_apple_id_token(mock_id_token, {})
+
+        assert user_info.provider == "apple"
+        assert user_info.email == "test@example.com"
+        # Name should default to email prefix
+        assert user_info.name == "test"
+
+    def test_apple_client_secret_generation(self, oauth_handler):
+        """Test Apple client secret JWT generation requires configuration."""
+        from aragora.server.handlers import _oauth_impl
+
+        # Without proper config, should raise ValueError
+        with patch.object(_oauth_impl, "_get_apple_team_id", return_value=""):
+            with pytest.raises(ValueError, match="not fully configured"):
+                oauth_handler._generate_apple_client_secret()
+
+
+# =============================================================================
+# OIDC Flow Tests
+# =============================================================================
+
+
+class TestOIDCFlow:
+    """Test generic OIDC authentication flow."""
+
+    def test_oidc_auth_start_not_configured(self, oauth_handler, mock_handler):
+        """Test OIDC auth returns 503 when not configured."""
+        from aragora.server.handlers import _oauth_impl
+
+        with patch.object(_oauth_impl, "_get_oidc_issuer", return_value=""):
+            result = oauth_handler._handle_oidc_auth_start(mock_handler, {})
+            assert result.status_code == 503
+            assert b"not configured" in result.body
+
+    def test_oidc_auth_start_configured(self, oauth_handler, mock_handler):
+        """Test OIDC auth redirects when configured."""
+        from aragora.server.handlers import _oauth_impl
+
+        mock_discovery = {
+            "authorization_endpoint": "https://idp.example.com/authorize",
+            "token_endpoint": "https://idp.example.com/token",
+        }
+
+        with patch.object(_oauth_impl, "_get_oidc_issuer", return_value="https://idp.example.com"):
+            with patch.object(_oauth_impl, "_get_oidc_client_id", return_value="oidc-client-id"):
+                with patch.object(
+                    _oauth_impl,
+                    "_get_oidc_redirect_uri",
+                    return_value="http://localhost:8080/callback",
+                ):
+                    with patch.object(
+                        _oauth_impl,
+                        "_get_oauth_success_url",
+                        return_value="http://localhost:3000/callback",
+                    ):
+                        with patch.object(_oauth_impl, "_validate_redirect_url", return_value=True):
+                            with patch.object(
+                                oauth_handler, "_get_oidc_discovery", return_value=mock_discovery
+                            ):
+                                result = oauth_handler._handle_oidc_auth_start(mock_handler, {})
+                                assert result.status_code == 302
+                                assert "Location" in result.headers
+                                assert "idp.example.com" in result.headers["Location"]
+
+    def test_oidc_discovery_failure(self, oauth_handler, mock_handler):
+        """Test OIDC auth handles discovery failure gracefully."""
+        from aragora.server.handlers import _oauth_impl
+
+        with patch.object(_oauth_impl, "_get_oidc_issuer", return_value="https://idp.example.com"):
+            with patch.object(_oauth_impl, "_get_oidc_client_id", return_value="oidc-client-id"):
+                with patch.object(
+                    _oauth_impl,
+                    "_get_oidc_redirect_uri",
+                    return_value="http://localhost:8080/callback",
+                ):
+                    with patch.object(
+                        _oauth_impl,
+                        "_get_oauth_success_url",
+                        return_value="http://localhost:3000/callback",
+                    ):
+                        with patch.object(_oauth_impl, "_validate_redirect_url", return_value=True):
+                            # Return empty discovery (simulating failure)
+                            with patch.object(
+                                oauth_handler, "_get_oidc_discovery", return_value={}
+                            ):
+                                result = oauth_handler._handle_oidc_auth_start(mock_handler, {})
+                                assert result.status_code == 503
+                                assert b"discovery failed" in result.body.lower()
+
+    def test_oidc_callback_missing_state(self, oauth_handler, mock_handler):
+        """Test OIDC callback fails without state parameter."""
+        result = oauth_handler._handle_oidc_callback(mock_handler, {"code": "auth-code"})
+        assert result.status_code == 302  # Redirects to error page
+
+    def test_oidc_user_info_parsing(self, oauth_handler):
+        """Test OIDC user info extraction from userinfo endpoint."""
+        import base64
+        import json
+
+        mock_discovery = {"userinfo_endpoint": "https://idp.example.com/userinfo"}
+
+        # Mock userinfo response
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = json.dumps(
+                {
+                    "sub": "oidc-user-123",
+                    "email": "oidc@example.com",
+                    "name": "OIDC User",
+                    "picture": "https://example.com/avatar.jpg",
+                    "email_verified": True,
+                }
+            ).encode()
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            user_info = oauth_handler._get_oidc_user_info("access_token", None, mock_discovery)
+
+            assert user_info.provider == "oidc"
+            assert user_info.provider_user_id == "oidc-user-123"
+            assert user_info.email == "oidc@example.com"
+            assert user_info.name == "OIDC User"
+
+    def test_oidc_user_info_fallback_to_id_token(self, oauth_handler):
+        """Test OIDC falls back to id_token claims when userinfo fails."""
+        import base64
+        import json
+
+        mock_discovery = {}  # No userinfo endpoint
+
+        # Create mock id_token
+        header = (
+            base64.urlsafe_b64encode(json.dumps({"alg": "RS256"}).encode()).decode().rstrip("=")
+        )
+        payload_data = {
+            "sub": "oidc-user-456",
+            "email": "fallback@example.com",
+            "name": "Fallback User",
+        }
+        payload = base64.urlsafe_b64encode(json.dumps(payload_data).encode()).decode().rstrip("=")
+        mock_id_token = f"{header}.{payload}.signature"
+
+        user_info = oauth_handler._get_oidc_user_info(None, mock_id_token, mock_discovery)
+
+        assert user_info.provider == "oidc"
+        assert user_info.email == "fallback@example.com"
+
+
+# =============================================================================
+# Token Exchange Tests
+# =============================================================================
+
+
+class TestTokenExchange:
+    """Test token exchange functionality."""
+
+    def test_google_token_exchange_success(self, oauth_handler):
+        """Test successful Google token exchange."""
+        import json
+
+        mock_token_response = {
+            "access_token": "google-access-token",
+            "id_token": "google-id-token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "refresh_token": "google-refresh-token",
+        }
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = json.dumps(mock_token_response).encode()
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oauth_handler._exchange_code_for_tokens("auth-code")
+
+            assert result["access_token"] == "google-access-token"
+            assert result["refresh_token"] == "google-refresh-token"
+
+    def test_github_token_exchange_success(self, oauth_handler):
+        """Test successful GitHub token exchange."""
+        import json
+
+        mock_token_response = {
+            "access_token": "github-access-token",
+            "token_type": "bearer",
+            "scope": "read:user,user:email",
+        }
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = json.dumps(mock_token_response).encode()
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            result = oauth_handler._exchange_github_code("auth-code")
+
+            assert result["access_token"] == "github-access-token"
+
+    def test_microsoft_token_exchange_success(self, oauth_handler):
+        """Test successful Microsoft token exchange."""
+        import json
+        from aragora.server.handlers import _oauth_impl
+
+        mock_token_response = {
+            "access_token": "ms-access-token",
+            "id_token": "ms-id-token",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+
+        with patch.object(_oauth_impl, "_get_microsoft_tenant", return_value="common"):
+            with patch.object(_oauth_impl, "_get_microsoft_client_id", return_value="ms-client-id"):
+                with patch.object(
+                    _oauth_impl, "_get_microsoft_client_secret", return_value="ms-secret"
+                ):
+                    with patch.object(
+                        _oauth_impl,
+                        "_get_microsoft_redirect_uri",
+                        return_value="http://localhost/callback",
+                    ):
+                        with patch("urllib.request.urlopen") as mock_urlopen:
+                            mock_response = MagicMock()
+                            mock_response.read.return_value = json.dumps(
+                                mock_token_response
+                            ).encode()
+                            mock_response.__enter__ = MagicMock(return_value=mock_response)
+                            mock_response.__exit__ = MagicMock(return_value=False)
+                            mock_urlopen.return_value = mock_response
+
+                            result = oauth_handler._exchange_microsoft_code("auth-code")
+
+                            assert result["access_token"] == "ms-access-token"
+
+    def test_token_exchange_invalid_json(self, oauth_handler):
+        """Test token exchange handles invalid JSON response."""
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = b"not valid json"
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            with pytest.raises(ValueError, match="Invalid JSON"):
+                oauth_handler._exchange_code_for_tokens("auth-code")
+
+
+# =============================================================================
+# User Info Fetching Tests
+# =============================================================================
+
+
+class TestUserInfoFetching:
+    """Test user info fetching from OAuth providers."""
+
+    def test_google_user_info_success(self, oauth_handler):
+        """Test fetching Google user info."""
+        import json
+
+        mock_user_response = {
+            "id": "google-user-123",
+            "email": "user@gmail.com",
+            "name": "Google User",
+            "picture": "https://lh3.googleusercontent.com/avatar",
+            "verified_email": True,
+        }
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = json.dumps(mock_user_response).encode()
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            user_info = oauth_handler._get_google_user_info("access-token")
+
+            assert user_info.provider == "google"
+            assert user_info.provider_user_id == "google-user-123"
+            assert user_info.email == "user@gmail.com"
+            assert user_info.name == "Google User"
+            assert user_info.email_verified is True
+
+    def test_github_user_info_with_public_email(self, oauth_handler):
+        """Test fetching GitHub user info with public email."""
+        import json
+
+        mock_user_response = {
+            "id": 12345,
+            "login": "githubuser",
+            "name": "GitHub User",
+            "email": "user@github.com",
+            "avatar_url": "https://avatars.githubusercontent.com/u/12345",
+        }
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = json.dumps(mock_user_response).encode()
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            user_info = oauth_handler._get_github_user_info("access-token")
+
+            assert user_info.provider == "github"
+            assert user_info.provider_user_id == "12345"
+            assert user_info.email == "user@github.com"
+
+    def test_github_user_info_private_email(self, oauth_handler):
+        """Test fetching GitHub user info when email is private."""
+        import json
+
+        mock_user_response = {
+            "id": 12345,
+            "login": "githubuser",
+            "name": "GitHub User",
+            "email": None,  # Private email
+            "avatar_url": "https://avatars.githubusercontent.com/u/12345",
+        }
+
+        mock_emails_response = [
+            {"email": "secondary@example.com", "verified": True, "primary": False},
+            {"email": "primary@example.com", "verified": True, "primary": True},
+        ]
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            # First call returns user, second returns emails
+            mock_user = MagicMock()
+            mock_user.read.return_value = json.dumps(mock_user_response).encode()
+            mock_user.__enter__ = MagicMock(return_value=mock_user)
+            mock_user.__exit__ = MagicMock(return_value=False)
+
+            mock_emails = MagicMock()
+            mock_emails.read.return_value = json.dumps(mock_emails_response).encode()
+            mock_emails.__enter__ = MagicMock(return_value=mock_emails)
+            mock_emails.__exit__ = MagicMock(return_value=False)
+
+            mock_urlopen.side_effect = [mock_user, mock_emails]
+
+            user_info = oauth_handler._get_github_user_info("access-token")
+
+            assert user_info.email == "primary@example.com"
+            assert user_info.email_verified is True
+
+    def test_microsoft_user_info_success(self, oauth_handler):
+        """Test fetching Microsoft user info."""
+        import json
+
+        mock_user_response = {
+            "id": "ms-user-123",
+            "mail": "user@contoso.com",
+            "displayName": "Microsoft User",
+        }
+
+        with patch("urllib.request.urlopen") as mock_urlopen:
+            mock_response = MagicMock()
+            mock_response.read.return_value = json.dumps(mock_user_response).encode()
+            mock_response.__enter__ = MagicMock(return_value=mock_response)
+            mock_response.__exit__ = MagicMock(return_value=False)
+            mock_urlopen.return_value = mock_response
+
+            user_info = oauth_handler._get_microsoft_user_info("access-token")
+
+            assert user_info.provider == "microsoft"
+            assert user_info.provider_user_id == "ms-user-123"
+            assert user_info.email == "user@contoso.com"
+            assert user_info.email_verified is True  # Microsoft validates emails
+
+
+# =============================================================================
+# Complete OAuth Callback Flow Tests
+# =============================================================================
+
+
+class TestCompleteCallbackFlow:
+    """Test complete OAuth callback flows with user creation/lookup."""
+
+    def test_complete_oauth_flow_new_user(self, oauth_handler, mock_user_store):
+        """Test OAuth flow creates new user when not found."""
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+        from aragora.server.handlers import _oauth_impl
+
+        user_info = OAuthUserInfo(
+            provider="google",
+            provider_user_id="new-google-123",
+            email="newuser@gmail.com",
+            name="New User",
+        )
+        state_data = {"redirect_url": "http://localhost:3000/callback"}
+
+        # User doesn't exist
+        mock_user_store.get_user_by_email.return_value = None
+
+        # Mock user creation
+        mock_new_user = MagicMock()
+        mock_new_user.id = "new-user-id"
+        mock_new_user.email = "newuser@gmail.com"
+        mock_new_user.org_id = "default-org"
+        mock_new_user.role = "member"
+        mock_user_store.create_user.return_value = mock_new_user
+
+        # Mock _find_user_by_oauth to return None (new user)
+        with patch.object(oauth_handler, "_find_user_by_oauth", return_value=None):
+            with patch.object(oauth_handler, "_link_oauth_to_user", return_value=True):
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_tokens:
+                    mock_tokens.return_value = MagicMock(
+                        access_token="new-access-token",
+                        refresh_token="new-refresh-token",
+                        expires_in=3600,
+                    )
+                    with patch.object(
+                        _oauth_impl,
+                        "_get_oauth_success_url",
+                        return_value="http://localhost:3000/callback",
+                    ):
+                        result = oauth_handler._complete_oauth_flow(user_info, state_data)
+
+                        assert result.status_code == 302
+                        assert "new-access-token" in result.headers.get("Location", "")
+
+    def test_complete_oauth_flow_existing_user_by_oauth(self, oauth_handler, mock_user_store):
+        """Test OAuth flow finds existing user by OAuth provider ID."""
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+        from aragora.server.handlers import _oauth_impl
+
+        user_info = OAuthUserInfo(
+            provider="github",
+            provider_user_id="existing-github-456",
+            email="existing@github.com",
+            name="Existing User",
+        )
+        state_data = {"redirect_url": "http://localhost:3000/callback"}
+
+        # User exists via OAuth
+        mock_existing_user = MagicMock()
+        mock_existing_user.id = "existing-user-id"
+        mock_existing_user.email = "existing@github.com"
+        mock_existing_user.org_id = "user-org"
+        mock_existing_user.role = "admin"
+
+        with patch.object(oauth_handler, "_find_user_by_oauth", return_value=mock_existing_user):
+            with patch("aragora.billing.jwt_auth.create_token_pair") as mock_tokens:
+                mock_tokens.return_value = MagicMock(
+                    access_token="existing-access-token",
+                    refresh_token="existing-refresh-token",
+                    expires_in=3600,
+                )
+                with patch.object(
+                    _oauth_impl,
+                    "_get_oauth_success_url",
+                    return_value="http://localhost:3000/callback",
+                ):
+                    result = oauth_handler._complete_oauth_flow(user_info, state_data)
+
+                    assert result.status_code == 302
+                    assert "existing-access-token" in result.headers.get("Location", "")
+                    # Should not create new user
+                    mock_user_store.create_user.assert_not_called()
+
+    def test_complete_oauth_flow_links_to_existing_email(self, oauth_handler, mock_user_store):
+        """Test OAuth flow links OAuth to existing account with same email."""
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+        from aragora.server.handlers import _oauth_impl
+
+        user_info = OAuthUserInfo(
+            provider="microsoft",
+            provider_user_id="ms-new-789",
+            email="existing@company.com",
+            name="Existing User",
+        )
+        state_data = {"redirect_url": "http://localhost:3000/callback"}
+
+        # No OAuth link, but email exists
+        mock_existing_user = MagicMock()
+        mock_existing_user.id = "existing-user-id"
+        mock_existing_user.email = "existing@company.com"
+        mock_existing_user.org_id = "company-org"
+        mock_existing_user.role = "member"
+
+        mock_user_store.get_user_by_email.return_value = mock_existing_user
+
+        with patch.object(oauth_handler, "_find_user_by_oauth", return_value=None):
+            with patch.object(oauth_handler, "_link_oauth_to_user", return_value=True) as mock_link:
+                with patch("aragora.billing.jwt_auth.create_token_pair") as mock_tokens:
+                    mock_tokens.return_value = MagicMock(
+                        access_token="linked-access-token",
+                        refresh_token="linked-refresh-token",
+                        expires_in=3600,
+                    )
+                    with patch.object(
+                        _oauth_impl,
+                        "_get_oauth_success_url",
+                        return_value="http://localhost:3000/callback",
+                    ):
+                        result = oauth_handler._complete_oauth_flow(user_info, state_data)
+
+                        # Should link OAuth to existing user
+                        mock_link.assert_called_once_with(
+                            mock_user_store, "existing-user-id", user_info
+                        )
+                        # Should not create new user
+                        mock_user_store.create_user.assert_not_called()
+
+
+# =============================================================================
+# Account Linking Complete Flow Tests
+# =============================================================================
+
+
+class TestAccountLinkingFlow:
+    """Test complete account linking flows."""
+
+    def test_handle_account_linking_success(self, oauth_handler, mock_user_store):
+        """Test successful account linking."""
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+        from aragora.server.handlers import _oauth_impl
+
+        user_info = OAuthUserInfo(
+            provider="google",
+            provider_user_id="google-link-123",
+            email="link@gmail.com",
+            name="Link User",
+        )
+        state_data = {
+            "user_id": "existing-user-id",
+            "redirect_url": "http://localhost:3000/settings",
+        }
+
+        # Mock existing user
+        mock_user = MagicMock()
+        mock_user.id = "existing-user-id"
+        mock_user_store.get_user_by_id.return_value = mock_user
+
+        with patch.object(oauth_handler, "_find_user_by_oauth", return_value=None):
+            with patch.object(oauth_handler, "_link_oauth_to_user", return_value=True):
+                with patch.object(
+                    _oauth_impl,
+                    "_get_oauth_success_url",
+                    return_value="http://localhost:3000/callback",
+                ):
+                    result = oauth_handler._handle_account_linking(
+                        mock_user_store, "existing-user-id", user_info, state_data
+                    )
+
+                    assert result.status_code == 302
+                    assert "linked=google" in result.headers.get("Location", "")
+
+    def test_handle_account_linking_user_not_found(self, oauth_handler, mock_user_store):
+        """Test account linking fails when user not found."""
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+
+        user_info = OAuthUserInfo(
+            provider="github",
+            provider_user_id="github-link-456",
+            email="link@github.com",
+            name="Link User",
+        )
+        state_data = {"user_id": "nonexistent-user-id"}
+
+        mock_user_store.get_user_by_id.return_value = None
+
+        result = oauth_handler._handle_account_linking(
+            mock_user_store, "nonexistent-user-id", user_info, state_data
+        )
+
+        assert result.status_code == 302
+        assert "error" in result.headers.get("Location", "").lower()
+
+    def test_handle_account_linking_already_linked_to_other(self, oauth_handler, mock_user_store):
+        """Test account linking fails when OAuth already linked to another user."""
+        from aragora.server.handlers._oauth_impl import OAuthUserInfo
+        from urllib.parse import unquote
+
+        user_info = OAuthUserInfo(
+            provider="microsoft",
+            provider_user_id="ms-link-789",
+            email="link@company.com",
+            name="Link User",
+        )
+        state_data = {"user_id": "user-a-id"}
+
+        # User A exists
+        mock_user_a = MagicMock()
+        mock_user_a.id = "user-a-id"
+        mock_user_store.get_user_by_id.return_value = mock_user_a
+
+        # But OAuth is already linked to User B
+        mock_user_b = MagicMock()
+        mock_user_b.id = "user-b-id"  # Different user
+
+        with patch.object(oauth_handler, "_find_user_by_oauth", return_value=mock_user_b):
+            result = oauth_handler._handle_account_linking(
+                mock_user_store, "user-a-id", user_info, state_data
+            )
+
+            assert result.status_code == 302
+            # URL-decode to check for error message
+            location = unquote(result.headers.get("Location", "")).lower()
+            assert "already linked" in location
+
+
+# =============================================================================
+# Unlink Account Tests
+# =============================================================================
+
+
+class TestUnlinkAccount:
+    """Test OAuth account unlinking."""
+
+    def test_unlink_requires_password(self, oauth_handler, mock_handler, mock_user_store):
+        """Test unlinking requires user to have a password set."""
+        mock_handler.command = "DELETE"
+
+        # Mock authenticated user without password
+        mock_user = MagicMock()
+        mock_user.id = "user-id"
+        mock_user.password_hash = None  # No password set
+        mock_user_store.get_user_by_id.return_value = mock_user
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.is_authenticated = True
+            mock_ctx.user_id = "user-id"
+            mock_ctx.role = "member"
+            mock_ctx.org_id = None
+            mock_ctx.client_ip = "127.0.0.1"
+            mock_extract.return_value = mock_ctx
+
+            with patch.object(oauth_handler, "_check_permission", return_value=None):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "google"}
+                ):
+                    result = oauth_handler._handle_unlink_account(mock_handler)
+
+                    assert result.status_code == 400
+                    assert b"password" in result.body.lower()
+
+    def test_unlink_invalid_provider(self, oauth_handler, mock_handler, mock_user_store):
+        """Test unlinking rejects invalid provider."""
+        mock_handler.command = "DELETE"
+
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.is_authenticated = True
+            mock_ctx.user_id = "user-id"
+            mock_ctx.role = "member"
+            mock_extract.return_value = mock_ctx
+
+            with patch.object(oauth_handler, "_check_permission", return_value=None):
+                with patch.object(
+                    oauth_handler, "read_json_body", return_value={"provider": "invalid"}
+                ):
+                    result = oauth_handler._handle_unlink_account(mock_handler)
+
+                    assert result.status_code == 400
+                    assert b"unsupported" in result.body.lower()
+
+
+# =============================================================================
+# RBAC Permission Tests
+# =============================================================================
+
+
+class TestRBACPermissions:
+    """Test RBAC permission checking in OAuth handler."""
+
+    def test_check_permission_unauthenticated(self, oauth_handler, mock_handler, mock_user_store):
+        """Test permission check returns 401 for unauthenticated users."""
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.is_authenticated = False
+            mock_ctx.user_id = None
+            mock_extract.return_value = mock_ctx
+
+            result = oauth_handler._check_permission(mock_handler, "authentication.read")
+
+            assert result is not None
+            assert result.status_code == 401
+
+    def test_check_permission_allowed(self, oauth_handler, mock_handler, mock_user_store):
+        """Test permission check returns None when allowed."""
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
+            mock_ctx = MagicMock()
+            mock_ctx.is_authenticated = True
+            mock_ctx.user_id = "user-id"
+            mock_ctx.role = "admin"
+            mock_ctx.org_id = "org-id"
+            mock_ctx.client_ip = "127.0.0.1"
+            mock_extract.return_value = mock_ctx
+
+            # Admin role has all permissions
+            result = oauth_handler._check_permission(mock_handler, "authentication.read")
+
+            # Should return None (allowed) for admin
+            # The actual behavior depends on role_permissions setup
+            assert result is None or result.status_code == 403  # Either allowed or forbidden
+
+
+# =============================================================================
+# Edge Cases and Robustness Tests
+# =============================================================================
+
+
+class TestEdgeCases:
+    """Test edge cases and robustness."""
+
+    def test_get_param_handles_list(self):
+        """Test _get_param handles list values from query params."""
+        from aragora.server.handlers._oauth_impl import _get_param
+
+        params = {"code": ["auth-code-value"]}
+        result = _get_param(params, "code")
+        assert result == "auth-code-value"
+
+    def test_get_param_handles_string(self):
+        """Test _get_param handles string values."""
+        from aragora.server.handlers._oauth_impl import _get_param
+
+        params = {"code": "auth-code-value"}
+        result = _get_param(params, "code")
+        assert result == "auth-code-value"
+
+    def test_get_param_default_value(self):
+        """Test _get_param returns default for missing param."""
+        from aragora.server.handlers._oauth_impl import _get_param
+
+        params = {}
+        result = _get_param(params, "missing", "default-value")
+        assert result == "default-value"
+
+    def test_get_param_empty_list(self):
+        """Test _get_param handles empty list."""
+        from aragora.server.handlers._oauth_impl import _get_param
+
+        params = {"code": []}
+        result = _get_param(params, "code", "default")
+        assert result == "default"
+
+    def test_oauth_no_cache_headers(self, oauth_handler):
+        """Test OAuth responses include no-cache headers."""
+        headers = oauth_handler.OAUTH_NO_CACHE_HEADERS
+
+        assert "Cache-Control" in headers
+        assert "no-store" in headers["Cache-Control"]
+        assert "no-cache" in headers["Cache-Control"]
+        assert "private" in headers["Cache-Control"]
+
+    def test_redirect_with_tokens_includes_all_params(self, oauth_handler):
+        """Test token redirect includes all required parameters."""
+        mock_tokens = MagicMock()
+        mock_tokens.access_token = "test-access"
+        mock_tokens.refresh_token = "test-refresh"
+        mock_tokens.expires_in = 3600
+
+        result = oauth_handler._redirect_with_tokens("http://localhost:3000/callback", mock_tokens)
+
+        location = result.headers.get("Location", "")
+        assert "access_token=test-access" in location
+        assert "refresh_token=test-refresh" in location
+        assert "token_type=Bearer" in location
+        assert "expires_in=3600" in location

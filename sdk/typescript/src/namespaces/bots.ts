@@ -188,6 +188,13 @@ export class BotsAPI {
   }
 
   /**
+   * Verify WhatsApp webhook (GET).
+   */
+  async whatsappWebhookVerify(): Promise<unknown> {
+    return this.client.get('/api/v1/bots/whatsapp/webhook');
+  }
+
+  /**
    * Get WhatsApp integration status.
    */
   async whatsappStatus(): Promise<WhatsAppStatus> {

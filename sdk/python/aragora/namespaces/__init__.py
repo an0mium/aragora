@@ -62,6 +62,7 @@ from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .oauth import AsyncOAuthAPI, OAuthAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
+from .openapi import AsyncOpenApiAPI, OpenApiAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .outlook import AsyncOutlookAPI, OutlookAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI
@@ -212,6 +213,8 @@ __all__ = [
     "AsyncNomicAPI",
     "NotificationsAPI",
     "AsyncNotificationsAPI",
+    "OpenApiAPI",
+    "AsyncOpenApiAPI",
     "OAuthAPI",
     "AsyncOAuthAPI",
     "OnboardingAPI",

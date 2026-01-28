@@ -290,8 +290,13 @@ class TestTeamCreation:
             owner_id=team_admin["id"],
         )
 
+        # Workspaces have different IDs
         assert workspace_a["id"] != workspace_b["id"]
-        assert workspace_a["members"] != workspace_b["members"]
+
+        # Members lists are separate objects (isolation)
+        workspace_a["members"].append({"user_id": "user-a", "role": "member"})
+        assert len(workspace_a["members"]) == 1
+        assert len(workspace_b["members"]) == 0  # Should not be affected
 
 
 # =============================================================================

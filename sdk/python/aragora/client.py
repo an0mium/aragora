@@ -129,6 +129,7 @@ class AragoraClient:
         from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
+        from .namespaces.openapi import OpenApiAPI
         from .namespaces.organizations import OrganizationsAPI
         from .namespaces.outlook import OutlookAPI
         from .namespaces.payments import PaymentsAPI
@@ -209,6 +210,7 @@ class AragoraClient:
         self.monitoring = MonitoringAPI(self)
         self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
+        self.openapi = OpenApiAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
         self.outlook = OutlookAPI(self)
@@ -466,6 +468,7 @@ class AragoraAsyncClient:
         from .namespaces.nomic import AsyncNomicAPI
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
+        from .namespaces.openapi import AsyncOpenApiAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
         from .namespaces.outlook import AsyncOutlookAPI
         from .namespaces.payments import AsyncPaymentsAPI
@@ -546,6 +549,7 @@ class AragoraAsyncClient:
         self.monitoring = AsyncMonitoringAPI(self)
         self.nomic = AsyncNomicAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
+        self.openapi = AsyncOpenApiAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)
         self.outlook = AsyncOutlookAPI(self)
