@@ -522,13 +522,12 @@ class TestAccountLinking:
 
     def test_link_requires_authentication(self, oauth_handler, mock_handler):
         """Test link endpoint requires authentication."""
-        from aragora.billing.jwt_auth import extract_user_from_request
-
         mock_handler.command = "POST"
 
-        with patch("aragora.server.handlers._oauth_impl.extract_user_from_request") as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = False
+            mock_ctx.user_id = None
             mock_extract.return_value = mock_ctx
 
             result = oauth_handler._handle_link_account(mock_handler)
@@ -538,9 +537,10 @@ class TestAccountLinking:
         """Test unlink endpoint requires authentication."""
         mock_handler.command = "DELETE"
 
-        with patch("aragora.server.handlers._oauth_impl.extract_user_from_request") as mock_extract:
+        with patch("aragora.billing.jwt_auth.extract_user_from_request") as mock_extract:
             mock_ctx = MagicMock()
             mock_ctx.is_authenticated = False
+            mock_ctx.user_id = None
             mock_extract.return_value = mock_ctx
 
             result = oauth_handler._handle_unlink_account(mock_handler)
