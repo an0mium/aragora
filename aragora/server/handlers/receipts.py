@@ -827,14 +827,20 @@ class ReceiptsHandler(BaseHandler):
         )
 
         # Emit webhook notification
+        share_url = f"/api/v2/receipts/share/{token}"
         try:
-            from aragora.integrations.receipt_webhooks import emit_receipt_shared
+            from aragora.integrations.receipt_webhooks import ReceiptWebhookNotifier
 
-            emit_receipt_shared(receipt_id, token, expires_at)
+            notifier = ReceiptWebhookNotifier()
+            debate_id = getattr(receipt, "debate_id", "") or ""
+            notifier.notify_receipt_shared(
+                receipt_id=receipt_id,
+                debate_id=debate_id,
+                share_url=share_url,
+                expires_at=datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
+            )
         except ImportError:
             logger.debug("Receipt webhooks not available")
-
-        share_url = f"/api/v2/receipts/share/{token}"
 
         return json_response(
             {
@@ -914,9 +920,24 @@ class ReceiptsHandler(BaseHandler):
         skipped_count = 0
 
         try:
-            from aragora.gauntlet.signing import ReceiptSigner
+            from aragora.gauntlet.signing import (
+                Ed25519Signer,
+                HMACSigner,
+                ReceiptSigner,
+                RSASigner,
+            )
 
-            signer = ReceiptSigner(algorithm=algorithm)
+            # Create backend based on algorithm
+            backend = None
+            if algorithm == "rsa-sha256":
+                backend = RSASigner.generate_keypair()
+            elif algorithm == "ed25519":
+                backend = Ed25519Signer.generate_keypair()
+            else:
+                # Default to HMAC-SHA256
+                backend = HMACSigner.from_env()
+
+            signer = ReceiptSigner(backend=backend)
 
             for receipt_id in receipt_ids:
                 receipt = store.get(receipt_id)
