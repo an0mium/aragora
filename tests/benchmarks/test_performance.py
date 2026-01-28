@@ -36,7 +36,7 @@ from tests.slo_config import (
 # =============================================================================
 
 
-async def _stub_synthesis(ctx) -> bool:
+async def _stub_synthesis(self, ctx) -> bool:
     """Fast synthesis stub for performance benchmarks."""
     synthesis = "Benchmark synthesis."
     ctx.result.synthesis = synthesis

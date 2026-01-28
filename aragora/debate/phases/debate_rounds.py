@@ -732,9 +732,10 @@ class DebateRoundsPhase:
                 # Create placeholder critique so the debate can continue
                 from aragora.core import Critique
 
-                placeholder_critique = Critique(  # type: ignore[call-arg]
+                placeholder_critique = Critique(
                     agent=critic.name,
                     target_agent=proposal_agent,
+                    target_content=proposals.get(proposal_agent, "[Proposal unavailable]"),
                     issues=["[Critique unavailable - agent timed out or encountered an error]"],
                     suggestions=[],
                     severity=0.0,
