@@ -52,7 +52,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -75,7 +75,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -118,7 +118,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -141,7 +141,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -177,7 +177,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -204,7 +204,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -226,7 +226,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -267,7 +267,7 @@ class TestRedisCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
         ):
@@ -530,7 +530,7 @@ class TestGetCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
             patch("aragora.workflow.checkpoint_store._default_mound", None),
@@ -555,7 +555,7 @@ class TestGetCheckpointStore:
         with (
             patch("aragora.workflow.checkpoint_store.REDIS_AVAILABLE", True),
             patch(
-                "aragora.workflow.checkpoint_store.get_redis_client",
+                "aragora.workflow.checkpoint_store._get_redis_client",
                 return_value=mock_redis,
             ),
             patch("aragora.workflow.checkpoint_store._default_mound", None),
