@@ -279,7 +279,6 @@ jobs:
               # Warning only for now - will become error in future
               print('\\nThis is a warning - will become blocking in future releases.')
           "
-        continue-on-error: true
 
       - name: Upload coverage artifacts
         if: matrix.python-version == '3.11' && matrix.os == 'ubuntu-latest'
@@ -442,7 +441,6 @@ jobs:
         run: |
           bandit -r aragora/ -ll -ii --format json --output bandit-report.json || true
           bandit -r aragora/ -ll -ii --format txt
-        continue-on-error: true
 
       - name: Upload security report
         uses: actions/upload-artifact@v4
@@ -475,7 +473,6 @@ jobs:
       - name: Run mypy
         run: |
           mypy aragora/ --ignore-missing-imports --no-error-summary --show-error-codes 2>&1 | head -100 || true
-        continue-on-error: true
 
   benchmark:
     name: Performance Benchmarks

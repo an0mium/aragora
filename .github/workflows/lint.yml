@@ -73,8 +73,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     name: Core Module Type Safety
-    # Make non-blocking until all imports are fixed
-    continue-on-error: true
 
     steps:
       - name: Checkout

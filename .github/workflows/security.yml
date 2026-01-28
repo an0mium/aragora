@@ -112,7 +112,6 @@ jobs:
       - name: Run Safety check
         id: safety
         run: safety check --full-report
-        continue-on-error: true
 
       - name: Run pip-audit
         id: pip-audit
@@ -122,7 +121,6 @@ jobs:
           else
             pip-audit
           fi
-        continue-on-error: true
 
       - name: Report Python dependency status
         if: steps.safety.outcome == 'failure' || steps.pip-audit.outcome == 'failure'
@@ -142,7 +140,6 @@ jobs:
         id: npm-audit-live
         working-directory: aragora/live
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Install npm dependencies (aragora-js)
         working-directory: aragora-js
@@ -152,7 +149,6 @@ jobs:
         id: npm-audit-js
         working-directory: aragora-js
         run: npm audit --audit-level=high
-        continue-on-error: true
 
       - name: Report npm dependency status
         if: steps.npm-audit-live.outcome == 'failure' || steps.npm-audit-js.outcome == 'failure'

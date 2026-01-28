@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from .buffer import Trajectory
@@ -131,11 +131,11 @@ class DebateOutcomeReward(RewardModel):
         consensus_reached = trajectory.outcome.get("consensus_reached", False)
         if consensus_reached:
             # Bonus for strong consensus
-            agreement_score = trajectory.outcome.get("agreement_score", 0.5)
+            agreement_score = cast(float, trajectory.outcome.get("agreement_score", 0.5))
             return 0.5 + (agreement_score * 0.5)  # Range [0.5, 1.0]
         else:
             # Partial credit for near-consensus
-            agreement_score = trajectory.outcome.get("agreement_score", 0.0)
+            agreement_score = cast(float, trajectory.outcome.get("agreement_score", 0.0))
             if agreement_score > 0.7:
                 return agreement_score - 0.5  # Range [0.2, 0.5]
             return -0.5
@@ -160,7 +160,7 @@ class DebateOutcomeReward(RewardModel):
 
     def _compute_confidence_reward(self, trajectory: "Trajectory") -> float:
         """Reward for high confidence."""
-        confidence = trajectory.stats.get("confidence", 0.5)
+        confidence = cast(float, trajectory.stats.get("confidence", 0.5))
         # Map confidence [0, 1] to reward [-0.5, 1.0]
         return (confidence * 1.5) - 0.5
 
@@ -191,7 +191,7 @@ class DebateOutcomeReward(RewardModel):
             return 0.0  # No quality evaluation available
 
         # Quality score is typically 0-1
-        return (quality_score * 2.0) - 1.0  # Map to [-1, 1]
+        return (cast(float, quality_score) * 2.0) - 1.0  # Map to [-1, 1]
 
 
 @dataclass
