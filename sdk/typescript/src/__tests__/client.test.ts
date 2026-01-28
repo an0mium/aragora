@@ -18,9 +18,11 @@ describe('AragoraClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFetch.mockReset();
     client = createClient({
       baseUrl: 'https://api.example.com',
       apiKey: 'test-api-key',
+      retryEnabled: false,  // Disable retries for predictable test behavior
     });
   });
 
@@ -323,6 +325,14 @@ describe('AragoraClient', () => {
     });
 
     it('should retry on server errors', async () => {
+      // Create a client with retries enabled for this specific test
+      const retryClient = createClient({
+        baseUrl: 'https://api.example.com',
+        apiKey: 'test-api-key',
+        retryEnabled: true,
+        maxRetries: 2,
+      });
+
       // First call fails with 500
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -335,7 +345,7 @@ describe('AragoraClient', () => {
         text: () => Promise.resolve(JSON.stringify({ status: 'healthy' })),
       });
 
-      const result = await client.getHealth();
+      const result = await retryClient.getHealth();
       expect(result.status).toBe('healthy');
       expect(mockFetch).toHaveBeenCalledTimes(2);
     });

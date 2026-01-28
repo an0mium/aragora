@@ -14,11 +14,13 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
+    Awaitable,
     Dict,
     Optional,
     Protocol,
     Tuple,
     TypedDict,
+    Union,
     runtime_checkable,
 )
 
@@ -45,6 +47,16 @@ class HandlerResult(TypedDict, total=False):
     headers: Dict[str, str]
 
 
+# Type alias for handlers that may be sync or async.
+# This allows both sync handlers returning Optional[HandlerResult] and
+# async handlers returning Awaitable[Optional[HandlerResult]] to satisfy
+# the same protocol, avoiding MyPy override errors.
+MaybeAsyncHandlerResult = Union[
+    Optional[HandlerResult],
+    Awaitable[Optional[HandlerResult]],
+]
+
+
 # =============================================================================
 # Handler Protocol
 # =============================================================================
@@ -66,7 +78,7 @@ class HandlerInterface(Protocol):
 
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """Handle a GET request.
 
         Args:
@@ -75,13 +87,14 @@ class HandlerInterface(Protocol):
             handler: HTTP request handler for accessing request context
 
         Returns:
-            HandlerResult if handled, None if not handled by this handler
+            HandlerResult if handled, None if not handled by this handler.
+            May be sync or async.
         """
         ...
 
     def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """Handle a POST request.
 
         Args:
@@ -90,7 +103,8 @@ class HandlerInterface(Protocol):
             handler: HTTP request handler for accessing request context
 
         Returns:
-            HandlerResult if handled, None if not handled by this handler
+            HandlerResult if handled, None if not handled by this handler.
+            May be sync or async.
         """
         ...
 
