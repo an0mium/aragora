@@ -13,6 +13,7 @@ from .backups import AsyncBackupsAPI, BackupsAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
 from .billing import AsyncBillingAPI, BillingAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
+from .codebase import AsyncCodebaseAPI, CodebaseAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
@@ -69,6 +70,8 @@ __all__ = [
     "AsyncBillingAPI",
     "BudgetsAPI",
     "AsyncBudgetsAPI",
+    "CodebaseAPI",
+    "AsyncCodebaseAPI",
     "ConsensusAPI",
     "AsyncConsensusAPI",
     "ControlPlaneAPI",

@@ -263,6 +263,33 @@ class TestConfidenceDecay:
         result = manager.calculate_decay(1.0, 45)
         assert 0.7 < result < 0.8
 
+    def test_step_decay_calculation(self):
+        """Test step decay formula with discrete confidence levels."""
+        from aragora.knowledge.mound.ops.confidence_decay import (
+            ConfidenceDecayManager,
+            DecayConfig,
+            DecayModel,
+        )
+
+        config = DecayConfig(model=DecayModel.STEP, half_life_days=90)
+        manager = ConfidenceDecayManager(config)
+
+        # Before 0.5 * half_life (45 days): no decay
+        result = manager.calculate_decay(1.0, 30)
+        assert result == 1.0
+
+        # At 0.5-1.0 * half_life (45-90 days): 25% decay -> 0.75
+        result = manager.calculate_decay(1.0, 60)
+        assert result == 0.75
+
+        # At 1.0-2.0 * half_life (90-180 days): 50% decay -> 0.5
+        result = manager.calculate_decay(1.0, 120)
+        assert result == 0.5
+
+        # After 2.0 * half_life (180+ days): 75% decay -> 0.25
+        result = manager.calculate_decay(1.0, 200)
+        assert result == 0.25
+
     def test_domain_specific_decay(self):
         """Test domain-specific half-lives."""
         from aragora.knowledge.mound.ops.confidence_decay import (
