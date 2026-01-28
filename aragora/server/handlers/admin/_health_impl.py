@@ -83,6 +83,7 @@ class HealthHandler(SecureHandler):
         "/api/v1/health/stores",
         "/api/v1/health/sync",
         "/api/v1/health/circuits",
+        "/api/v1/health/components",  # Component health from HealthRegistry
         "/api/v1/health/slow-debates",
         "/api/v1/health/cross-pollination",
         "/api/v1/health/knowledge-mound",
@@ -99,6 +100,7 @@ class HealthHandler(SecureHandler):
         "/api/health/detailed",
         "/api/health/deep",
         "/api/health/stores",
+        "/api/health/components",  # Component health from HealthRegistry
         "/api/diagnostics",
         "/api/diagnostics/deployment",
     ]
@@ -152,6 +154,7 @@ class HealthHandler(SecureHandler):
             "/api/health/stores": self._database_stores_health,
             "/api/health/sync": self._sync_status,
             "/api/health/circuits": self._circuit_breakers_status,
+            "/api/health/components": self._component_health_status,
             "/api/health/slow-debates": self._slow_debates_status,
             "/api/health/cross-pollination": self._cross_pollination_health,
             "/api/health/knowledge-mound": self._knowledge_mound_health,
@@ -1775,6 +1778,66 @@ class HealthHandler(SecureHandler):
             )
         except Exception as e:
             logger.warning(f"Circuit breaker status check failed: {e}")
+            return json_response(
+                {
+                    "status": "error",
+                    "error": f"{type(e).__name__}: {str(e)[:80]}",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                }
+            )
+
+    def _component_health_status(self) -> HandlerResult:
+        """Get health status from the resilience patterns HealthRegistry.
+
+        Returns status of all registered health checkers including:
+        - Component name and health status
+        - Consecutive failures and last error
+        - Latency metrics
+        - Custom metadata
+
+        This endpoint provides a unified view of component health across
+        the application, separate from circuit breakers.
+
+        Returns:
+            JSON response with component health report
+        """
+        try:
+            from aragora.resilience_patterns.health import get_global_health_registry
+
+            registry = get_global_health_registry()
+            report = registry.get_report()
+
+            return json_response(
+                {
+                    "status": "healthy" if report.overall_healthy else "degraded",
+                    "overall_healthy": report.overall_healthy,
+                    "summary": report.summary,
+                    "components": {
+                        name: {
+                            "healthy": status.healthy,
+                            "consecutive_failures": status.consecutive_failures,
+                            "last_error": status.last_error,
+                            "latency_ms": status.latency_ms,
+                            "last_check": status.last_check.isoformat() + "Z",
+                            "metadata": status.metadata,
+                        }
+                        for name, status in report.components.items()
+                    },
+                    "checked_at": report.checked_at.isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                }
+            )
+
+        except ImportError:
+            return json_response(
+                {
+                    "status": "unavailable",
+                    "error": "resilience_patterns module not available",
+                    "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Component health status check failed: {e}")
             return json_response(
                 {
                     "status": "error",
