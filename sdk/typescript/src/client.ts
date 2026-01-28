@@ -227,6 +227,13 @@ import {
   UnifiedInboxAPI,
   UsageMeteringAPI,
   VerticalsAPI,
+  // New namespaces (SDK Parity Sprint - Phase 2)
+  RelationshipsNamespace,
+  YouTubeNamespace,
+  PodcastNamespace,
+  HistoryNamespace,
+  RankingNamespace,
+  HealthNamespace,
 } from './namespaces';
 
 interface RequestOptions {
@@ -657,6 +664,28 @@ export class AragoraClient {
   /** Verticals API - Domain-specific configurations. */
   readonly verticals: VerticalsAPI;
 
+  // =========================================================================
+  // New Namespaces (SDK Parity Sprint - Phase 2)
+  // =========================================================================
+
+  /** Relationships API - Agent network relationships and graph analysis. */
+  readonly relationships: RelationshipsNamespace;
+
+  /** YouTube API - Video publishing from debates. */
+  readonly youtube: YouTubeNamespace;
+
+  /** Podcast API - Audio content and RSS feed generation. */
+  readonly podcast: PodcastNamespace;
+
+  /** History API - Historical debates, cycles, and events. */
+  readonly history: HistoryNamespace;
+
+  /** Ranking API - Agent ELO rankings and performance stats. */
+  readonly ranking: RankingNamespace;
+
+  /** Health API - System health monitoring and status checks. */
+  readonly health: HealthNamespace;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -750,6 +779,14 @@ export class AragoraClient {
     this.unifiedInbox = new UnifiedInboxAPI(this);
     this.usageMetering = new UsageMeteringAPI(this);
     this.verticals = new VerticalsAPI(this);
+
+    // New namespaces (SDK Parity Sprint - Phase 2)
+    this.relationships = new RelationshipsNamespace(this);
+    this.youtube = new YouTubeNamespace(this);
+    this.podcast = new PodcastNamespace(this);
+    this.history = new HistoryNamespace(this);
+    this.ranking = new RankingNamespace(this);
+    this.health = new HealthNamespace(this);
   }
 
   // ===========================================================================
