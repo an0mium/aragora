@@ -115,7 +115,7 @@ export class LaboratoryAPI {
    */
   async suggestCrossPollinations(request: CrossPollinationRequest): Promise<CrossPollinationResponse> {
     return this.client.request('POST', '/api/v2/laboratory/cross-pollinations', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 }

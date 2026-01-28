@@ -333,7 +333,7 @@ export class OutlookAPI {
    */
   async send(request: SendMessageRequest): Promise<{ success: boolean; message?: string }> {
     return this.client.request('POST', '/api/v2/outlook/messages/send', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -351,7 +351,7 @@ export class OutlookAPI {
    */
   async reply(request: ReplyMessageRequest): Promise<{ success: boolean; message?: string; in_reply_to?: string }> {
     return this.client.request('POST', '/api/v2/outlook/messages/reply', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 

@@ -288,10 +288,7 @@ export class UnifiedInboxAPI {
     message: UnifiedMessage;
     triage: TriageResult | null;
   }> {
-    return this.request('GET', `/inbox/messages/${messageId}`) as Promise<{
-      message: UnifiedMessage;
-      triage: TriageResult | null;
-    }>;
+    return this.client.request('GET', `/inbox/messages/${messageId}`);
   }
 
   // ===========================================================================
