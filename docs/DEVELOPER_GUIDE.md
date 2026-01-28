@@ -92,6 +92,9 @@ client = AragoraClient(
 - `client.organizations` - Organization membership and settings
 - `client.policies` - Compliance policy management
 - `client.explainability` - Decision explanations and evidence chains
+- `client.batch` - Batch debate operations
+- `client.routing` - Routing recommendations and rule management
+- `client.critiques` - Critique patterns and agent reputation
 - `client.rbac` - Role-based access control
 - `client.audit` - Audit logging
 - `client.control_plane` - System health and monitoring

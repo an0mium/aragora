@@ -1277,7 +1277,6 @@ API (direct):
 | `kimi` | moonshot-v1-8k | Moonshot API |
 
 OpenRouter:
-
 | Type | Default Model | Notes |
 |------|---------------|-------|
 | `openrouter` | deepseek/deepseek-chat-v3-0324 | Model via `model` parameter |
@@ -1310,6 +1309,36 @@ CLI:
   "message": "Debate started with 2 agents"
 }
 ```
+
+#### POST /api/v1/debates/batch
+Submit a batch of debates for processing.
+
+**Request Body:**
+```json
+{
+  "items": [
+    {
+      "question": "Evaluate rate limiting options",
+      "agents": "anthropic-api,openai-api",
+      "rounds": 3,
+      "consensus": "majority",
+      "priority": 5
+    }
+  ],
+  "webhook_url": "https://example.com/webhooks/batch",
+  "max_parallel": 5
+}
+```
+
+#### GET /api/v1/debates/batch/{batch_id}/status
+Get batch status and item results.
+
+#### GET /api/v1/debates/batch
+List batch requests.
+
+**Parameters:**
+- `limit` (int, default=50, max=100): Maximum batches to return
+- `status` (string, optional): Filter by status (pending, processing, completed, failed)
 
 #### GET /api/debates/:id/export/:format
 Export a debate in various formats.

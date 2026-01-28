@@ -349,6 +349,56 @@ batch = client.explainability.create_batch([debate_id], include_evidence=True)
 status = client.explainability.get_batch_status(batch.batch_id)
 ```
 
+### Batch Operations
+
+Submit and track debate batches.
+
+```python
+batch = client.batch.submit_debates(
+    [
+        {"question": "Evaluate rate limiting options", "agents": "openai-api,anthropic-api"},
+        {"question": "Design a cache invalidation strategy", "rounds": 2},
+    ],
+    callback_url="https://example.com/webhooks/batch",
+)
+
+status = client.batch.get_status(batch["batch_id"])
+batches = client.batch.list(status="processing", limit=25)
+```
+
+### Routing
+
+Request routing recommendations and manage rules.
+
+```python
+recommendations = client.routing.select_team(
+    "Assess SOC2 audit readiness",
+    team_size=4,
+    required_skills=["security", "compliance"],
+)
+
+auto = client.routing.auto_route("Summarize customer feedback")
+domain = client.routing.detect_domain("Create a phishing training plan")
+
+rules = client.routing.list_rules(active_only=True)
+rule = client.routing.create_rule(
+    name="SOC2 escalation",
+    conditions=[{"field": "risk_level", "operator": "gte", "value": "high"}],
+    actions=[{"type": "notify", "channel": "slack"}],
+    priority=10,
+)
+```
+
+### Critiques & Reputation
+
+Inspect critique patterns and agent reputation data.
+
+```python
+patterns = client.critiques.list_patterns(limit=5)
+reputations = client.critiques.list_reputations()
+agent_rep = client.critiques.get_agent_reputation("claude")
+```
+
 ### Organizations
 
 Manage organizations and membership.
