@@ -725,7 +725,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return None  # Let handle_post handle it
 
-        def handle_post(
+        async def handle_post(
             self, path: str, body: Dict[str, Any], handler: Any
         ) -> Optional[HandlerResult]:
             """Handle POST requests (webhooks)."""
@@ -780,18 +780,8 @@ if HANDLER_BASE_AVAILABLE:
                     400,
                 )
 
-            # Handle webhook asynchronously
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(
-                self.router.handle_webhook(platform, headers, raw_body)
-            )
+            # Handle webhook
+            result = await self.router.handle_webhook(platform, headers, raw_body)
 
             if "error" in result:
                 return error_response(result["error"], result.get("status", 400))

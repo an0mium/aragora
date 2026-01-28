@@ -5532,6 +5532,87 @@ export class AragoraClient {
       'POST',
       `/api/v1/receipts/${encodeURIComponent(receiptId)}/verify`
     );
+  /**
+   * Verify multiple decision receipts in batch.
+   */
+  async verifyDecisionReceiptsBatch(receiptIds: string[]): Promise<{
+    results: Array<{ receipt_id: string; valid: boolean; hash: string; error?: string }>;
+    total_verified: number;
+    total_valid: number;
+    total_invalid: number;
+  }> {
+    return this.request<{
+      results: Array<{ receipt_id: string; valid: boolean; hash: string; error?: string }>;
+      total_verified: number;
+      total_valid: number;
+      total_invalid: number;
+    }>('POST', '/api/v1/receipts/verify-batch', { body: { receipt_ids: receiptIds } });
+  }
+
+  /**
+   * Get receipt statistics.
+   */
+  async getReceiptStats(filters?: {
+    verdict?: string;
+    from_date?: string;
+    to_date?: string;
+    decision_type?: string;
+  }): Promise<{
+    total_count: number;
+    by_verdict: Record<string, number>;
+    by_month: Record<string, number>;
+    average_confidence: number;
+    consensus_rate: number;
+  }> {
+    return this.request<{
+      total_count: number;
+      by_verdict: Record<string, number>;
+      by_month: Record<string, number>;
+      average_confidence: number;
+      consensus_rate: number;
+    }>('GET', '/api/v1/receipts/stats', { params: filters });
+  }
+
+  /**
+   * Export a receipt as PDF.
+   */
+  async exportReceiptPdf(receiptId: string): Promise<Blob> {
+    const response = await fetch(
+      \`\${this.config.baseUrl}/api/v1/receipts/\${encodeURIComponent(receiptId)}/export/pdf\`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: \`Bearer \${this.config.apiKey}\`,
+        },
+      }
+    );
+    if (!response.ok) {
+      throw new AragoraError(\`Failed to export PDF: \${response.statusText}\`, 'API_ERROR');
+    }
+    return response.blob();
+  }
+
+  /**
+   * Export multiple receipts as CSV.
+   */
+  async exportReceiptCsv(receiptIds: string[]): Promise<Blob> {
+    const response = await fetch(
+      \`\${this.config.baseUrl}/api/v1/receipts/export/csv\`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: \`Bearer \${this.config.apiKey}\`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ receipt_ids: receiptIds }),
+      }
+    );
+    if (!response.ok) {
+      throw new AragoraError(\`Failed to export CSV: \${response.statusText}\`, 'API_ERROR');
+    }
+    return response.blob();
+  }
+
   }
 
   /**
