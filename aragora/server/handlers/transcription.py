@@ -207,27 +207,29 @@ class TranscriptionHandler(BaseHandler):
 
         return None
 
-    def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    async def handle_post(
+        self, path: str, query_params: dict, handler=None
+    ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         client_ip = get_client_ip(handler)
 
         if path in ("/api/v1/transcription/audio", "/api/v1/transcribe/audio"):
             if not _audio_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Try again later.", 429)
-            return self._handle_audio_transcription(handler)
+            return await self._handle_audio_transcription(handler)
 
         if path in ("/api/v1/transcription/video", "/api/v1/transcribe/video"):
             if not _audio_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Try again later.", 429)
-            return self._handle_video_transcription(handler)
+            return await self._handle_video_transcription(handler)
 
         if path == "/api/v1/transcription/youtube":
             if not _youtube_limiter.is_allowed(client_ip):
                 return error_response("Rate limit exceeded. Try again later.", 429)
-            return self._handle_youtube_transcription(handler)
+            return await self._handle_youtube_transcription(handler)
 
         if path == "/api/v1/transcription/youtube/info":
-            return self._handle_youtube_info(handler)
+            return await self._handle_youtube_info(handler)
 
         return None
 
