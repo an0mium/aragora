@@ -1250,16 +1250,18 @@ class ComplianceHandler(BaseHandler):
             # Elasticsearch bulk format
             bulk_lines = []
             for event in events:
+                # Get event ID (handle both "id" and "event_id" field names)
+                event_id = event.get("id") or event.get("event_id", "unknown")
                 # Index action
                 bulk_lines.append(
-                    json.dumps({"index": {"_index": "aragora-audit", "_id": event["event_id"]}})
+                    json.dumps({"index": {"_index": "aragora-audit", "_id": str(event_id)}})
                 )
                 # Document
                 es_event = {
-                    "@timestamp": event["timestamp"],
+                    "@timestamp": event.get("timestamp", ""),
                     "event.category": "audit",
-                    "event.type": event["event_type"],
-                    "event.id": event["event_id"],
+                    "event.type": event.get("event_type", event.get("action", "")),
+                    "event.id": str(event_id),
                     "source": event.get("source", "aragora"),
                     "message": event.get("description", ""),
                     "aragora": event,
