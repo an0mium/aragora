@@ -149,7 +149,7 @@ class TeamsConnector(ChatPlatformConnector):
         """
         Get or refresh Bot Framework access token.
 
-        Includes circuit breaker protection against authentication failures.
+        Uses _http_request for retry logic and circuit breaker protection.
         """
         import time
 
@@ -159,34 +159,27 @@ class TeamsConnector(ChatPlatformConnector):
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx required for Teams API calls")
 
-        # Check circuit breaker before making request
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            raise RuntimeError(cb_error)
+        # Use _http_request which handles circuit breaker, retries, and backoff
+        success, data, error = await self._http_request(
+            method="POST",
+            url=BOT_FRAMEWORK_AUTH_URL,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "grant_type": "client_credentials",
+                "client_id": self.app_id,
+                "client_secret": self.app_password,
+                "scope": "https://api.botframework.com/.default",
+            },
+            operation="get_access_token",
+        )
 
-        try:
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    BOT_FRAMEWORK_AUTH_URL,
-                    data={
-                        "grant_type": "client_credentials",
-                        "client_id": self.app_id,
-                        "client_secret": self.app_password,
-                        "scope": "https://api.botframework.com/.default",
-                    },
-                )
-                response.raise_for_status()
-                data = response.json()
+        if not success or not data:
+            raise RuntimeError(f"Failed to get Bot Framework token: {error}")
 
-                self._access_token = data["access_token"]
-                self._token_expires = time.time() + data.get("expires_in", 3600)
+        self._access_token = data["access_token"]
+        self._token_expires = time.time() + data.get("expires_in", 3600)
 
-                self._record_success()
-                return self._access_token
-
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return self._access_token
 
     async def _get_graph_token(self) -> str:
         """
@@ -194,6 +187,7 @@ class TeamsConnector(ChatPlatformConnector):
 
         Graph API uses a separate OAuth flow from Bot Framework.
         Requires ChannelMessage.Read.All and Files.ReadWrite.All permissions.
+        Uses _http_request for retry logic and circuit breaker protection.
         """
         import time
 
@@ -206,35 +200,29 @@ class TeamsConnector(ChatPlatformConnector):
         if not self.tenant_id:
             raise RuntimeError("Tenant ID required for Graph API. Set TEAMS_TENANT_ID env var.")
 
-        # Check circuit breaker before making request
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            raise RuntimeError(cb_error)
+        auth_url = GRAPH_AUTH_URL.format(tenant=self.tenant_id)
 
-        try:
-            auth_url = GRAPH_AUTH_URL.format(tenant=self.tenant_id)
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    auth_url,
-                    data={
-                        "grant_type": "client_credentials",
-                        "client_id": self.app_id,
-                        "client_secret": self.app_password,
-                        "scope": GRAPH_SCOPE_FILES,
-                    },
-                )
-                response.raise_for_status()
-                data = response.json()
+        # Use _http_request which handles circuit breaker, retries, and backoff
+        success, data, error = await self._http_request(
+            method="POST",
+            url=auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "grant_type": "client_credentials",
+                "client_id": self.app_id,
+                "client_secret": self.app_password,
+                "scope": GRAPH_SCOPE_FILES,
+            },
+            operation="get_graph_token",
+        )
 
-                self._graph_token = data["access_token"]
-                self._graph_token_expires = time.time() + data.get("expires_in", 3600)
+        if not success or not data:
+            raise RuntimeError(f"Failed to get Graph API token: {error}")
 
-                self._record_success()
-                return self._graph_token
+        self._graph_token = data["access_token"]
+        self._graph_token_expires = time.time() + data.get("expires_in", 3600)
 
-        except Exception as e:
-            self._record_failure(e)
-            raise
+        return self._graph_token
 
     async def _graph_api_request(
         self,

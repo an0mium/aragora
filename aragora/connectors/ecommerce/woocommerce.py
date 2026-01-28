@@ -32,6 +32,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.connectors.exceptions import ConnectorAPIError
+from aragora.connectors.model_base import ConnectorDataclass
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -98,8 +99,16 @@ class WooCommerceCredentials:
 
 
 @dataclass
-class WooAddress:
+class WooAddress(ConnectorDataclass):
     """WooCommerce address."""
+
+    _field_mapping = {
+        "first_name": "firstName",
+        "last_name": "lastName",
+        "address_1": "address1",
+        "address_2": "address2",
+    }
+    _include_none = True
 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -113,25 +122,22 @@ class WooAddress:
     email: Optional[str] = None
     phone: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "firstName": self.first_name,
-            "lastName": self.last_name,
-            "company": self.company,
-            "address1": self.address_1,
-            "address2": self.address_2,
-            "city": self.city,
-            "state": self.state,
-            "postcode": self.postcode,
-            "country": self.country,
-            "email": self.email,
-            "phone": self.phone,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class WooLineItem:
+class WooLineItem(ConnectorDataclass):
     """WooCommerce order line item."""
+
+    _field_mapping = {
+        "product_id": "productId",
+        "variation_id": "variationId",
+        "tax_class": "taxClass",
+        "meta_data": "metaData",
+    }
+    _include_none = True
+    _exclude_fields = {"taxes", "meta_data"}  # Match original output
 
     id: int
     product_id: int
@@ -146,19 +152,8 @@ class WooLineItem:
     taxes: List[Dict[str, Any]] = field(default_factory=list)
     meta_data: List[Dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "productId": self.product_id,
-            "variationId": self.variation_id,
-            "name": self.name,
-            "quantity": self.quantity,
-            "subtotal": str(self.subtotal),
-            "total": str(self.total),
-            "sku": self.sku,
-            "price": str(self.price),
-            "taxClass": self.tax_class,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass

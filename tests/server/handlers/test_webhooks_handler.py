@@ -19,6 +19,7 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sys
 
 
 # ===========================================================================
@@ -782,45 +783,50 @@ class TestWebhookRBAC:
         assert hasattr(handler, "_check_rbac_permission")
         assert hasattr(handler, "_get_auth_context")
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", False)
     def test_permission_check_without_rbac(self, handler):
         """Permission check should pass when RBAC not available."""
         mock_http = MockHandler(headers={})
 
-        result = handler._check_rbac_permission(mock_http, "webhooks.create")
-        assert result is None  # None means allowed
+        module = sys.modules[handler.__class__.__module__]
+        with patch.object(module, "RBAC_AVAILABLE", False):
+            result = handler._check_rbac_permission(mock_http, "webhooks.create")
+            assert result is None  # None means allowed
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_allowed)
     def test_permission_check_allowed(self, handler):
         """Permission check should pass when RBAC allows."""
         mock_http = MockHandler(headers={})
 
-        with patch.object(
-            handler,
-            "_get_auth_context",
-            return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+        module = sys.modules[handler.__class__.__module__]
+        with (
+            patch.object(module, "RBAC_AVAILABLE", True),
+            patch.object(module, "check_permission", mock_check_permission_allowed),
         ):
-            result = handler._check_rbac_permission(mock_http, "webhooks.create")
-            assert result is None  # None means allowed
+            with patch.object(
+                handler,
+                "_get_auth_context",
+                return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+            ):
+                result = handler._check_rbac_permission(mock_http, "webhooks.create")
+                assert result is None  # None means allowed
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_permission_check_denied(self, handler):
         """Permission check should return error when RBAC denies."""
         mock_http = MockHandler(headers={})
 
-        with patch.object(
-            handler,
-            "_get_auth_context",
-            return_value=MockAuthorizationContext(user_id="user-123", roles={"viewer"}),
+        module = sys.modules[handler.__class__.__module__]
+        with (
+            patch.object(module, "RBAC_AVAILABLE", True),
+            patch.object(module, "check_permission", mock_check_permission_denied),
         ):
-            result = handler._check_rbac_permission(mock_http, "webhooks.create")
-            assert result is not None
-            assert result.status_code == 403
+            with patch.object(
+                handler,
+                "_get_auth_context",
+                return_value=MockAuthorizationContext(user_id="user-123", roles={"viewer"}),
+            ):
+                result = handler._check_rbac_permission(mock_http, "webhooks.create")
+                assert result is not None
+                assert result.status_code == 403
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_register_webhook_rbac_denied(self, handler):
         """Register webhook should deny when RBAC denies."""
         body = json.dumps(
@@ -834,18 +840,21 @@ class TestWebhookRBAC:
             body=body,
         )
 
-        with patch.object(
-            handler,
-            "_get_auth_context",
-            return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+        module = sys.modules[handler.__class__.__module__]
+        with (
+            patch.object(module, "RBAC_AVAILABLE", True),
+            patch.object(module, "check_permission", mock_check_permission_denied),
         ):
-            result = handler._handle_register_webhook(
-                {"url": "https://example.com", "events": ["debate_start"]}, mock_http
-            )
-            assert result.status_code == 403
+            with patch.object(
+                handler,
+                "_get_auth_context",
+                return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+            ):
+                result = handler._handle_register_webhook(
+                    {"url": "https://example.com", "events": ["debate_start"]}, mock_http
+                )
+                assert result.status_code == 403
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_delete_webhook_rbac_denied(self, handler, server_context):
         """Delete webhook should deny when RBAC denies."""
         # First create a webhook so it exists
@@ -855,16 +864,19 @@ class TestWebhookRBAC:
         )
         mock_http = MockHandler(headers={})
 
-        with patch.object(
-            handler,
-            "_get_auth_context",
-            return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+        module = sys.modules[handler.__class__.__module__]
+        with (
+            patch.object(module, "RBAC_AVAILABLE", True),
+            patch.object(module, "check_permission", mock_check_permission_denied),
         ):
-            result = handler._handle_delete_webhook(webhook.id, mock_http)
-            assert result.status_code == 403
+            with patch.object(
+                handler,
+                "_get_auth_context",
+                return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+            ):
+                result = handler._handle_delete_webhook(webhook.id, mock_http)
+                assert result.status_code == 403
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_update_webhook_rbac_denied(self, handler, server_context):
         """Update webhook should deny when RBAC denies."""
         # First create a webhook so it exists
@@ -874,16 +886,19 @@ class TestWebhookRBAC:
         )
         mock_http = MockHandler(headers={})
 
-        with patch.object(
-            handler,
-            "_get_auth_context",
-            return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+        module = sys.modules[handler.__class__.__module__]
+        with (
+            patch.object(module, "RBAC_AVAILABLE", True),
+            patch.object(module, "check_permission", mock_check_permission_denied),
         ):
-            result = handler._handle_update_webhook(webhook.id, {}, mock_http)
-            assert result.status_code == 403
+            with patch.object(
+                handler,
+                "_get_auth_context",
+                return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+            ):
+                result = handler._handle_update_webhook(webhook.id, {}, mock_http)
+                assert result.status_code == 403
 
-    @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
-    @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_test_webhook_rbac_denied(self, handler, server_context):
         """Test webhook should deny when RBAC denies."""
         # First create a webhook so it exists
@@ -893,10 +908,15 @@ class TestWebhookRBAC:
         )
         mock_http = MockHandler(headers={})
 
-        with patch.object(
-            handler,
-            "_get_auth_context",
-            return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+        module = sys.modules[handler.__class__.__module__]
+        with (
+            patch.object(module, "RBAC_AVAILABLE", True),
+            patch.object(module, "check_permission", mock_check_permission_denied),
         ):
-            result = handler._handle_test_webhook(webhook.id, mock_http)
-            assert result.status_code == 403
+            with patch.object(
+                handler,
+                "_get_auth_context",
+                return_value=MockAuthorizationContext(user_id="user-123", roles={"admin"}),
+            ):
+                result = handler._handle_test_webhook(webhook.id, mock_http)
+                assert result.status_code == 403
