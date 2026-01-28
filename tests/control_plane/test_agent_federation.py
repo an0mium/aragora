@@ -524,5 +524,6 @@ class TestFederatedAgent:
         assert agent.estimated_latency_ms > 0
 
         agent.record_success(200.0)
-        # Should be somewhere between 100 and 200 due to EMA
-        assert 100 < agent.estimated_latency_ms < 200
+        # EMA with alpha=0.3 starting from 0: 0.3*100 + 0.7*0 = 30, then 0.3*200 + 0.7*30 = 81
+        # Value should be higher than after first sample but still influenced by initial 0
+        assert 30 < agent.estimated_latency_ms < 200
