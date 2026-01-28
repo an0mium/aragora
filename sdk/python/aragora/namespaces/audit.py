@@ -203,6 +203,76 @@ class AuditAPI:
 
         return self._client.request("GET", "/api/v1/audit/stats", params=params)
 
+    # OpenAPI-aligned session endpoints
+    def list_entries(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List audit entries."""
+        return self._client.request(
+            "GET", "/api/v1/audit/entries", params={"limit": limit, "offset": offset}
+        )
+
+    def get_report(self) -> dict[str, Any]:
+        """Get audit report."""
+        return self._client.request("GET", "/api/v1/audit/report")
+
+    def verify(self) -> dict[str, Any]:
+        """Verify audit integrity."""
+        return self._client.request("GET", "/api/v1/audit/verify")
+
+    def list_sessions(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List audit sessions."""
+        return self._client.request(
+            "GET", "/api/v1/audit/sessions", params={"limit": limit, "offset": offset}
+        )
+
+    def create_session(self, name: str, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Create an audit session."""
+        data: dict[str, Any] = {"name": name}
+        if config:
+            data["config"] = config
+        return self._client.request("POST", "/api/v1/audit/sessions", json=data)
+
+    def get_session(self, session_id: str) -> dict[str, Any]:
+        """Get an audit session by ID."""
+        return self._client.request("GET", f"/api/v1/audit/sessions/{session_id}")
+
+    def delete_session(self, session_id: str) -> dict[str, Any]:
+        """Delete an audit session."""
+        return self._client.request("DELETE", f"/api/v1/audit/sessions/{session_id}")
+
+    def get_session_events(self, session_id: str) -> dict[str, Any]:
+        """Get events for an audit session."""
+        return self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/events")
+
+    def get_session_findings(self, session_id: str) -> dict[str, Any]:
+        """Get findings for an audit session."""
+        return self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/findings")
+
+    def get_session_report(self, session_id: str) -> dict[str, Any]:
+        """Get report for an audit session."""
+        return self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/report")
+
+    def start_session(self, session_id: str) -> dict[str, Any]:
+        """Start an audit session."""
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/start")
+
+    def pause_session(self, session_id: str) -> dict[str, Any]:
+        """Pause an audit session."""
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/pause")
+
+    def resume_session(self, session_id: str) -> dict[str, Any]:
+        """Resume an audit session."""
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/resume")
+
+    def cancel_session(self, session_id: str) -> dict[str, Any]:
+        """Cancel an audit session."""
+        return self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/cancel")
+
+    def intervene_session(self, session_id: str, action: str) -> dict[str, Any]:
+        """Intervene in an audit session."""
+        return self._client.request(
+            "POST", f"/api/v1/audit/sessions/{session_id}/intervene", json={"action": action}
+        )
+
 
 class AsyncAuditAPI:
     """
@@ -316,3 +386,74 @@ class AsyncAuditAPI:
             params["to_date"] = to_date
 
         return await self._client.request("GET", "/api/v1/audit/stats", params=params)
+
+    async def list_entries(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List audit entries."""
+        return await self._client.request(
+            "GET", "/api/v1/audit/entries", params={"limit": limit, "offset": offset}
+        )
+
+    async def get_report(self) -> dict[str, Any]:
+        """Get audit report."""
+        return await self._client.request("GET", "/api/v1/audit/report")
+
+    async def verify(self) -> dict[str, Any]:
+        """Verify audit integrity."""
+        return await self._client.request("GET", "/api/v1/audit/verify")
+
+    async def list_sessions(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List audit sessions."""
+        return await self._client.request(
+            "GET", "/api/v1/audit/sessions", params={"limit": limit, "offset": offset}
+        )
+
+    async def create_session(
+        self, name: str, config: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Create an audit session."""
+        data: dict[str, Any] = {"name": name}
+        if config:
+            data["config"] = config
+        return await self._client.request("POST", "/api/v1/audit/sessions", json=data)
+
+    async def get_session(self, session_id: str) -> dict[str, Any]:
+        """Get an audit session by ID."""
+        return await self._client.request("GET", f"/api/v1/audit/sessions/{session_id}")
+
+    async def delete_session(self, session_id: str) -> dict[str, Any]:
+        """Delete an audit session."""
+        return await self._client.request("DELETE", f"/api/v1/audit/sessions/{session_id}")
+
+    async def get_session_events(self, session_id: str) -> dict[str, Any]:
+        """Get events for an audit session."""
+        return await self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/events")
+
+    async def get_session_findings(self, session_id: str) -> dict[str, Any]:
+        """Get findings for an audit session."""
+        return await self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/findings")
+
+    async def get_session_report(self, session_id: str) -> dict[str, Any]:
+        """Get report for an audit session."""
+        return await self._client.request("GET", f"/api/v1/audit/sessions/{session_id}/report")
+
+    async def start_session(self, session_id: str) -> dict[str, Any]:
+        """Start an audit session."""
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/start")
+
+    async def pause_session(self, session_id: str) -> dict[str, Any]:
+        """Pause an audit session."""
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/pause")
+
+    async def resume_session(self, session_id: str) -> dict[str, Any]:
+        """Resume an audit session."""
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/resume")
+
+    async def cancel_session(self, session_id: str) -> dict[str, Any]:
+        """Cancel an audit session."""
+        return await self._client.request("POST", f"/api/v1/audit/sessions/{session_id}/cancel")
+
+    async def intervene_session(self, session_id: str, action: str) -> dict[str, Any]:
+        """Intervene in an audit session."""
+        return await self._client.request(
+            "POST", f"/api/v1/audit/sessions/{session_id}/intervene", json={"action": action}
+        )
