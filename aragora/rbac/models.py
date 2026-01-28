@@ -161,6 +161,7 @@ class Action(str, Enum):
     # Gauntlet-specific
     SIGN = "sign"  # Sign receipts cryptographically
     COMPARE = "compare"  # Compare gauntlet runs
+    VERIFY = "verify"  # Verify integrity of chains/proofs
 
     # Marketplace-specific
     PUBLISH = "publish"  # Publish to marketplace
