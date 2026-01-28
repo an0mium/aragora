@@ -47,8 +47,9 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
-# Import mixin for fusion capabilities
+# Import mixins for fusion and search capabilities
 from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 
 
 # =============================================================================
@@ -150,7 +151,7 @@ class ExpertiseSearchResult:
 # =============================================================================
 
 
-class PerformanceAdapter(FusionMixin):
+class PerformanceAdapter(FusionMixin, SemanticSearchMixin):
     """
     Unified adapter for agent performance metrics (ELO + domain expertise).
 
@@ -160,6 +161,7 @@ class PerformanceAdapter(FusionMixin):
     - Bidirectional KM integration (persistence + reverse flow)
     - Pattern detection and ELO adjustments from KM knowledge
     - Event callbacks for real-time updates
+    - Semantic vector search (via SemanticSearchMixin)
 
     Usage:
         adapter = PerformanceAdapter()
@@ -1730,6 +1732,232 @@ class PerformanceAdapter(FusionMixin):
         except Exception as e:
             logger.warning(f"Failed to apply fusion result: {e}")
             return False
+
+    # =========================================================================
+    # SemanticSearchMixin Required Methods
+    # =========================================================================
+
+    def _get_record_by_id(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """Get a performance record by ID (required by SemanticSearchMixin).
+
+        Supports both ELO rating IDs (el_ prefix) and expertise IDs (ex_ prefix).
+
+        Args:
+            record_id: The record identifier.
+
+        Returns:
+            The full record dict, or None if not found.
+        """
+        # Check ELO ratings
+        if record_id.startswith(self.ELO_PREFIX) or record_id in self._ratings:
+            return self._ratings.get(record_id)
+
+        # Check expertise records
+        if record_id.startswith(self.EXPERTISE_PREFIX) or record_id in self._expertise:
+            return self._expertise.get(record_id)
+
+        # Check matches
+        if record_id in self._matches:
+            return self._matches.get(record_id)
+
+        # Check calibrations
+        if record_id in self._calibrations:
+            return self._calibrations.get(record_id)
+
+        return None
+
+    def _record_to_dict(self, record: Dict[str, Any], similarity: float = 0.0) -> Dict[str, Any]:
+        """Convert a performance record to dict (required by SemanticSearchMixin).
+
+        Args:
+            record: The record dict to convert.
+            similarity: Optional similarity score to include.
+
+        Returns:
+            Dictionary representation with similarity.
+        """
+        result = dict(record)
+        if similarity > 0:
+            result["similarity"] = similarity
+        return result
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID (override for SemanticSearchMixin).
+
+        Args:
+            source_id: The source ID from SemanticStore.
+
+        Returns:
+            The actual record ID for lookup.
+        """
+        # Performance records use el_, ex_, dm_ prefixes
+        # SemanticStore may add its own prefix, so strip both if needed
+        if source_id.startswith("performance:"):
+            source_id = source_id[12:]  # len("performance:")
+        return source_id
+
+    # =========================================================================
+    # Search Methods (complete adapter interface)
+    # =========================================================================
+
+    def get(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single performance record by ID.
+
+        Args:
+            record_id: The record identifier.
+
+        Returns:
+            The record dict, or None if not found.
+        """
+        return self._get_record_by_id(record_id)
+
+    def search_by_keyword(
+        self,
+        keyword: str,
+        limit: int = 20,
+        record_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search performance data by keyword.
+
+        Args:
+            keyword: The search keyword.
+            limit: Maximum results to return.
+            record_type: Optional filter for record type ("rating", "expertise", "match").
+
+        Returns:
+            List of matching records with relevance scores.
+        """
+        results: List[Dict[str, Any]] = []
+        keyword_lower = keyword.lower()
+
+        # Search ratings
+        if record_type is None or record_type == "rating":
+            for rating_id, rating in self._ratings.items():
+                agent_name = rating.get("agent_name", "").lower()
+                reason = rating.get("reason", "").lower()
+                if keyword_lower in agent_name or keyword_lower in reason:
+                    result = dict(rating)
+                    result["_match_type"] = "rating"
+                    result["_relevance"] = 1.0 if keyword_lower in agent_name else 0.7
+                    results.append(result)
+
+        # Search expertise
+        if record_type is None or record_type == "expertise":
+            for exp_key, expertise in self._expertise.items():
+                agent_name = expertise.get("agent_name", "").lower()
+                domain = expertise.get("domain", "").lower()
+                if keyword_lower in agent_name or keyword_lower in domain:
+                    result = dict(expertise)
+                    result["_match_type"] = "expertise"
+                    result["_relevance"] = (
+                        1.0
+                        if keyword_lower in domain
+                        else 0.8
+                        if keyword_lower in agent_name
+                        else 0.5
+                    )
+                    results.append(result)
+
+        # Search matches
+        if record_type is None or record_type == "match":
+            for match_id, match in self._matches.items():
+                winner = match.get("winner", "").lower()
+                loser = match.get("loser", "").lower()
+                if keyword_lower in winner or keyword_lower in loser:
+                    result = dict(match)
+                    result["_match_type"] = "match"
+                    result["_relevance"] = 0.7
+                    results.append(result)
+
+        # Sort by relevance and limit
+        results.sort(key=lambda x: x.get("_relevance", 0), reverse=True)
+        return results[:limit]
+
+    def search_similar(
+        self,
+        query: str,
+        limit: int = 10,
+        min_confidence: float = 0.0,
+    ) -> List[Dict[str, Any]]:
+        """Search for similar performance records (fallback for semantic search).
+
+        Uses keyword matching as a fallback when vector search is unavailable.
+
+        Args:
+            query: The search query.
+            limit: Maximum results to return.
+            min_confidence: Minimum confidence threshold.
+
+        Returns:
+            List of matching records.
+        """
+        # Use keyword search as fallback
+        results = self.search_by_keyword(query, limit=limit * 2)
+
+        # Filter by confidence if applicable
+        if min_confidence > 0:
+            results = [
+                r
+                for r in results
+                if r.get("confidence", r.get("calibration_accuracy", 1.0)) >= min_confidence
+            ]
+
+        return results[:limit]
+
+    def get_all_records(
+        self,
+        record_type: Optional[str] = None,
+        agent_name: Optional[str] = None,
+        domain: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Get all performance records with optional filtering.
+
+        Args:
+            record_type: Filter by type ("rating", "expertise", "match", "calibration").
+            agent_name: Filter by agent name.
+            domain: Filter by domain.
+            limit: Maximum results to return.
+
+        Returns:
+            List of matching records.
+        """
+        results: List[Dict[str, Any]] = []
+
+        # Collect ratings
+        if record_type is None or record_type == "rating":
+            for rating in self._ratings.values():
+                if agent_name and rating.get("agent_name") != agent_name:
+                    continue
+                # Domain filter for domain_elos
+                if domain and domain not in rating.get("domain_elos", {}):
+                    continue
+                results.append(dict(rating))
+
+        # Collect expertise
+        if record_type is None or record_type == "expertise":
+            for expertise in self._expertise.values():
+                if agent_name and expertise.get("agent_name") != agent_name:
+                    continue
+                if domain and expertise.get("domain") != domain:
+                    continue
+                results.append(dict(expertise))
+
+        # Collect matches
+        if record_type is None or record_type == "match":
+            for match in self._matches.values():
+                if agent_name and agent_name not in (match.get("winner"), match.get("loser")):
+                    continue
+                results.append(dict(match))
+
+        # Collect calibrations
+        if record_type is None or record_type == "calibration":
+            for calibration in self._calibrations.values():
+                if agent_name and calibration.get("agent_name") != agent_name:
+                    continue
+                results.append(dict(calibration))
+
+        return results[:limit]
 
 
 # =============================================================================
