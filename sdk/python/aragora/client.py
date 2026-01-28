@@ -87,9 +87,11 @@ class AragoraClient:
         from .namespaces.auth import AuthAPI
         from .namespaces.belief import BeliefAPI
         from .namespaces.billing import BillingAPI
+        from .namespaces.budgets import BudgetsAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.control_plane import ControlPlaneAPI
         from .namespaces.debates import DebatesAPI
+        from .namespaces.decisions import DecisionsAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.gauntlet import GauntletAPI
         from .namespaces.genesis import GenesisAPI
@@ -118,9 +120,11 @@ class AragoraClient:
         self.auth = AuthAPI(self)
         self.belief = BeliefAPI(self)
         self.billing = BillingAPI(self)
+        self.budgets = BudgetsAPI(self)
         self.consensus = ConsensusAPI(self)
         self.control_plane = ControlPlaneAPI(self)
         self.debates = DebatesAPI(self)
+        self.decisions = DecisionsAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.gauntlet = GauntletAPI(self)
         self.genesis = GenesisAPI(self)
@@ -313,9 +317,11 @@ class AragoraAsyncClient:
         from .namespaces.auth import AsyncAuthAPI
         from .namespaces.belief import AsyncBeliefAPI
         from .namespaces.billing import AsyncBillingAPI
+        from .namespaces.budgets import AsyncBudgetsAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.control_plane import AsyncControlPlaneAPI
         from .namespaces.debates import AsyncDebatesAPI
+        from .namespaces.decisions import AsyncDecisionsAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
         from .namespaces.genesis import AsyncGenesisAPI
@@ -344,9 +350,11 @@ class AragoraAsyncClient:
         self.auth = AsyncAuthAPI(self)
         self.belief = AsyncBeliefAPI(self)
         self.billing = AsyncBillingAPI(self)
+        self.budgets = AsyncBudgetsAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.control_plane = AsyncControlPlaneAPI(self)
         self.debates = AsyncDebatesAPI(self)
+        self.decisions = AsyncDecisionsAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
         self.genesis = AsyncGenesisAPI(self)
