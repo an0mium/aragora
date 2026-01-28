@@ -44,6 +44,21 @@ _ACTIVE_ENDPOINTS = None
 _FAILURES_BY_STATUS = None
 
 
+def _get_or_create_metric(metric_class, name: str, description: str, labelnames=None, **kwargs):
+    """Get existing metric from registry or create new one."""
+    from prometheus_client import REGISTRY
+
+    # Check if metric already exists in the default registry
+    for collector in list(REGISTRY._names_to_collectors.values()):
+        if hasattr(collector, "_name") and collector._name == name:
+            return collector
+
+    # Create new metric
+    if labelnames:
+        return metric_class(name, description, labelnames, **kwargs)
+    return metric_class(name, description, **kwargs)
+
+
 def _init_metrics():
     """Initialize Prometheus metrics lazily."""
     global _metrics_initialized
@@ -60,37 +75,43 @@ def _init_metrics():
         # This prevents duplicate registration if called concurrently
         _metrics_initialized = True
 
-        _DELIVERIES_TOTAL = Counter(
+        _DELIVERIES_TOTAL = _get_or_create_metric(
+            Counter,
             "aragora_webhook_deliveries_total",
             "Total webhook delivery attempts",
             ["event_type", "success"],
         )
 
-        _DELIVERY_DURATION = Histogram(
+        _DELIVERY_DURATION = _get_or_create_metric(
+            Histogram,
             "aragora_webhook_delivery_duration_seconds",
             "Webhook delivery duration in seconds",
             ["event_type"],
             buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
         )
 
-        _RETRIES_TOTAL = Counter(
+        _RETRIES_TOTAL = _get_or_create_metric(
+            Counter,
             "aragora_webhook_delivery_retries_total",
             "Total webhook delivery retry attempts",
             ["event_type", "attempt"],
         )
 
-        _QUEUE_SIZE = Gauge(
+        _QUEUE_SIZE = _get_or_create_metric(
+            Gauge,
             "aragora_webhook_queue_size",
             "Current number of pending webhook deliveries",
         )
 
-        _ACTIVE_ENDPOINTS = Gauge(
+        _ACTIVE_ENDPOINTS = _get_or_create_metric(
+            Gauge,
             "aragora_webhook_active_endpoints",
             "Number of active webhook endpoints",
             ["event_type"],
         )
 
-        _FAILURES_BY_STATUS = Counter(
+        _FAILURES_BY_STATUS = _get_or_create_metric(
+            Counter,
             "aragora_webhook_failures_by_status_total",
             "Webhook failures by HTTP status code",
             ["event_type", "status_code"],
