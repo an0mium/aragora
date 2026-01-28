@@ -29,6 +29,7 @@ Context for Claude Code when working with the Aragora codebase.
 | TTS/Voice | `aragora/server/stream/` | `tts_integration.py`, `voice_stream.py` |
 | Control Plane | `aragora/control_plane/` | `policy.py`, `scheduler.py`, `notifications.py` |
 | Resilience | `aragora/` | `resilience.py` (circuit breaker, 34KB) |
+| Resilience Patterns | `aragora/resilience_patterns/` | `retry.py`, `timeout.py`, `circuit_breaker.py`, `health.py` |
 | KM Resilience | `aragora/knowledge/mound/` | `resilience.py` (retry, health, invalidation) |
 | RBAC v2 | `aragora/rbac/` | `models.py`, `checker.py`, `decorators.py` |
 | Backup | `aragora/backup/` | `manager.py` (disaster recovery) |
