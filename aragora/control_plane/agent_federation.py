@@ -251,10 +251,35 @@ class FederatedAgentPool:
         if not self._event_bus:
             return
 
-        # Request agent list from other instances
-        # This would use the RegionalEventBus to broadcast a discovery request
-        # Remote instances respond with their agent lists
-        pass  # Implementation depends on event bus protocol
+        try:
+            # Import RegionalEvent and RegionalEventType here to avoid circular imports
+            from aragora.control_plane.regional_sync import RegionalEvent, RegionalEventType
+
+            # Publish our local agents to other instances
+            for agent in self._agents.values():
+                if agent.is_local:
+                    event = RegionalEvent(
+                        event_type=RegionalEventType.AGENT_REGISTERED,
+                        source_region=self._instance_id,
+                        entity_id=agent.agent_id,
+                        data={
+                            "agent_id": agent.info.agent_id,
+                            "model": agent.info.model,
+                            "provider": agent.info.provider,
+                            "capabilities": agent.info.capabilities,
+                            "status": agent.info.status,
+                            "region_id": getattr(agent.info, "region_id", None),
+                            "instance_id": self._instance_id,
+                        },
+                    )
+                    await self._event_bus.publish(event)
+
+            logger.debug(
+                f"[FederatedAgentPool] Published {len(self.list_local_agents())} agents for discovery"
+            )
+
+        except Exception as e:
+            logger.error(f"[FederatedAgentPool] Discovery broadcast failed: {e}")
 
     async def _health_check_loop(self) -> None:
         """Periodically check agent health."""
@@ -281,9 +306,78 @@ class FederatedAgentPool:
 
     async def _handle_remote_event(self, event: Any) -> None:
         """Handle events from remote instances."""
-        # Process agent registration/update/deregistration events
-        # from the RegionalEventBus
-        pass  # Implementation depends on event types
+        try:
+            # Import RegionalEventType here to avoid circular imports
+            from aragora.control_plane.regional_sync import RegionalEventType
+
+            # Skip events from our own instance
+            source_region = getattr(event, "source_region", None)
+            if source_region == self._instance_id:
+                return
+
+            event_type = getattr(event, "event_type", None)
+            entity_id = getattr(event, "entity_id", None)
+            data = getattr(event, "data", {})
+
+            if event_type == RegionalEventType.AGENT_REGISTERED:
+                # Add or update remote agent
+                agent_id = data.get("agent_id", entity_id)
+                if agent_id and agent_id not in self._agents:
+                    # Create AgentInfo from event data
+                    info = AgentInfo(
+                        agent_id=agent_id,
+                        model=data.get("model", "unknown"),
+                        provider=data.get("provider", "unknown"),
+                        capabilities=data.get("capabilities", []),
+                        status=data.get("status", "available"),
+                    )
+                    # Set region if available
+                    if data.get("region_id"):
+                        info.region_id = data["region_id"]
+
+                    remote_agent = FederatedAgent(
+                        info=info,
+                        instance_id=data.get("instance_id", source_region),
+                        is_local=False,
+                        remote_endpoint=data.get("endpoint"),
+                    )
+                    self._agents[agent_id] = remote_agent
+                    self._remote_instances[source_region] = {"last_seen": time.time()}
+                    logger.debug(
+                        f"[FederatedAgentPool] Added remote agent {agent_id} from {source_region}"
+                    )
+
+            elif event_type == RegionalEventType.AGENT_UNREGISTERED:
+                # Remove remote agent
+                agent_id = data.get("agent_id", entity_id)
+                if agent_id and agent_id in self._agents:
+                    agent = self._agents[agent_id]
+                    if not agent.is_local:
+                        del self._agents[agent_id]
+                        logger.debug(f"[FederatedAgentPool] Removed remote agent {agent_id}")
+
+            elif event_type == RegionalEventType.AGENT_UPDATED:
+                # Update remote agent status
+                agent_id = data.get("agent_id", entity_id)
+                if agent_id and agent_id in self._agents:
+                    agent = self._agents[agent_id]
+                    if not agent.is_local:
+                        if "status" in data:
+                            agent.info.status = data["status"]
+                        agent.last_success_at = time.time()
+                        logger.debug(f"[FederatedAgentPool] Updated remote agent {agent_id}")
+
+            elif event_type == RegionalEventType.AGENT_HEARTBEAT:
+                # Update last seen timestamp for remote agent
+                agent_id = data.get("agent_id", entity_id)
+                if agent_id and agent_id in self._agents:
+                    agent = self._agents[agent_id]
+                    if not agent.is_local:
+                        agent.last_success_at = time.time()
+                        agent.consecutive_failures = 0
+
+        except Exception as e:
+            logger.error(f"[FederatedAgentPool] Error handling remote event: {e}")
 
     def find_agents(
         self,
@@ -449,8 +543,25 @@ class FederatedAgentPool:
 
         # Broadcast to other instances
         if self._event_bus and self._config.mode == FederationMode.FULL:
-            # Publish agent registration event
-            pass  # Implementation depends on event bus
+            try:
+                from aragora.control_plane.regional_sync import RegionalEvent, RegionalEventType
+
+                event = RegionalEvent(
+                    event_type=RegionalEventType.AGENT_REGISTERED,
+                    source_region=self._instance_id,
+                    entity_id=agent_id,
+                    data={
+                        "agent_id": agent_id,
+                        "model": model,
+                        "provider": provider,
+                        "capabilities": capabilities,
+                        "status": info.status,
+                        "instance_id": self._instance_id,
+                    },
+                )
+                await self._event_bus.publish(event)
+            except Exception as e:
+                logger.warning(f"[FederatedAgentPool] Failed to broadcast agent registration: {e}")
 
         logger.info(f"[FederatedAgentPool] Registered agent {agent_id}")
         return agent
@@ -475,8 +586,23 @@ class FederatedAgentPool:
 
             # Broadcast to other instances
             if self._event_bus and self._config.mode == FederationMode.FULL:
-                # Publish agent unregistration event
-                pass
+                try:
+                    from aragora.control_plane.regional_sync import RegionalEvent, RegionalEventType
+
+                    event = RegionalEvent(
+                        event_type=RegionalEventType.AGENT_UNREGISTERED,
+                        source_region=self._instance_id,
+                        entity_id=agent_id,
+                        data={
+                            "agent_id": agent_id,
+                            "instance_id": self._instance_id,
+                        },
+                    )
+                    await self._event_bus.publish(event)
+                except Exception as e:
+                    logger.warning(
+                        f"[FederatedAgentPool] Failed to broadcast agent unregistration: {e}"
+                    )
 
             logger.info(f"[FederatedAgentPool] Unregistered agent {agent_id}")
             return True
