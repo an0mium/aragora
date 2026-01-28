@@ -93,24 +93,38 @@ export interface BackupStats {
 }
 
 /**
+ * Client interface for backups operations.
+ */
+interface BackupsClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
+
+/**
  * Backups API for disaster recovery operations.
+ *
+ * @example
+ * ```typescript
+ * const client = createClient({ baseUrl: 'https://api.aragora.ai' });
+ *
+ * // List all backups
+ * const { backups } = await client.backups.list();
+ *
+ * // Create a new backup
+ * const { backup } = await client.backups.create('/path/to/db');
+ *
+ * // Verify backup integrity
+ * const result = await client.backups.verify(backup.id);
+ * ```
  */
 export class BackupsAPI {
-  private baseUrl: string;
-  private headers: HeadersInit;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    };
-  }
+  constructor(private client: BackupsClientInterface) {}
 
   /**
    * List backups with filtering and pagination.
-   *
-   * @param options - Filter and pagination options
    */
   async list(options?: {
     limit?: number;
@@ -128,42 +142,20 @@ export class BackupsAPI {
       has_more: boolean;
     };
   }> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.set('limit', options.limit.toString());
-    if (options?.offset) params.set('offset', options.offset.toString());
-    if (options?.source) params.set('source', options.source);
-    if (options?.status) params.set('status', options.status);
-    if (options?.since) params.set('since', options.since);
-    if (options?.backup_type) params.set('backup_type', options.backup_type);
-
-    const url = `${this.baseUrl}/api/v2/backups${params.toString() ? `?${params}` : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.headers,
+    return this.client.request('GET', '/api/v2/backups', {
+      params: options as Record<string, unknown>,
     });
-    if (!response.ok) throw new Error(`Failed to list backups: ${response.statusText}`);
-    return response.json();
   }
 
   /**
    * Get a specific backup by ID.
-   *
-   * @param backupId - Backup ID
    */
   async get(backupId: string): Promise<Backup> {
-    const response = await fetch(`${this.baseUrl}/api/v2/backups/${backupId}`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to get backup: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', `/api/v2/backups/${backupId}`);
   }
 
   /**
    * Create a new backup.
-   *
-   * @param sourcePath - Path to the database to backup
-   * @param options - Backup options
    */
   async create(
     sourcePath: string,
@@ -172,59 +164,31 @@ export class BackupsAPI {
       metadata?: Record<string, unknown>;
     }
   ): Promise<{ backup: Backup; message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v2/backups`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
+    return this.client.request('POST', '/api/v2/backups', {
+      json: {
         source_path: sourcePath,
         backup_type: options?.backup_type ?? 'full',
         metadata: options?.metadata,
-      }),
+      },
     });
-    if (!response.ok) throw new Error(`Failed to create backup: ${response.statusText}`);
-    return response.json();
   }
 
   /**
    * Verify backup integrity with restore test.
-   *
-   * @param backupId - Backup ID to verify
    */
   async verify(backupId: string): Promise<VerificationResult> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v2/backups/${backupId}/verify`,
-      {
-        method: 'POST',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to verify backup: ${response.statusText}`);
-    return response.json();
+    return this.client.request('POST', `/api/v2/backups/${backupId}/verify`);
   }
 
   /**
    * Perform comprehensive verification of a backup.
-   *
-   * @param backupId - Backup ID to verify
    */
   async verifyComprehensive(backupId: string): Promise<ComprehensiveVerificationResult> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v2/backups/${backupId}/verify-comprehensive`,
-      {
-        method: 'POST',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok)
-      throw new Error(`Failed to verify backup: ${response.statusText}`);
-    return response.json();
+    return this.client.request('POST', `/api/v2/backups/${backupId}/verify-comprehensive`);
   }
 
   /**
    * Test restore a backup (dry-run).
-   *
-   * @param backupId - Backup ID to test
-   * @param targetPath - Optional target path for restore test info
    */
   async testRestore(
     backupId: string,
@@ -236,38 +200,20 @@ export class BackupsAPI {
     dry_run: boolean;
     message: string;
   }> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v2/backups/${backupId}/restore-test`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({ target_path: targetPath }),
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to test restore: ${response.statusText}`);
-    return response.json();
+    return this.client.request('POST', `/api/v2/backups/${backupId}/restore-test`, {
+      json: { target_path: targetPath },
+    });
   }
 
   /**
    * Delete a backup.
-   *
-   * @param backupId - Backup ID to delete
    */
-  async delete(
-    backupId: string
-  ): Promise<{ deleted: boolean; backup_id: string; message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v2/backups/${backupId}`, {
-      method: 'DELETE',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to delete backup: ${response.statusText}`);
-    return response.json();
+  async delete(backupId: string): Promise<{ deleted: boolean; backup_id: string; message: string }> {
+    return this.client.request('DELETE', `/api/v2/backups/${backupId}`);
   }
 
   /**
    * Run retention policy cleanup.
-   *
-   * @param dryRun - If true, only report what would be deleted (default true)
    */
   async cleanup(dryRun = true): Promise<{
     dry_run: boolean;
@@ -275,24 +221,15 @@ export class BackupsAPI {
     count: number;
     message: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/api/v2/backups/cleanup`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({ dry_run: dryRun }),
+    return this.client.request('POST', '/api/v2/backups/cleanup', {
+      json: { dry_run: dryRun },
     });
-    if (!response.ok) throw new Error(`Failed to cleanup backups: ${response.statusText}`);
-    return response.json();
   }
 
   /**
    * Get backup statistics.
    */
   async getStats(): Promise<{ stats: BackupStats; generated_at: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v2/backups/stats`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to get stats: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v2/backups/stats');
   }
 }
