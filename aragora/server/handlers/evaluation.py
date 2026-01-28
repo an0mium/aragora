@@ -14,7 +14,6 @@ __all__ = [
     "EvaluationHandler",
 ]
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -86,7 +85,9 @@ class EvaluationHandler(BaseHandler):
         return None
 
     @require_permission("evaluation:create")
-    def handle_post(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:
+    async def handle_post(
+        self, path: str, query_params: dict, handler: Any
+    ) -> Optional[HandlerResult]:
         """Route POST requests to appropriate methods."""
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -95,9 +96,9 @@ class EvaluationHandler(BaseHandler):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
         if path == "/api/v1/evaluate":
-            return self._evaluate_response(handler)
+            return await self._evaluate_response(handler)
         if path == "/api/v1/evaluate/compare":
-            return self._compare_responses(handler)
+            return await self._compare_responses(handler)
         return None
 
     @handle_errors("list dimensions")
@@ -174,7 +175,7 @@ class EvaluationHandler(BaseHandler):
         return json_response({"profiles": profiles})
 
     @handle_errors("evaluate response")
-    def _evaluate_response(self, handler: Any) -> HandlerResult:
+    async def _evaluate_response(self, handler: Any) -> HandlerResult:
         """Evaluate a response using LLM-as-Judge.
 
         POST /api/evaluate
@@ -227,26 +228,17 @@ class EvaluationHandler(BaseHandler):
         )
         judge = LLMJudge(config)
 
-        # Run evaluation (async in sync context)
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        result = loop.run_until_complete(
-            judge.evaluate(
-                query=query,
-                response=response,
-                context=body.get("context"),
-                reference=body.get("reference"),
-            )
+        result = await judge.evaluate(
+            query=query,
+            response=response,
+            context=body.get("context"),
+            reference=body.get("reference"),
         )
 
         return json_response(result.to_dict())
 
     @handle_errors("compare responses")
-    def _compare_responses(self, handler: Any) -> HandlerResult:
+    async def _compare_responses(self, handler: Any) -> HandlerResult:
         """Compare two responses using pairwise evaluation.
 
         POST /api/evaluate/compare
@@ -285,22 +277,13 @@ class EvaluationHandler(BaseHandler):
         config = JudgeConfig(use_case=use_case)
         judge = LLMJudge(config)
 
-        # Run comparison (async in sync context)
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        result = loop.run_until_complete(
-            judge.compare(
-                query=query,
-                response_a=response_a,
-                response_b=response_b,
-                context=body.get("context"),
-                response_a_id=body.get("response_a_id", "A"),
-                response_b_id=body.get("response_b_id", "B"),
-            )
+        result = await judge.compare(
+            query=query,
+            response_a=response_a,
+            response_b=response_b,
+            context=body.get("context"),
+            response_a_id=body.get("response_a_id", "A"),
+            response_b_id=body.get("response_b_id", "B"),
         )
 
         return json_response(result.to_dict())

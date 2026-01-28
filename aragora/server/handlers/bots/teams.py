@@ -15,7 +15,6 @@ Environment Variables:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -92,7 +91,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
             status.update(extra_status)
         return json_response(status)
 
-    def _ensure_bot(self) -> Optional[Any]:
+    async def _ensure_bot(self) -> Optional[Any]:
         """Lazily initialize the Teams bot."""
         if self._bot_initialized:
             return self._bot
@@ -112,15 +111,7 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
             from aragora.bots.teams_bot import create_teams_bot
 
             self._bot = create_teams_bot()
-
-            # Run setup synchronously
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(self._bot.setup())
-            finally:
-                loop.close()
-
+            await self._bot.setup()
             logger.info("Teams bot initialized")
         except ImportError as e:
             logger.warning(f"Teams bot module not available: {e}")
@@ -150,22 +141,22 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
         return None
 
     @rate_limit(rpm=60, limiter_name="teams_messages")
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/bots/teams/messages":
-            return self._handle_messages(handler)
+            return await self._handle_messages(handler)
 
         return None
 
-    def _handle_messages(self, handler: Any) -> HandlerResult:
+    async def _handle_messages(self, handler: Any) -> HandlerResult:
         """Handle incoming Bot Framework messages.
 
         This endpoint receives activities from Microsoft Teams via the
         Bot Framework Service.
         """
-        bot = self._ensure_bot()
+        bot = await self._ensure_bot()
         if not bot:
             return json_response(
                 {
@@ -190,56 +181,34 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
             activity = Activity.deserialize(activity_json)
 
-            # Create response
-            response_body: Dict[str, Any] = {}
-            response_status = 200
+            adapter = bot.get_adapter()
 
-            async def process_activity():
-                nonlocal response_body, response_status
-
-                adapter = bot.get_adapter()
-
-                # Authenticate the request
-                try:
-                    await adapter.authenticate_request(activity, auth_header)
-                except (ValueError, KeyError) as auth_error:
-                    logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
-                    self._audit_webhook_auth_failure("auth_token", "invalid_token")
-                    response_status = 401
-                    response_body = {"error": "Invalid authentication token"}
-                    return
-                except Exception as auth_error:
-                    logger.exception(f"Unexpected Teams auth error: {auth_error}")
-                    self._audit_webhook_auth_failure("auth_token", "unexpected_error")
-                    response_status = 401
-                    response_body = {"error": "Unauthorized"}
-                    return
-
-                # Process the activity
-                try:
-                    await adapter.process_activity(
-                        activity,
-                        auth_header,
-                        bot.on_turn,
-                    )
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.warning(f"Data error processing Teams activity: {e}")
-                    response_status = 400
-                    response_body = {"error": str(e)[:100]}
-                except Exception as e:
-                    logger.exception(f"Unexpected error processing Teams activity: {e}")
-                    response_status = 500
-                    response_body = {"error": "Internal processing error"}
-
-            # Run async processing
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # Authenticate the request
             try:
-                loop.run_until_complete(process_activity())
-            finally:
-                loop.close()
+                await adapter.authenticate_request(activity, auth_header)
+            except (ValueError, KeyError) as auth_error:
+                logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
+                self._audit_webhook_auth_failure("auth_token", "invalid_token")
+                return json_response({"error": "Invalid authentication token"}, status=401)
+            except Exception as auth_error:
+                logger.exception(f"Unexpected Teams auth error: {auth_error}")
+                self._audit_webhook_auth_failure("auth_token", "unexpected_error")
+                return json_response({"error": "Unauthorized"}, status=401)
 
-            return json_response(response_body, status=response_status)
+            # Process the activity
+            try:
+                await adapter.process_activity(
+                    activity,
+                    auth_header,
+                    bot.on_turn,
+                )
+                return json_response({}, status=200)
+            except (ValueError, KeyError, TypeError) as e:
+                logger.warning(f"Data error processing Teams activity: {e}")
+                return json_response({"error": str(e)[:100]}, status=400)
+            except Exception as e:
+                logger.exception(f"Unexpected error processing Teams activity: {e}")
+                return json_response({"error": "Internal processing error"}, status=500)
 
         except Exception as e:
             return self._handle_webhook_exception(e, "Teams message", return_200_on_error=False)

@@ -916,7 +916,7 @@ h3 {{ color: #666; }}
     # ========================================================================
 
     @rate_limit(rpm=30)
-    def _handle_compare(self, handler: Any) -> HandlerResult:
+    async def _handle_compare(self, handler: Any) -> HandlerResult:
         """Compare explanations between multiple debates.
 
         Request body:
@@ -948,16 +948,10 @@ h3 {{ color: #666; }}
         )
 
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
             # Fetch all decisions
             debates = {}
             for debate_id in debate_ids:
-                decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+                decision = await self._get_or_build_decision(debate_id)
                 if decision:
                     debates[debate_id] = decision
 
