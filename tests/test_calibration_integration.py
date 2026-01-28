@@ -320,7 +320,7 @@ class TestCalibrationLeaderboardEndpoint:
 
     def test_routes_include_leaderboard(self, handler):
         """Test ROUTES includes leaderboard endpoint."""
-        assert "/api/v1/calibration/leaderboard" in handler.ROUTES
+        assert "/api/calibration/leaderboard" in handler.ROUTES
 
     @pytest.mark.skipif(
         not os.environ.get("RUN_COMPLEX_TESTS"),
