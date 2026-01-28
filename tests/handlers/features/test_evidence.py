@@ -421,7 +421,8 @@ class TestListEvidence:
 class TestSearchEvidence:
     """Tests for POST /api/v1/evidence/search endpoint."""
 
-    def test_search_evidence(self, evidence_handler, evidence_store):
+    @pytest.mark.asyncio
+    async def test_search_evidence(self, evidence_handler, evidence_store):
         """Test searching evidence."""
         evidence_store.save_evidence(
             evidence_id="ev_1",
@@ -431,7 +432,7 @@ class TestSearchEvidence:
         )
 
         mock_handler = MockHandler(body={"query": "machine"})
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -439,25 +440,28 @@ class TestSearchEvidence:
         assert "results" in body
         assert body["query"] == "machine"
 
-    def test_search_empty_query_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_search_empty_query_rejected(self, evidence_handler):
         """Test rejection of empty search query."""
         mock_handler = MockHandler(body={"query": ""})
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         body = parse_body(result)
         assert "error" in body
 
-    def test_search_missing_query_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_search_missing_query_rejected(self, evidence_handler):
         """Test rejection of missing search query."""
         mock_handler = MockHandler(body={})
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_search_with_filters(self, evidence_handler, evidence_store):
+    @pytest.mark.asyncio
+    async def test_search_with_filters(self, evidence_handler, evidence_store):
         """Test search with source filter and min_reliability."""
         evidence_store.save_evidence(
             evidence_id="ev_1",
@@ -481,29 +485,31 @@ class TestSearchEvidence:
                 "min_reliability": 0.5,
             }
         )
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         body = parse_body(result)
         # Should only find the high-reliability wikipedia result
         assert body["count"] <= 1
 
-    def test_search_query_too_long_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_search_query_too_long_rejected(self, evidence_handler):
         """Test rejection of overly long search query (ReDoS protection)."""
         # Create a very long query that should be rejected
         long_query = "a" * 1001  # MAX_SEARCH_QUERY_LENGTH is typically 1000
         mock_handler = MockHandler(body={"query": long_query})
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_search_malicious_pattern_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_search_malicious_pattern_rejected(self, evidence_handler):
         """Test rejection of potentially malicious regex patterns."""
         # Patterns with nested quantifiers are flagged as dangerous
         malicious_query = "(a+)+" * 10  # Nested quantifier pattern
         mock_handler = MockHandler(body={"query": malicious_query})
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         # Should either reject (400) or sanitize the input
@@ -513,10 +519,11 @@ class TestSearchEvidence:
 class TestCollectEvidence:
     """Tests for POST /api/v1/evidence/collect endpoint."""
 
-    def test_collect_evidence(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_collect_evidence(self, evidence_handler):
         """Test evidence collection."""
         mock_handler = MockHandler(body={"task": "What is machine learning?"})
-        result = evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -524,15 +531,17 @@ class TestCollectEvidence:
         assert "task" in body
         assert "snippets" in body
 
-    def test_collect_empty_task_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_collect_empty_task_rejected(self, evidence_handler):
         """Test rejection of empty task."""
         mock_handler = MockHandler(body={"task": ""})
-        result = evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_collect_with_debate_association(self, evidence_handler, evidence_store):
+    @pytest.mark.asyncio
+    async def test_collect_with_debate_association(self, evidence_handler, evidence_store):
         """Test evidence collection with debate association."""
         mock_handler = MockHandler(
             body={
@@ -541,7 +550,7 @@ class TestCollectEvidence:
                 "round": 1,
             }
         )
-        result = evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/collect", {}, mock_handler)
 
         assert result is not None
         body = parse_body(result)
@@ -552,7 +561,8 @@ class TestCollectEvidence:
 class TestAssociateEvidence:
     """Tests for POST /api/v1/evidence/debate/:debate_id endpoint."""
 
-    def test_associate_evidence(self, evidence_handler, evidence_store):
+    @pytest.mark.asyncio
+    async def test_associate_evidence(self, evidence_handler, evidence_store):
         """Test associating evidence with a debate."""
         evidence_store.save_evidence(
             evidence_id="ev_1",
@@ -567,7 +577,7 @@ class TestAssociateEvidence:
                 "round": 1,
             }
         )
-        result = evidence_handler.handle_post(
+        result = await evidence_handler.handle_post(
             "/api/v1/evidence/debate/debate_123", {}, mock_handler
         )
 
@@ -577,10 +587,11 @@ class TestAssociateEvidence:
         assert body["debate_id"] == "debate_123"
         assert "ev_1" in body["associated"]
 
-    def test_associate_empty_ids_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_associate_empty_ids_rejected(self, evidence_handler):
         """Test rejection of empty evidence_ids."""
         mock_handler = MockHandler(body={"evidence_ids": []})
-        result = evidence_handler.handle_post(
+        result = await evidence_handler.handle_post(
             "/api/v1/evidence/debate/debate_123", {}, mock_handler
         )
 
@@ -656,12 +667,13 @@ class TestRateLimiting:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_invalid_json_body_rejected(self, evidence_handler):
+    @pytest.mark.asyncio
+    async def test_invalid_json_body_rejected(self, evidence_handler):
         """Test rejection of invalid JSON body."""
         mock_handler = MockHandler()
         mock_handler.rfile.read.return_value = b"not json"
 
-        result = evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
+        result = await evidence_handler.handle_post("/api/v1/evidence/search", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
@@ -684,7 +696,8 @@ class TestErrorHandling:
 class TestIntegration:
     """Integration tests for evidence workflow."""
 
-    def test_collect_then_search_workflow(self, evidence_handler, evidence_store):
+    @pytest.mark.asyncio
+    async def test_collect_then_search_workflow(self, evidence_handler, evidence_store):
         """Test collecting evidence then searching for it."""
         # First collect evidence
         collect_handler = MockHandler(
@@ -693,14 +706,16 @@ class TestIntegration:
                 "debate_id": "debate_ml",
             }
         )
-        collect_result = evidence_handler.handle_post(
+        collect_result = await evidence_handler.handle_post(
             "/api/v1/evidence/collect", {}, collect_handler
         )
         assert collect_result.status_code == 200
 
         # Then search for it
         search_handler = MockHandler(body={"query": "test"})
-        search_result = evidence_handler.handle_post("/api/v1/evidence/search", {}, search_handler)
+        search_result = await evidence_handler.handle_post(
+            "/api/v1/evidence/search", {}, search_handler
+        )
         assert search_result.status_code == 200
 
     def test_full_crud_workflow(self, evidence_handler, evidence_store):

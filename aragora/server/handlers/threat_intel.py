@@ -58,9 +58,9 @@ def get_threat_service() -> ThreatIntelligenceService:
 class ThreatIntelHandler(BaseHandler):
     """Handler for threat intelligence endpoints."""
 
-    def __init__(self):
+    def __init__(self, server_context=None):
         """Initialize handler."""
-        super().__init__()
+        super().__init__(server_context or {})
         self.service = get_threat_service()
 
     @require_permission("threat_intel:read")

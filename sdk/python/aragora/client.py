@@ -132,6 +132,7 @@ class AragoraClient:
         from .namespaces.outlook import OutlookAPI
         from .namespaces.payments import PaymentsAPI
         from .namespaces.plugins import PluginsAPI
+        from .namespaces.podcast import PodcastAPI
         from .namespaces.policies import PoliciesAPI
         from .namespaces.privacy import PrivacyAPI
         from .namespaces.pulse import PulseAPI
@@ -156,6 +157,7 @@ class AragoraClient:
         from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflows import WorkflowsAPI
         from .namespaces.workspaces import WorkspacesAPI
+        from .namespaces.youtube import YouTubeAPI
 
         self.a2a = A2AAPI(self)
         self.accounting = AccountingAPI(self)
@@ -209,6 +211,7 @@ class AragoraClient:
         self.outlook = OutlookAPI(self)
         self.payments = PaymentsAPI(self)
         self.plugins = PluginsAPI(self)
+        self.podcast = PodcastAPI(self)
         self.policies = PoliciesAPI(self)
         self.privacy = PrivacyAPI(self)
         self.pulse = PulseAPI(self)
@@ -233,6 +236,7 @@ class AragoraClient:
         self.webhooks = WebhooksAPI(self)
         self.workflows = WorkflowsAPI(self)
         self.workspaces = WorkspacesAPI(self)
+        self.youtube = YouTubeAPI(self)
 
     def request(
         self,
@@ -461,6 +465,7 @@ class AragoraAsyncClient:
         from .namespaces.outlook import AsyncOutlookAPI
         from .namespaces.payments import AsyncPaymentsAPI
         from .namespaces.plugins import AsyncPluginsAPI
+        from .namespaces.podcast import AsyncPodcastAPI
         from .namespaces.policies import AsyncPoliciesAPI
         from .namespaces.privacy import AsyncPrivacyAPI
         from .namespaces.pulse import AsyncPulseAPI
@@ -485,6 +490,7 @@ class AragoraAsyncClient:
         from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
         from .namespaces.workspaces import AsyncWorkspacesAPI
+        from .namespaces.youtube import AsyncYouTubeAPI
 
         self.a2a = AsyncA2AAPI(self)
         self.accounting = AsyncAccountingAPI(self)
@@ -538,6 +544,7 @@ class AragoraAsyncClient:
         self.outlook = AsyncOutlookAPI(self)
         self.payments = AsyncPaymentsAPI(self)
         self.plugins = AsyncPluginsAPI(self)
+        self.podcast = AsyncPodcastAPI(self)
         self.policies = AsyncPoliciesAPI(self)
         self.privacy = AsyncPrivacyAPI(self)
         self.pulse = AsyncPulseAPI(self)
@@ -562,6 +569,7 @@ class AragoraAsyncClient:
         self.webhooks = AsyncWebhooksAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
         self.workspaces = AsyncWorkspacesAPI(self)
+        self.youtube = AsyncYouTubeAPI(self)
 
     async def request(
         self,

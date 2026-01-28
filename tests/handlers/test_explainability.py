@@ -111,7 +111,8 @@ class TestExplainabilityHandlerExplanation:
         )
         return decision
 
-    def test_handle_explanation_success(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_explanation_success(self, handler, mock_decision):
         """Test successful explanation request."""
         mock_handler = MagicMock()
 
@@ -120,21 +121,27 @@ class TestExplainabilityHandlerExplanation:
         ):
             with patch("asyncio.get_event_loop") as mock_loop:
                 mock_loop.return_value.run_until_complete.return_value = mock_decision
-                result = handler.handle("/api/v1/debates/debate_123/explanation", {}, mock_handler)
+                result = await handler.handle(
+                    "/api/v1/debates/debate_123/explanation", {}, mock_handler
+                )
 
         assert result.status_code == 200
 
-    def test_handle_explanation_not_found(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_explanation_not_found(self, handler):
         """Test explanation for non-existent debate."""
         mock_handler = MagicMock()
 
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.run_until_complete.return_value = None
-            result = handler.handle("/api/v1/debates/nonexistent/explanation", {}, mock_handler)
+            result = await handler.handle(
+                "/api/v1/debates/nonexistent/explanation", {}, mock_handler
+            )
 
         assert result.status_code == 404
 
-    def test_handle_explanation_with_format_param(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_explanation_with_format_param(self, handler, mock_decision):
         """Test explanation with format parameter."""
         mock_handler = MagicMock()
 
@@ -142,7 +149,7 @@ class TestExplainabilityHandlerExplanation:
             mock_loop.return_value.run_until_complete.return_value = mock_decision
             with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
                 MockBuilder.return_value.generate_summary.return_value = "Summary text"
-                result = handler.handle(
+                result = await handler.handle(
                     "/api/v1/debates/debate_123/explanation",
                     {"format": "summary"},
                     mock_handler,
@@ -150,13 +157,14 @@ class TestExplainabilityHandlerExplanation:
 
         assert result.status_code == 200
 
-    def test_handle_explain_shortcut(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_explain_shortcut(self, handler, mock_decision):
         """Test explain shortcut route."""
         mock_handler = MagicMock()
 
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.run_until_complete.return_value = mock_decision
-            result = handler.handle("/api/v1/explain/debate_123", {}, mock_handler)
+            result = await handler.handle("/api/v1/explain/debate_123", {}, mock_handler)
 
         assert result.status_code == 200
 
@@ -190,23 +198,25 @@ class TestExplainabilityHandlerEvidence:
         decision.evidence_chain = [ev1, ev2]
         return decision
 
-    def test_handle_evidence_success(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_evidence_success(self, handler, mock_decision):
         """Test successful evidence request."""
         mock_handler = MagicMock()
 
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.run_until_complete.return_value = mock_decision
-            result = handler.handle("/api/v1/debates/debate_123/evidence", {}, mock_handler)
+            result = await handler.handle("/api/v1/debates/debate_123/evidence", {}, mock_handler)
 
         assert result.status_code == 200
 
-    def test_handle_evidence_not_found(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_evidence_not_found(self, handler):
         """Test evidence for non-existent debate."""
         mock_handler = MagicMock()
 
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.run_until_complete.return_value = None
-            result = handler.handle("/api/v1/debates/nonexistent/evidence", {}, mock_handler)
+            result = await handler.handle("/api/v1/debates/nonexistent/evidence", {}, mock_handler)
 
         assert result.status_code == 404
 
@@ -240,13 +250,16 @@ class TestExplainabilityHandlerVotePivots:
         decision.vote_pivots = [vp1, vp2]
         return decision
 
-    def test_handle_vote_pivots_success(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_vote_pivots_success(self, handler, mock_decision):
         """Test successful vote pivots request."""
         mock_handler = MagicMock()
 
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.run_until_complete.return_value = mock_decision
-            result = handler.handle("/api/v1/debates/debate_123/votes/pivots", {}, mock_handler)
+            result = await handler.handle(
+                "/api/v1/debates/debate_123/votes/pivots", {}, mock_handler
+            )
 
         assert result.status_code == 200
 
@@ -279,13 +292,16 @@ class TestExplainabilityHandlerCounterfactuals:
         decision.counterfactuals = [cf1]
         return decision
 
-    def test_handle_counterfactuals_success(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_counterfactuals_success(self, handler, mock_decision):
         """Test successful counterfactuals request."""
         mock_handler = MagicMock()
 
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.run_until_complete.return_value = mock_decision
-            result = handler.handle("/api/v1/debates/debate_123/counterfactuals", {}, mock_handler)
+            result = await handler.handle(
+                "/api/v1/debates/debate_123/counterfactuals", {}, mock_handler
+            )
 
         assert result.status_code == 200
 
@@ -308,7 +324,8 @@ class TestExplainabilityHandlerSummary:
         decision.outcome = "consensus"
         return decision
 
-    def test_handle_summary_success(self, handler, mock_decision):
+    @pytest.mark.asyncio
+    async def test_handle_summary_success(self, handler, mock_decision):
         """Test successful summary request."""
         mock_handler = MagicMock()
 
@@ -318,7 +335,9 @@ class TestExplainabilityHandlerSummary:
                 MockBuilder.return_value.generate_summary.return_value = (
                     "The debate reached consensus with high confidence."
                 )
-                result = handler.handle("/api/v1/debates/debate_123/summary", {}, mock_handler)
+                result = await handler.handle(
+                    "/api/v1/debates/debate_123/summary", {}, mock_handler
+                )
 
         assert result.status_code == 200
 
@@ -343,7 +362,8 @@ class TestExplainabilityHandlerBatch:
         mock_handler.rfile = io.BytesIO(body_bytes)
         return mock_handler
 
-    def test_handle_batch_create_success(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_create_success(self, handler):
         """Test successful batch job creation."""
         mock_handler = self._create_mock_handler(
             {"debate_ids": ["debate_1", "debate_2", "debate_3"]}
@@ -351,47 +371,52 @@ class TestExplainabilityHandlerBatch:
 
         with patch("aragora.server.handlers.explainability._save_batch_job"):
             with patch.object(handler, "_start_batch_processing"):
-                result = handler.handle("/api/v1/explainability/batch", {}, mock_handler)
+                result = await handler.handle("/api/v1/explainability/batch", {}, mock_handler)
 
         # Should create batch job
         assert result.status_code == 202
 
-    def test_handle_batch_create_missing_debate_ids(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_create_missing_debate_ids(self, handler):
         """Test batch creation without debate_ids."""
         mock_handler = self._create_mock_handler({})
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/batch", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_batch_create_empty_debate_ids(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_create_empty_debate_ids(self, handler):
         """Test batch creation with empty debate_ids."""
         mock_handler = self._create_mock_handler({"debate_ids": []})
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/batch", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_batch_create_exceeds_max_size(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_create_exceeds_max_size(self, handler):
         """Test batch creation exceeding max size."""
         mock_handler = self._create_mock_handler(
             {"debate_ids": [f"debate_{i}" for i in range(150)]}
         )
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/batch", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_batch_create_empty_body(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_create_empty_body(self, handler):
         """Test batch creation with empty body."""
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "0"}
 
-        result = handler.handle("/api/v1/explainability/batch", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/batch", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_batch_status_success(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_status_success(self, handler):
         """Test getting batch job status."""
         from aragora.server.handlers.explainability import BatchJob, BatchStatus
 
@@ -403,7 +428,7 @@ class TestExplainabilityHandlerBatch:
         )
 
         with patch("aragora.server.handlers.explainability._get_batch_job", return_value=mock_job):
-            result = handler.handle(
+            result = await handler.handle(
                 "/api/v1/explainability/batch/batch_123/status", {}, MagicMock()
             )
 
@@ -412,16 +437,18 @@ class TestExplainabilityHandlerBatch:
         assert data["batch_id"] == "batch_123"
         assert data["status"] == "processing"
 
-    def test_handle_batch_status_not_found(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_status_not_found(self, handler):
         """Test batch status for non-existent job."""
         with patch("aragora.server.handlers.explainability._get_batch_job", return_value=None):
-            result = handler.handle(
+            result = await handler.handle(
                 "/api/v1/explainability/batch/nonexistent/status", {}, MagicMock()
             )
 
         assert result.status_code == 404
 
-    def test_handle_batch_results_success(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_results_success(self, handler):
         """Test getting batch job results."""
         from aragora.server.handlers.explainability import (
             BatchJob,
@@ -449,7 +476,7 @@ class TestExplainabilityHandlerBatch:
         )
 
         with patch("aragora.server.handlers.explainability._get_batch_job", return_value=mock_job):
-            result = handler.handle(
+            result = await handler.handle(
                 "/api/v1/explainability/batch/batch_123/results", {}, MagicMock()
             )
 
@@ -457,10 +484,11 @@ class TestExplainabilityHandlerBatch:
         data = json.loads(result.body)
         assert len(data["results"]) == 2
 
-    def test_handle_batch_results_not_found(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_batch_results_not_found(self, handler):
         """Test batch results for non-existent job."""
         with patch("aragora.server.handlers.explainability._get_batch_job", return_value=None):
-            result = handler.handle(
+            result = await handler.handle(
                 "/api/v1/explainability/batch/nonexistent/results", {}, MagicMock()
             )
 
@@ -487,7 +515,8 @@ class TestExplainabilityHandlerCompare:
         mock_handler.rfile = io.BytesIO(body_bytes)
         return mock_handler
 
-    def test_handle_compare_success(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_compare_success(self, handler):
         """Test successful comparison."""
         mock_handler = self._create_mock_handler({"debate_ids": ["debate_1", "debate_2"]})
 
@@ -508,40 +537,44 @@ class TestExplainabilityHandlerCompare:
                 mock_decision_1,
                 mock_decision_2,
             ]
-            result = handler.handle("/api/v1/explainability/compare", {}, mock_handler)
+            result = await handler.handle("/api/v1/explainability/compare", {}, mock_handler)
 
         assert result.status_code == 200
 
-    def test_handle_compare_missing_debate_ids(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_compare_missing_debate_ids(self, handler):
         """Test comparison without debate_ids."""
         mock_handler = self._create_mock_handler({})
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/compare", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_compare_single_debate(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_compare_single_debate(self, handler):
         """Test comparison with only one debate."""
         mock_handler = self._create_mock_handler({"debate_ids": ["debate_1"]})
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/compare", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_compare_empty_body(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_compare_empty_body(self, handler):
         """Test comparison with empty body."""
         mock_handler = MagicMock()
         mock_handler.headers = {"Content-Length": "0"}
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/compare", {}, mock_handler)
 
         assert result.status_code == 400
 
-    def test_handle_compare_too_many_debates(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_compare_too_many_debates(self, handler):
         """Test comparison with too many debates."""
         mock_handler = self._create_mock_handler({"debate_ids": [f"debate_{i}" for i in range(15)]})
 
-        result = handler.handle("/api/v1/explainability/compare", {}, mock_handler)
+        result = await handler.handle("/api/v1/explainability/compare", {}, mock_handler)
 
         assert result.status_code == 400
 
