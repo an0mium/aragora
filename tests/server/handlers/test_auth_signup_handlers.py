@@ -438,10 +438,11 @@ class TestSetupOrganization:
 # ===========================================================================
 
 
+@patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
 class TestInvite:
     """Tests for handle_invite - team member invitation."""
 
-    async def test_invite_success(self):
+    async def test_invite_success(self, mock_check):
         """Test successful team invitation."""
         from aragora.server.handlers.auth.signup_handlers import handle_invite
 
@@ -460,7 +461,7 @@ class TestInvite:
         assert data["email"] == "teammate@example.com"
         assert "expires_in" in data
 
-    async def test_invite_invalid_email(self):
+    async def test_invite_invalid_email(self, mock_check):
         """Test invite fails with invalid email."""
         from aragora.server.handlers.auth.signup_handlers import handle_invite
 
@@ -473,7 +474,7 @@ class TestInvite:
 
         assert result.status_code == 400
 
-    async def test_invite_missing_org_id(self):
+    async def test_invite_missing_org_id(self, mock_check):
         """Test invite fails without organization ID."""
         from aragora.server.handlers.auth.signup_handlers import handle_invite
 
@@ -481,7 +482,7 @@ class TestInvite:
 
         assert result.status_code == 400
 
-    async def test_invite_invalid_role(self):
+    async def test_invite_invalid_role(self, mock_check):
         """Test invite fails with invalid role."""
         from aragora.server.handlers.auth.signup_handlers import handle_invite
 
@@ -495,7 +496,7 @@ class TestInvite:
 
         assert result.status_code == 400
 
-    async def test_invite_duplicate_pending(self):
+    async def test_invite_duplicate_pending(self, mock_check):
         """Test invite fails if already pending for same email/org."""
         from aragora.server.handlers.auth.signup_handlers import handle_invite
 
@@ -513,7 +514,7 @@ class TestInvite:
 
         assert result.status_code == 409
 
-    async def test_invite_default_role(self):
+    async def test_invite_default_role(self, mock_check):
         """Test invite defaults to member role."""
         from aragora.server.handlers.auth.signup_handlers import (
             _pending_invites,

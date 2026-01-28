@@ -107,7 +107,8 @@ class TestTeamsStatus:
 class TestTeamsMessages:
     """Tests for Teams message webhook endpoint."""
 
-    def test_handle_post_without_bot(self):
+    @pytest.mark.asyncio
+    async def test_handle_post_without_bot(self):
         """Should return 503 when bot not configured."""
         handler = TeamsHandler({})
 
@@ -115,7 +116,7 @@ class TestTeamsMessages:
         mock_request.headers = {"Content-Length": "2"}
         mock_request.rfile.read.return_value = b"{}"
 
-        result = handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
+        result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 503
@@ -123,7 +124,8 @@ class TestTeamsMessages:
         assert "error" in body
         assert "not configured" in body["error"]
 
-    def test_handle_post_invalid_json(self):
+    @pytest.mark.asyncio
+    async def test_handle_post_invalid_json(self):
         """Should handle invalid JSON gracefully."""
         handler = TeamsHandler({})
 
@@ -131,19 +133,21 @@ class TestTeamsMessages:
         mock_request.headers = {"Content-Length": "12"}
         mock_request.rfile.read.return_value = b"not valid json"
 
-        # Mock bot to be available
-        with patch.object(handler, "_ensure_bot", return_value=MagicMock()):
-            result = handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
+        # Mock bot to be available - return an async mock
+        with patch.object(handler, "_ensure_bot", new_callable=AsyncMock) as mock_bot:
+            mock_bot.return_value = MagicMock()
+            result = await handler.handle_post("/api/v1/bots/teams/messages", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_handle_post_returns_none_for_unknown_path(self):
+    @pytest.mark.asyncio
+    async def test_handle_post_returns_none_for_unknown_path(self):
         """Should return None for unknown paths."""
         handler = TeamsHandler({})
         mock_request = MagicMock()
 
-        result = handler.handle_post("/api/v1/bots/unknown", {}, mock_request)
+        result = await handler.handle_post("/api/v1/bots/unknown", {}, mock_request)
 
         assert result is None
 
@@ -175,22 +179,24 @@ class TestBotFrameworkCheck:
 class TestBotLazyInit:
     """Tests for lazy bot initialization."""
 
-    def test_ensure_bot_without_credentials(self):
+    @pytest.mark.asyncio
+    async def test_ensure_bot_without_credentials(self):
         """Should return None when credentials not configured."""
         handler = TeamsHandler({})
 
         with patch("aragora.server.handlers.bots.teams.TEAMS_APP_ID", ""):
             with patch("aragora.server.handlers.bots.teams.TEAMS_APP_PASSWORD", ""):
-                result = handler._ensure_bot()
+                result = await handler._ensure_bot()
 
         assert result is None
 
-    def test_ensure_bot_caches_result(self):
+    @pytest.mark.asyncio
+    async def test_ensure_bot_caches_result(self):
         """Should cache bot initialization result."""
         handler = TeamsHandler({})
         handler._bot_initialized = True
         handler._bot = "cached_bot"
 
-        result = handler._ensure_bot()
+        result = await handler._ensure_bot()
 
         assert result == "cached_bot"
