@@ -749,6 +749,15 @@ class MockUser:
     org_id: str = "org-123"
 
 
+@dataclass
+class MockAuthorizationContext:
+    """Minimal auth context for RBAC testing."""
+
+    user_id: str
+    roles: set[str]
+    org_id: str | None = None
+
+
 def mock_check_permission_allowed(*args, **kwargs):
     """Mock check_permission that always allows."""
     return MockPermissionDecision(allowed=True)
@@ -782,6 +791,7 @@ class TestWebhookRBAC:
         assert result is None  # None means allowed
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.webhooks.AuthorizationContext", MockAuthorizationContext)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_allowed)
     def test_permission_check_allowed(self, handler):
         """Permission check should pass when RBAC allows."""
@@ -792,6 +802,7 @@ class TestWebhookRBAC:
             assert result is None  # None means allowed
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.webhooks.AuthorizationContext", MockAuthorizationContext)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_permission_check_denied(self, handler):
         """Permission check should return error when RBAC denies."""
@@ -803,6 +814,7 @@ class TestWebhookRBAC:
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.webhooks.AuthorizationContext", MockAuthorizationContext)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_register_webhook_rbac_denied(self, handler):
         """Register webhook should deny when RBAC denies."""
@@ -824,6 +836,7 @@ class TestWebhookRBAC:
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.webhooks.AuthorizationContext", MockAuthorizationContext)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_delete_webhook_rbac_denied(self, handler, server_context):
         """Delete webhook should deny when RBAC denies."""
@@ -839,6 +852,7 @@ class TestWebhookRBAC:
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.webhooks.AuthorizationContext", MockAuthorizationContext)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_update_webhook_rbac_denied(self, handler, server_context):
         """Update webhook should deny when RBAC denies."""
@@ -854,6 +868,7 @@ class TestWebhookRBAC:
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
+    @patch("aragora.server.handlers.webhooks.AuthorizationContext", MockAuthorizationContext)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
     def test_test_webhook_rbac_denied(self, handler, server_context):
         """Test webhook should deny when RBAC denies."""

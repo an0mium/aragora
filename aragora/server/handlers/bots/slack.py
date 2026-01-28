@@ -26,8 +26,17 @@ from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
+import re
 
 logger = logging.getLogger(__name__)
+
+# Command patterns for parsing Slack slash commands
+# Matches: /aragora <command> [arguments]
+COMMAND_PATTERN = re.compile(r"^/aragora\s+(\w+)(?:\s+(.*))?$", re.IGNORECASE)
+
+# Topic patterns for parsing debate topics
+# Matches quoted or unquoted topics
+TOPIC_PATTERN = re.compile(r'^["\']?([^"\']+)["\']?$')
 
 # Environment variables for Slack configuration
 SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")

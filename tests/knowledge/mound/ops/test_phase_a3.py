@@ -133,12 +133,14 @@ class TestFusionProtocol:
         """Test FusionCoordinator conflict detection."""
         coordinator = FusionCoordinator()
 
-        # Create conflicting validations
+        # Create conflicting validations with high variance
+        # Variance must be > 0.3 (conflict_threshold) to trigger detection
+        # Using 0.95 and 0.05 gives variance ~0.405
         validations = [
             AdapterValidation(
                 adapter_name="elo",
                 item_id="km_123",
-                confidence=0.9,
+                confidence=0.95,
                 is_valid=True,
                 sources=["src1"],
                 priority=1,
@@ -147,7 +149,7 @@ class TestFusionProtocol:
             AdapterValidation(
                 adapter_name="belief",
                 item_id="km_123",
-                confidence=0.2,
+                confidence=0.05,
                 is_valid=False,
                 sources=["src2"],
                 priority=1,

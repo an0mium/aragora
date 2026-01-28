@@ -31,6 +31,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.connectors.exceptions import ConnectorAPIError
+from aragora.connectors.model_base import ConnectorDataclass
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,16 @@ class ShopifyCredentials:
 
 
 @dataclass
-class ShopifyAddress:
+class ShopifyAddress(ConnectorDataclass):
     """Shipping or billing address."""
+
+    _field_mapping = {
+        "first_name": "firstName",
+        "last_name": "lastName",
+        "province_code": "provinceCode",
+        "country_code": "countryCode",
+    }
+    _include_none = True
 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -107,26 +116,21 @@ class ShopifyAddress:
     zip: Optional[str] = None
     phone: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "firstName": self.first_name,
-            "lastName": self.last_name,
-            "company": self.company,
-            "address1": self.address1,
-            "address2": self.address2,
-            "city": self.city,
-            "province": self.province,
-            "provinceCode": self.province_code,
-            "country": self.country,
-            "countryCode": self.country_code,
-            "zip": self.zip,
-            "phone": self.phone,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class ShopifyLineItem:
+class ShopifyLineItem(ConnectorDataclass):
     """Order line item."""
+
+    _field_mapping = {
+        "product_id": "productId",
+        "variant_id": "variantId",
+        "fulfillment_status": "fulfillmentStatus",
+        "requires_shipping": "requiresShipping",
+    }
+    _include_none = True
 
     id: str
     product_id: Optional[str]
@@ -141,26 +145,32 @@ class ShopifyLineItem:
     fulfillment_status: Optional[str] = None
     requires_shipping: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "productId": self.product_id,
-            "variantId": self.variant_id,
-            "title": self.title,
-            "quantity": self.quantity,
-            "price": str(self.price),
-            "sku": self.sku,
-            "vendor": self.vendor,
-            "grams": self.grams,
-            "taxable": self.taxable,
-            "fulfillmentStatus": self.fulfillment_status,
-            "requiresShipping": self.requires_shipping,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class ShopifyOrder:
+class ShopifyOrder(ConnectorDataclass):
     """Shopify order."""
+
+    _field_mapping = {
+        "order_number": "orderNumber",
+        "created_at": "createdAt",
+        "updated_at": "updatedAt",
+        "total_price": "totalPrice",
+        "subtotal_price": "subtotalPrice",
+        "total_tax": "totalTax",
+        "total_discounts": "totalDiscounts",
+        "financial_status": "financialStatus",
+        "fulfillment_status": "fulfillmentStatus",
+        "line_items": "lineItems",
+        "shipping_address": "shippingAddress",
+        "billing_address": "billingAddress",
+        "customer_id": "customerId",
+        "cancelled_at": "cancelledAt",
+        "closed_at": "closedAt",
+    }
+    _include_none = True
 
     id: str
     order_number: int
@@ -184,35 +194,21 @@ class ShopifyOrder:
     cancelled_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "orderNumber": self.order_number,
-            "name": self.name,
-            "email": self.email,
-            "createdAt": self.created_at.isoformat(),
-            "updatedAt": self.updated_at.isoformat(),
-            "totalPrice": str(self.total_price),
-            "subtotalPrice": str(self.subtotal_price),
-            "totalTax": str(self.total_tax),
-            "totalDiscounts": str(self.total_discounts),
-            "currency": self.currency,
-            "financialStatus": self.financial_status.value,
-            "fulfillmentStatus": self.fulfillment_status.value if self.fulfillment_status else None,
-            "lineItems": [item.to_dict() for item in self.line_items],
-            "shippingAddress": self.shipping_address.to_dict() if self.shipping_address else None,
-            "billingAddress": self.billing_address.to_dict() if self.billing_address else None,
-            "customerId": self.customer_id,
-            "note": self.note,
-            "tags": self.tags,
-            "cancelledAt": self.cancelled_at.isoformat() if self.cancelled_at else None,
-            "closedAt": self.closed_at.isoformat() if self.closed_at else None,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class ShopifyProduct:
+class ShopifyProduct(ConnectorDataclass):
     """Shopify product."""
+
+    _field_mapping = {
+        "product_type": "productType",
+        "created_at": "createdAt",
+        "updated_at": "updatedAt",
+        "published_at": "publishedAt",
+    }
+    _include_none = True
 
     id: str
     title: str
@@ -228,22 +224,8 @@ class ShopifyProduct:
     variants: List["ShopifyVariant"] = field(default_factory=list)
     images: List[str] = field(default_factory=list)  # Image URLs
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "title": self.title,
-            "handle": self.handle,
-            "vendor": self.vendor,
-            "productType": self.product_type,
-            "status": self.status,
-            "createdAt": self.created_at.isoformat(),
-            "updatedAt": self.updated_at.isoformat(),
-            "publishedAt": self.published_at.isoformat() if self.published_at else None,
-            "description": self.description,
-            "tags": self.tags,
-            "variants": [v.to_dict() for v in self.variants],
-            "images": self.images,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
