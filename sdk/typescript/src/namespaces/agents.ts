@@ -26,16 +26,25 @@ import type {
  */
 interface AgentsClientInterface {
   listAgents(): Promise<{ agents: Agent[] }>;
+  listAgentsAvailability(): Promise<{ available: string[]; missing?: string[] }>;
+  listAgentsHealth(): Promise<Record<string, unknown>>;
+  listLocalAgents(): Promise<Record<string, unknown>>;
+  getLocalAgentsStatus(): Promise<Record<string, unknown>>;
   getAgent(name: string): Promise<Agent>;
   getAgentProfile(name: string): Promise<AgentProfile>;
   getAgentHistory(name: string, params?: PaginationParams): Promise<{ matches: unknown[] }>;
   getAgentCalibration(name: string): Promise<AgentCalibration>;
+  getAgentCalibrationCurve(name: string): Promise<Record<string, unknown>>;
+  getAgentCalibrationSummary(name: string): Promise<Record<string, unknown>>;
   getAgentPerformance(name: string): Promise<AgentPerformance>;
   getAgentHeadToHead(name: string, opponent: string): Promise<HeadToHeadStats>;
   getAgentOpponentBriefing(name: string, opponent: string): Promise<OpponentBriefing>;
   getAgentConsistency(name: string): Promise<AgentConsistency>;
   getAgentFlips(name: string, params?: { limit?: number } & PaginationParams): Promise<{ flips: AgentFlip[] }>;
   getAgentNetwork(name: string): Promise<AgentNetwork>;
+  getAgentAllies(name: string): Promise<{ allies: AgentRelationship[] }>;
+  getAgentRivals(name: string): Promise<{ rivals: AgentRelationship[] }>;
+  getAgentReputation(name: string): Promise<{ reputation: number | null }>;
   getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }>;
   getAgentPositions(name: string, params?: { topic?: string; limit?: number } & PaginationParams): Promise<{ positions: AgentPosition[] }>;
   getAgentDomains(name: string): Promise<{ domains: DomainRating[] }>;
@@ -80,6 +89,34 @@ export class AgentsAPI {
   }
 
   /**
+   * Get availability information for configured agents.
+   */
+  async getAvailability(): Promise<{ available: string[]; missing?: string[] }> {
+    return this.client.listAgentsAvailability();
+  }
+
+  /**
+   * Get health status for configured agents.
+   */
+  async getHealth(): Promise<Record<string, unknown>> {
+    return this.client.listAgentsHealth();
+  }
+
+  /**
+   * List local agents on the current host.
+   */
+  async listLocal(): Promise<Record<string, unknown>> {
+    return this.client.listLocalAgents();
+  }
+
+  /**
+   * Get local agent status.
+   */
+  async getLocalStatus(): Promise<Record<string, unknown>> {
+    return this.client.getLocalAgentsStatus();
+  }
+
+  /**
    * Get an agent by name.
    */
   async get(name: string): Promise<Agent> {
@@ -105,6 +142,20 @@ export class AgentsAPI {
    */
   async getCalibration(name: string): Promise<AgentCalibration> {
     return this.client.getAgentCalibration(name);
+  }
+
+  /**
+   * Get an agent's calibration curve data.
+   */
+  async getCalibrationCurve(name: string): Promise<Record<string, unknown>> {
+    return this.client.getAgentCalibrationCurve(name);
+  }
+
+  /**
+   * Get an agent's calibration summary data.
+   */
+  async getCalibrationSummary(name: string): Promise<Record<string, unknown>> {
+    return this.client.getAgentCalibrationSummary(name);
   }
 
   /**
@@ -147,6 +198,27 @@ export class AgentsAPI {
    */
   async getNetwork(name: string): Promise<AgentNetwork> {
     return this.client.getAgentNetwork(name);
+  }
+
+  /**
+   * Get an agent's allies.
+   */
+  async getAllies(name: string): Promise<{ allies: AgentRelationship[] }> {
+    return this.client.getAgentAllies(name);
+  }
+
+  /**
+   * Get an agent's rivals.
+   */
+  async getRivals(name: string): Promise<{ rivals: AgentRelationship[] }> {
+    return this.client.getAgentRivals(name);
+  }
+
+  /**
+   * Get an agent's reputation score.
+   */
+  async getReputation(name: string): Promise<{ reputation: number | null }> {
+    return this.client.getAgentReputation(name);
   }
 
   /**

@@ -287,7 +287,7 @@ export {
 } from './websocket';
 
 // Re-export namespace APIs (for advanced use cases)
-export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI } from './namespaces';
+export { DebatesAPI, AgentsAPI, WorkflowsAPI, SMEAPI, BeliefAPI, BotsAPI, UsageAPI } from './namespaces';
 
 // Default export for convenience
 export { createClient as default } from './client';

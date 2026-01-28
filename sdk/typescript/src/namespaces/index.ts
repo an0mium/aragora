@@ -406,12 +406,7 @@ export {
 // Learning (Meta-Learning Analytics)
 export {
   LearningAPI,
-  type LearningSession,
-  type MetaLearningStats,
-  type LearningPattern,
-  type LearningEfficiency,
-  type ListSessionsOptions as LearningSessionsOptions,
-  type ListPatternsOptions as LearningPatternsOptions,
+  type LearningEvolutionResponse,
 } from './learning';
 
 // Training (SFT/DPO exports, jobs)
@@ -684,18 +679,7 @@ export {
 // Dashboard
 export {
   DashboardAPI,
-  type StatCard,
-  type DashboardOverview,
-  type TeamPerformance,
-  type TopSender,
-  type DashboardStats,
-  type ActivityItem,
-  type LabelInfo,
-  type UrgentEmail,
-  type PendingAction,
-  type InboxSummary,
-  type QuickAction,
-  type QuickActionResult,
+  type DashboardDebateEntry,
 } from './dashboard';
 
 // AP Automation (Accounts Payable)
@@ -1039,3 +1023,49 @@ export { OpenApiAPI } from './openapi';
 
 // Probes
 export { ProbesAPI, type CapabilityProbeRequest, type CapabilityProbeResponse } from './probes';
+
+// Belief Network (Cruxes & Provenance)
+export {
+  BeliefAPI,
+  type BeliefCrux,
+  type BeliefCruxes,
+  type LoadBearingClaim as BeliefLoadBearingClaim,
+  type LoadBearingClaims as BeliefLoadBearingClaims,
+  type BeliefGraphNode,
+  type BeliefGraphLink,
+  type BeliefGraph,
+  type ExportFormat as BeliefExportFormat,
+  type BeliefExport,
+  type ClaimSupport,
+  type ClaimProvenance,
+} from './belief';
+
+// Bots (Platform Integrations)
+export {
+  BotsAPI,
+  type BotStatus,
+  type TeamsStatus,
+  type DiscordStatus,
+  type TelegramStatus,
+  type WhatsAppStatus,
+  type GoogleChatStatus,
+  type ZoomStatus,
+  type SlackStatus,
+  type AllBotStatus,
+} from './bots';
+
+// Usage (SME Dashboard)
+export {
+  UsageAPI,
+  type UsagePeriod as UsageDashboardPeriod,
+  type BenchmarkType,
+  type ExportFormat as UsageDashboardExportFormat,
+  type GroupByDimension,
+  type UsageSummary as UsageDashboardSummary,
+  type UsageBreakdown as UsageDashboardBreakdown,
+  type ROIAnalysis,
+  type BudgetStatus,
+  type UsageForecast as UsageDashboardForecast,
+  type IndustryBenchmarks,
+  type UsageExport,
+} from './usage';

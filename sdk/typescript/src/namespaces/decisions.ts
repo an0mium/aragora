@@ -180,6 +180,14 @@ export class DecisionsAPI {
   }
 
   /**
+   * Get explainability details for a decision request.
+   * @param requestId - The decision request ID
+   */
+  async getExplain(requestId: string): Promise<Record<string, unknown>> {
+    return this.client.get(`/api/v1/decisions/${requestId}/explain`);
+  }
+
+  /**
    * List recent decisions.
    * @param options - Filter options
    */
