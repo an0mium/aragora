@@ -44996,6 +44996,87 @@
             "type": "integer"
           }
         }
+      },
+      "UnifiedCampaign": {
+        "type": "object",
+        "description": "Unified campaign format across all advertising platforms",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Campaign ID (platform-specific)"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "google_ads",
+              "meta_ads",
+              "linkedin_ads",
+              "microsoft_ads"
+            ],
+            "description": "Advertising platform"
+          },
+          "name": {
+            "type": "string",
+            "description": "Campaign name"
+          },
+          "status": {
+            "type": "string",
+            "description": "Campaign status"
+          },
+          "objective": {
+            "type": "string",
+            "description": "Campaign objective/type"
+          },
+          "daily_budget": {
+            "type": "number",
+            "nullable": true,
+            "description": "Daily budget amount"
+          },
+          "total_budget": {
+            "type": "number",
+            "nullable": true,
+            "description": "Total/lifetime budget amount"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Campaign start date (ISO format)"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Campaign end date (ISO format)"
+          },
+          "bidding_strategy": {
+            "type": "string",
+            "nullable": true,
+            "description": "Bidding strategy (Google Ads)"
+          },
+          "spend_cap": {
+            "type": "number",
+            "nullable": true,
+            "description": "Spend cap (Meta Ads)"
+          },
+          "bidding_scheme": {
+            "type": "string",
+            "nullable": true,
+            "description": "Bidding scheme (Microsoft Ads)"
+          },
+          "audience_expansion_enabled": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Audience expansion enabled (LinkedIn Ads)"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "name",
+          "status",
+          "objective"
+        ]
       }
     },
     "securitySchemes": {
