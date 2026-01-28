@@ -25,9 +25,18 @@ from aragora.tenancy.context import (
     set_tenant,
 )
 from aragora.tenancy.isolation import (
+    TenantDataFilter,
     TenantDataIsolation,
     TenantIsolationConfig,
+    TenantIsolationEnforcer,
     TenantIsolationError,
+)
+from aragora.tenancy.limits import (
+    TenantLimitExceededError,
+    TenantLimitsEnforcer,
+)
+from aragora.tenancy.provisioning import (
+    TenantProvisioner,
 )
 from aragora.tenancy.quotas import (
     QuotaConfig,
@@ -53,9 +62,16 @@ __all__ = [
     "set_audit_backend",
     "set_tenant",
     # Isolation
+    "TenantDataFilter",
     "TenantDataIsolation",
     "TenantIsolationConfig",
+    "TenantIsolationEnforcer",
     "TenantIsolationError",
+    # Limits
+    "TenantLimitExceededError",
+    "TenantLimitsEnforcer",
+    # Provisioning
+    "TenantProvisioner",
     # Quotas
     "QuotaConfig",
     "QuotaExceeded",
