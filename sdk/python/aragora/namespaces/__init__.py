@@ -11,7 +11,9 @@ from .audit import AsyncAuditAPI, AuditAPI
 from .auth import AsyncAuthAPI, AuthAPI
 from .backups import AsyncBackupsAPI, BackupsAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
+from .billing import AsyncBillingAPI, BillingAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
+from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
@@ -24,6 +26,7 @@ from .monitoring import AsyncMonitoringAPI, MonitoringAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
+from .policies import AsyncPoliciesAPI, PoliciesAPI
 from .pulse import AsyncPulseAPI, PulseAPI
 from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
@@ -52,8 +55,12 @@ __all__ = [
     "AsyncBackupsAPI",
     "BeliefAPI",
     "AsyncBeliefAPI",
+    "BillingAPI",
+    "AsyncBillingAPI",
     "ConsensusAPI",
     "AsyncConsensusAPI",
+    "ControlPlaneAPI",
+    "AsyncControlPlaneAPI",
     "DebatesAPI",
     "AsyncDebatesAPI",
     "ExplainabilityAPI",
@@ -78,6 +85,8 @@ __all__ = [
     "AsyncOnboardingAPI",
     "OrganizationsAPI",
     "AsyncOrganizationsAPI",
+    "PoliciesAPI",
+    "AsyncPoliciesAPI",
     "PulseAPI",
     "AsyncPulseAPI",
     "RankingAPI",

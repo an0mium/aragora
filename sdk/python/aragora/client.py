@@ -86,7 +86,9 @@ class AragoraClient:
         from .namespaces.audit import AuditAPI
         from .namespaces.auth import AuthAPI
         from .namespaces.belief import BeliefAPI
+        from .namespaces.billing import BillingAPI
         from .namespaces.consensus import ConsensusAPI
+        from .namespaces.control_plane import ControlPlaneAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.gauntlet import GauntletAPI
@@ -97,6 +99,7 @@ class AragoraClient:
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.organizations import OrganizationsAPI
+        from .namespaces.policies import PoliciesAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
@@ -114,7 +117,9 @@ class AragoraClient:
         self.audit = AuditAPI(self)
         self.auth = AuthAPI(self)
         self.belief = BeliefAPI(self)
+        self.billing = BillingAPI(self)
         self.consensus = ConsensusAPI(self)
+        self.control_plane = ControlPlaneAPI(self)
         self.debates = DebatesAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.gauntlet = GauntletAPI(self)
@@ -125,6 +130,7 @@ class AragoraClient:
         self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
+        self.policies = PoliciesAPI(self)
         self.pulse = PulseAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
@@ -306,7 +312,9 @@ class AragoraAsyncClient:
         from .namespaces.audit import AsyncAuditAPI
         from .namespaces.auth import AsyncAuthAPI
         from .namespaces.belief import AsyncBeliefAPI
+        from .namespaces.billing import AsyncBillingAPI
         from .namespaces.consensus import AsyncConsensusAPI
+        from .namespaces.control_plane import AsyncControlPlaneAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
@@ -317,6 +325,7 @@ class AragoraAsyncClient:
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
+        from .namespaces.policies import AsyncPoliciesAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
@@ -334,7 +343,9 @@ class AragoraAsyncClient:
         self.audit = AsyncAuditAPI(self)
         self.auth = AsyncAuthAPI(self)
         self.belief = AsyncBeliefAPI(self)
+        self.billing = AsyncBillingAPI(self)
         self.consensus = AsyncConsensusAPI(self)
+        self.control_plane = AsyncControlPlaneAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
@@ -345,6 +356,7 @@ class AragoraAsyncClient:
         self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)
+        self.policies = AsyncPoliciesAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
