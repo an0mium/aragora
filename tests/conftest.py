@@ -73,10 +73,10 @@ HAS_PYJWT = _check_import("jwt")
 REQUIRES_PYJWT = "PyJWT not installed (pip install PyJWT)"
 requires_pyjwt = not HAS_PYJWT
 
-# Scikit-learn for ML features
-HAS_SKLEARN = _check_import("sklearn")
+# Scikit-learn for ML features - now always available
+HAS_SKLEARN = True
 REQUIRES_SKLEARN = "scikit-learn not installed (pip install scikit-learn)"
-requires_sklearn = not HAS_SKLEARN
+requires_sklearn = False  # sklearn is always installed
 
 # SentenceTransformers for embeddings
 HAS_SENTENCE_TRANSFORMERS = _check_import("sentence_transformers")
