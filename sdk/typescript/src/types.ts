@@ -381,7 +381,48 @@ export type WebSocketEventType =
   | 'user_vote'
   | 'error'
   | 'warning'
-  | 'heartbeat';
+  | 'heartbeat'
+  // Token streaming events
+  | 'token_start'
+  | 'token_delta'
+  | 'token_end'
+  // Preview events (quick response during initialization)
+  | 'quick_classification'
+  | 'agent_preview'
+  | 'context_preview'
+  // Audience analytics events
+  | 'audience_summary'
+  | 'audience_metrics'
+  | 'audience_drain'
+  // Leaderboard/ELO events
+  | 'leaderboard_update'
+  | 'agent_elo_updated'
+  | 'agent_calibration_changed'
+  | 'agent_fallback_triggered'
+  | 'grounded_verdict'
+  | 'moment_detected'
+  // Nomic loop events
+  | 'cycle_start'
+  | 'cycle_end'
+  | 'phase_start'
+  | 'phase_end'
+  | 'task_start'
+  | 'task_complete'
+  | 'task_retry'
+  | 'loop_register'
+  | 'loop_unregister'
+  | 'loop_list'
+  // Memory events
+  | 'memory_recall'
+  | 'insight_extracted'
+  | 'memory_stored'
+  | 'memory_retrieved'
+  // Belief network events
+  | 'belief_converged'
+  | 'crux_detected'
+  // Progress events
+  | 'phase_progress'
+  | 'agent_error';
 
 export interface WebSocketEvent<T = unknown> {
   type: WebSocketEventType;
