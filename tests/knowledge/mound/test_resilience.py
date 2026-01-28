@@ -488,6 +488,186 @@ class TestTransactionManager:
         assert "default_isolation" in stats
         assert "default_timeout" in stats
 
+    @pytest.mark.asyncio
+    async def test_transaction_commits_on_success(self):
+        """Should execute BEGIN and COMMIT on successful transaction."""
+        from aragora.knowledge.mound.resilience import TransactionManager
+
+        # Create mock connection that tracks executed statements
+        executed_statements = []
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock(side_effect=lambda s: executed_statements.append(s))
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        async with manager.transaction() as conn:
+            await conn.execute("INSERT INTO test VALUES (1)")
+
+        # Verify transaction flow
+        assert any("ISOLATION LEVEL" in s for s in executed_statements)
+        assert "BEGIN" in executed_statements
+        assert "INSERT INTO test VALUES (1)" in executed_statements
+        assert "COMMIT" in executed_statements
+        assert "ROLLBACK" not in executed_statements
+
+    @pytest.mark.asyncio
+    async def test_transaction_rollsback_on_exception(self):
+        """Should execute ROLLBACK when exception occurs."""
+        from aragora.knowledge.mound.resilience import TransactionManager
+
+        executed_statements = []
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock(side_effect=lambda s: executed_statements.append(s))
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        with pytest.raises(ValueError, match="test error"):
+            async with manager.transaction() as conn:
+                await conn.execute("INSERT INTO test VALUES (1)")
+                raise ValueError("test error")
+
+        # Verify rollback was called
+        assert "BEGIN" in executed_statements
+        assert "INSERT INTO test VALUES (1)" in executed_statements
+        assert "ROLLBACK" in executed_statements
+        assert "COMMIT" not in executed_statements
+
+    @pytest.mark.asyncio
+    async def test_savepoint_rollback(self):
+        """Should rollback to savepoint on nested exception."""
+        from aragora.knowledge.mound.resilience import TransactionManager
+
+        executed_statements = []
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock(side_effect=lambda s: executed_statements.append(s))
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        with pytest.raises(ValueError, match="savepoint error"):
+            async with manager.transaction() as conn:
+                await conn.execute("INSERT INTO test VALUES (1)")
+                async with manager.savepoint(conn, "sp1"):
+                    await conn.execute("INSERT INTO nested VALUES (2)")
+                    raise ValueError("savepoint error")
+
+        # Verify savepoint handling
+        assert "SAVEPOINT sp1" in executed_statements
+        assert "ROLLBACK TO SAVEPOINT sp1" in executed_statements
+        # The outer transaction should also rollback since exception propagates
+        assert "ROLLBACK" in executed_statements
+
+    @pytest.mark.asyncio
+    async def test_savepoint_commits_on_success(self):
+        """Should not rollback savepoint on success."""
+        from aragora.knowledge.mound.resilience import TransactionManager
+
+        executed_statements = []
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock(side_effect=lambda s: executed_statements.append(s))
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        async with manager.transaction() as conn:
+            await conn.execute("INSERT INTO test VALUES (1)")
+            async with manager.savepoint(conn, "sp1"):
+                await conn.execute("INSERT INTO nested VALUES (2)")
+            await conn.execute("INSERT INTO test VALUES (3)")
+
+        # Verify savepoint created but not rolled back
+        assert "SAVEPOINT sp1" in executed_statements
+        assert "ROLLBACK TO SAVEPOINT sp1" not in executed_statements
+        assert "COMMIT" in executed_statements
+
+    @pytest.mark.asyncio
+    async def test_transaction_tracks_active_count(self):
+        """Should track active transaction count correctly."""
+        from aragora.knowledge.mound.resilience import TransactionManager
+
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock()
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        assert manager.get_stats()["active_transactions"] == 0
+
+        async with manager.transaction():
+            assert manager.get_stats()["active_transactions"] == 1
+
+        assert manager.get_stats()["active_transactions"] == 0
+
+    @pytest.mark.asyncio
+    async def test_transaction_decrements_count_on_exception(self):
+        """Should decrement active count even when exception occurs."""
+        from aragora.knowledge.mound.resilience import TransactionManager
+
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock()
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        with pytest.raises(RuntimeError):
+            async with manager.transaction():
+                assert manager.get_stats()["active_transactions"] == 1
+                raise RuntimeError("test")
+
+        # Count should be decremented even after exception
+        assert manager.get_stats()["active_transactions"] == 0
+
+    @pytest.mark.asyncio
+    async def test_transaction_with_custom_isolation(self):
+        """Should set custom isolation level."""
+        from aragora.knowledge.mound.resilience import (
+            TransactionIsolation,
+            TransactionManager,
+        )
+
+        executed_statements = []
+        mock_conn = AsyncMock()
+        mock_conn.execute = AsyncMock(side_effect=lambda s: executed_statements.append(s))
+
+        mock_pool = MagicMock()
+        mock_pool.acquire = MagicMock()
+        mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager = TransactionManager(mock_pool)
+
+        async with manager.transaction(isolation=TransactionIsolation.SERIALIZABLE):
+            pass
+
+        # Verify isolation level was set
+        assert any("SERIALIZABLE" in s for s in executed_statements)
+
 
 class TestIntegrityVerifier:
     """Tests for IntegrityVerifier (mock-based)."""

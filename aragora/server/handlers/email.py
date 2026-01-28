@@ -59,8 +59,14 @@ def _check_email_permission(
     Returns:
         None if allowed, error dict with success=False if denied
     """
+    # Fail closed for write-sensitive operations if RBAC is unavailable.
     if not RBAC_AVAILABLE or auth_context is None:
-        return None  # Graceful degradation
+        if permission_key in {"email:write", "email:oauth"}:
+            return {
+                "success": False,
+                "error": "Permission denied: RBAC unavailable",
+            }
+        return None  # Read-only paths degrade gracefully
 
     try:
         decision = check_permission(auth_context, permission_key)
@@ -1444,7 +1450,12 @@ class EmailHandler(BaseHandler):
         force_tier = data.get("force_tier")
         user_id = self._get_user_id()
 
-        result = await handle_prioritize_email(email_data, user_id, force_tier)
+        result = await handle_prioritize_email(
+            email_data,
+            user_id,
+            force_tier=force_tier,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1457,7 +1468,12 @@ class EmailHandler(BaseHandler):
         limit = data.get("limit")
         user_id = self._get_user_id()
 
-        result = await handle_rank_inbox(emails, user_id, limit)
+        result = await handle_rank_inbox(
+            emails,
+            user_id,
+            limit=limit,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1474,7 +1490,13 @@ class EmailHandler(BaseHandler):
         if not email_id or not action:
             return error_response("email_id and action required", 400)
 
-        result = await handle_email_feedback(email_id, action, user_id, email_data)
+        result = await handle_email_feedback(
+            email_id,
+            action,
+            user_id,
+            email_data=email_data,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1489,7 +1511,11 @@ class EmailHandler(BaseHandler):
         if not items:
             return error_response("items array required", 400)
 
-        result = await handle_feedback_batch(items, user_id)
+        result = await handle_feedback_batch(
+            items,
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1501,7 +1527,11 @@ class EmailHandler(BaseHandler):
         email_data = data.get("email", {})
         user_id = self._get_user_id()
 
-        result = await handle_categorize_email(email_data, user_id)
+        result = await handle_categorize_email(
+            email_data,
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1517,7 +1547,12 @@ class EmailHandler(BaseHandler):
         if not emails:
             return error_response("emails array required", 400)
 
-        result = await handle_categorize_batch(emails, user_id, concurrency)
+        result = await handle_categorize_batch(
+            emails,
+            user_id,
+            concurrency,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1533,7 +1568,12 @@ class EmailHandler(BaseHandler):
         if not email_id or not category:
             return error_response("email_id and category required", 400)
 
-        result = await handle_apply_category_label(email_id, category, user_id)
+        result = await handle_apply_category_label(
+            email_id,
+            category,
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1552,6 +1592,7 @@ class EmailHandler(BaseHandler):
             labels=labels,
             limit=limit,
             include_read=include_read,
+            auth_context=self._get_auth_context(),
         )
 
         if result.get("success"):
@@ -1564,13 +1605,20 @@ class EmailHandler(BaseHandler):
     async def handle_get_config(self, params: Dict[str, Any]) -> HandlerResult:
         """GET /api/email/config"""
         user_id = self._get_user_id()
-        result = await handle_get_config(user_id)
+        result = await handle_get_config(
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
         return success_response(result)
 
     async def handle_put_config(self, data: Dict[str, Any]) -> HandlerResult:
         """PUT /api/email/config"""
         user_id = self._get_user_id()
-        result = await handle_update_config(user_id, data)
+        result = await handle_update_config(
+            user_id,
+            data,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1583,7 +1631,12 @@ class EmailHandler(BaseHandler):
         email = data.get("email")
         domain = data.get("domain")
 
-        result = await handle_add_vip(user_id, email, domain)
+        result = await handle_add_vip(
+            user_id,
+            email,
+            domain,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1596,7 +1649,12 @@ class EmailHandler(BaseHandler):
         email = data.get("email")
         domain = data.get("domain")
 
-        result = await handle_remove_vip(user_id, email, domain)
+        result = await handle_remove_vip(
+            user_id,
+            email,
+            domain,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1612,7 +1670,12 @@ class EmailHandler(BaseHandler):
         if not redirect_uri:
             return error_response("redirect_uri required", 400)
 
-        result = await handle_gmail_oauth_url(redirect_uri, state, scopes)
+        result = await handle_gmail_oauth_url(
+            redirect_uri,
+            state,
+            scopes,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1628,7 +1691,12 @@ class EmailHandler(BaseHandler):
         if not code or not redirect_uri:
             return error_response("code and redirect_uri required", 400)
 
-        result = await handle_gmail_oauth_callback(code, redirect_uri, user_id)
+        result = await handle_gmail_oauth_callback(
+            code,
+            redirect_uri,
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1638,13 +1706,20 @@ class EmailHandler(BaseHandler):
     async def handle_get_gmail_status(self, params: Dict[str, Any]) -> HandlerResult:
         """GET /api/email/gmail/status"""
         user_id = self._get_user_id()
-        result = await handle_gmail_status(user_id)
+        result = await handle_gmail_status(
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
         return success_response(result)
 
     async def handle_get_context(self, params: Dict[str, Any], email_address: str) -> HandlerResult:
         """GET /api/email/context/:email_address"""
         user_id = self._get_user_id()
-        result = await handle_get_context(email_address, user_id)
+        result = await handle_get_context(
+            email_address,
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1656,7 +1731,11 @@ class EmailHandler(BaseHandler):
         email_data = data.get("email", {})
         user_id = self._get_user_id()
 
-        result = await handle_get_email_context_boost(email_data, user_id)
+        result = await handle_get_email_context_boost(
+            email_data,
+            user_id,
+            auth_context=self._get_auth_context(),
+        )
 
         if result.get("success"):
             return success_response(result)
@@ -1670,3 +1749,7 @@ class EmailHandler(BaseHandler):
         if auth_ctx and hasattr(auth_ctx, "user_id"):
             return auth_ctx.user_id
         return "default"
+
+    def _get_auth_context(self) -> Optional[Any]:
+        """Get auth context from handler ctx."""
+        return self.ctx.get("auth_context")

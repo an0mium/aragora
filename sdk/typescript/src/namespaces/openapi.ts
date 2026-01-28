@@ -50,6 +50,178 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/a2a/tasks/${encodeURIComponent(task_id)}/stream`, { body, params });
   }
 
+  async requestDeleteApiV1AccountingExpenses(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses', { params });
+  }
+
+  async requestGetApiV1AccountingExpenses(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses', { params });
+  }
+
+  async requestPostApiV1AccountingExpenses(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpenses(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses', { body, params });
+  }
+
+  async requestDeleteApiV1AccountingExpensesCategorize(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses/categorize', { params });
+  }
+
+  async requestGetApiV1AccountingExpensesCategorize(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses/categorize', { params });
+  }
+
+  async requestPostApiV1AccountingExpensesCategorize(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses/categorize', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpensesCategorize(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses/categorize', { body, params });
+  }
+
+  async requestDeleteApiV1AccountingExpensesExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses/export', { params });
+  }
+
+  async requestGetApiV1AccountingExpensesExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses/export', { params });
+  }
+
+  async requestPostApiV1AccountingExpensesExport(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses/export', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpensesExport(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses/export', { body, params });
+  }
+
+  async requestDeleteApiV1AccountingExpensesPending(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses/pending', { params });
+  }
+
+  async requestGetApiV1AccountingExpensesPending(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses/pending', { params });
+  }
+
+  async requestPostApiV1AccountingExpensesPending(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses/pending', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpensesPending(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses/pending', { body, params });
+  }
+
+  async requestDeleteApiV1AccountingExpensesStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses/stats', { params });
+  }
+
+  async requestGetApiV1AccountingExpensesStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses/stats', { params });
+  }
+
+  async requestPostApiV1AccountingExpensesStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses/stats', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpensesStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses/stats', { body, params });
+  }
+
+  async requestDeleteApiV1AccountingExpensesSync(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses/sync', { params });
+  }
+
+  async requestGetApiV1AccountingExpensesSync(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses/sync', { params });
+  }
+
+  async requestPostApiV1AccountingExpensesSync(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses/sync', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpensesSync(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses/sync', { body, params });
+  }
+
+  async requestDeleteApiV1AccountingExpensesUpload(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/accounting/expenses/upload', { params });
+  }
+
+  async requestGetApiV1AccountingExpensesUpload(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/expenses/upload', { params });
+  }
+
+  async requestPostApiV1AccountingExpensesUpload(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/expenses/upload', { body, params });
+  }
+
+  async requestPutApiV1AccountingExpensesUpload(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/accounting/expenses/upload', { body, params });
+  }
+
+  async requestGetApiV1AccountingInvoices(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/invoices', { params });
+  }
+
+  async requestPostApiV1AccountingInvoices(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/invoices', { body, params });
+  }
+
+  async requestGetApiV1AccountingInvoicesOverdue(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/invoices/overdue', { params });
+  }
+
+  async requestPostApiV1AccountingInvoicesOverdue(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/invoices/overdue', { body, params });
+  }
+
+  async requestGetApiV1AccountingInvoicesPending(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/invoices/pending', { params });
+  }
+
+  async requestPostApiV1AccountingInvoicesPending(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/invoices/pending', { body, params });
+  }
+
+  async requestGetApiV1AccountingInvoicesStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/invoices/stats', { params });
+  }
+
+  async requestPostApiV1AccountingInvoicesStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/invoices/stats', { body, params });
+  }
+
+  async requestGetApiV1AccountingInvoicesUpload(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/invoices/upload', { params });
+  }
+
+  async requestPostApiV1AccountingInvoicesUpload(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/invoices/upload', { body, params });
+  }
+
+  async requestGetApiV1AccountingPaymentsScheduled(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/payments/scheduled', { params });
+  }
+
+  async requestPostApiV1AccountingPaymentsScheduled(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/payments/scheduled', { body, params });
+  }
+
+  async requestGetApiV1AccountingPurchaseOrders(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/accounting/purchase-orders', { params });
+  }
+
+  async requestPostApiV1AccountingPurchaseOrders(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/accounting/purchase-orders', { body, params });
+  }
+
+  async requestGetApiV1AdminImpersonate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/admin/impersonate', { params });
+  }
+
   async requestPostApiV1AdminImpersonateByUserId(user_id: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', `/api/v1/admin/impersonate/${encodeURIComponent(user_id)}`, { body, params });
   }
@@ -238,12 +410,48 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/agent/${encodeURIComponent(name)}/rivals`, { params });
   }
 
+  async requestGetApiV1AgentByParamHeadToHead(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agent/${encodeURIComponent(param)}/head-to-head`, { params });
+  }
+
+  async requestGetApiV1AgentByParamIntrospect(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agent/${encodeURIComponent(param)}/introspect`, { params });
+  }
+
+  async requestGetApiV1AgentByParamMetadata(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agent/${encodeURIComponent(param)}/metadata`, { params });
+  }
+
+  async requestGetApiV1AgentByParamOpponentBriefing(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agent/${encodeURIComponent(param)}/opponent-briefing`, { params });
+  }
+
+  async requestGetApiV1AgentByParamPositions(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agent/${encodeURIComponent(param)}/positions`, { params });
+  }
+
   async requestGetApiV1Agents(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/agents', { params });
   }
 
   async requestGetApiV1AgentsAvailability(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/agents/availability', { params });
+  }
+
+  async requestGetApiV1AgentsConfigs(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/agents/configs', { params });
+  }
+
+  async requestGetApiV1AgentsConfigsReload(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/agents/configs/reload', { params });
+  }
+
+  async requestGetApiV1AgentsConfigsSearch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/agents/configs/search', { params });
+  }
+
+  async requestGetApiV1AgentsConfigsByParamCreate(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agents/configs/${encodeURIComponent(param)}/create`, { params });
   }
 
   async requestGetApiV1AgentsHealth(params?: Record<string, unknown>): Promise<unknown> {
@@ -258,6 +466,130 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/agents/local/status', { params });
   }
 
+  async requestGetApiV1AgentsByParamReliability(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/agents/${encodeURIComponent(param)}/reliability`, { params });
+  }
+
+  async requestGetApiV1AnalyticsAgents(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/agents', { params });
+  }
+
+  async requestGetApiV1AnalyticsAgentsComparison(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/agents/comparison', { params });
+  }
+
+  async requestGetApiV1AnalyticsAgentsLeaderboard(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/agents/leaderboard', { params });
+  }
+
+  async requestGetApiV1AnalyticsAgentsTrends(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/agents/trends', { params });
+  }
+
+  async requestGetApiV1AnalyticsCalibration(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/calibration', { params });
+  }
+
+  async requestGetApiV1AnalyticsCompliance(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/compliance', { params });
+  }
+
+  async requestGetApiV1AnalyticsConnect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/connect', { params });
+  }
+
+  async requestGetApiV1AnalyticsConsensusQuality(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/consensus-quality', { params });
+  }
+
+  async requestGetApiV1AnalyticsCost(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cost', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformAlerts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/alerts', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformAlertsByAlertIdAcknowledge(alert_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/cross-platform/alerts/${encodeURIComponent(alert_id)}/acknowledge`, { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformAnomalies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/anomalies', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformComparison(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/comparison', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformCorrelation(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/correlation', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformDemo(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/demo', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/export', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/metrics', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformQuery(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/query', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/summary', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPlatformTrends(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-platform/trends', { params });
+  }
+
+  async requestGetApiV1AnalyticsCrossPollination(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/cross-pollination', { params });
+  }
+
+  async requestGetApiV1AnalyticsDashboards(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/dashboards', { params });
+  }
+
+  async requestGetApiV1AnalyticsDebatesOutcomes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/debates/outcomes', { params });
+  }
+
+  async requestGetApiV1AnalyticsDebatesOverview(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/debates/overview', { params });
+  }
+
+  async requestGetApiV1AnalyticsDebatesTopics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/debates/topics', { params });
+  }
+
+  async requestGetApiV1AnalyticsDebatesTrends(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/debates/trends', { params });
+  }
+
+  async requestGetApiV1AnalyticsDeliberations(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/deliberations', { params });
+  }
+
+  async requestGetApiV1AnalyticsDeliberationsChannels(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/deliberations/channels', { params });
+  }
+
+  async requestGetApiV1AnalyticsDeliberationsConsensus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/deliberations/consensus', { params });
+  }
+
+  async requestGetApiV1AnalyticsDeliberationsPerformance(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/deliberations/performance', { params });
+  }
+
   async requestGetApiV1AnalyticsDisagreements(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/analytics/disagreements', { params });
   }
@@ -266,16 +598,232 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/analytics/early-stops', { params });
   }
 
+  async requestGetApiV1AnalyticsEndpoints(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/endpoints', { params });
+  }
+
+  async requestGetApiV1AnalyticsEndpointsErrors(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/endpoints/errors', { params });
+  }
+
+  async requestGetApiV1AnalyticsEndpointsHealth(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/endpoints/health', { params });
+  }
+
+  async requestGetApiV1AnalyticsEndpointsSlowest(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/endpoints/slowest', { params });
+  }
+
+  async requestGetApiV1AnalyticsFlipsConsistency(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/flips/consistency', { params });
+  }
+
+  async requestGetApiV1AnalyticsFlipsRecent(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/flips/recent', { params });
+  }
+
+  async requestGetApiV1AnalyticsFlipsSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/flips/summary', { params });
+  }
+
+  async requestGetApiV1AnalyticsFlipsTrends(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/flips/trends', { params });
+  }
+
+  async requestGetApiV1AnalyticsHeatmap(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/heatmap', { params });
+  }
+
+  async requestGetApiV1AnalyticsLearningEfficiency(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/learning-efficiency', { params });
+  }
+
+  async requestGetApiV1AnalyticsMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/metrics', { params });
+  }
+
+  async requestGetApiV1AnalyticsPlatforms(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/platforms', { params });
+  }
+
+  async requestGetApiV1AnalyticsQuery(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/query', { params });
+  }
+
+  async requestGetApiV1AnalyticsRealtime(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/realtime', { params });
+  }
+
+  async requestGetApiV1AnalyticsRemediation(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/remediation', { params });
+  }
+
+  async requestGetApiV1AnalyticsReports(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/reports', { params });
+  }
+
+  async requestGetApiV1AnalyticsReportsGenerate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/reports/generate', { params });
+  }
+
   async requestGetApiV1AnalyticsRoleRotation(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/analytics/role-rotation', { params });
+  }
+
+  async requestGetApiV1AnalyticsSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/summary', { params });
+  }
+
+  async requestGetApiV1AnalyticsTokens(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/tokens', { params });
+  }
+
+  async requestGetApiV1AnalyticsTokensProviders(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/tokens/providers', { params });
+  }
+
+  async requestGetApiV1AnalyticsTokensTrends(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/tokens/trends', { params });
+  }
+
+  async requestGetApiV1AnalyticsTrendsFindings(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/trends/findings', { params });
+  }
+
+  async requestGetApiV1AnalyticsUsageActiveUsers(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/usage/active_users', { params });
+  }
+
+  async requestGetApiV1AnalyticsUsageCosts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/usage/costs', { params });
+  }
+
+  async requestGetApiV1AnalyticsUsageTokens(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/usage/tokens', { params });
+  }
+
+  async requestGetApiV1AnalyticsVotingAccuracy(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/analytics/voting-accuracy', { params });
+  }
+
+  async requestGetApiV1AnalyticsByPlatform(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/${encodeURIComponent(platform)}`, { params });
+  }
+
+  async requestGetApiV1AnalyticsByPlatformDashboards(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/${encodeURIComponent(platform)}/dashboards`, { params });
+  }
+
+  async requestGetApiV1AnalyticsByPlatformDashboardsByDashboardId(platform: string, dashboard_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/${encodeURIComponent(platform)}/dashboards/${encodeURIComponent(dashboard_id)}`, { params });
+  }
+
+  async requestGetApiV1AnalyticsByPlatformEvents(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/${encodeURIComponent(platform)}/events`, { params });
+  }
+
+  async requestGetApiV1AnalyticsByPlatformFunnels(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/${encodeURIComponent(platform)}/funnels`, { params });
+  }
+
+  async requestGetApiV1AnalyticsByPlatformRetention(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/analytics/${encodeURIComponent(platform)}/retention`, { params });
+  }
+
+  async requestDeleteApiV1AuditActor(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/audit/actor', { params });
+  }
+
+  async requestPostApiV1AuditActor(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/audit/actor', { body, params });
+  }
+
+  async requestPutApiV1AuditActor(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/audit/actor', { body, params });
+  }
+
+  async requestDeleteApiV1AuditDenied(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/audit/denied', { params });
+  }
+
+  async requestPostApiV1AuditDenied(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/audit/denied', { body, params });
+  }
+
+  async requestPutApiV1AuditDenied(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/audit/denied', { body, params });
   }
 
   async requestGetApiV1AuditEntries(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/audit/entries', { params });
   }
 
+  async requestGetApiV1AuditFindingsBulkAction(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/findings/bulk-action', { params });
+  }
+
+  async requestGetApiV1AuditFindingsMyAssignments(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/findings/my-assignments', { params });
+  }
+
+  async requestGetApiV1AuditFindingsOverdue(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/findings/overdue', { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdAssign(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/assign`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdComments(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/comments`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdDueDate(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/due-date`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdDuplicate(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/duplicate`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdHistory(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/history`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdLink(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/link`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdPriority(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/priority`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdStatus(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/status`, { params });
+  }
+
+  async requestGetApiV1AuditFindingsByFindingIdUnassign(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/audit/findings/${encodeURIComponent(finding_id)}/unassign`, { params });
+  }
+
+  async requestGetApiV1AuditPresets(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/presets', { params });
+  }
+
   async requestGetApiV1AuditReport(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/audit/report', { params });
+  }
+
+  async requestDeleteApiV1AuditResource(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/audit/resource', { params });
+  }
+
+  async requestPostApiV1AuditResource(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/audit/resource', { body, params });
+  }
+
+  async requestPutApiV1AuditResource(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/audit/resource', { body, params });
   }
 
   async requestGetApiV1AuditSessions(params?: Record<string, unknown>): Promise<unknown> {
@@ -326,8 +874,16 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/audit/sessions/${encodeURIComponent(session_id)}/start`, { body, params });
   }
 
+  async requestGetApiV1AuditTypes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/types', { params });
+  }
+
   async requestGetApiV1AuditVerify(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/audit/verify', { params });
+  }
+
+  async requestGetApiV1AuditWorkflowStates(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/audit/workflow/states', { params });
   }
 
   async requestGetApiV1AuthApiKey(params?: Record<string, unknown>): Promise<unknown> {
@@ -382,6 +938,14 @@ export class OpenApiAPI {
     return this.client.request('POST', '/api/v1/auth/mfa/verify', { body, params });
   }
 
+  async requestGetApiV1AuthOauthApple(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/auth/oauth/apple', { params });
+  }
+
+  async requestGetApiV1AuthOauthAppleCallback(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/auth/oauth/apple/callback', { params });
+  }
+
   async requestGetApiV1AuthOauthGithub(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/auth/oauth/github', { params });
   }
@@ -400,6 +964,22 @@ export class OpenApiAPI {
 
   async requestPostApiV1AuthOauthLink(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/auth/oauth/link', { body, params });
+  }
+
+  async requestGetApiV1AuthOauthMicrosoft(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/auth/oauth/microsoft', { params });
+  }
+
+  async requestGetApiV1AuthOauthMicrosoftCallback(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/auth/oauth/microsoft/callback', { params });
+  }
+
+  async requestGetApiV1AuthOauthOidc(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/auth/oauth/oidc', { params });
+  }
+
+  async requestGetApiV1AuthOauthOidcCallback(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/auth/oauth/oidc/callback', { params });
   }
 
   async requestGetApiV1AuthOauthProviders(params?: Record<string, unknown>): Promise<unknown> {
@@ -434,12 +1014,116 @@ export class OpenApiAPI {
     return this.client.request('DELETE', `/api/v1/auth/sessions/${encodeURIComponent(session_id)}`, { params });
   }
 
+  async requestPostApiV1AuthStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/auth/stats', { body, params });
+  }
+
   async requestGetApiV1BeliefNetworkByDebateIdCruxes(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/belief-network/${encodeURIComponent(debate_id)}/cruxes`, { params });
   }
 
   async requestGetApiV1BeliefNetworkByDebateIdLoadBearingClaims(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/belief-network/${encodeURIComponent(debate_id)}/load-bearing-claims`, { params });
+  }
+
+  async requestGetApiV1BeliefNetworkByParamExport(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/belief-network/${encodeURIComponent(param)}/export`, { params });
+  }
+
+  async requestGetApiV1BeliefNetworkByParamGraph(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/belief-network/${encodeURIComponent(param)}/graph`, { params });
+  }
+
+  async requestGetApiV1BillingAuditLog(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/audit-log', { params });
+  }
+
+  async requestGetApiV1BillingCancel(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/cancel', { params });
+  }
+
+  async requestGetApiV1BillingCheckout(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/checkout', { params });
+  }
+
+  async requestGetApiV1BillingInvoices(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/invoices', { params });
+  }
+
+  async requestGetApiV1BillingLimits(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/limits', { params });
+  }
+
+  async requestGetApiV1BillingPlans(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/plans', { params });
+  }
+
+  async requestGetApiV1BillingPortal(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/portal', { params });
+  }
+
+  async requestGetApiV1BillingResume(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/resume', { params });
+  }
+
+  async requestGetApiV1BillingSubscription(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/subscription', { params });
+  }
+
+  async requestGetApiV1BillingUsage(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/usage', { params });
+  }
+
+  async requestGetApiV1BillingUsageBreakdown(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/usage/breakdown', { params });
+  }
+
+  async requestGetApiV1BillingUsageExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/usage/export', { params });
+  }
+
+  async requestGetApiV1BillingUsageForecast(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/usage/forecast', { params });
+  }
+
+  async requestGetApiV1BillingUsageSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/billing/usage/summary', { params });
+  }
+
+  async requestDeleteApiV1Bindings(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/bindings', { params });
+  }
+
+  async requestGetApiV1Bindings(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/bindings', { params });
+  }
+
+  async requestPostApiV1Bindings(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/bindings', { body, params });
+  }
+
+  async requestDeleteApiV1BindingsResolve(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/bindings/resolve', { params });
+  }
+
+  async requestGetApiV1BindingsResolve(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/bindings/resolve', { params });
+  }
+
+  async requestPostApiV1BindingsResolve(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/bindings/resolve', { body, params });
+  }
+
+  async requestDeleteApiV1BindingsStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/bindings/stats', { params });
+  }
+
+  async requestGetApiV1BindingsStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/bindings/stats', { params });
+  }
+
+  async requestPostApiV1BindingsStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/bindings/stats', { body, params });
   }
 
   async requestPostApiV1BotsDiscordInteractions(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -498,6 +1182,10 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/bots/zoom/status', { params });
   }
 
+  async requestPostApiV1BreakpointsPending(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/breakpoints/pending', { body, params });
+  }
+
   async requestGetApiV1Budgets(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/budgets', { params });
   }
@@ -550,8 +1238,16 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/calibration/leaderboard', { params });
   }
 
+  async requestGetApiV1CalibrationVisualization(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/calibration/visualization', { params });
+  }
+
   async requestGetApiV1ChatKnowledgeChannelByChannelIdSummary(channel_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/chat/knowledge/channel/${encodeURIComponent(channel_id)}/summary`, { params });
+  }
+
+  async requestPostApiV1ChatKnowledgeChannelByParam(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/chat/knowledge/channel/${encodeURIComponent(param)}`, { body, params });
   }
 
   async requestPostApiV1ChatKnowledgeInject(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -566,6 +1262,18 @@ export class OpenApiAPI {
     return this.client.request('POST', '/api/v1/chat/knowledge/store', { body, params });
   }
 
+  async requestGetApiV1Checkpoints(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/checkpoints', { params });
+  }
+
+  async requestGetApiV1CheckpointsResumable(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/checkpoints/resumable', { params });
+  }
+
+  async requestPostApiV1CircuitBreakers(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/circuit-breakers', { body, params });
+  }
+
   async requestPostApiV1Classify(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/classify', { body, params });
   }
@@ -574,8 +1282,64 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/classify/policy/${encodeURIComponent(level)}`, { params });
   }
 
+  async requestPostApiV1CloudDropboxAuthCallback(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/dropbox/auth/callback', { body, params });
+  }
+
+  async requestPostApiV1CloudDropboxAuthUrl(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/dropbox/auth/url', { body, params });
+  }
+
+  async requestPostApiV1CloudDropboxFiles(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/dropbox/files', { body, params });
+  }
+
+  async requestPostApiV1CloudGoogleDriveAuthCallback(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/google_drive/auth/callback', { body, params });
+  }
+
+  async requestPostApiV1CloudGoogleDriveAuthUrl(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/google_drive/auth/url', { body, params });
+  }
+
+  async requestPostApiV1CloudGoogleDriveFiles(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/google_drive/files', { body, params });
+  }
+
+  async requestPostApiV1CloudOnedriveAuthCallback(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/onedrive/auth/callback', { body, params });
+  }
+
+  async requestPostApiV1CloudOnedriveAuthUrl(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/onedrive/auth/url', { body, params });
+  }
+
+  async requestPostApiV1CloudOnedriveFiles(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/onedrive/files', { body, params });
+  }
+
+  async requestPostApiV1CloudStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/cloud/status', { body, params });
+  }
+
+  async requestGetApiV1CodebaseAnalyze(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/analyze', { params });
+  }
+
   async requestPostApiV1CodebaseAnalyzeDependencies(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/codebase/analyze-dependencies', { body, params });
+  }
+
+  async requestGetApiV1CodebaseAudit(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/audit', { params });
+  }
+
+  async requestGetApiV1CodebaseBugs(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/bugs', { params });
+  }
+
+  async requestGetApiV1CodebaseCallgraph(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/callgraph', { params });
   }
 
   async requestPostApiV1CodebaseCheckLicenses(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -586,12 +1350,76 @@ export class OpenApiAPI {
     return this.client.request('POST', '/api/v1/codebase/clear-cache', { body, params });
   }
 
+  async requestGetApiV1CodebaseDashboard(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/dashboard', { params });
+  }
+
+  async requestGetApiV1CodebaseDeadcode(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/deadcode', { params });
+  }
+
+  async requestGetApiV1CodebaseDemo(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/demo', { params });
+  }
+
+  async requestGetApiV1CodebaseDependencies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/dependencies', { params });
+  }
+
+  async requestGetApiV1CodebaseFindings(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/findings', { params });
+  }
+
+  async requestGetApiV1CodebaseFindingsByFindingIdCreateIssue(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/codebase/findings/${encodeURIComponent(finding_id)}/create-issue`, { params });
+  }
+
+  async requestGetApiV1CodebaseFindingsByFindingIdDismiss(finding_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/codebase/findings/${encodeURIComponent(finding_id)}/dismiss`, { params });
+  }
+
+  async requestGetApiV1CodebaseImpact(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/impact', { params });
+  }
+
+  async requestGetApiV1CodebaseMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/metrics', { params });
+  }
+
+  async requestGetApiV1CodebaseSast(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/sast', { params });
+  }
+
   async requestPostApiV1CodebaseSbom(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/codebase/sbom', { body, params });
   }
 
+  async requestGetApiV1CodebaseScan(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/scan', { params });
+  }
+
   async requestPostApiV1CodebaseScanVulnerabilities(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/codebase/scan-vulnerabilities', { body, params });
+  }
+
+  async requestGetApiV1CodebaseScanByScanId(scan_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/codebase/scan/${encodeURIComponent(scan_id)}`, { params });
+  }
+
+  async requestGetApiV1CodebaseScans(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/scans', { params });
+  }
+
+  async requestGetApiV1CodebaseSecrets(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/secrets', { params });
+  }
+
+  async requestGetApiV1CodebaseSymbols(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/symbols', { params });
+  }
+
+  async requestGetApiV1CodebaseUnderstand(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/codebase/understand', { params });
   }
 
   async requestPostApiV1CodebaseByRepoAnalyze(repo: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -710,6 +1538,54 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/codebase/${encodeURIComponent(repo)}/vulnerabilities`, { params });
   }
 
+  async requestGetApiV1ComplianceCheck(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/compliance/check', { params });
+  }
+
+  async requestGetApiV1ComplianceStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/compliance/stats', { params });
+  }
+
+  async requestGetApiV1ComplianceViolations(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/compliance/violations', { params });
+  }
+
+  async requestGetApiV1Connectors(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/connectors', { params });
+  }
+
+  async requestGetApiV1ConnectorsHealth(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/connectors/health', { params });
+  }
+
+  async requestGetApiV1ConnectorsStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/connectors/stats', { params });
+  }
+
+  async requestGetApiV1ConnectorsSyncHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/connectors/sync-history', { params });
+  }
+
+  async requestGetApiV1ConnectorsSyncBySyncIdCancel(sync_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/connectors/sync/${encodeURIComponent(sync_id)}/cancel`, { params });
+  }
+
+  async requestGetApiV1ConnectorsTest(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/connectors/test', { params });
+  }
+
+  async requestGetApiV1ConnectorsTypes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/connectors/types', { params });
+  }
+
+  async requestGetApiV1ConnectorsByConnectorId(connector_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/connectors/${encodeURIComponent(connector_id)}`, { params });
+  }
+
+  async requestGetApiV1ConnectorsByConnectorIdSync(connector_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/connectors/${encodeURIComponent(connector_id)}/sync`, { params });
+  }
+
   async requestGetApiV1ConsensusContrarianViews(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/consensus/contrarian-views', { params });
   }
@@ -718,12 +1594,20 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/consensus/dissents', { params });
   }
 
+  async requestGetApiV1ConsensusDomain(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/consensus/domain', { params });
+  }
+
   async requestGetApiV1ConsensusDomainByDomain(domain: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/consensus/domain/${encodeURIComponent(domain)}`, { params });
   }
 
   async requestGetApiV1ConsensusRiskWarnings(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/consensus/risk-warnings', { params });
+  }
+
+  async requestGetApiV1ConsensusSeedDemo(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/consensus/seed-demo', { params });
   }
 
   async requestGetApiV1ConsensusSettled(params?: Record<string, unknown>): Promise<unknown> {
@@ -744,6 +1628,70 @@ export class OpenApiAPI {
 
   async requestGetApiV1CritiquesPatterns(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/critiques/patterns', { params });
+  }
+
+  async requestGetApiV1CrmCompanies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/companies', { params });
+  }
+
+  async requestGetApiV1CrmConnect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/connect', { params });
+  }
+
+  async requestGetApiV1CrmContacts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/contacts', { params });
+  }
+
+  async requestGetApiV1CrmDeals(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/deals', { params });
+  }
+
+  async requestGetApiV1CrmEnrich(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/enrich', { params });
+  }
+
+  async requestGetApiV1CrmPipeline(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/pipeline', { params });
+  }
+
+  async requestGetApiV1CrmPlatforms(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/platforms', { params });
+  }
+
+  async requestGetApiV1CrmSearch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/search', { params });
+  }
+
+  async requestGetApiV1CrmSyncLead(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/crm/sync-lead', { params });
+  }
+
+  async requestGetApiV1CrmByPlatform(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}`, { params });
+  }
+
+  async requestGetApiV1CrmByPlatformCompanies(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}/companies`, { params });
+  }
+
+  async requestGetApiV1CrmByPlatformCompaniesByCompanyId(platform: string, company_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}/companies/${encodeURIComponent(company_id)}`, { params });
+  }
+
+  async requestGetApiV1CrmByPlatformContacts(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}/contacts`, { params });
+  }
+
+  async requestGetApiV1CrmByPlatformContactsByContactId(platform: string, contact_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}/contacts/${encodeURIComponent(contact_id)}`, { params });
+  }
+
+  async requestGetApiV1CrmByPlatformDeals(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}/deals`, { params });
+  }
+
+  async requestGetApiV1CrmByPlatformDealsByDealId(platform: string, deal_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/crm/${encodeURIComponent(platform)}/deals/${encodeURIComponent(deal_id)}`, { params });
   }
 
   async requestGetApiV1CrossPollinationBridge(params?: Record<string, unknown>): Promise<unknown> {
@@ -786,6 +1734,10 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/dashboard/debates', { params });
   }
 
+  async requestGetApiV1DashboardQualityMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/dashboard/quality-metrics', { params });
+  }
+
   async requestGetApiV1DebateByDebateIdGraphStats(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/debate/${encodeURIComponent(debate_id)}/graph-stats`, { params });
   }
@@ -798,6 +1750,22 @@ export class OpenApiAPI {
     return this.client.request('POST', '/api/v1/debates', { body, params });
   }
 
+  async requestPatchApiV1DebatesBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/debates/batch', { body, params });
+  }
+
+  async requestPostApiV1DebatesBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debates/batch', { body, params });
+  }
+
+  async requestPatchApiV1DebatesBatchByParamStatus(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/batch/${encodeURIComponent(param)}/status`, { body, params });
+  }
+
+  async requestPostApiV1DebatesBatchByParamStatus(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/batch/${encodeURIComponent(param)}/status`, { body, params });
+  }
+
   async requestPostApiV1DebatesCapabilityProbe(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/debates/capability-probe', { body, params });
   }
@@ -806,8 +1774,80 @@ export class OpenApiAPI {
     return this.client.request('POST', '/api/v1/debates/deep-audit', { body, params });
   }
 
+  async requestPatchApiV1DebatesExportBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/debates/export/batch', { body, params });
+  }
+
+  async requestPostApiV1DebatesExportBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debates/export/batch', { body, params });
+  }
+
+  async requestPatchApiV1DebatesExportBatchByParamResults(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/export/batch/${encodeURIComponent(param)}/results`, { body, params });
+  }
+
+  async requestPostApiV1DebatesExportBatchByParamResults(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/export/batch/${encodeURIComponent(param)}/results`, { body, params });
+  }
+
+  async requestPatchApiV1DebatesExportBatchByParamStatus(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/export/batch/${encodeURIComponent(param)}/status`, { body, params });
+  }
+
+  async requestPostApiV1DebatesExportBatchByParamStatus(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/export/batch/${encodeURIComponent(param)}/status`, { body, params });
+  }
+
+  async requestPatchApiV1DebatesExportBatchByParamStream(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/export/batch/${encodeURIComponent(param)}/stream`, { body, params });
+  }
+
+  async requestPostApiV1DebatesExportBatchByParamStream(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/export/batch/${encodeURIComponent(param)}/stream`, { body, params });
+  }
+
+  async requestGetApiV1DebatesGraph(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/debates/graph', { params });
+  }
+
+  async requestPostApiV1DebatesGraph(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debates/graph', { body, params });
+  }
+
+  async requestGetApiV1DebatesMatrix(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/debates/matrix', { params });
+  }
+
+  async requestPostApiV1DebatesMatrix(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debates/matrix', { body, params });
+  }
+
+  async requestPatchApiV1DebatesQueueStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/debates/queue/status', { body, params });
+  }
+
+  async requestPostApiV1DebatesQueueStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debates/queue/status', { body, params });
+  }
+
+  async requestPatchApiV1DebatesSlug(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/debates/slug', { body, params });
+  }
+
+  async requestPostApiV1DebatesSlug(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debates/slug', { body, params });
+  }
+
   async requestGetApiV1DebatesSlugBySlug(slug: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/debates/slug/${encodeURIComponent(slug)}`, { params });
+  }
+
+  async requestPostApiV1DebatesByDebateIdCompress(debate_id: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debate_id)}/compress`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByDebateIdContextByLevel(debate_id: string, level: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debate_id)}/context/${encodeURIComponent(level)}`, { body, params });
   }
 
   async requestGetApiV1DebatesByDebateIdCounterfactuals(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -820,6 +1860,14 @@ export class OpenApiAPI {
 
   async requestGetApiV1DebatesByDebateIdExplanation(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(debate_id)}/explanation`, { params });
+  }
+
+  async requestPostApiV1DebatesByDebateIdQueryRlm(debate_id: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debate_id)}/query-rlm`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByDebateIdRefinementStatus(debate_id: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(debate_id)}/refinement-status`, { body, params });
   }
 
   async requestGetApiV1DebatesByDebateIdSummary(debate_id: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -886,6 +1934,70 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(id)}/red-team`, { params });
   }
 
+  async requestPostApiV1DebatesByParamBroadcastFull(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/broadcast/full`, { body, params });
+  }
+
+  async requestPatchApiV1DebatesByParamCancel(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/cancel`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByParamCancel(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/cancel`, { body, params });
+  }
+
+  async requestGetApiV1DebatesByParamCompressionAnalysis(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(param)}/compression-analysis`, { params });
+  }
+
+  async requestPatchApiV1DebatesByParamExport(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/export`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByParamExport(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/export`, { body, params });
+  }
+
+  async requestPatchApiV1DebatesByParamFollowup(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/followup`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByParamFollowup(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/followup`, { body, params });
+  }
+
+  async requestPatchApiV1DebatesByParamFollowups(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/followups`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByParamFollowups(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/followups`, { body, params });
+  }
+
+  async requestPatchApiV1DebatesByParamForks(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/forks`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByParamForks(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/forks`, { body, params });
+  }
+
+  async requestGetApiV1DebatesByParamFullContext(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/debates/${encodeURIComponent(param)}/full-context`, { params });
+  }
+
+  async requestPatchApiV1DebatesByParamVerificationReport(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', `/api/v1/debates/${encodeURIComponent(param)}/verification-report`, { body, params });
+  }
+
+  async requestPostApiV1DebatesByParamVerificationReport(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/debates/${encodeURIComponent(param)}/verification-report`, { body, params });
+  }
+
+  async requestPostApiV1DebugTest(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/debug/test', { body, params });
+  }
+
   async requestGetApiV1Decisions(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/decisions', { params });
   }
@@ -950,20 +2062,400 @@ export class OpenApiAPI {
     return this.client.request('DELETE', `/api/v1/devices/${encodeURIComponent(device_id)}`, { params });
   }
 
+  async requestGetApiV1DevopsStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/devops/status', { params });
+  }
+
+  async requestGetApiV1Diagnostics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/diagnostics', { params });
+  }
+
+  async requestGetApiV1DiagnosticsDeployment(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/diagnostics/deployment', { params });
+  }
+
+  async requestGetApiV1Docs(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/docs', { params });
+  }
+
   async requestGetApiV1Documents(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/documents', { params });
+  }
+
+  async requestDeleteApiV1DocumentsBatch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/documents/batch', { params });
+  }
+
+  async requestPostApiV1DocumentsBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/batch', { body, params });
+  }
+
+  async requestPostApiV1DocumentsCompare(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/compare', { body, params });
+  }
+
+  async requestPostApiV1DocumentsExtract(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/extract', { body, params });
+  }
+
+  async requestDeleteApiV1DocumentsFolderScan(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/documents/folder/scan', { params });
+  }
+
+  async requestPostApiV1DocumentsFolderScan(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/folder/scan', { body, params });
+  }
+
+  async requestDeleteApiV1DocumentsFolderUpload(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/documents/folder/upload', { params });
+  }
+
+  async requestPostApiV1DocumentsFolderUpload(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/folder/upload', { body, params });
+  }
+
+  async requestDeleteApiV1DocumentsFolders(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/documents/folders', { params });
+  }
+
+  async requestPostApiV1DocumentsFolders(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/folders', { body, params });
   }
 
   async requestGetApiV1DocumentsFormats(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/documents/formats', { params });
   }
 
+  async requestDeleteApiV1DocumentsProcessingStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/documents/processing/stats', { params });
+  }
+
+  async requestPostApiV1DocumentsProcessingStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/processing/stats', { body, params });
+  }
+
+  async requestPostApiV1DocumentsQuery(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/query', { body, params });
+  }
+
+  async requestPostApiV1DocumentsSummarize(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/documents/summarize', { body, params });
+  }
+
   async requestPostApiV1DocumentsUpload(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/documents/upload', { body, params });
   }
 
+  async requestGetApiV1EcommerceConnect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/connect', { params });
+  }
+
+  async requestGetApiV1EcommerceFulfillment(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/fulfillment', { params });
+  }
+
+  async requestGetApiV1EcommerceInventory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/inventory', { params });
+  }
+
+  async requestGetApiV1EcommerceMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/metrics', { params });
+  }
+
+  async requestGetApiV1EcommerceOrders(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/orders', { params });
+  }
+
+  async requestGetApiV1EcommercePlatforms(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/platforms', { params });
+  }
+
+  async requestGetApiV1EcommerceProducts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/products', { params });
+  }
+
+  async requestGetApiV1EcommerceShip(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/ship', { params });
+  }
+
+  async requestGetApiV1EcommerceSyncInventory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/ecommerce/sync-inventory', { params });
+  }
+
+  async requestGetApiV1EcommerceByPlatform(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/ecommerce/${encodeURIComponent(platform)}`, { params });
+  }
+
+  async requestGetApiV1EcommerceByPlatformOrders(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/ecommerce/${encodeURIComponent(platform)}/orders`, { params });
+  }
+
+  async requestGetApiV1EcommerceByPlatformOrdersByOrderId(platform: string, order_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/ecommerce/${encodeURIComponent(platform)}/orders/${encodeURIComponent(order_id)}`, { params });
+  }
+
+  async requestGetApiV1EcommerceByPlatformProducts(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/ecommerce/${encodeURIComponent(platform)}/products`, { params });
+  }
+
+  async requestGetApiV1EcommerceByPlatformProductsByProductId(platform: string, product_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/ecommerce/${encodeURIComponent(platform)}/products/${encodeURIComponent(product_id)}`, { params });
+  }
+
+  async requestDeleteApiV1EmailCategories(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/categories', { params });
+  }
+
+  async requestGetApiV1EmailCategories(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/categories', { params });
+  }
+
+  async requestPostApiV1EmailCategories(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/categories', { body, params });
+  }
+
+  async requestDeleteApiV1EmailCategoriesLearn(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/categories/learn', { params });
+  }
+
+  async requestGetApiV1EmailCategoriesLearn(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/categories/learn', { params });
+  }
+
+  async requestPostApiV1EmailCategoriesLearn(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/categories/learn', { body, params });
+  }
+
+  async requestGetApiV1EmailCategorize(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/categorize', { params });
+  }
+
+  async requestGetApiV1EmailCategorizeApplyLabel(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/categorize/apply-label', { params });
+  }
+
+  async requestGetApiV1EmailCategorizeBatch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/categorize/batch', { params });
+  }
+
+  async requestGetApiV1EmailConfig(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/config', { params });
+  }
+
+  async requestGetApiV1EmailContextBoost(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/context/boost', { params });
+  }
+
+  async requestGetApiV1EmailContextByParam(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/email/context/${encodeURIComponent(param)}`, { params });
+  }
+
+  async requestGetApiV1EmailFeedback(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/feedback', { params });
+  }
+
+  async requestGetApiV1EmailFeedbackBatch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/feedback/batch', { params });
+  }
+
+  async requestDeleteApiV1EmailFollowupsAutoDetect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/followups/auto-detect', { params });
+  }
+
+  async requestGetApiV1EmailFollowupsAutoDetect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/followups/auto-detect', { params });
+  }
+
+  async requestPostApiV1EmailFollowupsAutoDetect(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/followups/auto-detect', { body, params });
+  }
+
+  async requestDeleteApiV1EmailFollowupsCheckReplies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/followups/check-replies', { params });
+  }
+
+  async requestGetApiV1EmailFollowupsCheckReplies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/followups/check-replies', { params });
+  }
+
+  async requestPostApiV1EmailFollowupsCheckReplies(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/followups/check-replies', { body, params });
+  }
+
+  async requestDeleteApiV1EmailFollowupsMark(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/followups/mark', { params });
+  }
+
+  async requestGetApiV1EmailFollowupsMark(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/followups/mark', { params });
+  }
+
+  async requestPostApiV1EmailFollowupsMark(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/followups/mark', { body, params });
+  }
+
+  async requestDeleteApiV1EmailFollowupsPending(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/followups/pending', { params });
+  }
+
+  async requestGetApiV1EmailFollowupsPending(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/followups/pending', { params });
+  }
+
+  async requestPostApiV1EmailFollowupsPending(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/followups/pending', { body, params });
+  }
+
+  async requestDeleteApiV1EmailFollowupsByParam(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', `/api/v1/email/followups/${encodeURIComponent(param)}`, { params });
+  }
+
+  async requestGetApiV1EmailFollowupsByParam(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/email/followups/${encodeURIComponent(param)}`, { params });
+  }
+
+  async requestPostApiV1EmailFollowupsByParam(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/email/followups/${encodeURIComponent(param)}`, { body, params });
+  }
+
+  async requestGetApiV1EmailGmailOauthCallback(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/gmail/oauth/callback', { params });
+  }
+
+  async requestGetApiV1EmailGmailOauthUrl(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/gmail/oauth/url', { params });
+  }
+
+  async requestGetApiV1EmailGmailStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/gmail/status', { params });
+  }
+
+  async requestGetApiV1EmailInbox(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/inbox', { params });
+  }
+
+  async requestGetApiV1EmailPrioritize(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/prioritize', { params });
+  }
+
+  async requestGetApiV1EmailRankInbox(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/rank-inbox', { params });
+  }
+
+  async requestDeleteApiV1EmailSnoozeProcessDue(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/snooze/process-due', { params });
+  }
+
+  async requestGetApiV1EmailSnoozeProcessDue(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/snooze/process-due', { params });
+  }
+
+  async requestPostApiV1EmailSnoozeProcessDue(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/snooze/process-due', { body, params });
+  }
+
+  async requestDeleteApiV1EmailSnoozed(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/email/snoozed', { params });
+  }
+
+  async requestGetApiV1EmailSnoozed(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/snoozed', { params });
+  }
+
+  async requestPostApiV1EmailSnoozed(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/email/snoozed', { body, params });
+  }
+
+  async requestGetApiV1EmailVip(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/email/vip', { params });
+  }
+
+  async requestDeleteApiV1EmailByParam(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', `/api/v1/email/${encodeURIComponent(param)}`, { params });
+  }
+
+  async requestGetApiV1EmailByParam(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/email/${encodeURIComponent(param)}`, { params });
+  }
+
+  async requestPostApiV1EmailByParam(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/email/${encodeURIComponent(param)}`, { body, params });
+  }
+
+  async requestPostApiV1Evaluate(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evaluate', { body, params });
+  }
+
+  async requestPostApiV1EvaluateCompare(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evaluate/compare', { body, params });
+  }
+
+  async requestPostApiV1EvaluateDimensions(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evaluate/dimensions', { body, params });
+  }
+
+  async requestPostApiV1EvaluateProfiles(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evaluate/profiles', { body, params });
+  }
+
+  async requestDeleteApiV1Evidence(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/evidence', { params });
+  }
+
+  async requestPostApiV1Evidence(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evidence', { body, params });
+  }
+
+  async requestDeleteApiV1EvidenceCollect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/evidence/collect', { params });
+  }
+
+  async requestPostApiV1EvidenceCollect(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evidence/collect', { body, params });
+  }
+
+  async requestDeleteApiV1EvidenceSearch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/evidence/search', { params });
+  }
+
+  async requestPostApiV1EvidenceSearch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evidence/search', { body, params });
+  }
+
+  async requestDeleteApiV1EvidenceStatistics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/evidence/statistics', { params });
+  }
+
+  async requestPostApiV1EvidenceStatistics(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evidence/statistics', { body, params });
+  }
+
+  async requestDeleteApiV1EvolutionAbTests(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/evolution/ab-tests', { params });
+  }
+
+  async requestPostApiV1EvolutionAbTests(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/evolution/ab-tests', { body, params });
+  }
+
+  async requestGetApiV1EvolutionPatterns(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/evolution/patterns', { params });
+  }
+
+  async requestGetApiV1EvolutionSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/evolution/summary', { params });
+  }
+
   async requestGetApiV1EvolutionByAgentHistory(agent: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/evolution/${encodeURIComponent(agent)}/history`, { params });
+  }
+
+  async requestGetApiV1EvolutionByParamPrompt(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/evolution/${encodeURIComponent(param)}/prompt`, { params });
+  }
+
+  async requestGetApiV1Explain(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/explain', { params });
   }
 
   async requestPostApiV1ExplainabilityBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -978,12 +2470,60 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/explainability/batch/${encodeURIComponent(batch_id)}/status`, { params });
   }
 
+  async requestGetApiV1ExplainabilityCompare(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/explainability/compare', { params });
+  }
+
+  async requestGetApiV1Features(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features', { params });
+  }
+
+  async requestGetApiV1FeaturesAll(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features/all', { params });
+  }
+
+  async requestGetApiV1FeaturesAvailable(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features/available', { params });
+  }
+
+  async requestGetApiV1FeaturesConfig(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features/config', { params });
+  }
+
+  async requestGetApiV1FeaturesDiscover(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features/discover', { params });
+  }
+
+  async requestGetApiV1FeaturesEndpoints(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features/endpoints', { params });
+  }
+
+  async requestGetApiV1FeaturesHandlers(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/features/handlers', { params });
+  }
+
+  async requestGetApiV1FeaturesByFeatureId(feature_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/features/${encodeURIComponent(feature_id)}`, { params });
+  }
+
+  async requestPostApiV1FindingsBatchEvidence(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/findings/batch-evidence', { body, params });
+  }
+
   async requestGetApiV1FlipsRecent(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/flips/recent', { params });
   }
 
   async requestGetApiV1FlipsSummary(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/flips/summary', { params });
+  }
+
+  async requestGetApiV1Gallery(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gallery', { params });
+  }
+
+  async requestGetApiV1Gauntlet(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gauntlet', { params });
   }
 
   async requestGetApiV1GauntletHeatmaps(params?: Record<string, unknown>): Promise<unknown> {
@@ -996,6 +2536,10 @@ export class OpenApiAPI {
 
   async requestGetApiV1GauntletHeatmapsByHeatmapIdExport(heatmap_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/gauntlet/heatmaps/${encodeURIComponent(heatmap_id)}/export`, { params });
+  }
+
+  async requestGetApiV1GauntletPersonas(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gauntlet/personas', { params });
   }
 
   async requestGetApiV1GauntletReceipts(params?: Record<string, unknown>): Promise<unknown> {
@@ -1018,20 +2562,100 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/gauntlet/receipts/${encodeURIComponent(receipt_id)}/stream`, { params });
   }
 
+  async requestGetApiV1GauntletResults(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gauntlet/results', { params });
+  }
+
+  async requestGetApiV1GauntletRun(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/gauntlet/run', { params });
+  }
+
+  async requestGetApiV1GauntletByParamCompare(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/compare`, { params });
+  }
+
+  async requestGetApiV1GauntletByParamExport(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/export`, { params });
+  }
+
+  async requestGetApiV1GauntletByParamHeatmap(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/heatmap`, { params });
+  }
+
+  async requestGetApiV1GauntletByParamReceipt(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/receipt`, { params });
+  }
+
+  async requestGetApiV1GauntletByParamReceiptVerify(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/gauntlet/${encodeURIComponent(param)}/receipt/verify`, { params });
+  }
+
+  async requestGetApiV1GenesisDescendants(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/genesis/descendants', { params });
+  }
+
   async requestGetApiV1GenesisEvents(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/genesis/events', { params });
+  }
+
+  async requestGetApiV1GenesisGenomes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/genesis/genomes', { params });
+  }
+
+  async requestGetApiV1GenesisGenomesTop(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/genesis/genomes/top', { params });
+  }
+
+  async requestGetApiV1GenesisLineage(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/genesis/lineage', { params });
   }
 
   async requestGetApiV1GenesisLineageByAgent(agent: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/genesis/lineage/${encodeURIComponent(agent)}`, { params });
   }
 
+  async requestGetApiV1GenesisPopulation(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/genesis/population', { params });
+  }
+
   async requestGetApiV1GenesisStats(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/genesis/stats', { params });
   }
 
+  async requestGetApiV1GenesisTree(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/genesis/tree', { params });
+  }
+
   async requestGetApiV1GenesisTreeByAgent(agent: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/genesis/tree/${encodeURIComponent(agent)}`, { params });
+  }
+
+  async requestPostApiV1GmailAuthCallback(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/auth/callback', { body, params });
+  }
+
+  async requestPostApiV1GmailAuthUrl(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/auth/url', { body, params });
+  }
+
+  async requestPostApiV1GmailConnect(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/connect', { body, params });
+  }
+
+  async requestPostApiV1GmailDisconnect(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/disconnect', { body, params });
+  }
+
+  async requestPostApiV1GmailInboxFeedback(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/inbox/feedback', { body, params });
+  }
+
+  async requestPostApiV1GmailInboxPriority(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/inbox/priority', { body, params });
+  }
+
+  async requestPostApiV1GmailMessages(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/messages', { body, params });
   }
 
   async requestPostApiV1GmailMessagesByMessageIdArchive(message_id: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1058,12 +2682,92 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/gmail/messages/${encodeURIComponent(message_id)}/trash`, { body, params });
   }
 
+  async requestPostApiV1GmailQuery(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/query', { body, params });
+  }
+
+  async requestPostApiV1GmailQueryStream(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/query/stream', { body, params });
+  }
+
+  async requestPostApiV1GmailQueryVoice(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/query/voice', { body, params });
+  }
+
+  async requestPostApiV1GmailSearch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/search', { body, params });
+  }
+
+  async requestPostApiV1GmailStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/status', { body, params });
+  }
+
+  async requestPostApiV1GmailSync(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/sync', { body, params });
+  }
+
+  async requestPostApiV1GmailSyncStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/gmail/sync/status', { body, params });
+  }
+
   async requestGetApiV1Health(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/health', { params });
   }
 
+  async requestGetApiV1HealthCircuits(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/circuits', { params });
+  }
+
+  async requestGetApiV1HealthComponents(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/components', { params });
+  }
+
+  async requestGetApiV1HealthCrossPollination(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/cross-pollination', { params });
+  }
+
+  async requestGetApiV1HealthDatabase(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/database', { params });
+  }
+
+  async requestGetApiV1HealthDecay(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/decay', { params });
+  }
+
+  async requestGetApiV1HealthDeep(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/deep', { params });
+  }
+
   async requestGetApiV1HealthDetailed(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/health/detailed', { params });
+  }
+
+  async requestGetApiV1HealthEncryption(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/encryption', { params });
+  }
+
+  async requestGetApiV1HealthKnowledgeMound(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/knowledge-mound', { params });
+  }
+
+  async requestGetApiV1HealthPlatform(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/platform', { params });
+  }
+
+  async requestGetApiV1HealthSlowDebates(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/slow-debates', { params });
+  }
+
+  async requestGetApiV1HealthStartup(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/startup', { params });
+  }
+
+  async requestGetApiV1HealthStores(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/stores', { params });
+  }
+
+  async requestGetApiV1HealthSync(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/health/sync', { params });
   }
 
   async requestGetApiV1HistoryCycles(params?: Record<string, unknown>): Promise<unknown> {
@@ -1082,12 +2786,100 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/history/summary', { params });
   }
 
+  async requestGetApiV1InboxAccounts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/accounts', { params });
+  }
+
+  async requestGetApiV1InboxAccountsByAccountId(account_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/inbox/accounts/${encodeURIComponent(account_id)}`, { params });
+  }
+
+  async requestGetApiV1InboxBulkAction(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/bulk-action', { params });
+  }
+
+  async requestGetApiV1InboxConnect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/connect', { params });
+  }
+
+  async requestGetApiV1InboxMessages(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/messages', { params });
+  }
+
+  async requestGetApiV1InboxMessagesByMessageId(message_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/inbox/messages/${encodeURIComponent(message_id)}`, { params });
+  }
+
+  async requestGetApiV1InboxOauthGmail(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/oauth/gmail', { params });
+  }
+
+  async requestGetApiV1InboxOauthOutlook(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/oauth/outlook', { params });
+  }
+
+  async requestGetApiV1InboxStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/stats', { params });
+  }
+
+  async requestGetApiV1InboxTrends(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/trends', { params });
+  }
+
+  async requestGetApiV1InboxTriage(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/inbox/triage', { params });
+  }
+
+  async requestGetApiV1Incidents(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/incidents', { params });
+  }
+
+  async requestGetApiV1IncidentsByIncidentId(incident_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/incidents/${encodeURIComponent(incident_id)}`, { params });
+  }
+
+  async requestGetApiV1IncidentsByIncidentIdAcknowledge(incident_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/incidents/${encodeURIComponent(incident_id)}/acknowledge`, { params });
+  }
+
+  async requestGetApiV1IncidentsByIncidentIdMerge(incident_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/incidents/${encodeURIComponent(incident_id)}/merge`, { params });
+  }
+
+  async requestGetApiV1IncidentsByIncidentIdNotes(incident_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/incidents/${encodeURIComponent(incident_id)}/notes`, { params });
+  }
+
+  async requestGetApiV1IncidentsByIncidentIdReassign(incident_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/incidents/${encodeURIComponent(incident_id)}/reassign`, { params });
+  }
+
+  async requestGetApiV1IncidentsByIncidentIdResolve(incident_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/incidents/${encodeURIComponent(incident_id)}/resolve`, { params });
+  }
+
   async requestPostApiV1InsightsExtractDetailed(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/insights/extract-detailed', { body, params });
   }
 
   async requestGetApiV1InsightsRecent(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/insights/recent', { params });
+  }
+
+  async requestPostApiV1IntegrationsSlackCommands(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/integrations/slack/commands', { body, params });
+  }
+
+  async requestPostApiV1IntegrationsSlackEvents(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/integrations/slack/events', { body, params });
+  }
+
+  async requestPostApiV1IntegrationsSlackInteractive(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/integrations/slack/interactive', { body, params });
+  }
+
+  async requestPostApiV1IntegrationsSlackStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/integrations/slack/status', { body, params });
   }
 
   async requestPostApiV1IntegrationsTeamsCommands(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1128,6 +2920,10 @@ export class OpenApiAPI {
 
   async requestGetApiV1IntrospectionAgents(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/introspection/agents', { params });
+  }
+
+  async requestGetApiV1IntrospectionAgentsAvailability(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/introspection/agents/availability', { params });
   }
 
   async requestGetApiV1IntrospectionAgentsByName(name: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -1182,12 +2978,172 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/knowledge/facts/${encodeURIComponent(fact_id)}/verify`, { body, params });
   }
 
+  async requestDeleteApiV1KnowledgeJobs(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/knowledge/jobs', { params });
+  }
+
+  async requestPostApiV1KnowledgeJobs(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/knowledge/jobs', { body, params });
+  }
+
+  async requestGetApiV1KnowledgeMoundAnalyticsCoverage(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/coverage', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundAnalyticsQualitySnapshot(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/quality/snapshot', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundAnalyticsQualityTrend(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/quality/trend', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundAnalyticsStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/stats', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundAnalyticsUsage(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/usage', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundAnalyticsUsageRecord(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/analytics/usage/record', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundConfidenceDecay(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/confidence/decay', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundConfidenceEvent(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/confidence/event', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundConfidenceHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/confidence/history', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundConfidenceStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/confidence/stats', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundContradictions(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/contradictions', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundContradictionsDetect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/contradictions/detect', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundContradictionsStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/contradictions/stats', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundContradictionsByParamResolve(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/knowledge/mound/contradictions/${encodeURIComponent(param)}/resolve`, { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCulture(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/culture', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCurationHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/history', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCurationPolicy(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/policy', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCurationRun(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/run', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCurationScores(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/scores', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCurationStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/status', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundCurationTiers(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/curation/tiers', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDashboardAdapters(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/adapters', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDashboardBatcher(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/batcher', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDashboardHealth(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/health', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDashboardMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/metrics', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDashboardMetricsReset(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/metrics/reset', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDashboardQueries(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dashboard/queries', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDedupAutoMerge(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dedup/auto-merge', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDedupClusters(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dedup/clusters', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDedupMerge(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dedup/merge', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundDedupReport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/dedup/report', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundExportD3(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/export/d3', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundExportGraphml(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/export/graphml', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundExtractionDebate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/extraction/debate', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundExtractionPromote(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/extraction/promote', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundExtractionStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/extraction/stats', { params });
+  }
+
   async requestGetApiV1KnowledgeMoundGovernanceAudit(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/knowledge/mound/governance/audit', { params });
   }
 
+  async requestGetApiV1KnowledgeMoundGovernanceAuditUser(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/governance/audit/user', { params });
+  }
+
   async requestGetApiV1KnowledgeMoundGovernanceAuditUserByUserId(user_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/knowledge/mound/governance/audit/user/${encodeURIComponent(user_id)}`, { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundGovernancePermissions(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/governance/permissions', { params });
   }
 
   async requestPostApiV1KnowledgeMoundGovernancePermissionsCheck(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1214,8 +3170,76 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/knowledge/mound/governance/stats', { params });
   }
 
+  async requestGetApiV1KnowledgeMoundGraphByParamLineage(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/knowledge/mound/graph/${encodeURIComponent(param)}/lineage`, { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundGraphByParamRelated(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/knowledge/mound/graph/${encodeURIComponent(param)}/related`, { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundNodes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/nodes', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundPruningAuto(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/auto', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundPruningDecay(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/decay', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundPruningExecute(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/execute', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundPruningHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/history', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundPruningItems(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/items', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundPruningRestore(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/pruning/restore', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundQuery(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/query', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundRelationships(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/relationships', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundRevalidate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/revalidate', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundScheduleRevalidation(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/schedule-revalidation', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundStale(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/stale', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/stats', { params });
+  }
+
+  async requestGetApiV1KnowledgeMoundSync(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/knowledge/mound/sync', { params });
+  }
+
   async requestPostApiV1KnowledgeQuery(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/knowledge/query', { body, params });
+  }
+
+  async requestPostApiV1KnowledgeQueryRlm(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/knowledge/query-rlm', { body, params });
   }
 
   async requestGetApiV1KnowledgeSearch(params?: Record<string, unknown>): Promise<unknown> {
@@ -1242,12 +3266,120 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/leaderboard-view', { params });
   }
 
+  async requestGetApiV1LearningAgentEvolution(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/learning/agent-evolution', { params });
+  }
+
+  async requestGetApiV1LearningCycles(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/learning/cycles', { params });
+  }
+
   async requestGetApiV1LearningEvolution(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/learning/evolution', { params });
   }
 
+  async requestGetApiV1LearningInsights(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/learning/insights', { params });
+  }
+
+  async requestGetApiV1LearningPatterns(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/learning/patterns', { params });
+  }
+
+  async requestGetApiV1LegalEnvelopes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/legal/envelopes', { params });
+  }
+
+  async requestGetApiV1LegalEnvelopesByEnvelopeId(envelope_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/legal/envelopes/${encodeURIComponent(envelope_id)}`, { params });
+  }
+
+  async requestGetApiV1LegalEnvelopesByEnvelopeIdCertificate(envelope_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/legal/envelopes/${encodeURIComponent(envelope_id)}/certificate`, { params });
+  }
+
+  async requestGetApiV1LegalEnvelopesByEnvelopeIdDocumentsByDocumentId(envelope_id: string, document_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/legal/envelopes/${encodeURIComponent(envelope_id)}/documents/${encodeURIComponent(document_id)}`, { params });
+  }
+
+  async requestGetApiV1LegalEnvelopesByEnvelopeIdResend(envelope_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/legal/envelopes/${encodeURIComponent(envelope_id)}/resend`, { params });
+  }
+
+  async requestGetApiV1LegalEnvelopesByEnvelopeIdVoid(envelope_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/legal/envelopes/${encodeURIComponent(envelope_id)}/void`, { params });
+  }
+
+  async requestGetApiV1LegalStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/legal/status', { params });
+  }
+
+  async requestGetApiV1LegalTemplates(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/legal/templates', { params });
+  }
+
+  async requestGetApiV1LegalWebhooksDocusign(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/legal/webhooks/docusign', { params });
+  }
+
+  async requestGetApiV1MarketplaceCategories(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/categories', { params });
+  }
+
+  async requestGetApiV1MarketplaceDemo(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/demo', { params });
+  }
+
+  async requestGetApiV1MarketplaceDeployments(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/deployments', { params });
+  }
+
+  async requestGetApiV1MarketplaceDeploymentsByDeploymentId(deployment_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/marketplace/deployments/${encodeURIComponent(deployment_id)}`, { params });
+  }
+
+  async requestGetApiV1MarketplaceFeatured(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/featured', { params });
+  }
+
+  async requestGetApiV1MarketplacePopular(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/popular', { params });
+  }
+
+  async requestGetApiV1MarketplaceSearch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/search', { params });
+  }
+
+  async requestGetApiV1MarketplaceTemplates(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/templates', { params });
+  }
+
+  async requestGetApiV1MarketplaceTemplatesByTemplateId(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/marketplace/templates/${encodeURIComponent(template_id)}`, { params });
+  }
+
+  async requestGetApiV1MarketplaceTemplatesByTemplateIdDeploy(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/marketplace/templates/${encodeURIComponent(template_id)}/deploy`, { params });
+  }
+
+  async requestGetApiV1MarketplaceTemplatesByTemplateIdRate(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/marketplace/templates/${encodeURIComponent(template_id)}/rate`, { params });
+  }
+
+  async requestGetApiV1MarketplaceTrending(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/marketplace/trending', { params });
+  }
+
   async requestGetApiV1MatchesRecent(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/matches/recent', { params });
+  }
+
+  async requestPostApiV1MemoryAnalytics(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/memory/analytics', { body, params });
+  }
+
+  async requestPostApiV1MemoryAnalyticsSnapshot(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/memory/analytics/snapshot', { body, params });
   }
 
   async requestGetApiV1MemoryArchiveStats(params?: Record<string, unknown>): Promise<unknown> {
@@ -1266,12 +3398,52 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/memory/continuum/retrieve', { params });
   }
 
+  async requestGetApiV1MemoryCoordinatorConfig(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/memory/coordinator/config', { params });
+  }
+
+  async requestGetApiV1MemoryCoordinatorMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/memory/coordinator/metrics', { params });
+  }
+
+  async requestDeleteApiV1MemoryCritiques(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/memory/critiques', { params });
+  }
+
+  async requestPostApiV1MemoryCritiques(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/memory/critiques', { body, params });
+  }
+
+  async requestDeleteApiV1MemoryPressure(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/memory/pressure', { params });
+  }
+
+  async requestPostApiV1MemoryPressure(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/memory/pressure', { body, params });
+  }
+
+  async requestDeleteApiV1MemorySearch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/memory/search', { params });
+  }
+
+  async requestPostApiV1MemorySearch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/memory/search', { body, params });
+  }
+
   async requestGetApiV1MemoryStats(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/memory/stats', { params });
   }
 
   async requestGetApiV1MemoryTierStats(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/memory/tier-stats', { params });
+  }
+
+  async requestDeleteApiV1MemoryTiers(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/memory/tiers', { params });
+  }
+
+  async requestPostApiV1MemoryTiers(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/memory/tiers', { body, params });
   }
 
   async requestGetApiV1MetaLearningStats(params?: Record<string, unknown>): Promise<unknown> {
@@ -1282,20 +3454,76 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/metrics', { params });
   }
 
+  async requestGetApiV1MetricsBackground(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/metrics/background', { params });
+  }
+
   async requestGetApiV1MetricsCache(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/metrics/cache', { params });
+  }
+
+  async requestGetApiV1MetricsDebate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/metrics/debate', { params });
   }
 
   async requestGetApiV1MetricsHealth(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/metrics/health', { params });
   }
 
+  async requestPostApiV1MetricsRlm(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/metrics/rlm', { body, params });
+  }
+
   async requestGetApiV1MetricsSystem(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/metrics/system', { params });
   }
 
+  async requestGetApiV1MetricsVerification(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/metrics/verification', { params });
+  }
+
+  async requestPostApiV1MlConsensus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/consensus', { body, params });
+  }
+
+  async requestPostApiV1MlEmbed(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/embed', { body, params });
+  }
+
+  async requestPostApiV1MlExportTraining(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/export-training', { body, params });
+  }
+
+  async requestPostApiV1MlModels(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/models', { body, params });
+  }
+
+  async requestPostApiV1MlRoute(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/route', { body, params });
+  }
+
+  async requestPostApiV1MlScore(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/score', { body, params });
+  }
+
+  async requestPostApiV1MlScoreBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/score-batch', { body, params });
+  }
+
+  async requestPostApiV1MlSearch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/search', { body, params });
+  }
+
+  async requestPostApiV1MlStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/ml/stats', { body, params });
+  }
+
   async requestGetApiV1Modes(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/modes', { params });
+  }
+
+  async requestGetApiV1MomentsByType(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/moments/by-type', { params });
   }
 
   async requestGetApiV1MomentsByTypeByType(type: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -1378,12 +3606,44 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/nomic/witness/status', { params });
   }
 
+  async requestGetApiV1Oncall(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/oncall', { params });
+  }
+
+  async requestGetApiV1OncallServicesByServiceId(service_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/oncall/services/${encodeURIComponent(service_id)}`, { params });
+  }
+
   async requestGetApiV1Openapi(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/openapi', { params });
   }
 
+  async requestGetApiV1Openapi_json(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/openapi.json', { params });
+  }
+
+  async requestGetApiV1Openapi_yaml(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/openapi.yaml', { params });
+  }
+
   async requestGetApiV1Personas(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/personas', { params });
+  }
+
+  async requestDeleteApiV1PersonasOptions(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/personas/options', { params });
+  }
+
+  async requestPostApiV1PersonasOptions(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/personas/options', { body, params });
+  }
+
+  async requestPutApiV1PersonasOptions(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PUT', '/api/v1/personas/options', { body, params });
+  }
+
+  async requestGetApiV1PlatformHealth(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/platform/health', { params });
   }
 
   async requestGetApiV1Plugins(params?: Record<string, unknown>): Promise<unknown> {
@@ -1430,8 +3690,124 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/podcast/feed.xml', { params });
   }
 
+  async requestGetApiV1Policies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/policies', { params });
+  }
+
+  async requestGetApiV1PoliciesByParamToggle(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/policies/${encodeURIComponent(param)}/toggle`, { params });
+  }
+
+  async requestGetApiV1PoliciesByParamViolations(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/policies/${encodeURIComponent(param)}/violations`, { params });
+  }
+
+  async requestGetApiV1Postman_json(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/postman.json', { params });
+  }
+
+  async requestGetApiV1PrivacyAccount(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/privacy/account', { params });
+  }
+
+  async requestGetApiV1PrivacyDataInventory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/privacy/data-inventory', { params });
+  }
+
+  async requestGetApiV1PrivacyExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/privacy/export', { params });
+  }
+
+  async requestGetApiV1PrivacyPreferences(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/privacy/preferences', { params });
+  }
+
   async requestPostApiV1ProbesCapability(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/probes/capability', { body, params });
+  }
+
+  async requestPostApiV1ProbesReports(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/probes/reports', { body, params });
+  }
+
+  async requestPostApiV1ProbesRun(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/probes/run', { body, params });
+  }
+
+  async requestGetApiV1ProvenanceByParamClaimsByParamSupport(param: string, param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/provenance/${encodeURIComponent(param)}/claims/${encodeURIComponent(param)}/support`, { params });
+  }
+
+  async requestPatchApiV1PulseAnalytics(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/analytics', { body, params });
+  }
+
+  async requestPostApiV1PulseAnalytics(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/analytics', { body, params });
+  }
+
+  async requestPatchApiV1PulseDebateTopic(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/debate-topic', { body, params });
+  }
+
+  async requestPostApiV1PulseDebateTopic(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/debate-topic', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerConfig(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/config', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerConfig(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/config', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerHistory(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/history', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerHistory(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/history', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerPause(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/pause', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerPause(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/pause', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerResume(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/resume', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerResume(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/resume', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerStart(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/start', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerStart(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/start', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/status', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/status', { body, params });
+  }
+
+  async requestPatchApiV1PulseSchedulerStop(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('PATCH', '/api/v1/pulse/scheduler/stop', { body, params });
+  }
+
+  async requestPostApiV1PulseSchedulerStop(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/pulse/scheduler/stop', { body, params });
   }
 
   async requestGetApiV1PulseSuggest(params?: Record<string, unknown>): Promise<unknown> {
@@ -1452,6 +3828,10 @@ export class OpenApiAPI {
 
   async requestPostApiV1QueueDlqRequeue(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/queue/dlq/requeue', { body, params });
+  }
+
+  async requestGetApiV1QueueDlqByParamRequeue(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/queue/dlq/${encodeURIComponent(param)}/requeue`, { params });
   }
 
   async requestGetApiV1QueueJobs(params?: Record<string, unknown>): Promise<unknown> {
@@ -1486,12 +3866,60 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/queue/workers', { params });
   }
 
+  async requestGetApiV1Quotas(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/quotas', { params });
+  }
+
   async requestGetApiV1RankingStats(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/ranking/stats', { params });
   }
 
   async requestGetApiV1Rankings(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/rankings', { params });
+  }
+
+  async requestGetApiV1ReconciliationDemo(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/reconciliation/demo', { params });
+  }
+
+  async requestGetApiV1ReconciliationDiscrepancies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/reconciliation/discrepancies', { params });
+  }
+
+  async requestGetApiV1ReconciliationDiscrepanciesBulkResolve(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/reconciliation/discrepancies/bulk-resolve', { params });
+  }
+
+  async requestGetApiV1ReconciliationList(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/reconciliation/list', { params });
+  }
+
+  async requestGetApiV1ReconciliationRun(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/reconciliation/run', { params });
+  }
+
+  async requestGetApiV1ReconciliationByReconciliationId(reconciliation_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/reconciliation/${encodeURIComponent(reconciliation_id)}`, { params });
+  }
+
+  async requestGetApiV1ReconciliationByReconciliationIdApprove(reconciliation_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/reconciliation/${encodeURIComponent(reconciliation_id)}/approve`, { params });
+  }
+
+  async requestGetApiV1ReconciliationByReconciliationIdReport(reconciliation_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/reconciliation/${encodeURIComponent(reconciliation_id)}/report`, { params });
+  }
+
+  async requestGetApiV1ReconciliationByReconciliationIdResolve(reconciliation_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/reconciliation/${encodeURIComponent(reconciliation_id)}/resolve`, { params });
+  }
+
+  async requestGetApiV1Redoc(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/redoc', { params });
+  }
+
+  async requestGetApiV1RedteamAttackTypes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/redteam/attack-types', { params });
   }
 
   async requestGetApiV1RelationshipByAgentAByAgentB(agent_a: string, agent_b: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -1518,6 +3946,34 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/replays/${encodeURIComponent(id)}`, { params });
   }
 
+  async requestGetApiV1Repository(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/repository', { params });
+  }
+
+  async requestGetApiV1RepositoryBatch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/repository/batch', { params });
+  }
+
+  async requestGetApiV1RepositoryIncremental(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/repository/incremental', { params });
+  }
+
+  async requestGetApiV1RepositoryIndex(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/repository/index', { params });
+  }
+
+  async requestGetApiV1RepositoryByParamEntities(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(param)}/entities`, { params });
+  }
+
+  async requestGetApiV1RepositoryByParamGraph(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(param)}/graph`, { params });
+  }
+
+  async requestGetApiV1RepositoryByParamStatus(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/repository/${encodeURIComponent(param)}/status`, { params });
+  }
+
   async requestGetApiV1ReputationAll(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/reputation/all', { params });
   }
@@ -1538,8 +3994,104 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v1/retention/policies/${encodeURIComponent(policy_id)}/execute`, { body, params });
   }
 
+  async requestGetApiV1Reviews(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/reviews', { params });
+  }
+
+  async requestDeleteApiV1RlmCompress(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/compress', { params });
+  }
+
+  async requestPostApiV1RlmCompress(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/compress', { body, params });
+  }
+
+  async requestDeleteApiV1RlmContexts(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/contexts', { params });
+  }
+
+  async requestPostApiV1RlmContexts(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/contexts', { body, params });
+  }
+
+  async requestDeleteApiV1RlmQuery(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/query', { params });
+  }
+
+  async requestPostApiV1RlmQuery(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/query', { body, params });
+  }
+
+  async requestDeleteApiV1RlmStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/stats', { params });
+  }
+
+  async requestPostApiV1RlmStats(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/stats', { body, params });
+  }
+
+  async requestPostApiV1RlmStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/status', { body, params });
+  }
+
+  async requestDeleteApiV1RlmStrategies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/strategies', { params });
+  }
+
+  async requestPostApiV1RlmStrategies(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/strategies', { body, params });
+  }
+
+  async requestDeleteApiV1RlmStream(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/stream', { params });
+  }
+
+  async requestPostApiV1RlmStream(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/stream', { body, params });
+  }
+
+  async requestDeleteApiV1RlmStreamModes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('DELETE', '/api/v1/rlm/stream/modes', { params });
+  }
+
+  async requestPostApiV1RlmStreamModes(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/rlm/stream/modes', { body, params });
+  }
+
+  async requestGetApiV1RoutingRules(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/routing-rules', { params });
+  }
+
+  async requestGetApiV1RoutingRulesEvaluate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/routing-rules/evaluate', { params });
+  }
+
+  async requestGetApiV1RoutingRulesTemplates(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/routing-rules/templates', { params });
+  }
+
+  async requestGetApiV1RoutingRulesByRuleId(rule_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/routing-rules/${encodeURIComponent(rule_id)}`, { params });
+  }
+
+  async requestGetApiV1RoutingRulesByRuleIdToggle(rule_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/routing-rules/${encodeURIComponent(rule_id)}/toggle`, { params });
+  }
+
+  async requestPostApiV1RoutingAutoRoute(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/routing/auto-route', { body, params });
+  }
+
   async requestGetApiV1RoutingBestTeams(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/routing/best-teams', { params });
+  }
+
+  async requestPostApiV1RoutingDetectDomain(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/routing/detect-domain', { body, params });
+  }
+
+  async requestPostApiV1RoutingDomainLeaderboard(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/routing/domain-leaderboard', { body, params });
   }
 
   async requestPostApiV1RoutingRecommendations(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
@@ -1550,8 +4102,152 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/search', { params });
   }
 
+  async requestPostApiV1SelectionDefaults(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/selection/defaults', { body, params });
+  }
+
+  async requestPostApiV1SelectionPlugins(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/selection/plugins', { body, params });
+  }
+
+  async requestPostApiV1SelectionScore(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/selection/score', { body, params });
+  }
+
+  async requestPostApiV1SelectionTeam(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/selection/team', { body, params });
+  }
+
+  async requestGetApiV1Services(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/services', { params });
+  }
+
+  async requestGetApiV1ServicesByServiceId(service_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/services/${encodeURIComponent(service_id)}`, { params });
+  }
+
+  async requestGetApiV1Skills(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/skills', { params });
+  }
+
+  async requestPostApiV1Skills(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/skills', { body, params });
+  }
+
+  async requestGetApiV1SkillsInvoke(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/skills/invoke', { params });
+  }
+
+  async requestPostApiV1SkillsInvoke(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/skills/invoke', { body, params });
+  }
+
+  async requestGetApiV1SkillsByParamMetrics(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/skills/${encodeURIComponent(param)}/metrics`, { params });
+  }
+
+  async requestPostApiV1SkillsByParamMetrics(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/skills/${encodeURIComponent(param)}/metrics`, { body, params });
+  }
+
+  async requestGetApiV1SlosAvailability(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/availability', { params });
+  }
+
+  async requestGetApiV1SlosDebateSuccess(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/debate-success', { params });
+  }
+
+  async requestGetApiV1SlosErrorBudget(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/error-budget', { params });
+  }
+
+  async requestGetApiV1SlosLatency(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/latency', { params });
+  }
+
+  async requestGetApiV1SlosStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/status', { params });
+  }
+
+  async requestGetApiV1SlosTargets(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/targets', { params });
+  }
+
+  async requestGetApiV1SlosViolations(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/slos/violations', { params });
+  }
+
+  async requestGetApiV1Status(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/status', { params });
+  }
+
+  async requestGetApiV1StatusComponents(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/status/components', { params });
+  }
+
+  async requestGetApiV1StatusHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/status/history', { params });
+  }
+
+  async requestGetApiV1StatusIncidents(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/status/incidents', { params });
+  }
+
+  async requestGetApiV1StatusSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/status/summary', { params });
+  }
+
+  async requestGetApiV1SupportAutoRespond(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/auto-respond', { params });
+  }
+
+  async requestGetApiV1SupportConnect(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/connect', { params });
+  }
+
+  async requestGetApiV1SupportMetrics(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/metrics', { params });
+  }
+
+  async requestGetApiV1SupportPlatforms(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/platforms', { params });
+  }
+
+  async requestGetApiV1SupportSearch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/search', { params });
+  }
+
+  async requestGetApiV1SupportTickets(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/tickets', { params });
+  }
+
+  async requestGetApiV1SupportTriage(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/support/triage', { params });
+  }
+
+  async requestGetApiV1SupportByPlatform(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/support/${encodeURIComponent(platform)}`, { params });
+  }
+
+  async requestGetApiV1SupportByPlatformTickets(platform: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/support/${encodeURIComponent(platform)}/tickets`, { params });
+  }
+
+  async requestGetApiV1SupportByPlatformTicketsByTicketId(platform: string, ticket_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/support/${encodeURIComponent(platform)}/tickets/${encodeURIComponent(ticket_id)}`, { params });
+  }
+
+  async requestGetApiV1SupportByPlatformTicketsByTicketIdReply(platform: string, ticket_id: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/support/${encodeURIComponent(platform)}/tickets/${encodeURIComponent(ticket_id)}/reply`, { params });
+  }
+
   async requestGetApiV1SystemMaintenance(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/system/maintenance', { params });
+  }
+
+  async requestGetApiV1TemplatesRecommended(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/templates/recommended', { params });
   }
 
   async requestGetApiV1Tournaments(params?: Record<string, unknown>): Promise<unknown> {
@@ -1560,6 +4256,134 @@ export class OpenApiAPI {
 
   async requestGetApiV1TournamentsByIdStandings(id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/tournaments/${encodeURIComponent(id)}/standings`, { params });
+  }
+
+  async requestPostApiV1TournamentsByParamAdvance(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(param)}/advance`, { body, params });
+  }
+
+  async requestPostApiV1TournamentsByParamBracket(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(param)}/bracket`, { body, params });
+  }
+
+  async requestPostApiV1TournamentsByParamMatches(param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(param)}/matches`, { body, params });
+  }
+
+  async requestPostApiV1TournamentsByParamMatchesByParamResult(param: string, param: string, body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', `/api/v1/tournaments/${encodeURIComponent(param)}/matches/${encodeURIComponent(param)}/result`, { body, params });
+  }
+
+  async requestGetApiV1TrainingExportDpo(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/training/export/dpo', { params });
+  }
+
+  async requestGetApiV1TrainingExportGauntlet(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/training/export/gauntlet', { params });
+  }
+
+  async requestGetApiV1TrainingExportSft(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/training/export/sft', { params });
+  }
+
+  async requestGetApiV1TrainingFormats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/training/formats', { params });
+  }
+
+  async requestGetApiV1TrainingJobs(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/training/jobs', { params });
+  }
+
+  async requestGetApiV1TrainingStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/training/stats', { params });
+  }
+
+  async requestPostApiV1TranscribeAudio(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcribe/audio', { body, params });
+  }
+
+  async requestPostApiV1TranscribeVideo(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcribe/video', { body, params });
+  }
+
+  async requestPostApiV1TranscriptionAudio(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcription/audio', { body, params });
+  }
+
+  async requestPostApiV1TranscriptionConfig(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcription/config', { body, params });
+  }
+
+  async requestPostApiV1TranscriptionStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcription/status', { body, params });
+  }
+
+  async requestPostApiV1TranscriptionVideo(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcription/video', { body, params });
+  }
+
+  async requestPostApiV1TranscriptionYoutube(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcription/youtube', { body, params });
+  }
+
+  async requestPostApiV1TranscriptionYoutubeInfo(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/transcription/youtube/info', { body, params });
+  }
+
+  async requestGetApiV1UncertaintyAgent(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/uncertainty/agent', { params });
+  }
+
+  async requestGetApiV1UncertaintyDebate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/uncertainty/debate', { params });
+  }
+
+  async requestGetApiV1UncertaintyEstimate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/uncertainty/estimate', { params });
+  }
+
+  async requestGetApiV1UncertaintyFollowups(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/uncertainty/followups', { params });
+  }
+
+  async requestPostApiV1UploadBatch(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/upload/batch', { body, params });
+  }
+
+  async requestPostApiV1UploadSmart(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/upload/smart', { body, params });
+  }
+
+  async requestPostApiV1UploadStatus(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/upload/status', { body, params });
+  }
+
+  async requestGetApiV1UsageBenchmarks(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/benchmarks', { params });
+  }
+
+  async requestGetApiV1UsageBreakdown(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/breakdown', { params });
+  }
+
+  async requestGetApiV1UsageBudgetStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/budget-status', { params });
+  }
+
+  async requestGetApiV1UsageExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/export', { params });
+  }
+
+  async requestGetApiV1UsageForecast(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/forecast', { params });
+  }
+
+  async requestGetApiV1UsageRoi(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/roi', { params });
+  }
+
+  async requestGetApiV1UsageSummary(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/usage/summary', { params });
   }
 
   async requestGetApiV1UserOauthProviders(params?: Record<string, unknown>): Promise<unknown> {
@@ -1572,6 +4396,54 @@ export class OpenApiAPI {
 
   async requestGetApiV1VerificationStatus(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/verification/status', { params });
+  }
+
+  async requestGetApiV1VerifyBatch(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verify/batch', { params });
+  }
+
+  async requestGetApiV1VerifyClaim(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verify/claim', { params });
+  }
+
+  async requestGetApiV1VerifyHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verify/history', { params });
+  }
+
+  async requestGetApiV1VerifyStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verify/status', { params });
+  }
+
+  async requestGetApiV1VerifyTranslate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verify/translate', { params });
+  }
+
+  async requestGetApiV1Verticals(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verticals', { params });
+  }
+
+  async requestGetApiV1VerticalsSuggest(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/verticals/suggest', { params });
+  }
+
+  async requestGetApiV1VerticalsByParamAgent(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/verticals/${encodeURIComponent(param)}/agent`, { params });
+  }
+
+  async requestGetApiV1VerticalsByParamCompliance(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/verticals/${encodeURIComponent(param)}/compliance`, { params });
+  }
+
+  async requestGetApiV1VerticalsByParamConfig(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/verticals/${encodeURIComponent(param)}/config`, { params });
+  }
+
+  async requestGetApiV1VerticalsByParamDebate(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/verticals/${encodeURIComponent(param)}/debate`, { params });
+  }
+
+  async requestGetApiV1VerticalsByParamTools(param: string, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', `/api/v1/verticals/${encodeURIComponent(param)}/tools`, { params });
   }
 
   async requestGetApiV1Webhooks(params?: Record<string, unknown>): Promise<unknown> {
@@ -1602,6 +4474,26 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/webhooks/events', { params });
   }
 
+  async requestGetApiV1WebhooksGmail(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/gmail', { params });
+  }
+
+  async requestGetApiV1WebhooksHistory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/history', { params });
+  }
+
+  async requestGetApiV1WebhooksOutlook(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/outlook', { params });
+  }
+
+  async requestGetApiV1WebhooksOutlookValidate(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/outlook/validate', { params });
+  }
+
+  async requestGetApiV1WebhooksPagerduty(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/pagerduty', { params });
+  }
+
   async requestGetApiV1WebhooksQueueStats(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/webhooks/queue/stats', { params });
   }
@@ -1612,6 +4504,22 @@ export class OpenApiAPI {
 
   async requestPostApiV1WebhooksSloTest(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('POST', '/api/v1/webhooks/slo/test', { body, params });
+  }
+
+  async requestGetApiV1WebhooksStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/status', { params });
+  }
+
+  async requestGetApiV1WebhooksStripe(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/stripe', { params });
+  }
+
+  async requestGetApiV1WebhooksSubscribe(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/subscribe', { params });
+  }
+
+  async requestGetApiV1WebhooksUnsubscribe(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/webhooks/unsubscribe', { params });
   }
 
   async requestGetApiV1WebhooksById(id: string, params?: Record<string, unknown>): Promise<unknown> {
@@ -1650,16 +4558,20 @@ export class OpenApiAPI {
     return this.client.request('DELETE', `/api/v1/workflow-executions/${encodeURIComponent(execution_id)}`, { params });
   }
 
-  async requestGetApiV1WorkflowDashTemplates(params?: Record<string, unknown>): Promise<unknown> {
+  async requestGetApiV1WorkflowTemplates(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/workflow-templates', { params });
   }
 
-  async requestGetApiV1WorkflowDashTemplatesByTemplateId(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
+  async requestGetApiV1WorkflowTemplatesByTemplateId(template_id: string, params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', `/api/v1/workflow-templates/${encodeURIComponent(template_id)}`, { params });
   }
 
   async requestGetApiV1WorkflowCategories(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/workflow/categories', { params });
+  }
+
+  async requestGetApiV1WorkflowPatternTemplates(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/workflow/pattern-templates', { params });
   }
 
   async requestGetApiV1WorkflowPatterns(params?: Record<string, unknown>): Promise<unknown> {
@@ -1778,8 +4690,40 @@ export class OpenApiAPI {
     return this.client.request('POST', `/api/v2/integrations/${encodeURIComponent(type)}/test`, { body, params });
   }
 
+  async requestGetApiV2UsersMe(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v2/users/me', { params });
+  }
+
+  async requestGetApiV2UsersMeDataInventory(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v2/users/me/data-inventory', { params });
+  }
+
+  async requestGetApiV2UsersMeExport(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v2/users/me/export', { params });
+  }
+
+  async requestGetAudio(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/audio', { params });
+  }
+
+  async requestGetHealthz(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/healthz', { params });
+  }
+
   async requestGetMetrics(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/metrics', { params });
+  }
+
+  async requestGetReadyz(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/readyz', { params });
+  }
+
+  async requestGetReadyzDependencies(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/readyz/dependencies', { params });
+  }
+
+  async requestGetStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/status', { params });
   }
 
 }

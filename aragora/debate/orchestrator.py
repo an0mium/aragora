@@ -8,7 +8,6 @@ debate protocols and consensus mechanisms.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from collections import deque
 from functools import lru_cache
@@ -2720,83 +2719,16 @@ class Arena:
             result = await Arena.run_security_debate(event)
             print(result.final_answer)  # Remediation recommendations
         """
-        from aragora.events.security_events import (
-            SecurityEvent,  # noqa: F401 - used for type validation at runtime
-            build_security_debate_question,
-        )
-        from aragora.debate.protocol import DebateProtocol
+        # Delegate to extracted module
+        from aragora.debate.security_debate import run_security_debate
 
-        # Build the debate question from security findings
-        question = build_security_debate_question(event)
-        event.debate_question = question
-
-        # Create environment with security context
-        env = Environment(
-            task=question,
-            context=json.dumps(
-                {
-                    "security_event_id": event.id,
-                    "security_event_type": event.event_type.value,
-                    "repository": event.repository,
-                    "scan_id": event.scan_id,
-                    "source": event.source,
-                    "findings": [f.to_dict() for f in event.findings],
-                    "severity": event.severity.value,
-                }
-            ),
-        )
-
-        # Create security-focused protocol
-        protocol = DebateProtocol(
-            rounds=3,
-            consensus="majority",
-            convergence_detection=True,
-            convergence_threshold=0.85,
-            timeout_seconds=timeout_seconds,
-        )
-
-        # Get security-focused agents if none provided
-        if agents is None:
-            agents = await cls._get_security_debate_agents()
-
-        if not agents:
-            logger.warning("[security_debate] No agents available, returning empty result")
-            return DebateResult(
-                task=question,
-                consensus_reached=False,
-                confidence=0.0,
-                messages=[],
-                critiques=[],
-                votes=[],
-                rounds_used=0,
-                final_answer="No agents available for security debate",
-            )
-
-        # Create and run the arena
-        arena = cls(
-            environment=env,
+        return await run_security_debate(
+            event=event,
             agents=agents,
-            protocol=protocol,
+            confidence_threshold=confidence_threshold,
+            timeout_seconds=timeout_seconds,
             org_id=org_id,
         )
-
-        logger.info(
-            f"[security_debate] Starting debate for event {event.id} "
-            f"with {len(event.findings)} findings"
-        )
-
-        result = await arena.run()
-
-        # Mark the event as having a debate
-        event.debate_requested = True
-        event.debate_id = result.debate_id
-
-        logger.info(
-            f"[security_debate] Debate {result.debate_id} completed: "
-            f"consensus={result.consensus_reached}, confidence={result.confidence:.2f}"
-        )
-
-        return result
 
     @staticmethod
     async def _get_security_debate_agents() -> list[Agent]:
@@ -2805,45 +2737,7 @@ class Arena:
         Returns agents with security expertise. Tries to use a diverse set
         of models for better debate quality.
         """
-        agents: list[Agent] = []
+        # Delegate to extracted module
+        from aragora.debate.security_debate import get_security_debate_agents
 
-        # Try to get security-focused agents
-        try:
-            from aragora.agents.factory import get_available_agents
-
-            agents = await get_available_agents(
-                capabilities=["security", "code_analysis"],
-                min_count=2,
-                max_count=4,
-            )
-            if agents:
-                return agents
-        except ImportError:
-            pass
-
-        # Fallback: create agents directly
-        try:
-            from aragora.agents.api_agents.anthropic import AnthropicAPIAgent
-
-            agents.append(
-                AnthropicAPIAgent(
-                    name="security-auditor",
-                    model="claude-sonnet-4-20250514",
-                )
-            )
-        except (ImportError, Exception) as e:
-            logger.debug(f"Could not create Anthropic agent: {e}")
-
-        try:
-            from aragora.agents.api_agents.openai import OpenAIAPIAgent
-
-            agents.append(
-                OpenAIAPIAgent(
-                    name="compliance-auditor",
-                    model="gpt-4o",
-                )
-            )
-        except (ImportError, Exception) as e:
-            logger.debug(f"Could not create OpenAI agent: {e}")
-
-        return agents
+        return await get_security_debate_agents()

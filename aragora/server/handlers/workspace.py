@@ -87,6 +87,7 @@ from .base import (
     json_response,
     log_request,
 )
+from aragora.server.versioning.compat import strip_version_prefix
 from .secure import SecureHandler
 from .utils.rate_limit import rate_limit
 
@@ -216,7 +217,8 @@ class WorkspaceHandler(SecureHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return any(path.startswith(route) for route in self.ROUTES)
+        normalized = strip_version_prefix(path)
+        return any(normalized.startswith(strip_version_prefix(route)) for route in self.ROUTES)
 
     def handle(
         self, path: str, query_params: dict, handler: Any, method: str = "GET"
@@ -363,10 +365,11 @@ class WorkspaceHandler(SecureHandler):
         self, path: str, query_params: dict, handler: Any, method: str
     ) -> Optional[HandlerResult]:
         """Route classification requests."""
+        path = strip_version_prefix(path)
         parts = path.strip("/").split("/")
 
         # POST /api/classify - Classify content
-        if path == "/api/v1/classify" and method == "POST":
+        if path == "/api/classify" and method == "POST":
             return self._handle_classify_content(handler)
 
         # GET /api/classify/policy/{level}

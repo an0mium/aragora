@@ -158,6 +158,15 @@ class AgentsHandler(SecureHandler):
             return True
         if path == "/api/matches/recent":
             return True
+        if path.startswith("/api/agents/") and not path.startswith(
+            (
+                "/api/agents/health",
+                "/api/agents/availability",
+                "/api/agents/local",
+                "/api/agents/configs",
+            )
+        ):
+            return True
         if path == "/api/agent/compare":
             return True
         if path.startswith("/api/agent/"):
@@ -187,6 +196,15 @@ class AgentsHandler(SecureHandler):
             return error_response(str(e), 403)
 
         path = strip_version_prefix(path)
+        if path.startswith("/api/agents/") and not path.startswith(
+            (
+                "/api/agents/health",
+                "/api/agents/availability",
+                "/api/agents/local",
+                "/api/agents/configs",
+            )
+        ):
+            path = path.replace("/api/agents/", "/api/agent/", 1)
         # Agent health endpoint (must come before /api/agents check)
         if path == "/api/agents/health":
             return self._get_agent_health()

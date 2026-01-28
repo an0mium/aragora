@@ -965,8 +965,13 @@ class RouteIndex:
                 if path not in self._exact_routes:
                     self._exact_routes[path] = (attr_name, handler)
 
-            # Add prefix patterns
-            prefixes = PREFIX_PATTERNS.get(attr_name, [])
+            # Add prefix patterns (static mapping + handler-provided prefixes)
+            prefixes = list(PREFIX_PATTERNS.get(attr_name, []))
+            handler_prefixes = getattr(handler, "ROUTE_PREFIXES", None)
+            if handler_prefixes:
+                for prefix in handler_prefixes:
+                    if prefix not in prefixes:
+                        prefixes.append(prefix)
             for prefix in prefixes:
                 self._prefix_routes.append((prefix, attr_name, handler))
 

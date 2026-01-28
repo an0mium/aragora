@@ -486,9 +486,20 @@ class TeamsConnector(ChatPlatformConnector):
                     error=error or "Unknown error",
                 )
 
+        except httpx.TimeoutException as e:
+            classified = _classify_teams_error(f"Timeout: {e}")
+            logger.error(f"Teams update_message timeout: {e}")
+            self._record_failure(classified)
+            raise ConnectorTimeoutError(str(e), connector_name="teams") from e
+        except httpx.ConnectError as e:
+            classified = _classify_teams_error(f"Connection error: {e}")
+            logger.error(f"Teams update_message connection error: {e}")
+            self._record_failure(classified)
+            raise ConnectorNetworkError(str(e), connector_name="teams") from e
         except Exception as e:
+            classified = _classify_teams_error(str(e))
             logger.error(f"Teams update_message error: {e}")
-            self._record_failure(e)
+            self._record_failure(classified)
             return SendMessageResponse(success=False, error=str(e))
 
     async def delete_message(
@@ -909,9 +920,34 @@ class TeamsConnector(ChatPlatformConnector):
                     metadata={"error": error or "Upload failed"},
                 )
 
+        except httpx.TimeoutException as e:
+            classified = _classify_teams_error(f"Timeout: {e}")
+            logger.error(f"Teams file upload timeout: {e}")
+            self._record_failure(classified)
+            return FileAttachment(
+                id="",
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
+                content=content,
+                metadata={"error": str(e)},
+            )
+        except httpx.ConnectError as e:
+            classified = _classify_teams_error(f"Connection error: {e}")
+            logger.error(f"Teams file upload connection error: {e}")
+            self._record_failure(classified)
+            return FileAttachment(
+                id="",
+                filename=filename,
+                content_type=content_type,
+                size=len(content),
+                content=content,
+                metadata={"error": str(e)},
+            )
         except Exception as e:
+            classified = _classify_teams_error(str(e))
             logger.error(f"Teams file upload error: {e}")
-            self._record_failure(e)
+            self._record_failure(classified)
             return FileAttachment(
                 id="",
                 filename=filename,
@@ -1057,9 +1093,32 @@ class TeamsConnector(ChatPlatformConnector):
                     metadata={"error": "No download URL available"},
                 )
 
+        except httpx.TimeoutException as e:
+            classified = _classify_teams_error(f"Timeout: {e}")
+            logger.error(f"Teams file download timeout: {e}")
+            self._record_failure(classified)
+            return FileAttachment(
+                id=file_id,
+                filename="",
+                content_type="application/octet-stream",
+                size=0,
+                metadata={"error": str(e)},
+            )
+        except httpx.ConnectError as e:
+            classified = _classify_teams_error(f"Connection error: {e}")
+            logger.error(f"Teams file download connection error: {e}")
+            self._record_failure(classified)
+            return FileAttachment(
+                id=file_id,
+                filename="",
+                content_type="application/octet-stream",
+                size=0,
+                metadata={"error": str(e)},
+            )
         except Exception as e:
+            classified = _classify_teams_error(str(e))
             logger.error(f"Teams file download error: {e}")
-            self._record_failure(e)
+            self._record_failure(classified)
             return FileAttachment(
                 id=file_id,
                 filename="",
@@ -1439,9 +1498,20 @@ class TeamsConnector(ChatPlatformConnector):
             logger.debug(f"Retrieved {len(messages)} messages from Teams channel {channel_id}")
             return messages[:limit]
 
+        except httpx.TimeoutException as e:
+            classified = _classify_teams_error(f"Timeout: {e}")
+            logger.error(f"Teams get_channel_history timeout: {e}")
+            self._record_failure(classified)
+            return []
+        except httpx.ConnectError as e:
+            classified = _classify_teams_error(f"Connection error: {e}")
+            logger.error(f"Teams get_channel_history connection error: {e}")
+            self._record_failure(classified)
+            return []
         except Exception as e:
+            classified = _classify_teams_error(str(e))
             logger.error(f"Teams get_channel_history error: {e}")
-            self._record_failure(e)
+            self._record_failure(classified)
             return []
 
     async def collect_evidence(

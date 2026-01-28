@@ -24,7 +24,7 @@ Endpoints tested:
 
 import json
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
 from aragora.server.handlers import (
     AgentsHandler,
@@ -33,11 +33,25 @@ from aragora.server.handlers import (
     error_response,
 )
 from aragora.server.handlers.base import clear_cache
+from aragora.utils.async_utils import run_async
 
 
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+
+def _wrap_handler(handler: AgentsHandler) -> AgentsHandler:
+    """Provide sync wrapper + auth bypass for async handler methods."""
+    handler.get_auth_context = AsyncMock(return_value=MagicMock())
+    handler.check_permission = MagicMock()
+    async_handle = handler.handle
+
+    def _handle_sync(*args, **kwargs):
+        return run_async(async_handle(*args, **kwargs))
+
+    handler.handle = _handle_sync  # type: ignore[assignment]
+    return handler
 
 
 @pytest.fixture
@@ -60,6 +74,10 @@ def mock_elo_system():
         {"opponent": "gpt4", "result": "win", "elo_change": 15},
         {"opponent": "gemini", "result": "loss", "elo_change": -12},
     ]
+    elo.get_elo_history.return_value = [
+        (1700000000, 1600),
+        (1700003600, 1615),
+    ]
     elo.get_recent_matches.return_value = [
         {"agent1": "claude", "agent2": "gpt4", "winner": "claude"},
     ]
@@ -75,7 +93,7 @@ def mock_elo_system():
 def agents_handler(mock_elo_system):
     """Create an AgentsHandler with mock ELO system."""
     ctx = {"elo_system": mock_elo_system}
-    return AgentsHandler(ctx)
+    return _wrap_handler(AgentsHandler(ctx))
 
 
 @pytest.fixture(autouse=True)
@@ -84,6 +102,14 @@ def clear_caches():
     clear_cache()
     yield
     clear_cache()
+
+
+@pytest.fixture(autouse=True)
+def disable_rate_limit(monkeypatch):
+    """Disable rate limiting to keep tests deterministic."""
+    from aragora.server.handlers.agents import agents as agents_module
+
+    monkeypatch.setattr(agents_module._agent_limiter, "is_allowed", lambda _ip: True)
 
 
 # ============================================================================
@@ -185,7 +211,7 @@ class TestLeaderboardEndpoint:
 
     def test_leaderboard_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/leaderboard", {}, None)
 
         assert result.status_code == 503
@@ -225,7 +251,7 @@ class TestRecentMatchesEndpoint:
 
     def test_recent_matches_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/matches/recent", {}, None)
 
         assert result.status_code == 503
@@ -266,7 +292,7 @@ class TestAgentCompareEndpoint:
 
     def test_compare_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/agent/compare", {"agents": ["claude", "gpt4"]}, None)
 
         assert result.status_code == 503
@@ -302,7 +328,7 @@ class TestAgentProfileEndpoint:
 
     def test_profile_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/agent/claude/profile", {}, None)
 
         assert result.status_code == 503
@@ -330,11 +356,11 @@ class TestAgentHistoryEndpoint:
         result = agents_handler.handle("/api/agent/claude/history", {"limit": "10"}, None)
 
         assert result.status_code == 200
-        mock_elo_system.get_agent_history.assert_called_with("claude", limit=10)
+        mock_elo_system.get_elo_history.assert_called_with("claude", limit=10)
 
     def test_history_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/agent/claude/history", {}, None)
 
         assert result.status_code == 503
@@ -411,7 +437,7 @@ class TestAgentNetworkEndpoint:
 
     def test_network_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/agent/claude/network", {}, None)
 
         assert result.status_code == 503
@@ -534,7 +560,7 @@ class TestHeadToHeadEndpoint:
 
     def test_h2h_unavailable_returns_503(self):
         """Should return 503 when ELO system not available."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/agent/claude/head-to-head/gpt4", {}, None)
 
         assert result.status_code == 503
@@ -661,7 +687,7 @@ class TestAgentsErrorHandling:
 
     def test_history_exception_returns_500(self, agents_handler, mock_elo_system):
         """Should return 500 on history exceptions."""
-        mock_elo_system.get_agent_history.side_effect = Exception("History error")
+        mock_elo_system.get_elo_history.side_effect = Exception("History error")
 
         result = agents_handler.handle("/api/agent/claude/history", {}, None)
 
@@ -704,7 +730,7 @@ class TestLimitCaps:
         result = agents_handler.handle("/api/agent/claude/history", {"limit": "200"}, None)
 
         assert result.status_code == 200
-        mock_elo_system.get_agent_history.assert_called_with("claude", limit=100)
+        mock_elo_system.get_elo_history.assert_called_with("claude", limit=100)
 
 
 # ============================================================================
@@ -847,7 +873,7 @@ class TestMomentDetectorIntegration:
 
     def test_moments_without_elo_returns_empty(self):
         """Should return empty moments without ELO."""
-        handler = AgentsHandler({})
+        handler = _wrap_handler(AgentsHandler({}))
         result = handler.handle("/api/agent/claude/moments", {}, None)
 
         assert result.status_code == 200

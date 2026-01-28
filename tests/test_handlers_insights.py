@@ -54,7 +54,11 @@ class MockInsightStore:
 @pytest.fixture
 def insights_handler():
     """Create InsightsHandler instance."""
-    return InsightsHandler({})
+    handler = InsightsHandler({})
+    # Bypass auth/permission checks for handler unit tests
+    handler.get_auth_context = AsyncMock(return_value=MagicMock())
+    handler.check_permission = MagicMock()
+    return handler
 
 
 @pytest.fixture
@@ -82,7 +86,11 @@ def handler_with_store():
             ),
         ]
     )
-    return InsightsHandler({"insight_store": store})
+    handler = InsightsHandler({"insight_store": store})
+    # Bypass auth/permission checks for handler unit tests
+    handler.get_auth_context = AsyncMock(return_value=MagicMock())
+    handler.check_permission = MagicMock()
+    return handler
 
 
 class TestInsightsHandlerRouting:
@@ -104,9 +112,10 @@ class TestInsightsHandlerRouting:
 class TestRecentInsights:
     """Test GET /api/insights/recent endpoint."""
 
-    def test_get_recent_insights_success(self, handler_with_store):
+    @pytest.mark.asyncio
+    async def test_get_recent_insights_success(self, handler_with_store):
         """Should return recent insights."""
-        result = handler_with_store.handle_get(
+        result = await handler_with_store.handle_get(
             "/api/insights/recent", {}, None, handler_with_store.ctx
         )
 
@@ -116,9 +125,10 @@ class TestRecentInsights:
         assert len(data["insights"]) == 2
         assert data["count"] == 2
 
-    def test_get_recent_insights_fields(self, handler_with_store):
+    @pytest.mark.asyncio
+    async def test_get_recent_insights_fields(self, handler_with_store):
         """Should include expected fields in insights."""
-        result = handler_with_store.handle_get(
+        result = await handler_with_store.handle_get(
             "/api/insights/recent", {}, None, handler_with_store.ctx
         )
 
@@ -132,9 +142,10 @@ class TestRecentInsights:
         assert insight["confidence"] == 0.85
         assert insight["agents_involved"] == ["claude", "gpt"]
 
-    def test_get_recent_insights_limits_evidence(self, handler_with_store):
+    @pytest.mark.asyncio
+    async def test_get_recent_insights_limits_evidence(self, handler_with_store):
         """Should limit evidence to first 3 items."""
-        result = handler_with_store.handle_get(
+        result = await handler_with_store.handle_get(
             "/api/insights/recent", {}, None, handler_with_store.ctx
         )
 
@@ -143,27 +154,30 @@ class TestRecentInsights:
 
         assert len(evidence) == 3  # Limited to first 3
 
-    def test_get_recent_insights_respects_limit(self, handler_with_store):
+    @pytest.mark.asyncio
+    async def test_get_recent_insights_respects_limit(self, handler_with_store):
         """Should respect limit parameter."""
-        result = handler_with_store.handle_get(
+        result = await handler_with_store.handle_get(
             "/api/insights/recent", {"limit": "1"}, None, handler_with_store.ctx
         )
 
         data = json.loads(result.body)
         assert len(data["insights"]) == 1
 
-    def test_get_recent_insights_caps_limit(self, handler_with_store):
+    @pytest.mark.asyncio
+    async def test_get_recent_insights_caps_limit(self, handler_with_store):
         """Should cap limit at 100."""
-        result = handler_with_store.handle_get(
+        result = await handler_with_store.handle_get(
             "/api/insights/recent", {"limit": "1000"}, None, handler_with_store.ctx
         )
 
         # Handler should cap at 100, but we only have 2 insights
         assert result is not None
 
-    def test_get_recent_insights_no_store(self, insights_handler):
+    @pytest.mark.asyncio
+    async def test_get_recent_insights_no_store(self, insights_handler):
         """Should return error when no insight store configured."""
-        result = insights_handler.handle_get("/api/insights/recent", {}, None, {})
+        result = await insights_handler.handle_get("/api/insights/recent", {}, None, {})
 
         assert result is not None
         data = json.loads(result.body)
@@ -174,7 +188,8 @@ class TestRecentInsights:
 class TestExtractDetailedInsights:
     """Test POST /api/insights/extract-detailed endpoint."""
 
-    def test_extract_insights_success(self, insights_handler):
+    @pytest.mark.asyncio
+    async def test_extract_insights_success(self, insights_handler):
         """Should extract insights from content."""
         mock_handler = Mock()
         mock_handler.rfile.read.return_value = json.dumps(
@@ -182,7 +197,9 @@ class TestExtractDetailedInsights:
         ).encode()
         mock_handler.headers = {"Content-Length": "100"}
 
-        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
+        result = await insights_handler.handle_post(
+            "/api/insights/extract-detailed", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 200
@@ -191,24 +208,30 @@ class TestExtractDetailedInsights:
         assert "evidence_chains" in data
         assert "patterns" in data
 
-    def test_extract_insights_missing_content(self, insights_handler):
+    @pytest.mark.asyncio
+    async def test_extract_insights_missing_content(self, insights_handler):
         """Should return error when content is missing."""
         mock_handler = Mock()
         mock_handler.rfile.read.return_value = json.dumps({}).encode()
         mock_handler.headers = {"Content-Length": "2"}
 
-        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
+        result = await insights_handler.handle_post(
+            "/api/insights/extract-detailed", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_extract_insights_invalid_json(self, insights_handler):
+    @pytest.mark.asyncio
+    async def test_extract_insights_invalid_json(self, insights_handler):
         """Should return error for invalid JSON."""
         mock_handler = Mock()
         mock_handler.rfile.read.return_value = b"not json"
         mock_handler.headers = {"Content-Length": "8"}
 
-        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
+        result = await insights_handler.handle_post(
+            "/api/insights/extract-detailed", {}, mock_handler
+        )
 
         assert result is not None
         assert result.status_code == 400
@@ -358,7 +381,8 @@ class TestPatternExtraction:
 class TestIntegration:
     """Integration tests for full request flow."""
 
-    def test_full_extract_flow(self, insights_handler):
+    @pytest.mark.asyncio
+    async def test_full_extract_flow(self, insights_handler):
         """Should handle full extraction flow."""
         content = """
         According to recent studies, machine learning improves accuracy.
@@ -375,7 +399,9 @@ class TestIntegration:
         ).encode()
         mock_handler.headers = {"Content-Length": str(len(content) + 50)}
 
-        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
+        result = await insights_handler.handle_post(
+            "/api/insights/extract-detailed", {}, mock_handler
+        )
 
         assert result.status_code == 200
         data = json.loads(result.body)
@@ -385,7 +411,8 @@ class TestIntegration:
         assert len(data["evidence_chains"]) > 0
         assert len(data["patterns"]) > 0
 
-    def test_selective_extraction(self, insights_handler):
+    @pytest.mark.asyncio
+    async def test_selective_extraction(self, insights_handler):
         """Should respect extraction flags."""
         content = "Therefore, we should do this because it works."
 
@@ -400,7 +427,9 @@ class TestIntegration:
         ).encode()
         mock_handler.headers = {"Content-Length": "200"}
 
-        result = insights_handler.handle_post("/api/insights/extract-detailed", {}, mock_handler)
+        result = await insights_handler.handle_post(
+            "/api/insights/extract-detailed", {}, mock_handler
+        )
 
         data = json.loads(result.body)
         assert "claims" in data

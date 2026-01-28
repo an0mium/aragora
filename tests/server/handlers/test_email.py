@@ -185,12 +185,20 @@ class TestHandleEmailFeedback:
     @pytest.mark.asyncio
     async def test_feedback_read_action(self):
         """Should handle read action feedback."""
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_get_prioritizer:
+        with (
+            patch("aragora.server.handlers.email.get_prioritizer") as mock_get_prioritizer,
+            patch("aragora.server.handlers.email.check_permission") as mock_check_permission,
+        ):
             mock_prioritizer = MagicMock()
             mock_prioritizer.record_user_action = AsyncMock()
             mock_get_prioritizer.return_value = mock_prioritizer
+            mock_check_permission.return_value = MagicMock(allowed=True)
 
-            result = await handle_email_feedback("msg_123", "read")
+            result = await handle_email_feedback(
+                "msg_123",
+                "read",
+                auth_context=MagicMock(),
+            )
 
             assert result["success"] is True
             assert result["email_id"] == "msg_123"
@@ -200,12 +208,20 @@ class TestHandleEmailFeedback:
     @pytest.mark.asyncio
     async def test_feedback_archive_action(self):
         """Should handle archive action feedback."""
-        with patch("aragora.server.handlers.email.get_prioritizer") as mock_get_prioritizer:
+        with (
+            patch("aragora.server.handlers.email.get_prioritizer") as mock_get_prioritizer,
+            patch("aragora.server.handlers.email.check_permission") as mock_check_permission,
+        ):
             mock_prioritizer = MagicMock()
             mock_prioritizer.record_user_action = AsyncMock()
             mock_get_prioritizer.return_value = mock_prioritizer
+            mock_check_permission.return_value = MagicMock(allowed=True)
 
-            result = await handle_email_feedback("msg_123", "archived")
+            result = await handle_email_feedback(
+                "msg_123",
+                "archived",
+                auth_context=MagicMock(),
+            )
 
             assert result["success"] is True
             assert result["action"] == "archived"
@@ -369,4 +385,4 @@ class TestEmailHandlerMethods:
 
             # HandlerResult is a dataclass with status_code attribute
             assert result.status_code == 200
-            mock_get_config.assert_called_once_with("test_user")
+            mock_get_config.assert_called_once_with("test_user", auth_context=None)

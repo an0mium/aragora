@@ -12,7 +12,7 @@ Comprehensive tests for agent-related API endpoints including:
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch, PropertyMock, AsyncMock
 
 import pytest
 
@@ -26,6 +26,7 @@ from aragora.server.handlers.base import (
     SAFE_ID_PATTERN,
     clear_cache,
 )
+from aragora.utils.async_utils import run_async
 from aragora.server.validation import validate_agent_name, validate_path_segment
 
 
@@ -75,7 +76,18 @@ def handler(mock_server_context):
     """Create an AgentsHandler instance."""
     # Clear cache before each test
     clear_cache()
-    return AgentsHandler(mock_server_context)
+    handler_instance = AgentsHandler(mock_server_context)
+    # Bypass auth/permission checks for handler unit tests
+    handler_instance.get_auth_context = AsyncMock(return_value=MagicMock())
+    handler_instance.check_permission = MagicMock()
+    # Provide a sync wrapper for the async handler.handle method
+    async_handle = handler_instance.handle
+
+    def _handle_sync(*args, **kwargs):
+        return run_async(async_handle(*args, **kwargs))
+
+    handler_instance.handle = _handle_sync  # type: ignore[assignment]
+    return handler_instance
 
 
 @pytest.fixture
@@ -86,7 +98,18 @@ def handler_without_elo(tmp_path):
         "storage": MagicMock(),
         "nomic_dir": tmp_path,
     }
-    return AgentsHandler(ctx)
+    handler_instance = AgentsHandler(ctx)
+    # Bypass auth/permission checks for handler unit tests
+    handler_instance.get_auth_context = AsyncMock(return_value=MagicMock())
+    handler_instance.check_permission = MagicMock()
+    # Provide a sync wrapper for the async handler.handle method
+    async_handle = handler_instance.handle
+
+    def _handle_sync(*args, **kwargs):
+        return run_async(async_handle(*args, **kwargs))
+
+    handler_instance.handle = _handle_sync  # type: ignore[assignment]
+    return handler_instance
 
 
 # =============================================================================

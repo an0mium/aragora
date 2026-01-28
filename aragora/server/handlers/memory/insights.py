@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from aragora.server.http_utils import run_async as _run_async
 
@@ -53,12 +53,16 @@ class InsightsHandler(SecureHandler):
         "/api/insights/recent",
         "/api/insights/extract-detailed",
         "/api/flips/recent",
+        "/api/flips/summary",
     ]
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         normalized = strip_version_prefix(path)
-        return normalized.startswith("/api/insights/") or normalized == "/api/flips/recent"
+        return normalized.startswith("/api/insights/") or normalized in (
+            "/api/flips/recent",
+            "/api/flips/summary",
+        )
 
     async def handle(  # type: ignore[override]
         self, path: str, query_params: dict, handler
@@ -94,6 +98,9 @@ class InsightsHandler(SecureHandler):
 
         if normalized == "/api/flips/recent":
             return self._get_recent_flips(query, ctx)
+
+        if normalized == "/api/flips/summary":
+            return self._get_flips_summary(query, ctx)
 
         return None
 
@@ -215,6 +222,42 @@ class InsightsHandler(SecureHandler):
                 "count": len(flips),
             }
         )
+
+    @handle_errors("flips summary retrieval")
+    def _get_flips_summary(self, query: dict, ctx: dict) -> HandlerResult:
+        """Get summary statistics for position flips.
+
+        Query params:
+            period: Optional period label (e.g., '7d', '30d')
+
+        Returns:
+            Summary payload with total flip count and optional period.
+        """
+        insight_store = ctx.get("insight_store")
+        if not insight_store:
+            return json_response(
+                {
+                    "summary": {"total": 0},
+                    "message": "Position flip tracking not configured",
+                }
+            )
+
+        period = query.get("period")
+        limit = max(1, min(get_int_param(query, "limit", 200), 500))
+
+        total_flips = 0
+        try:
+            insights = _run_async(insight_store.get_recent_insights(limit=limit))
+            for i in insights:
+                if i.type.value == "position_reversal":
+                    total_flips += 1
+        except Exception as e:
+            logger.warning(f"Error fetching flips summary: {e}")
+
+        response: dict[str, Any] = {"summary": {"total": total_flips}}
+        if period:
+            response["period"] = period
+        return json_response(response)
 
     @handle_errors("insight extraction")
     def _extract_detailed_insights(self, data: dict, ctx: dict) -> HandlerResult:
