@@ -180,6 +180,10 @@ class PerformanceAdapter(FusionMixin):
         recommendation = adapter.compute_elo_adjustment(patterns)
     """
 
+    # FusionMixin configuration
+    adapter_name = "performance"
+    source_type = "elo"
+
     # ID Prefixes
     ELO_PREFIX = "el_"
     EXPERTISE_PREFIX = "ex_"
@@ -1613,6 +1617,119 @@ class PerformanceAdapter(FusionMixin):
             f"errors={len(result['errors'])}"
         )
         return result
+
+    # =========================================================================
+    # FusionMixin Implementation
+    # =========================================================================
+
+    def _get_fusion_sources(self) -> List[str]:
+        """Return list of adapter names this adapter can fuse data from.
+
+        PerformanceAdapter can fuse validations from Consensus (debate outcomes),
+        Evidence (supporting data), and Belief (claim confidence) adapters.
+        """
+        return ["consensus", "evidence", "belief", "continuum"]
+
+    def _extract_fusible_data(self, km_item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract data from a KM item that can be used for fusion.
+
+        Args:
+            km_item: Knowledge Mound item dict
+
+        Returns:
+            Dict with fusible fields, or None if not fusible
+        """
+        metadata = km_item.get("metadata", {})
+
+        # Extract performance-relevant fields
+        item_id = (
+            metadata.get("source_id")
+            or metadata.get("agent_name")
+            or metadata.get("rating_id")
+            or km_item.get("id")
+        )
+
+        if not item_id:
+            return None
+
+        confidence = km_item.get("confidence", 0.5)
+        if isinstance(confidence, str):
+            confidence = {"low": 0.3, "medium": 0.6, "high": 0.9}.get(confidence.lower(), 0.5)
+
+        return {
+            "item_id": item_id,
+            "confidence": confidence,
+            "source_adapter": metadata.get("source_adapter", "unknown"),
+            "agent_name": metadata.get("agent_name"),
+            "domain": metadata.get("domain"),
+            "calibration_score": metadata.get("calibration_score"),
+            "validation_count": metadata.get("validation_count", 1),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,  # FusedValidation from ops.fusion
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to an agent rating or expertise record.
+
+        Args:
+            record: The rating/expertise dict or object to update
+            fusion_result: FusedValidation with fused confidence/validity
+            metadata: Optional additional metadata
+
+        Returns:
+            True if successfully applied, False otherwise
+        """
+        try:
+            # Handle both dict and object records
+            if isinstance(record, dict):
+                record["fusion_applied"] = True
+                record["fused_confidence"] = fusion_result.fused_confidence
+                record["fusion_is_valid"] = fusion_result.is_valid
+                record["fusion_strategy"] = fusion_result.strategy_used.value
+                record["fusion_source_count"] = len(fusion_result.source_validations)
+                record["fusion_timestamp"] = datetime.now(timezone.utc).isoformat()
+                if metadata:
+                    record["fusion_metadata"] = metadata
+            else:
+                # Object with metadata attribute (like AgentRating)
+                if hasattr(record, "metadata") and isinstance(record.metadata, dict):
+                    record.metadata["fusion_applied"] = True
+                    record.metadata["fused_confidence"] = fusion_result.fused_confidence
+                    record.metadata["fusion_is_valid"] = fusion_result.is_valid
+                    record.metadata["fusion_strategy"] = fusion_result.strategy_used.value
+                    record.metadata["fusion_source_count"] = len(fusion_result.source_validations)
+                    record.metadata["fusion_timestamp"] = datetime.now(timezone.utc).isoformat()
+                    if metadata:
+                        record.metadata["fusion_metadata"] = metadata
+
+            # Emit event for fusion application
+            self._emit_event(
+                "km_adapter_fusion_applied",
+                {
+                    "adapter": "performance",
+                    "record_id": record.get("id")
+                    if isinstance(record, dict)
+                    else getattr(record, "agent_name", "unknown"),
+                    "fused_confidence": fusion_result.fused_confidence,
+                    "is_valid": fusion_result.is_valid,
+                    "source_count": len(fusion_result.source_validations),
+                },
+            )
+
+            logger.debug(
+                f"Applied fusion to performance record: "
+                f"confidence={fusion_result.fused_confidence:.2f}, "
+                f"sources={len(fusion_result.source_validations)}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result: {e}")
+            return False
 
 
 # =============================================================================
