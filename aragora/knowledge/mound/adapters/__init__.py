@@ -8,6 +8,7 @@ Base classes and mixins:
 - KnowledgeMoundAdapter: Base class with event/metrics/state utilities
 - SemanticSearchMixin: Unified semantic vector search
 - ReverseFlowMixin: Template for KM -> Source sync operations
+- FusionMixin: Multi-adapter fusion protocol (Phase A3)
 
 Core adapters (memory systems):
 - ContinuumAdapter: Multi-tier memory (fast/medium/slow/glacial)
@@ -34,6 +35,7 @@ Usage:
         KnowledgeMoundAdapter,  # Base class for new adapters
         SemanticSearchMixin,    # Add semantic search to any adapter
         ReverseFlowMixin,       # Add reverse flow sync
+        FusionMixin,            # Add multi-adapter fusion (Phase A3)
         ContinuumAdapter,
         ConsensusAdapter,
         # ... etc
@@ -51,6 +53,7 @@ from ._types import (
 )
 from ._semantic_mixin import SemanticSearchMixin
 from ._reverse_flow_base import ReverseFlowMixin, ValidationSyncResult
+from ._fusion_mixin import FusionMixin, FusionSyncResult, FusionState
 
 # Core memory adapters
 from .continuum_adapter import ContinuumAdapter, ContinuumSearchResult
@@ -95,6 +98,9 @@ __all__ = [
     "EventCallback",
     "SemanticSearchMixin",
     "ReverseFlowMixin",
+    "FusionMixin",
+    "FusionSyncResult",
+    "FusionState",
     # Shared types
     "SyncResult",
     "ValidationSyncResultType",
