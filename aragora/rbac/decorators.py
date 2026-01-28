@@ -169,7 +169,7 @@ def require_permission(
                     on_denied(decision)
                 raise PermissionDeniedError(decision.reason, decision)
 
-            return await func(*args, **kwargs)  # type: ignore[return-value]
+            return await func(*args, **kwargs)  # type: ignore[misc]
 
         # Return appropriate wrapper based on function type
         import asyncio
@@ -264,7 +264,7 @@ def require_role(
                         context.roles,
                     )
 
-            return await func(*args, **kwargs)  # type: ignore[return-value]
+            return await func(*args, **kwargs)  # type: ignore[misc]
 
         import asyncio
 
@@ -341,17 +341,17 @@ def require_org_access(
             org_id = kwargs.get(org_id_param)
 
             if org_id is None and allow_none:
-                return await func(*args, **kwargs)  # type: ignore[return-value]
+                return await func(*args, **kwargs)  # type: ignore[misc]
 
             if org_id is None:
                 raise PermissionDeniedError("Organization ID required but not provided")
 
             if context.org_id != org_id:
                 if context.org_id is None and "owner" in context.roles:
-                    return await func(*args, **kwargs)  # type: ignore[return-value]
+                    return await func(*args, **kwargs)  # type: ignore[misc]
                 raise PermissionDeniedError(f"User does not have access to organization {org_id}")
 
-            return await func(*args, **kwargs)  # type: ignore[return-value]
+            return await func(*args, **kwargs)  # type: ignore[misc]
 
         import asyncio
 
@@ -406,10 +406,10 @@ def require_self_or_admin(
             target_user_id = kwargs.get(user_id_param)
 
             if target_user_id == context.user_id:
-                return await func(*args, **kwargs)  # type: ignore[return-value]
+                return await func(*args, **kwargs)  # type: ignore[misc]
 
             if context.has_any_role("owner", "admin"):
-                return await func(*args, **kwargs)  # type: ignore[return-value]
+                return await func(*args, **kwargs)  # type: ignore[misc]
 
             raise PermissionDeniedError("Can only modify own data or requires admin role")
 

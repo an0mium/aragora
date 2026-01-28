@@ -358,7 +358,7 @@ Answer (be specific and cite relevant parts):"""
         start_time = time.monotonic()
 
         try:
-            async with asyncio.timeout(timeout):
+            async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
                 response = await self._agent_call(prompt, "sub_model")
 
             # Record success
@@ -589,7 +589,7 @@ Content:
 {registered.full_content[:4000]}
 
 Summary:"""
-                    async with asyncio.timeout(timeout):
+                    async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
                         response = await self._agent_call(prompt, "sub_model")
 
                     # Record success
@@ -627,7 +627,7 @@ Summary:"""
         # PRIORITY 2: COMPRESSION - Use compressor if available
         if self._compressor:
             try:
-                async with asyncio.timeout(timeout):
+                async with asyncio.timeout(timeout):  # type: ignore[attr-defined]
                     result = await self._compressor.compress(
                         registered.full_content,
                         source_type=registered.content_type,
