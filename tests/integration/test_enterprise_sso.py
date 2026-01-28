@@ -371,21 +371,21 @@ class TestMultiTenantIsolation:
     @pytest.mark.asyncio
     async def test_tenant_context_isolation(self):
         """Test tenant context isolation in requests."""
-        from aragora.tenancy.context import TenantContext
+        from aragora.tenancy.context import TenantContext, get_current_tenant_id
 
         # Set tenant context
         with TenantContext(tenant_id="tenant-1"):
-            assert TenantContext.current().tenant_id == "tenant-1"
+            assert get_current_tenant_id() == "tenant-1"
 
             # Nested context
             with TenantContext(tenant_id="tenant-2"):
-                assert TenantContext.current().tenant_id == "tenant-2"
+                assert get_current_tenant_id() == "tenant-2"
 
             # Back to original
-            assert TenantContext.current().tenant_id == "tenant-1"
+            assert get_current_tenant_id() == "tenant-1"
 
         # Outside context
-        assert TenantContext.current() is None
+        assert get_current_tenant_id() is None
 
     @pytest.mark.asyncio
     async def test_cross_tenant_access_denied(self):
@@ -407,9 +407,9 @@ class TestMultiTenantIsolation:
     @pytest.mark.asyncio
     async def test_tenant_data_filtering(self):
         """Test automatic tenant data filtering."""
-        from aragora.tenancy.filter import TenantDataFilter
+        from aragora.tenancy.isolation import TenantDataFilter
 
-        filter = TenantDataFilter()
+        data_filter = TenantDataFilter()
 
         # Mock data from multiple tenants
         all_data = [
@@ -419,7 +419,7 @@ class TestMultiTenantIsolation:
         ]
 
         # Filter for tenant-1
-        filtered = filter.filter_by_tenant(all_data, "tenant-1")
+        filtered = data_filter.filter_by_tenant(all_data, "tenant-1")
 
         assert len(filtered) == 2
         assert all(item["tenant_id"] == "tenant-1" for item in filtered)
@@ -543,12 +543,12 @@ class TestSSOAuditLogging:
     @pytest.mark.asyncio
     async def test_sso_login_logged(self):
         """Test that SSO logins are audit logged."""
-        from aragora.auth.audit import SSOAuditLogger
+        from aragora.auth.sso import SSOAuditLogger
 
-        logger = SSOAuditLogger()
+        audit_logger = SSOAuditLogger()
 
         # Log SSO login
-        await logger.log_login(
+        await audit_logger.log_login(
             user_id="user-123",
             email="user@example.com",
             provider="azure_ad",
@@ -558,7 +558,7 @@ class TestSSOAuditLogging:
         )
 
         # Verify log entry
-        logs = await logger.get_logs(user_id="user-123", limit=10)
+        logs = await audit_logger.get_logs(user_id="user-123", limit=10)
         assert len(logs) >= 1
         assert logs[0]["event_type"] == "sso_login"
         assert logs[0]["provider"] == "azure_ad"
@@ -566,19 +566,19 @@ class TestSSOAuditLogging:
     @pytest.mark.asyncio
     async def test_sso_logout_logged(self):
         """Test that SSO logouts are audit logged."""
-        from aragora.auth.audit import SSOAuditLogger
+        from aragora.auth.sso import SSOAuditLogger
 
-        logger = SSOAuditLogger()
+        audit_logger = SSOAuditLogger()
 
         # Log SSO logout
-        await logger.log_logout(
+        await audit_logger.log_logout(
             user_id="user-123",
             session_id="session-789",
             reason="user_initiated",
         )
 
         # Verify log entry
-        logs = await logger.get_logs(user_id="user-123", limit=10)
+        logs = await audit_logger.get_logs(user_id="user-123", limit=10)
         logout_logs = [log for log in logs if log["event_type"] == "sso_logout"]
         assert len(logout_logs) >= 1
 

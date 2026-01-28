@@ -126,7 +126,6 @@ class TestSimilarityFactory:
         backend = SimilarityFactory.create("jaccard")
         assert isinstance(backend, JaccardBackend)
 
-    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_create_tfidf_backend(self):
         """Test creating tfidf backend."""
         backend = SimilarityFactory.create("tfidf")

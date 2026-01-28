@@ -667,7 +667,6 @@ class TestGetSimilarityBackend:
 
         assert isinstance(backend, JaccardBackend)
 
-    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_get_tfidf_backend(self):
         """Test getting TF-IDF backend."""
         backend = get_similarity_backend("tfidf")
