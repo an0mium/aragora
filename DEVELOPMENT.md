@@ -114,6 +114,24 @@ pytest tests/ -v --timeout=10
 mutmut run --paths-to-mutate=aragora/debate/
 ```
 
+### Test Tiers (Recommended)
+
+Use the tiered test runner for faster local feedback:
+
+```bash
+# Fast smoke tier (excludes slow/load/e2e)
+./scripts/test_tiers.sh fast
+
+# CI-equivalent tier
+./scripts/test_tiers.sh ci
+```
+
+## Infrastructure & Policy Enforcement
+
+For Kubernetes policy enforcement, Aragora includes Kyverno policies under
+`deploy/kyverno/`. See `deploy/kyverno/README.md` for installation and policy
+details.
+
 ### Test Organization
 
 | Directory | Description |
