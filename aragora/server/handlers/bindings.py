@@ -17,6 +17,7 @@ __all__ = [
     "BindingsHandler",
 ]
 
+import json
 import logging
 from typing import Any, Optional
 
@@ -238,7 +239,8 @@ class BindingsHandler(BaseHandler):
                 body = await request.json()
             else:
                 body = request.get("body", {})
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug(f"Invalid JSON body in create binding: {e}")
             return error_response("Invalid JSON body", 400)
 
         # Validate required fields
@@ -305,7 +307,8 @@ class BindingsHandler(BaseHandler):
                 body = await request.json()
             else:
                 body = request.get("body", {})
-        except Exception:
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug(f"Invalid JSON body in resolve binding: {e}")
             return error_response("Invalid JSON body", 400)
 
         # Validate required fields
