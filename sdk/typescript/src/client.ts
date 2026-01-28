@@ -196,6 +196,37 @@ import {
   EmailPriorityAPI,
   PaymentsAPI,
   TrainingAPI,
+  AdminAPI,
+  // Additional namespaces (SDK Parity Sprint)
+  AccountingAPI,
+  APAutomationAPI,
+  ARAutomationAPI,
+  BackupsAPI,
+  BatchAPI,
+  CodeReviewAPI,
+  DashboardAPI,
+  DeliberationsAPI,
+  DevicesAPI,
+  EmailServicesAPI,
+  ExpensesAPI,
+  FeedbackAPI,
+  GenesisAPI,
+  GmailAPI,
+  InvoiceProcessingAPI,
+  LaboratoryAPI,
+  LearningAPI,
+  OutlookAPI,
+  PersonaAPI,
+  PrivacyAPI,
+  RLMAPI,
+  RoutingAPI,
+  SkillsAPI,
+  TeamsAPI,
+  ThreatIntelAPI,
+  TranscriptionAPI,
+  UnifiedInboxAPI,
+  UsageMeteringAPI,
+  VerticalsAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -258,6 +289,12 @@ export class AragoraClient {
    * Provides pre-built workflows and onboarding for small/medium enterprises.
    */
   readonly sme: SMEAPI;
+
+  /**
+   * Admin API namespace.
+   * Provides methods for platform administration (requires admin role).
+   */
+  readonly admin: AdminAPI;
 
   /**
    * Billing API namespace.
@@ -529,6 +566,97 @@ export class AragoraClient {
    */
   readonly training: TrainingAPI;
 
+  // =========================================================================
+  // Additional Namespaces (SDK Parity Sprint)
+  // =========================================================================
+
+  /** Accounting API - Financial management and payroll. */
+  readonly accounting: AccountingAPI;
+
+  /** AP Automation API - Accounts payable workflows. */
+  readonly apAutomation: APAutomationAPI;
+
+  /** AR Automation API - Accounts receivable workflows. */
+  readonly arAutomation: ARAutomationAPI;
+
+  /** Backups API - Disaster recovery and backup management. */
+  readonly backups: BackupsAPI;
+
+  /** Batch API - Bulk operations processing. */
+  readonly batch: BatchAPI;
+
+  /** Code Review API - Automated code review and security scanning. */
+  readonly codeReview: CodeReviewAPI;
+
+  /** Dashboard API - Overview and quick actions. */
+  readonly dashboard: DashboardAPI;
+
+  /** Deliberations API - Active deliberation sessions. */
+  readonly deliberations: DeliberationsAPI;
+
+  /** Devices API - Device registration and push notifications. */
+  readonly devices: DevicesAPI;
+
+  /** Email Services API - Follow-ups, snooze, and category learning. */
+  readonly emailServices: EmailServicesAPI;
+
+  /** Expenses API - Expense tracking and receipt processing. */
+  readonly expenses: ExpensesAPI;
+
+  /** Feedback API - NPS and user feedback collection. */
+  readonly feedback: FeedbackAPI;
+
+  /** Genesis API - Evolution visibility and lineage tracking. */
+  readonly genesis: GenesisAPI;
+
+  /** Gmail API - Gmail integration and email processing. */
+  readonly gmail: GmailAPI;
+
+  /** Invoice Processing API - OCR and approval workflows. */
+  readonly invoiceProcessing: InvoiceProcessingAPI;
+
+  /** Laboratory API - Persona lab and emergent traits. */
+  readonly laboratory: LaboratoryAPI;
+
+  /** Learning API - Meta-learning analytics. */
+  readonly learning: LearningAPI;
+
+  /** Outlook API - Microsoft Outlook integration. */
+  readonly outlook: OutlookAPI;
+
+  /** Persona API - Agent identity management. */
+  readonly persona: PersonaAPI;
+
+  /** Privacy API - GDPR/CCPA compliance. */
+  readonly privacy: PrivacyAPI;
+
+  /** RLM API - Recursive Language Model context management. */
+  readonly rlm: RLMAPI;
+
+  /** Routing API - Team selection and routing rules. */
+  readonly routing: RoutingAPI;
+
+  /** Skills API - Skill invocation and management. */
+  readonly skills: SkillsAPI;
+
+  /** Teams API - Microsoft Teams bot integration. */
+  readonly teams: TeamsAPI;
+
+  /** Threat Intel API - URL, IP, and hash reputation checks. */
+  readonly threatIntel: ThreatIntelAPI;
+
+  /** Transcription API - Audio/video transcription. */
+  readonly transcription: TranscriptionAPI;
+
+  /** Unified Inbox API - Multi-account email management. */
+  readonly unifiedInbox: UnifiedInboxAPI;
+
+  /** Usage Metering API - Token and cost tracking. */
+  readonly usageMetering: UsageMeteringAPI;
+
+  /** Verticals API - Domain-specific configurations. */
+  readonly verticals: VerticalsAPI;
+
   constructor(config: AragoraConfig) {
     this.config = {
       baseUrl: config.baseUrl.replace(/\/+$/, ''), // Remove trailing slashes
@@ -545,6 +673,7 @@ export class AragoraClient {
     this.agents = new AgentsAPI(this);
     this.workflows = new WorkflowsAPI(this);
     this.sme = new SMEAPI(this);
+    this.admin = new AdminAPI(this);
     this.billing = new BillingAPI(this);
     this.budgets = new BudgetsAPI(this);
     this.receipts = new ReceiptsAPI(this);
@@ -590,6 +719,37 @@ export class AragoraClient {
     this.emailPriority = new EmailPriorityAPI(this);
     this.payments = new PaymentsAPI(this);
     this.training = new TrainingAPI(this);
+
+    // Additional namespaces (SDK Parity Sprint)
+    this.accounting = new AccountingAPI(this);
+    this.apAutomation = new APAutomationAPI(this);
+    this.arAutomation = new ARAutomationAPI(this);
+    this.backups = new BackupsAPI(this);
+    this.batch = new BatchAPI(this);
+    this.codeReview = new CodeReviewAPI(this);
+    this.dashboard = new DashboardAPI(this);
+    this.deliberations = new DeliberationsAPI(this);
+    this.devices = new DevicesAPI(this);
+    this.emailServices = new EmailServicesAPI(this);
+    this.expenses = new ExpensesAPI(this);
+    this.feedback = new FeedbackAPI(this);
+    this.genesis = new GenesisAPI(this);
+    this.gmail = new GmailAPI(this);
+    this.invoiceProcessing = new InvoiceProcessingAPI(this);
+    this.laboratory = new LaboratoryAPI(this);
+    this.learning = new LearningAPI(this);
+    this.outlook = new OutlookAPI(this);
+    this.persona = new PersonaAPI(this);
+    this.privacy = new PrivacyAPI(this);
+    this.rlm = new RLMAPI(this);
+    this.routing = new RoutingAPI(this);
+    this.skills = new SkillsAPI(this);
+    this.teams = new TeamsAPI(this);
+    this.threatIntel = new ThreatIntelAPI(this);
+    this.transcription = new TranscriptionAPI(this);
+    this.unifiedInbox = new UnifiedInboxAPI(this);
+    this.usageMetering = new UsageMeteringAPI(this);
+    this.verticals = new VerticalsAPI(this);
   }
 
   // ===========================================================================

@@ -12,12 +12,52 @@ import type {
 } from '../types';
 
 /**
+ * Receipt statistics response.
+ */
+export interface ReceiptStats {
+  total_count: number;
+  by_verdict: Record<string, number>;
+  by_month: Record<string, number>;
+  average_confidence: number;
+  consensus_rate: number;
+}
+
+/**
+ * Batch verification result for multiple receipts.
+ */
+export interface BatchVerificationResult {
+  results: Array<{
+    receipt_id: string;
+    valid: boolean;
+    hash: string;
+    error?: string;
+  }>;
+  total_verified: number;
+  total_valid: number;
+  total_invalid: number;
+}
+
+/**
+ * Receipt filters for querying and stats.
+ */
+export interface ReceiptFilters {
+  verdict?: string;
+  from_date?: string;
+  to_date?: string;
+  decision_type?: string;
+}
+
+/**
  * Interface for the internal client methods used by ReceiptsAPI.
  */
 interface ReceiptsClientInterface {
   listDecisionReceipts(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }>;
   getDecisionReceipt(receiptId: string): Promise<DecisionReceipt>;
   verifyDecisionReceipt(receiptId: string): Promise<{ valid: boolean; hash: string; verified_at: string }>;
+  verifyDecisionReceiptsBatch(receiptIds: string[]): Promise<BatchVerificationResult>;
+  getReceiptStats(filters?: ReceiptFilters): Promise<ReceiptStats>;
+  exportReceiptPdf(receiptId: string): Promise<Blob>;
+  exportReceiptCsv(receiptIds: string[]): Promise<Blob>;
   listGauntletReceipts(params?: { verdict?: string } & PaginationParams): Promise<{ receipts: DecisionReceipt[] }>;
   getGauntletReceipt(receiptId: string): Promise<DecisionReceipt>;
   verifyGauntletReceipt(receiptId: string): Promise<{ valid: boolean; hash: string }>;
@@ -100,6 +140,89 @@ export class ReceiptsAPI {
    */
   async verify(receiptId: string): Promise<{ valid: boolean; hash: string; verified_at: string }> {
     return this.client.verifyDecisionReceipt(receiptId);
+  }
+
+  /**
+   * Verify multiple receipts in a single batch operation.
+   *
+   * More efficient than calling verify() for each receipt individually.
+   * Returns detailed results for each receipt, including any errors.
+   *
+   * @example
+   * ```typescript
+   * const result = await client.receipts.verifyBatch(['receipt-1', 'receipt-2', 'receipt-3']);
+   * console.log(`${result.total_valid}/${result.total_verified} receipts valid`);
+   *
+   * // Check individual results
+   * for (const r of result.results) {
+   *   if (!r.valid) {
+   *     console.error(`Receipt ${r.receipt_id} invalid: ${r.error}`);
+   *   }
+   * }
+   * ```
+   */
+  async verifyBatch(receiptIds: string[]): Promise<BatchVerificationResult> {
+    return this.client.verifyDecisionReceiptsBatch(receiptIds);
+  }
+
+  /**
+   * Get statistics about decision receipts.
+   *
+   * Provides aggregate metrics useful for compliance dashboards,
+   * audits, and operational monitoring.
+   *
+   * @example
+   * ```typescript
+   * const stats = await client.receipts.getStats({ from_date: '2024-01-01' });
+   * console.log(`Total decisions: ${stats.total_count}`);
+   * console.log(`Consensus rate: ${(stats.consensus_rate * 100).toFixed(1)}%`);
+   * console.log(`By verdict:`, stats.by_verdict);
+   * ```
+   */
+  async getStats(filters?: ReceiptFilters): Promise<ReceiptStats> {
+    return this.client.getReceiptStats(filters);
+  }
+
+  /**
+   * Export a receipt as a PDF document.
+   *
+   * Returns a Blob containing the PDF, suitable for download
+   * or storage. Ideal for compliance documentation and
+   * stakeholder reports.
+   *
+   * @example
+   * ```typescript
+   * const pdfBlob = await client.receipts.exportPdf('receipt-123');
+   *
+   * // In a browser, trigger download
+   * const url = URL.createObjectURL(pdfBlob);
+   * const a = document.createElement('a');
+   * a.href = url;
+   * a.download = 'decision-receipt.pdf';
+   * a.click();
+   * ```
+   */
+  async exportPdf(receiptId: string): Promise<Blob> {
+    return this.client.exportReceiptPdf(receiptId);
+  }
+
+  /**
+   * Export multiple receipts as a CSV file.
+   *
+   * Returns a Blob containing CSV data with one row per receipt.
+   * Useful for bulk analysis, spreadsheet import, and reporting.
+   *
+   * @example
+   * ```typescript
+   * const csvBlob = await client.receipts.exportCsv(['receipt-1', 'receipt-2']);
+   *
+   * // Parse the CSV
+   * const text = await csvBlob.text();
+   * console.log(text); // "id,verdict,confidence,created_at\n..."
+   * ```
+   */
+  async exportCsv(receiptIds: string[]): Promise<Blob> {
+    return this.client.exportReceiptCsv(receiptIds);
   }
 
   // ===========================================================================
@@ -185,4 +308,4 @@ export class ReceiptsAPI {
 }
 
 // Re-export types for convenience
-export type { DecisionReceipt, GauntletReceiptExport };
+export type { DecisionReceipt, GauntletReceiptExport, ReceiptStats, BatchVerificationResult, ReceiptFilters };

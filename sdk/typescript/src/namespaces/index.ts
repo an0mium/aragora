@@ -817,6 +817,27 @@ export {
   type UpdateVerticalConfigRequest,
 } from './verticals';
 
+// Admin (Platform Administration)
+export {
+  AdminAPI,
+  type Organization as AdminOrganization,
+  type OrganizationList,
+  type AdminUser,
+  type AdminUserList,
+  type PlatformStats,
+  type SystemMetrics,
+  type RevenueData,
+  type ImpersonationToken,
+  type NomicStatus,
+  type CircuitBreaker,
+  type CircuitBreakerList,
+  type CreditAccount,
+  type CreditTransaction,
+  type CreditTransactionList,
+  type SecurityStatus,
+  type SecurityKey,
+} from './admin';
+
 // Routing (Team Selection & Rules)
 export {
   RoutingAPI,

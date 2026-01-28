@@ -327,7 +327,7 @@ export class EmailServicesAPI {
     options: SnoozeSuggestionsOptions
   ): Promise<SnoozeSuggestionsResponse> {
     return this.client.request('GET', `/api/v1/email/${emailId}/snooze-suggestions`, {
-      params: options as Record<string, unknown>,
+      params: options as unknown as Record<string, unknown>,
     });
   }
 
