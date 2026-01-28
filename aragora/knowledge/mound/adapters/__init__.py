@@ -70,10 +70,11 @@ from .evidence_adapter import (
 )
 from .belief_adapter import BeliefAdapter, BeliefSearchResult, CruxSearchResult
 from .insights_adapter import InsightsAdapter, InsightSearchResult, FlipSearchResult
-from .elo_adapter import EloAdapter, RatingSearchResult
+from .performance_adapter import EloAdapter, RatingSearchResult
 from .pulse_adapter import PulseAdapter, TopicSearchResult
 from .cost_adapter import CostAdapter, CostAnomaly, AlertSearchResult
-from .ranking_adapter import RankingAdapter, AgentExpertise, ExpertiseSearchResult
+from .performance_adapter import RankingAdapter, AgentExpertise, ExpertiseSearchResult
+from .performance_adapter import PerformanceAdapter
 from .rlm_adapter import RlmAdapter, CompressionPattern, ContentPriority
 from .culture_adapter import CultureAdapter, StoredCulturePattern, CultureSearchResult
 from .control_plane_adapter import (
@@ -137,6 +138,7 @@ __all__ = [
     "RankingAdapter",
     "AgentExpertise",
     "ExpertiseSearchResult",
+    "PerformanceAdapter",
     "RlmAdapter",
     "CompressionPattern",
     "ContentPriority",

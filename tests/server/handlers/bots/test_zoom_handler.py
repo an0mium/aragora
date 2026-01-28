@@ -207,7 +207,8 @@ class TestUrlValidation:
         ).hexdigest()
         assert data["encryptedToken"] == expected_encrypted
 
-    def test_url_validation_without_secret_token(self, handler, url_validation_event):
+    @pytest.mark.asyncio
+    async def test_url_validation_without_secret_token(self, handler, url_validation_event):
         """Test URL validation returns plain token when no secret configured."""
         body = json.dumps(url_validation_event).encode()
 
@@ -221,7 +222,7 @@ class TestUrlValidation:
         )
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_SECRET_TOKEN", ""):
-            result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -239,7 +240,8 @@ class TestUrlValidation:
 class TestBotNotification:
     """Tests for bot_notification events."""
 
-    def test_bot_notification_without_bot(self, handler, bot_notification_event):
+    @pytest.mark.asyncio
+    async def test_bot_notification_without_bot(self, handler, bot_notification_event):
         """Test bot notification returns 503 when bot not configured."""
         body = json.dumps(bot_notification_event).encode()
 
@@ -255,7 +257,7 @@ class TestBotNotification:
         # Bot not configured
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
-                result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 503
@@ -264,7 +266,8 @@ class TestBotNotification:
         assert "error" in data
         assert "not configured" in data["error"].lower()
 
-    def test_bot_notification_with_bot(self, handler, bot_notification_event):
+    @pytest.mark.asyncio
+    async def test_bot_notification_with_bot(self, handler, bot_notification_event):
         """Test bot notification is processed when bot configured."""
         body = json.dumps(bot_notification_event).encode()
 
@@ -286,7 +289,7 @@ class TestBotNotification:
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
                 with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -300,7 +303,8 @@ class TestBotNotification:
 class TestSignatureVerification:
     """Tests for Zoom webhook signature verification."""
 
-    def test_invalid_signature_rejected(self, handler, bot_notification_event):
+    @pytest.mark.asyncio
+    async def test_invalid_signature_rejected(self, handler, bot_notification_event):
         """Test invalid signature is rejected when bot is configured."""
         body = json.dumps(bot_notification_event).encode()
 
@@ -323,12 +327,13 @@ class TestSignatureVerification:
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
                 with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 401
 
-    def test_valid_signature_accepted(self, handler, bot_notification_event):
+    @pytest.mark.asyncio
+    async def test_valid_signature_accepted(self, handler, bot_notification_event):
         """Test valid signature is accepted."""
         body = json.dumps(bot_notification_event).encode()
 
@@ -351,7 +356,7 @@ class TestSignatureVerification:
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
                 with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -365,7 +370,8 @@ class TestSignatureVerification:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_invalid_json(self, handler):
+    @pytest.mark.asyncio
+    async def test_invalid_json(self, handler):
         """Test handling invalid JSON body."""
         mock_http = MockHandler(
             headers={
@@ -376,12 +382,13 @@ class TestErrorHandling:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+        result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_empty_body(self, handler):
+    @pytest.mark.asyncio
+    async def test_empty_body(self, handler):
         """Test handling empty body."""
         mock_http = MockHandler(
             headers={
@@ -392,12 +399,13 @@ class TestErrorHandling:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+        result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_missing_event_type(self, handler):
+    @pytest.mark.asyncio
+    async def test_missing_event_type(self, handler):
         """Test handling missing event type."""
         body = json.dumps({"payload": {}}).encode()
 
@@ -413,13 +421,14 @@ class TestErrorHandling:
         # Without client credentials, should return 503 for non-validation events
         with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_ID", ""):
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", ""):
-                result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         # Should return 503 (bot not configured) for unknown events
         assert result.status_code == 503
 
-    def test_bot_initialization_import_error(self, handler, bot_notification_event):
+    @pytest.mark.asyncio
+    async def test_bot_initialization_import_error(self, handler, bot_notification_event):
         """Test handling when zoom bot module import fails."""
         body = json.dumps(bot_notification_event).encode()
 
@@ -439,7 +448,7 @@ class TestErrorHandling:
                     side_effect=ImportError("Module not found"),
                 ):
                     handler._bot_initialized = False  # Reset
-                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         # Should return 503 when bot fails to initialize
@@ -454,7 +463,8 @@ class TestErrorHandling:
 class TestMeetingEvents:
     """Tests for meeting-related events."""
 
-    def test_meeting_ended_event(self, handler, meeting_ended_event):
+    @pytest.mark.asyncio
+    async def test_meeting_ended_event(self, handler, meeting_ended_event):
         """Test handling meeting.ended event."""
         body = json.dumps(meeting_ended_event).encode()
 
@@ -475,7 +485,7 @@ class TestMeetingEvents:
             with patch("aragora.server.handlers.bots.zoom.ZOOM_CLIENT_SECRET", "test-secret"):
                 with patch("aragora.bots.zoom_bot.create_zoom_bot", return_value=mock_bot):
                     handler._bot_initialized = False
-                    result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
@@ -494,7 +504,8 @@ class TestMeetingEvents:
 class TestBotInitialization:
     """Tests for lazy bot initialization."""
 
-    def test_bot_initialized_only_once(self, handler, bot_notification_event):
+    @pytest.mark.asyncio
+    async def test_bot_initialized_only_once(self, handler, bot_notification_event):
         """Test bot is only initialized once."""
         body = json.dumps(bot_notification_event).encode()
 
@@ -519,11 +530,11 @@ class TestBotInitialization:
                     handler._bot_initialized = False
 
                     # First request
-                    handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
                     # Second request (reread body)
                     mock_http.rfile = BytesIO(body)
-                    handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+                    await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
                     # create_zoom_bot should only be called once
                     assert mock_create.call_count == 1

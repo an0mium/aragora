@@ -1,6 +1,6 @@
 # Aragora API Reference
 
-> **Last Updated:** 2026-01-25 (SDK parity, CI improvements, enterprise hardening)
+> **Last Updated:** 2026-01-27 (v2.5.0 type safety, SDK expansion, documentation updates)
 
 This document describes the HTTP and WebSocket APIs for Aragora's control plane
 for multi-agent vetted decisionmaking across organizational knowledge and channels.
@@ -9,14 +9,15 @@ for multi-agent vetted decisionmaking across organizational knowledge and channe
 
 | SDK | Version | Methods | Coverage |
 |-----|---------|---------|----------|
-| TypeScript (`@aragora/sdk`) | 2.4.0 | 346 async | Full API |
-| Python (`aragora`) | 2.4.0 | 210 async + 400 sync | Full API |
+| TypeScript (`@aragora/sdk`) | 2.5.0 | 380 async | Full API (79 namespaces) |
+| Python (`aragora`) | 2.5.0 | 220 async + 420 sync | Full API |
 
 Both SDKs provide complete coverage of all API endpoints including:
 - Debates, Agents, Memory, Knowledge
 - Gauntlet, Verification, Workflows
 - Control Plane, RBAC, Tenancy
 - Authentication, Billing, Audit
+- Backups, Expenses, RLM, Unified Inbox, Feedback
 
 ## Related Documentation
 
@@ -572,6 +573,79 @@ Threat intelligence endpoints live under `/api/v1/threat`.
 | POST | `/api/v1/threat/hashes` | Batch hash lookup |
 | POST | `/api/v1/threat/email` | Scan email content |
 | GET | `/api/v1/threat/status` | Service status |
+
+## Backups API
+
+Disaster recovery and backup management endpoints under `/api/v1/backups`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/backups` | Create a new backup |
+| GET | `/api/v1/backups` | List all backups |
+| GET | `/api/v1/backups/{backup_id}` | Get backup details |
+| DELETE | `/api/v1/backups/{backup_id}` | Delete a backup |
+| POST | `/api/v1/backups/{backup_id}/restore` | Restore from backup |
+| POST | `/api/v1/backups/{backup_id}/verify` | Verify backup integrity |
+| GET | `/api/v1/backups/status` | Get backup service status |
+| POST | `/api/v1/backups/schedule` | Configure backup schedule |
+| GET | `/api/v1/backups/schedule` | Get backup schedule |
+
+## Expenses API
+
+Receipt management and expense categorization under `/api/v1/expenses`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/expenses/receipts` | Upload a receipt |
+| GET | `/api/v1/expenses/receipts` | List receipts |
+| GET | `/api/v1/expenses/receipts/{receipt_id}` | Get receipt details |
+| POST | `/api/v1/expenses/receipts/{receipt_id}/categorize` | Categorize receipt |
+| POST | `/api/v1/expenses/receipts/{receipt_id}/approve` | Approve expense |
+| POST | `/api/v1/expenses/sync` | Sync with accounting system |
+| GET | `/api/v1/expenses/categories` | List expense categories |
+| GET | `/api/v1/expenses/summary` | Get expense summary |
+
+## RLM (Recursive Language Models) API
+
+Context compression and programmatic context management under `/api/v1/rlm`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/rlm/compress` | Compress context |
+| POST | `/api/v1/rlm/decompress` | Decompress context |
+| POST | `/api/v1/rlm/query` | Query compressed context |
+| GET | `/api/v1/rlm/sessions` | List active sessions |
+| GET | `/api/v1/rlm/sessions/{session_id}` | Get session details |
+| DELETE | `/api/v1/rlm/sessions/{session_id}` | End session |
+| POST | `/api/v1/rlm/stream` | Stream compressed output |
+
+## Unified Inbox API
+
+Multi-provider email management under `/api/v1/unified-inbox`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/unified-inbox` | Get unified inbox messages |
+| GET | `/api/v1/unified-inbox/accounts` | List connected accounts |
+| POST | `/api/v1/unified-inbox/accounts` | Connect email account |
+| DELETE | `/api/v1/unified-inbox/accounts/{account_id}` | Disconnect account |
+| GET | `/api/v1/unified-inbox/messages/{message_id}` | Get message details |
+| POST | `/api/v1/unified-inbox/messages/{message_id}/archive` | Archive message |
+| POST | `/api/v1/unified-inbox/messages/{message_id}/reply` | Reply to message |
+| POST | `/api/v1/unified-inbox/sync` | Sync all accounts |
+| GET | `/api/v1/unified-inbox/stats` | Get inbox statistics |
+
+## Feedback API
+
+User feedback and NPS collection under `/api/v1/feedback`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/feedback/nps` | Submit NPS feedback |
+| POST | `/api/v1/feedback/general` | Submit general feedback |
+| GET | `/api/v1/feedback/nps/summary` | Get NPS summary (admin) |
+| GET | `/api/v1/feedback/prompts` | Get feedback prompts |
+| GET | `/api/v1/feedback/history` | Get feedback history |
 
 ### New Endpoints (2026-01-27)
 

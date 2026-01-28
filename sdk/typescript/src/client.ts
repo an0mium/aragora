@@ -238,7 +238,7 @@ import {
 
 interface RequestOptions {
   body?: unknown;
-  params?: Record<string, string | number | boolean | undefined>;
+  params?: Record<string, unknown>;
   headers?: Record<string, string>;
   timeout?: number;
 }
@@ -787,6 +787,18 @@ export class AragoraClient {
     this.history = new HistoryNamespace(this);
     this.ranking = new RankingNamespace(this);
     this.health = new HealthNamespace(this);
+  }
+
+  // ===========================================================================
+  // Core Utility Methods
+  // ===========================================================================
+
+  /**
+   * Returns the base URL configured for this client.
+   * Used internally by namespaces that need to construct URLs directly.
+   */
+  public getBaseUrl(): string {
+    return this.config.baseUrl;
   }
 
   // ===========================================================================

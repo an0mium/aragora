@@ -80,7 +80,7 @@ export class RankingNamespace {
     const response = await this.client.request<{ rankings: AgentRanking[] }>(
       'GET',
       '/api/v1/rankings',
-      { params: options }
+      { params: options as Record<string, string | number | boolean | undefined> }
     );
     return response.rankings;
   }

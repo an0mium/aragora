@@ -256,6 +256,39 @@ tier_stats = client.memory.tier_stats("fast", days=7)
 snapshot = client.memory.snapshot()
 ```
 
+### Knowledge Base
+
+Manage facts and run semantic queries against the knowledge base.
+
+```python
+# Semantic search over knowledge chunks
+results = client.knowledge.search("password reset policies", limit=5)
+for item in results["results"]:
+    print(item["content"][:80])
+
+# Create a fact
+fact = client.knowledge.create_fact(
+    statement="All customer data is encrypted at rest",
+    workspace_id="default",
+    confidence=0.85,
+    topics=["security", "compliance"],
+)
+
+# Verify and fetch contradictions
+client.knowledge.verify_fact(fact["id"])
+contradictions = client.knowledge.list_contradictions(fact["id"])
+```
+
+### Consensus Memory
+
+Inspect settled topics, dissents, and consensus stats.
+
+```python
+similar = client.consensus.get_similar_debates("rate limiting", limit=5)
+stats = client.consensus.get_stats()
+warnings = client.consensus.get_risk_warnings(limit=5)
+```
+
 ### Agents
 
 Discover available agents and their capabilities.

@@ -533,10 +533,11 @@ class TestInvite:
         assert _pending_invites[token]["role"] == "member"
 
 
+@patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
 class TestCheckInvite:
     """Tests for handle_check_invite - invitation validation."""
 
-    async def test_check_invite_valid(self):
+    async def test_check_invite_valid(self, mock_check):
         """Test checking a valid invitation."""
         from aragora.server.handlers.auth.signup_handlers import (
             handle_check_invite,
@@ -565,7 +566,7 @@ class TestCheckInvite:
         assert data["organization_id"] == "org_123"
         assert data["role"] == "admin"
 
-    async def test_check_invite_invalid_token(self):
+    async def test_check_invite_invalid_token(self, mock_check):
         """Test checking an invalid invitation."""
         from aragora.server.handlers.auth.signup_handlers import handle_check_invite
 
@@ -573,7 +574,7 @@ class TestCheckInvite:
 
         assert result.status_code == 404
 
-    async def test_check_invite_expired(self):
+    async def test_check_invite_expired(self, mock_check):
         """Test checking an expired invitation."""
         from aragora.server.handlers.auth.signup_handlers import (
             INVITE_TTL,
@@ -601,7 +602,7 @@ class TestCheckInvite:
         body = json.loads(result.body)
         assert "expired" in get_response_error(body).lower()
 
-    async def test_check_invite_missing_token(self):
+    async def test_check_invite_missing_token(self, mock_check):
         """Test check invite fails without token."""
         from aragora.server.handlers.auth.signup_handlers import handle_check_invite
 
@@ -610,10 +611,11 @@ class TestCheckInvite:
         assert result.status_code == 400
 
 
+@patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
 class TestAcceptInvite:
     """Tests for handle_accept_invite - accepting team invitation."""
 
-    async def test_accept_invite_success(self):
+    async def test_accept_invite_success(self, mock_check):
         """Test successfully accepting an invitation."""
         from aragora.server.handlers.auth.signup_handlers import (
             _pending_invites,
@@ -644,7 +646,7 @@ class TestAcceptInvite:
         # Invite should be removed
         assert token not in _pending_invites
 
-    async def test_accept_invite_invalid_token(self):
+    async def test_accept_invite_invalid_token(self, mock_check):
         """Test accepting an invalid invitation."""
         from aragora.server.handlers.auth.signup_handlers import handle_accept_invite
 
@@ -652,7 +654,7 @@ class TestAcceptInvite:
 
         assert result.status_code == 404
 
-    async def test_accept_invite_expired(self):
+    async def test_accept_invite_expired(self, mock_check):
         """Test accepting an expired invitation."""
         from aragora.server.handlers.auth.signup_handlers import (
             INVITE_TTL,
@@ -678,7 +680,7 @@ class TestAcceptInvite:
 
         assert result.status_code == 400
 
-    async def test_accept_invite_missing_token(self):
+    async def test_accept_invite_missing_token(self, mock_check):
         """Test accept invite fails without token."""
         from aragora.server.handlers.auth.signup_handlers import handle_accept_invite
 

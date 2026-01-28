@@ -64,7 +64,7 @@ def _init_specs() -> None:
     from .evidence_adapter import EvidenceAdapter
     from .belief_adapter import BeliefAdapter
     from .insights_adapter import InsightsAdapter
-    from .elo_adapter import EloAdapter
+    from .performance_adapter import EloAdapter
     from .pulse_adapter import PulseAdapter
     from .cost_adapter import CostAdapter
     from .provenance_adapter import ProvenanceAdapter

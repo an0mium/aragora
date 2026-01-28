@@ -1087,7 +1087,7 @@ class TestHandleInvite:
             assert _pending_invites[token]["email"] == "user@example.com"
 
     @pytest.mark.asyncio
-    async def test_invite_same_email_different_org(self, valid_invite):
+    async def test_invite_same_email_different_org(self, mock_check, valid_invite):
         """Same email for different org should succeed."""
         _, invite_data = valid_invite
 

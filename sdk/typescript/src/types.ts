@@ -528,6 +528,229 @@ export interface WarningEvent {
   message: string;
 }
 
+// Token Streaming Events
+export interface TokenStartEvent {
+  debate_id: string;
+  agent: string;
+  round_number: number;
+}
+
+export interface TokenDeltaEvent {
+  debate_id: string;
+  agent: string;
+  delta: string;
+  seq: number;
+}
+
+export interface TokenEndEvent {
+  debate_id: string;
+  agent: string;
+  full_content: string;
+}
+
+// Preview Events
+export interface QuickClassificationEvent {
+  debate_id: string;
+  classification: string;
+  confidence: number;
+}
+
+export interface AgentPreviewEvent {
+  debate_id: string;
+  agents: Array<{ name: string; role: string; stance?: string }>;
+}
+
+export interface ContextPreviewEvent {
+  debate_id: string;
+  context_summary: string;
+  relevant_knowledge_count: number;
+}
+
+// Audience Analytics Events
+export interface AudienceSummaryEvent {
+  debate_id: string;
+  total_votes: number;
+  suggestions: number;
+}
+
+export interface AudienceMetricsEvent {
+  debate_id: string;
+  vote_distribution: Record<string, number>;
+  engagement_score: number;
+}
+
+export interface AudienceDrainEvent {
+  debate_id: string;
+  reason: string;
+  final_state: Record<string, unknown>;
+}
+
+// Leaderboard/ELO Events
+export interface LeaderboardUpdateEvent {
+  rankings: Array<{ agent: string; elo: number; rank: number }>;
+}
+
+export interface AgentEloUpdatedEvent {
+  agent: string;
+  old_elo: number;
+  new_elo: number;
+  change: number;
+  debate_id: string;
+}
+
+export interface AgentCalibrationChangedEvent {
+  agent: string;
+  old_calibration: number;
+  new_calibration: number;
+  domain?: string;
+}
+
+export interface AgentFallbackTriggeredEvent {
+  original_agent: string;
+  fallback_agent: string;
+  reason: string;
+  debate_id: string;
+}
+
+export interface GroundedVerdictEvent {
+  debate_id: string;
+  verdict: string;
+  grounding_sources: string[];
+  confidence: number;
+}
+
+export interface MomentDetectedEvent {
+  debate_id: string;
+  agent: string;
+  moment_type: 'breakthrough' | 'comeback' | 'decisive_argument' | 'consensus_catalyst' | 'upset';
+  description: string;
+  impact_score: number;
+}
+
+// Nomic Loop Events
+export interface CycleStartEvent {
+  loop_id: string;
+  cycle_number: number;
+  timestamp: string;
+}
+
+export interface CycleEndEvent {
+  loop_id: string;
+  cycle_number: number;
+  duration_seconds: number;
+  status: 'completed' | 'failed' | 'cancelled';
+}
+
+export interface PhaseStartEvent {
+  loop_id: string;
+  phase: string;
+  cycle_number: number;
+}
+
+export interface PhaseEndEvent {
+  loop_id: string;
+  phase: string;
+  cycle_number: number;
+  status: 'completed' | 'failed' | 'skipped';
+}
+
+export interface TaskStartEvent {
+  loop_id: string;
+  task_id: string;
+  task_type: string;
+  phase: string;
+}
+
+export interface TaskCompleteEvent {
+  loop_id: string;
+  task_id: string;
+  status: 'completed' | 'failed';
+  result?: Record<string, unknown>;
+}
+
+export interface TaskRetryEvent {
+  loop_id: string;
+  task_id: string;
+  attempt: number;
+  max_attempts: number;
+  reason: string;
+}
+
+export interface LoopRegisterEvent {
+  loop_id: string;
+  config: Record<string, unknown>;
+}
+
+export interface LoopUnregisterEvent {
+  loop_id: string;
+  reason: string;
+}
+
+export interface LoopListEvent {
+  loops: Array<{ loop_id: string; status: string; cycle: number }>;
+}
+
+// Memory Events
+export interface MemoryRecallEvent {
+  debate_id?: string;
+  query: string;
+  results_count: number;
+  tiers: string[];
+}
+
+export interface InsightExtractedEvent {
+  debate_id: string;
+  insight: string;
+  confidence: number;
+  source_round: number;
+}
+
+export interface MemoryStoredEvent {
+  memory_id: string;
+  tier: string;
+  importance: number;
+  debate_id?: string;
+}
+
+export interface MemoryRetrievedEvent {
+  memory_id: string;
+  tier: string;
+  age_seconds: number;
+  relevance: number;
+}
+
+// Belief Network Events
+export interface BeliefConvergedEvent {
+  debate_id: string;
+  claim: string;
+  final_confidence: number;
+  supporting_agents: string[];
+}
+
+export interface CruxDetectedEvent {
+  debate_id: string;
+  crux: string;
+  agents_involved: string[];
+  round_detected: number;
+}
+
+// Progress Events
+export interface PhaseProgressEvent {
+  debate_id?: string;
+  loop_id?: string;
+  phase: string;
+  progress_pct: number;
+  eta_seconds?: number;
+}
+
+export interface AgentErrorEvent {
+  debate_id: string;
+  agent: string;
+  error_code: string;
+  error_message: string;
+  recoverable: boolean;
+}
+
 // =============================================================================
 // Health Types
 // =============================================================================

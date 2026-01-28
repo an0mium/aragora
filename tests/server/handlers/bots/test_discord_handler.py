@@ -216,7 +216,8 @@ class TestPingPong:
 class TestApplicationCommands:
     """Tests for application command interactions."""
 
-    def test_debate_command(self, handler, command_interaction):
+    @pytest.mark.asyncio
+    async def test_debate_command(self, handler, command_interaction):
         """Test handling debate slash command."""
         body = json.dumps(command_interaction).encode()
 
@@ -247,7 +248,9 @@ class TestApplicationCommands:
                 )
                 mock_registry.return_value = mock_reg
 
-                result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+                result = await handler.handle_post(
+                    "/api/v1/bots/discord/interactions", {}, mock_http
+                )
 
         assert result is not None
 
@@ -255,7 +258,8 @@ class TestApplicationCommands:
         data = json.loads(result.body)
         assert data["type"] == 4  # CHANNEL_MESSAGE_WITH_SOURCE
 
-    def test_unknown_command(self, handler):
+    @pytest.mark.asyncio
+    async def test_unknown_command(self, handler):
         """Test handling unknown command."""
         interaction = {
             "type": 2,
@@ -285,7 +289,7 @@ class TestApplicationCommands:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -303,7 +307,8 @@ class TestApplicationCommands:
 class TestMessageComponents:
     """Tests for message component (button/select) interactions."""
 
-    def test_vote_button(self, handler, button_interaction):
+    @pytest.mark.asyncio
+    async def test_vote_button(self, handler, button_interaction):
         """Test handling vote button click."""
         body = json.dumps(button_interaction).encode()
 
@@ -321,7 +326,7 @@ class TestMessageComponents:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -330,7 +335,8 @@ class TestMessageComponents:
         # Should confirm vote
         assert "vote" in data["data"]["content"].lower()
 
-    def test_unknown_component(self, handler):
+    @pytest.mark.asyncio
+    async def test_unknown_component(self, handler):
         """Test handling unknown component interaction."""
         interaction = {
             "type": 3,
@@ -360,7 +366,7 @@ class TestMessageComponents:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -376,7 +382,8 @@ class TestMessageComponents:
 class TestModalSubmit:
     """Tests for modal submission interactions."""
 
-    def test_modal_submit(self, handler):
+    @pytest.mark.asyncio
+    async def test_modal_submit(self, handler):
         """Test handling modal submission."""
         interaction = {
             "type": 5,  # MODAL_SUBMIT
@@ -417,7 +424,7 @@ class TestModalSubmit:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 
@@ -433,7 +440,8 @@ class TestModalSubmit:
 class TestSignatureVerification:
     """Tests for Discord signature verification."""
 
-    def test_invalid_signature_rejected(self, handler, ping_interaction):
+    @pytest.mark.asyncio
+    async def test_invalid_signature_rejected(self, handler, ping_interaction):
         """Test invalid signature is rejected."""
         body = json.dumps(ping_interaction).encode()
 
@@ -451,14 +459,18 @@ class TestSignatureVerification:
         # Mock public key being configured
         with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "abc123"):
             with patch(
-                "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=False
+                "aragora.server.handlers.bots.discord._verify_discord_signature",
+                return_value=False,
             ):
-                result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+                result = await handler.handle_post(
+                    "/api/v1/bots/discord/interactions", {}, mock_http
+                )
 
         assert result is not None
         assert result.status_code == 401
 
-    def test_missing_signature_when_key_configured(self, handler, ping_interaction):
+    @pytest.mark.asyncio
+    async def test_missing_signature_when_key_configured(self, handler, ping_interaction):
         """Test missing signature is rejected when key is configured."""
         body_data = json.dumps(ping_interaction).encode()
 
@@ -475,9 +487,12 @@ class TestSignatureVerification:
 
         with patch("aragora.server.handlers.bots.discord.DISCORD_PUBLIC_KEY", "abc123"):
             with patch(
-                "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=False
+                "aragora.server.handlers.bots.discord._verify_discord_signature",
+                return_value=False,
             ):
-                result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+                result = await handler.handle_post(
+                    "/api/v1/bots/discord/interactions", {}, mock_http
+                )
 
         # Should either reject or skip verification
         assert result is not None
@@ -491,7 +506,8 @@ class TestSignatureVerification:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_invalid_json(self, handler):
+    @pytest.mark.asyncio
+    async def test_invalid_json(self, handler):
         """Test handling invalid JSON body."""
         mock_http = MockHandler(
             headers={
@@ -507,12 +523,13 @@ class TestErrorHandling:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_unknown_interaction_type(self, handler):
+    @pytest.mark.asyncio
+    async def test_unknown_interaction_type(self, handler):
         """Test handling unknown interaction type."""
         interaction = {
             "type": 99,  # Unknown type
@@ -536,7 +553,7 @@ class TestErrorHandling:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
 

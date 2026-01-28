@@ -1,6 +1,6 @@
 # Aragora - Control Plane for Multi-Agent Vetted Decisionmaking
 
-*Version 2.1 | Commercial Overview*  
+*Version 2.4.0 | Commercial Overview*
 *Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
 
 ## Executive Summary
@@ -90,18 +90,19 @@ Unlike chatbots, Aragora builds institutional memory with full audit trails. **V
 
 ## Commercial Readiness Assessment
 
-### Overall: 85% Production Ready (internal estimate)
+### Overall: 90% Production Ready (internal estimate)
 
 | Category | Score | Status | Notes |
 |----------|-------|--------|-------|
 | Error Handling & Resilience | 95% | Ready | Circuit breakers, retry policies, graceful degradation |
-| Security & Authentication | 88% | Ready | OIDC/SAML, MFA, encryption, audit logging |
+| Security & Authentication | 92% | Ready | OIDC/SAML, MFA, encryption, audit logging |
 | Scalability & Performance | 92% | Ready | Connection pooling, caching, rate limiting |
 | Observability & Monitoring | 90% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 93% | Ready | See `docs/STATUS.md` for current counts |
+| Testing & QA | 95% | Ready | 45,100+ tests across 1,220 files |
 | Documentation | 91% | Ready | API docs, runbooks, compliance guides |
-| Compliance & Governance | 78% | Partial | RBAC needs enhancement |
-| **OVERALL** | **85%** | **SMB Ready** | Enterprise: 4-6 weeks additional |
+| Compliance & Governance | 88% | Ready | RBAC v2 with 50+ permissions, role hierarchy |
+| SDK & Integrations | 90% | Ready | 79 TypeScript namespaces, 8 bot handlers |
+| **OVERALL** | **90%** | **SMB Ready** | Enterprise: 2-3 weeks additional |
 
 ### Deployment Readiness
 
@@ -233,14 +234,16 @@ Structured debate for strategic decisions with evidence-based recommendations.
 
 ---
 
-## Roadmap to Enterprise (4-6 weeks)
+## Roadmap to Enterprise (2-3 weeks)
 
-| Gap | Resolution | Effort |
+| Gap | Resolution | Status |
 |-----|------------|--------|
-| Fine-grained RBAC | Implement permission matrix | 2 weeks |
-| Automated backups | Scheduled backup with verification | 1 week |
-| SLA documentation | Legally-binding service levels | 1 week |
-| Distributed rate limiting | Redis-backed cluster-aware limiting | 1 week |
+| Fine-grained RBAC | RBAC v2 with 50+ permissions | Complete |
+| Automated backups | BackupManager with incremental support | Complete |
+| Bot handler consolidation | BotHandlerMixin across 8 platforms | Complete |
+| TypeScript SDK | 79 namespaces wired to client | Complete |
+| SLA documentation | Legally-binding service levels | In Progress |
+| Distributed rate limiting | Redis-backed cluster-aware limiting | In Progress |
 
 ---
 

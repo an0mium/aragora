@@ -4,6 +4,61 @@
 
 ## Current Release
 
+### v2.5.0 - Type Safety & SDK Expansion (January 2026)
+
+**Production Ready** - Aragora 2.5.0 fixes mypy type errors across handlers, expands TypeScript SDK to 79 namespaces, and consolidates bot handlers.
+
+#### Key Highlights
+- **Type safety** - Fixed 10+ mypy type errors across server handlers
+- **TypeScript SDK** - 79 namespaces wired to client (added backups, dashboard, devices, expenses, rlm, threat-intel, unified-inbox)
+- **Bot handler consolidation** - All 8 bot handlers now use BotHandlerMixin
+- **RBAC standardization** - 90%+ of handlers now have permission checks
+- **Feedback handler tests** - 21 new tests for NPS and feedback submission
+- **Lines of Code**: 696,000+ LOC
+- **Tests**: 45,100+ across 1,220 files
+- **0 production blockers**
+
+#### What's New in 2.5.0
+
+**Type Error Fixes** (FIX)
+- **Handler Fixes** (`aragora/server/handlers/`)
+  - Fixed async/await mismatches in explainability handler
+  - Fixed AgentRating field access in Slack handler
+  - Fixed indexed assignment types in composite analytics
+  - Added proper type hints to dashboard health checks
+  - Fixed async call chain in knowledge analytics
+
+**TypeScript SDK Expansion** (FEATURE)
+- **SDK Namespaces** (`sdk/typescript/src/namespaces/`)
+  - Backups namespace for disaster recovery
+  - Dashboard namespace for admin metrics
+  - Devices namespace for smart speaker integration
+  - Expenses namespace for receipt management
+  - RLM namespace for context compression
+  - Threat Intelligence namespace for security monitoring
+  - Unified Inbox namespace for multi-provider email
+
+**Bot Handler Consolidation** (FEATURE)
+- **Bot Handlers** (`aragora/server/handlers/bots/`)
+  - All 8 platforms (Slack, Discord, Telegram, WhatsApp, Teams, Alexa, Google Home, Apple Shortcuts) use BotHandlerMixin
+  - Consistent authentication and status endpoint patterns
+  - Standardized webhook signature verification
+
+**RBAC Standardization** (FEATURE)
+- **Permission Checks** (`aragora/server/handlers/`)
+  - External integrations handler RBAC fix
+  - Feedback handler permission enforcement
+  - 90%+ handler coverage for permission checks
+
+**Testing Improvements** (TEST)
+- **Feedback Handler Tests** (`tests/server/handlers/`)
+  - 21 new tests for NPS submission
+  - General feedback submission tests
+  - Admin summary access tests
+  - RBAC permission enforcement tests
+
+---
+
 ### v2.4.0 - Python SDK Expansion & Knowledge Mound Integration (January 2026)
 
 **Production Ready** - Aragora 2.4.0 expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.

@@ -317,13 +317,13 @@ class ExplainabilityHandler(BaseHandler):
         """Route explainability requests."""
         # Handle batch endpoints first
         if path == "/api/v1/explainability/batch":
-            return await self._handle_batch_create(handler)
+            return self._handle_batch_create(handler)
         if path.startswith("/api/v1/explainability/batch/") and path.endswith("/status"):
             batch_id = path.split("/")[-2]
-            return await self._handle_batch_status(batch_id)
+            return self._handle_batch_status(batch_id)
         if path.startswith("/api/v1/explainability/batch/") and path.endswith("/results"):
             batch_id = path.split("/")[-2]
-            return await self._handle_batch_results(batch_id, query_params)
+            return self._handle_batch_results(batch_id, query_params)
 
         # Handle compare endpoint
         if path == "/api/v1/explainability/compare":

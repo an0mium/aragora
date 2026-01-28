@@ -14,7 +14,7 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test         Run all tests"
-	@echo "  make test-fast    Run fast tests only (no slow/e2e/integration/benchmarks)"
+	@echo "  make test-fast    Run fast tests only (no slow/e2e/integration/benchmarks/load/performance)"
 	@echo "  make test-unit    Run unit tests only (fastest)"
 	@echo "  make test-core    Run core module tests (debate/core/memory)"
 	@echo "  make test-parallel Run tests in parallel (-n auto)"

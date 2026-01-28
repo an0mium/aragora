@@ -557,7 +557,7 @@ class DashboardHandler(SecureHandler):
 
     def _get_system_health(self) -> dict:
         """Get system health metrics."""
-        health = {
+        health: dict[str, Any] = {
             "uptime_seconds": 0,
             "cache_entries": 0,
             "active_websocket_connections": 0,

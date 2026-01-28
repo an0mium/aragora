@@ -497,6 +497,7 @@ The Knowledge Mound supports bidirectional integration with all major subsystems
 | `BeliefAdapter` | Belief Network | Converged beliefs with confidence >= 0.8, Cruxes | Related beliefs, historical cruxes |
 | `InsightsAdapter` | Insight Store, Flip Detector | Insights, Flip events | Similar patterns |
 | `EloAdapter` | ELO System, Team Selector | Agent ratings, match history | Skill history, domain expertise |
+| `PerformanceAdapter` | ELO + Ranking | Unified performance + expertise | Domain expertise, calibration |
 | `PulseAdapter` | Pulse Scheduler | Trending topics, debate outcomes | Past debates on topic |
 | `CostAdapter` | Cost Tracker | Budget alerts, cost anomalies | Cost patterns, alert history |
 
@@ -521,6 +522,7 @@ from aragora.knowledge.mound.adapters import (
     BeliefAdapter,
     InsightsAdapter,
     EloAdapter,
+    PerformanceAdapter,
     PulseAdapter,
     CostAdapter,
 )

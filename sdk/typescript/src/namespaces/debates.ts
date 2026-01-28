@@ -299,7 +299,7 @@ interface DebatesClientInterface {
     request: DebateCreateRequest,
     options?: { pollIntervalMs?: number; timeoutMs?: number }
   ): Promise<Debate>;
-  request<T>(method: string, path: string, options?: { params?: Record<string, unknown> }): Promise<T>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, string | number | boolean | undefined>; body?: unknown }): Promise<T>;
 }
 
 /**
@@ -736,7 +736,7 @@ export class DebatesAPI {
    */
   async search(options: DebateSearchOptions): Promise<{ debates: Debate[]; total: number }> {
     return this.client.request('GET', '/api/v1/search', {
-      params: options as Record<string, unknown>,
+      params: options as unknown as Record<string, string | number | boolean | undefined>,
     });
   }
 
@@ -800,7 +800,7 @@ export class DebatesAPI {
     const response = await this.client.request<{ batches: BatchStatus[] }>(
       'GET',
       '/api/v1/debates/batch',
-      { params: options as Record<string, unknown> }
+      { params: options as Record<string, string | number | boolean | undefined> }
     );
     return response.batches;
   }
