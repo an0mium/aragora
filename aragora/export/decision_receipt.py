@@ -765,9 +765,9 @@ class DecisionReceipt:
                 },
             }
 
-            # Add remediation if present
-            if finding.remediation:
-                result["fixes"] = [{"description": {"text": finding.remediation}}]
+            # Add mitigation if present
+            if finding.mitigation:
+                result["fixes"] = [{"description": {"text": finding.mitigation}}]
 
             results.append(result)
 
@@ -797,13 +797,15 @@ class DecisionReceipt:
                             "endTimeUtc": self.timestamp,
                             "properties": {
                                 "receipt_id": self.receipt_id,
-                                "debate_id": self.debate_id,
-                                "task": self.task[:200] if self.task else None,
+                                "gauntlet_id": self.gauntlet_id,
+                                "input_summary": self.input_summary[:200]
+                                if self.input_summary
+                                else None,
                             },
                         }
                     ],
                     "properties": {
-                        "summary": self.summary,
+                        "summary": self.input_summary,
                         "risk_level": self.risk_level,
                         "verified_claims_count": len(self.verified_claims),
                         "dissenting_views_count": len(self.dissenting_views),

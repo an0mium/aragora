@@ -286,12 +286,13 @@ class _TimedOperation:
         # Start trace span if tracing enabled
         if self.adapter._tracer is not None:
             span_name = f"{self.adapter.adapter_name}.{self.operation}"
-            self._span = self.adapter._tracer.start_span(span_name)
-            self._span.set_attribute("adapter.name", self.adapter.adapter_name)
-            self._span.set_attribute("adapter.operation", self.operation)
+            span = self.adapter._tracer.start_span(span_name)
+            self._span = span
+            span.set_attribute("adapter.name", self.adapter.adapter_name)
+            span.set_attribute("adapter.operation", self.operation)
             for key, value in self.span_attributes.items():
                 if value is not None:
-                    self._span.set_attribute(f"adapter.{key}", str(value))
+                    span.set_attribute(f"adapter.{key}", str(value))
 
         return self
 
