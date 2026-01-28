@@ -262,20 +262,24 @@ class MySQLConnector(EnterpriseConnector):
         last_sync = state.last_sync_at if state else None
 
         for table in tables:
+            # Validate table name to prevent SQL injection
+            safe_table = _validate_sql_identifier(table, "table")
+
             columns = await self._get_table_columns(table)
             ts_column = self._find_timestamp_column(columns)
 
             async with pool.acquire() as conn:
                 async with conn.cursor(aiomysql.DictCursor) as cursor:
                     if ts_column and last_sync:
+                        safe_ts_column = _validate_sql_identifier(ts_column, "column")
                         query = f"""
-                            SELECT * FROM `{table}`
-                            WHERE `{ts_column}` > %s
-                            ORDER BY `{ts_column}`
+                            SELECT * FROM `{safe_table}`
+                            WHERE `{safe_ts_column}` > %s
+                            ORDER BY `{safe_ts_column}`
                         """
                         await cursor.execute(query, (last_sync,))
                     else:
-                        query = f"SELECT * FROM `{table}`"
+                        query = f"SELECT * FROM `{safe_table}`"
                         await cursor.execute(query)
 
                     async for row in cursor:
