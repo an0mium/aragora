@@ -410,8 +410,13 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
-    def _handle_list_zapier_trigger_types(self) -> HandlerResult:
+    def _handle_list_zapier_trigger_types(self, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/zapier/triggers - list trigger types."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "connectors.read")
+        if perm_error:
+            return perm_error
+
         zapier = self._get_zapier()
 
         return json_response(
@@ -576,7 +581,12 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
-    def _handle_list_make_modules(self) -> HandlerResult:
+    def _handle_list_make_modules(self, handler: Any) -> HandlerResult:
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "connectors.read")
+        if perm_error:
+            return perm_error
+
         """Handle GET /api/integrations/make/modules - list available modules."""
         make = self._get_make()
 
