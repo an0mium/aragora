@@ -39,6 +39,9 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 logger = logging.getLogger(__name__)
 
 # Import mixin for reverse flow functionality
+from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
+
+# Import mixin for reverse flow functionality
 
 
 @dataclass
@@ -85,7 +88,7 @@ class CostAnomaly:
         }
 
 
-class CostAdapter:
+class CostAdapter(ReverseFlowMixin):
     """
     Adapter that bridges CostTracker to the Knowledge Mound.
 
