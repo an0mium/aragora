@@ -69,7 +69,7 @@ class DocumentBatchHandler(BaseHandler):
         return False
 
     @require_permission("documents:read")
-    def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route GET requests."""
         if path == "/api/v1/documents/processing/stats":
             return self._get_processing_stats()
@@ -93,10 +93,10 @@ class DocumentBatchHandler(BaseHandler):
             parts = path.split("/")
             if len(parts) == 5:  # /api/documents/batch/{job_id}
                 job_id = parts[4]
-                return self._get_job_status(job_id)
+                return await self._get_job_status(job_id)
             elif len(parts) == 6 and parts[5] == "results":
                 job_id = parts[4]
-                return self._get_job_results(job_id)
+                return await self._get_job_results(job_id)
 
         # GET /api/documents/{doc_id}/chunks
         if path.endswith("/chunks"):
@@ -119,22 +119,24 @@ class DocumentBatchHandler(BaseHandler):
         return None
 
     @require_permission("documents:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST requests."""
         if path == "/api/v1/documents/batch":
-            return self._upload_batch(handler)
+            return await self._upload_batch(handler)
         return None
 
-    def handle_delete(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle_delete(
+        self, path: str, query_params: dict, handler
+    ) -> Optional[HandlerResult]:
         """Route DELETE requests."""
         if path.startswith("/api/v1/documents/batch/"):
             parts = path.split("/")
             if len(parts) == 5:
                 job_id = parts[4]
-                return self._cancel_job(job_id)
+                return await self._cancel_job(job_id)
         return None
 
-    def _upload_batch(self, handler) -> HandlerResult:
+    async def _upload_batch(self, handler) -> HandlerResult:
         """
         Upload multiple documents for batch processing.
 
@@ -247,9 +249,8 @@ class DocumentBatchHandler(BaseHandler):
 
                 total_size += file_size
 
-                # Submit to processor (use sync wrapper for async)
-                job_id = self._submit_job_sync(
-                    processor,
+                # Submit to processor
+                job_id = await processor.submit(
                     content=content,
                     filename=filename,
                     workspace_id=workspace_id,
@@ -335,23 +336,22 @@ class DocumentBatchHandler(BaseHandler):
             logger.exception("Batch upload failed")
             return error_response(safe_error_message(e, "Batch upload"), 500)
 
-    def _get_job_status(self, job_id: str) -> HandlerResult:
+    async def _get_job_status(self, job_id: str) -> HandlerResult:
         """Get status of a batch processing job."""
         processor = self._get_batch_processor()
 
-        # Use sync wrapper
-        status = self._get_status_sync(processor, job_id)
+        status = await processor.get_status(job_id)
 
         if not status:
             return error_response(f"Job not found: {job_id}", 404)
 
         return json_response(status)
 
-    def _get_job_results(self, job_id: str) -> HandlerResult:
+    async def _get_job_results(self, job_id: str) -> HandlerResult:
         """Get results of a completed batch job."""
         processor = self._get_batch_processor()
 
-        job = self._get_result_sync(processor, job_id)
+        job = await processor.get_result(job_id)
 
         if not job:
             return error_response(f"Job not found: {job_id}", 404)
@@ -397,11 +397,11 @@ class DocumentBatchHandler(BaseHandler):
 
         return json_response(result)
 
-    def _cancel_job(self, job_id: str) -> HandlerResult:
+    async def _cancel_job(self, job_id: str) -> HandlerResult:
         """Cancel a queued batch job."""
         processor = self._get_batch_processor()
 
-        success = self._cancel_sync(processor, job_id)
+        success = await processor.cancel(job_id)
 
         if success:
             return json_response({"cancelled": True, "job_id": job_id})
