@@ -62,6 +62,7 @@ from aragora.server.openapi.endpoints.admin_security import ADMIN_SECURITY_ENDPO
 from aragora.server.openapi.endpoints.advertising import ADVERTISING_ENDPOINTS
 from aragora.server.openapi.endpoints.bots import BOTS_ENDPOINTS
 from aragora.server.openapi.endpoints.queue import QUEUE_ENDPOINTS
+from aragora.server.openapi.endpoints.devices import DEVICES_ENDPOINTS
 
 
 from typing import Any
@@ -136,6 +137,7 @@ ALL_ENDPOINTS = {
     **ADVERTISING_ENDPOINTS,
     **BOTS_ENDPOINTS,
     **QUEUE_ENDPOINTS,
+    **DEVICES_ENDPOINTS,
     # Decorator-registered endpoints (merged last to allow overrides)
     **_get_decorator_endpoints(),
 }
@@ -194,5 +196,6 @@ __all__ = [
     "ADVERTISING_ENDPOINTS",
     "BOTS_ENDPOINTS",
     "QUEUE_ENDPOINTS",
+    "DEVICES_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]
