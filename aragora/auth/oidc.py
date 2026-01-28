@@ -49,16 +49,11 @@ from .sso import (
 
 logger = logging.getLogger(__name__)
 
-# Optional: PyJWT for token validation
-try:
-    import jwt
-    from jwt import PyJWKClient
+# PyJWT for token validation (always available)
+import jwt
+from jwt import PyJWKClient
 
-    HAS_JWT = True
-except ImportError:
-    jwt = None
-    PyJWKClient = None  # type: ignore[misc]
-    HAS_JWT = False
+HAS_JWT = True
 
 # Optional: httpx for async HTTP
 httpx: Optional[ModuleType] = None

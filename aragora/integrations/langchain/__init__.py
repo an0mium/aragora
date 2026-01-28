@@ -25,12 +25,32 @@ from aragora.integrations.langchain.tools import (
     AragoraDebateTool,
     AragoraKnowledgeTool,
     AragoraDecisionTool,
+    LANGCHAIN_AVAILABLE,
 )
 from aragora.integrations.langchain.chains import AragoraDebateChain
+from aragora.integrations.langchain.retriever import AragoraRetriever
+from aragora.integrations.langchain.callbacks import AragoraCallbackHandler
+
+# Alias for backwards compatibility
+AragoraTool = AragoraDebateTool
+
+
+def is_langchain_available() -> bool:
+    """Check if LangChain is available."""
+    return LANGCHAIN_AVAILABLE
+
 
 __all__ = [
+    # Primary tools
     "AragoraDebateTool",
     "AragoraKnowledgeTool",
     "AragoraDecisionTool",
     "AragoraDebateChain",
+    # Retriever and callbacks
+    "AragoraRetriever",
+    "AragoraCallbackHandler",
+    # Backwards compatibility
+    "AragoraTool",
+    "LANGCHAIN_AVAILABLE",
+    "is_langchain_available",
 ]

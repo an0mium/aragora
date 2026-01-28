@@ -137,14 +137,15 @@ class TestAnalyticsRBACEnforcement:
         server_context = {"workspace_id": "test"}
         return AnalyticsHandler(server_context)
 
-    def test_analytics_requires_auth(self, analytics_handler, mock_handler):
+    @pytest.mark.asyncio
+    async def test_analytics_requires_auth(self, analytics_handler, mock_handler):
         """Test that analytics endpoints require authentication."""
         with patch.object(
             analytics_handler,
             "require_auth_or_error",
             return_value=(None, error_response("Authentication required", 401)),
         ):
-            result = analytics_handler.handle(
+            result = await analytics_handler.handle(
                 "/api/v1/knowledge/mound/stats",
                 {},
                 mock_handler,
@@ -153,14 +154,15 @@ class TestAnalyticsRBACEnforcement:
             assert result is not None
             assert result.status_code == 401
 
-    def test_analytics_learning_requires_auth(self, analytics_handler, mock_handler):
+    @pytest.mark.asyncio
+    async def test_analytics_learning_requires_auth(self, analytics_handler, mock_handler):
         """Test that learning analytics requires authentication."""
         with patch.object(
             analytics_handler,
             "require_auth_or_error",
             return_value=(None, error_response("Authentication required", 401)),
         ):
-            result = analytics_handler.handle(
+            result = await analytics_handler.handle(
                 "/api/v1/knowledge/learning/stats",
                 {},
                 mock_handler,

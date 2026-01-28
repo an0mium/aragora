@@ -89,13 +89,9 @@ class TestVerifyTeamsWebhook:
         result = verify_teams_webhook("Bearer invalid.token.here", "app123")
         assert result is False
 
-    @pytest.mark.skipif(HAS_JWT, reason="Test only when PyJWT not installed")
-    def test_rejects_without_jwt_library(self):
-        """When PyJWT not installed, rejects tokens (fail-closed behavior)."""
-        # This test only runs when PyJWT is NOT installed
-        # Behavior changed to fail-closed for security
-        result = verify_teams_webhook("Bearer some.token.here", "app123")
-        assert result is False
+    # Note: test_rejects_without_jwt_library was removed because PyJWT is now
+    # always installed. The fail-closed behavior when PyJWT is unavailable
+    # is still implemented in the source code but cannot occur in practice.
 
 
 class TestVerifyGoogleChatWebhook:

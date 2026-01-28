@@ -30,24 +30,20 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Try to import PDF generation library
-try:
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import letter
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.units import inch
-    from reportlab.platypus import (
-        Paragraph,
-        SimpleDocTemplate,
-        Spacer,
-        Table,
-        TableStyle,
-    )
+# PDF generation library (always available)
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
-    HAS_REPORTLAB = True
-except ImportError:
-    HAS_REPORTLAB = False
-    logger.debug("reportlab not installed - PDF export will use HTML fallback")
+HAS_REPORTLAB = True
 
 
 @dataclass

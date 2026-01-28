@@ -13,24 +13,16 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# Optional: PyJWT for token validation
-try:
-    import jwt
-    from jwt import PyJWKClient as _PyJWKClient
-    from jwt.exceptions import PyJWTError as _PyJWTError
+# PyJWT for token validation (always available)
+import jwt
+from jwt import PyJWKClient
+from jwt.exceptions import PyJWTError
 
-    HAS_JWT = True
-    PyJWKClient: Optional[Type[Any]] = _PyJWKClient
-    PyJWTError: Type[Exception] = _PyJWTError
-except ImportError:
-    jwt = None
-    PyJWKClient = None
-    PyJWTError = Exception
-    HAS_JWT = False
+HAS_JWT = True
 
 # Microsoft Bot Framework OpenID configuration
 MICROSOFT_OPENID_METADATA_URL = "https://login.botframework.com/v1/.well-known/openidconfiguration"

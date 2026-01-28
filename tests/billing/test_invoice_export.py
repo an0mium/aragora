@@ -185,7 +185,6 @@ class TestInvoicePDFExport:
         assert len(pdf_bytes) > 0
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HAS_REPORTLAB, reason="reportlab not installed")
     async def test_export_pdf_valid_pdf(self, exporter, sample_invoice):
         """PDF export produces valid PDF."""
         pdf_bytes = await exporter.export_pdf(sample_invoice)

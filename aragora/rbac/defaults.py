@@ -161,6 +161,14 @@ PERM_INTROSPECTION_READ = _permission(
     "Access system introspection and agent status",
 )
 
+# History permissions
+PERM_HISTORY_READ = _permission(
+    ResourceType.INTROSPECTION,
+    Action.EXPORT_HISTORY,
+    "View History",
+    "Access debate and system history data",
+)
+
 # Reasoning permissions
 PERM_REASONING_READ = _permission(
     ResourceType.REASONING,
@@ -1250,6 +1258,8 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_PERFORMANCE_WRITE,  # analytics.update for performance operations
         # Introspection
         PERM_INTROSPECTION_READ,
+        # History
+        PERM_HISTORY_READ,
         # Reasoning
         PERM_REASONING_READ,
         PERM_REASONING_UPDATE,
@@ -1846,6 +1856,8 @@ ROLE_MEMBER = Role(
         PERM_ANALYTICS_READ.key,
         # Introspection
         PERM_INTROSPECTION_READ.key,
+        # History
+        PERM_HISTORY_READ.key,
         # Reasoning
         PERM_REASONING_READ.key,
         # Knowledge

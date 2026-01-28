@@ -22,15 +22,12 @@ QDRANT_URL = os.environ.get("QDRANT_URL", "")
 SKIP_WEAVIATE = "Weaviate not available (set WEAVIATE_URL env var)"
 SKIP_QDRANT = "Qdrant not available (set QDRANT_URL env var)"
 
-# Try importing vector store clients
-try:
-    import weaviate
-    from weaviate.classes.config import Configure, Property, DataType
+# Import weaviate (always available)
+import weaviate
+from weaviate.classes.config import Configure, Property, DataType
 
-    WEAVIATE_AVAILABLE = bool(WEAVIATE_URL)
-except ImportError:
-    WEAVIATE_AVAILABLE = False
-    SKIP_WEAVIATE = "weaviate-client package not installed"
+# WEAVIATE_AVAILABLE depends on URL being set (running server needed)
+WEAVIATE_AVAILABLE = bool(WEAVIATE_URL)
 
 try:
     from qdrant_client import QdrantClient

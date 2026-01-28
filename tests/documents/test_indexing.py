@@ -114,7 +114,6 @@ class TestWeaviateStore:
 
             asyncio.run(store.search_keyword("test"))
 
-    @pytest.mark.skipif(not WEAVIATE_AVAILABLE, reason="Weaviate client not installed")
     def test_weaviate_available(self):
         """Test that weaviate library is detected when installed."""
         assert WEAVIATE_AVAILABLE is True

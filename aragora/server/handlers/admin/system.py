@@ -50,6 +50,10 @@ from aragora.server.versioning.compat import strip_version_prefix
 # Cache TTLs for system endpoints (in seconds)
 CACHE_TTL_HISTORY = 60  # History queries
 
+# Permission required for history endpoints (sensitive debate data)
+# Uses introspection.export_history permission from RBAC defaults
+HISTORY_PERMISSION = "introspection:export_history"
+
 
 class SystemHandler(BaseHandler):
     """Handler for system-related endpoints."""
@@ -174,9 +178,15 @@ class SystemHandler(BaseHandler):
             return error_response(f"Invalid task. Use: {', '.join(valid_tasks)}", 400)
         return self._run_maintenance(task)
 
-    def _handle_history_endpoint(self, path: str, query_params: dict, handler) -> HandlerResult:
-        """Handle history endpoints with common auth and validation pattern."""
-        # Require auth for history endpoints
+    @require_permission(HISTORY_PERMISSION)
+    def _handle_history_endpoint(
+        self, path: str, query_params: dict, handler, user=None
+    ) -> HandlerResult:
+        """Handle history endpoints with common auth and validation pattern.
+
+        Requires authentication and history:read permission (RBAC).
+        """
+        # Require auth for history endpoints (legacy check, decorator handles RBAC)
         auth_error = self._check_history_auth(handler)
         if auth_error:
             return auth_error

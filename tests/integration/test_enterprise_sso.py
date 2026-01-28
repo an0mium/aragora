@@ -137,6 +137,7 @@ class TestOIDCAuthorizationFlow:
         if not HAS_JWT:
             pytest.skip("PyJWT not installed")
 
+        # Provide explicit jwks_uri to avoid OIDC discovery
         config = OIDCConfig(
             provider_type=SSOProviderType.OIDC,
             entity_id="test-client",
@@ -144,6 +145,7 @@ class TestOIDCAuthorizationFlow:
             client_secret="test-secret",
             issuer_url="https://login.example.com",
             callback_url="https://aragora.example.com/auth/callback",
+            jwks_uri="https://login.example.com/.well-known/jwks.json",
         )
 
         provider = OIDCProvider(config)
@@ -159,8 +161,12 @@ class TestOIDCAuthorizationFlow:
             "name": "Test User",
         }
 
-        # Mock JWKS endpoint discovery and JWT decode
-        provider._endpoints = {"jwks_uri": None}  # Skip JWKS lookup
+        # Mock the JWKS client and JWT decode
+        mock_signing_key = MagicMock()
+        mock_signing_key.key = "mock-key"
+        mock_jwks_client = MagicMock()
+        mock_jwks_client.get_signing_key_from_jwt.return_value = mock_signing_key
+        provider._jwks_client = mock_jwks_client
 
         with patch("aragora.auth.oidc.jwt.decode", return_value=mock_claims):
             claims = await provider._validate_id_token("mock-id-token")
@@ -222,13 +228,15 @@ class TestSAMLAuthentication:
         """Test SAML authentication request generation."""
         pytest.importorskip("onelogin.saml2", reason="python3-saml required")
         from aragora.auth.saml import SAMLProvider, SAMLConfig
+        from aragora.auth.sso import SSOProviderType
 
         config = SAMLConfig(
+            provider_type=SSOProviderType.SAML,
             entity_id="https://aragora.example.com",
-            acs_url="https://aragora.example.com/auth/saml/callback",
+            callback_url="https://aragora.example.com/auth/saml/callback",
             idp_entity_id="https://idp.example.com",
             idp_sso_url="https://idp.example.com/saml/sso",
-            idp_x509_cert="...",  # Mock cert
+            idp_certificate="...",  # Mock cert
         )
 
         provider = SAMLProvider(config)
@@ -243,13 +251,15 @@ class TestSAMLAuthentication:
         """Test SAML response validation."""
         pytest.importorskip("onelogin.saml2", reason="python3-saml required")
         from aragora.auth.saml import SAMLProvider, SAMLConfig
+        from aragora.auth.sso import SSOProviderType
 
         config = SAMLConfig(
+            provider_type=SSOProviderType.SAML,
             entity_id="https://aragora.example.com",
-            acs_url="https://aragora.example.com/auth/saml/callback",
+            callback_url="https://aragora.example.com/auth/saml/callback",
             idp_entity_id="https://idp.example.com",
             idp_sso_url="https://idp.example.com/saml/sso",
-            idp_x509_cert="...",  # Mock cert
+            idp_certificate="...",  # Mock cert
         )
 
         provider = SAMLProvider(config)
@@ -463,6 +473,9 @@ class TestTenantProvisioning:
             admin_email="admin@test.com",
         )
 
+        # Store the old max_users before upgrade
+        old_max_users = tenant.config.max_users
+
         # Upgrade to enterprise
         upgraded = await provisioner.upgrade_tier(
             tenant_id=tenant.id,
@@ -471,7 +484,7 @@ class TestTenantProvisioning:
 
         assert upgraded.tier == TenantTier.ENTERPRISE
         assert upgraded.config.enable_sso is True
-        assert upgraded.config.max_users > tenant.config.max_users
+        assert upgraded.config.max_users > old_max_users
 
     @pytest.mark.asyncio
     async def test_tenant_suspension(self):

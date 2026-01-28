@@ -85,7 +85,7 @@ class TestPostgresWebhookConfigStore:
     """Tests for PostgresWebhookConfigStore."""
 
     @pytest.fixture
-    def store(self, postgres_pool: asyncpg.Pool):
+    async def store(self, postgres_pool: asyncpg.Pool):
         """Create webhook config store."""
         from aragora.storage.webhook_config_store import PostgresWebhookConfigStore
 
@@ -179,7 +179,7 @@ class TestPostgresGauntletRunStore:
     """Tests for PostgresGauntletRunStore."""
 
     @pytest.fixture
-    def store(self, postgres_pool: asyncpg.Pool):
+    async def store(self, postgres_pool: asyncpg.Pool):
         """Create gauntlet run store."""
         from aragora.storage.gauntlet_run_store import PostgresGauntletRunStore
 
@@ -259,7 +259,7 @@ class TestPostgresApprovalRequestStore:
     """Tests for PostgresApprovalRequestStore."""
 
     @pytest.fixture
-    def store(self, postgres_pool: asyncpg.Pool):
+    async def store(self, postgres_pool: asyncpg.Pool):
         """Create approval request store."""
         from aragora.storage.approval_request_store import PostgresApprovalRequestStore
 

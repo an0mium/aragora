@@ -31,17 +31,13 @@ from aragora.documents.models import DocumentChunk
 
 logger = logging.getLogger(__name__)
 
-# Check for weaviate library
-try:
-    import weaviate  # noqa: F401
-    from weaviate.classes.config import Configure, Property, DataType  # noqa: F401
-    from weaviate.classes.query import MetadataQuery, Filter  # noqa: F401
-    from weaviate.classes.data import DataObject  # noqa: F401
+# Weaviate library (always available)
+import weaviate  # noqa: F401
+from weaviate.classes.config import Configure, Property, DataType  # noqa: F401
+from weaviate.classes.query import MetadataQuery, Filter  # noqa: F401
+from weaviate.classes.data import DataObject  # noqa: F401
 
-    WEAVIATE_AVAILABLE = True
-except ImportError:
-    WEAVIATE_AVAILABLE = False
-    logger.info("weaviate-client not available - install with: pip install weaviate-client")
+WEAVIATE_AVAILABLE = True
 
 
 @dataclass
