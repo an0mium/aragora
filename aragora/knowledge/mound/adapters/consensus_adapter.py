@@ -744,6 +744,7 @@ class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
                 # Get the consensus record
                 record = self.get(source_id)
                 if record is None:
+                    result["records_skipped"] += 1
                     continue
 
                 # Extract KM validation data
@@ -755,6 +756,7 @@ class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
                     )
 
                 if km_confidence < min_confidence:
+                    result["records_skipped"] += 1
                     continue
 
                 # Update metadata with KM validation info

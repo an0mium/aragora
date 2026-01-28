@@ -771,10 +771,11 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
         """Initialize the Slack handler."""
         super().__init__(server_context)  # type: ignore[arg-type]
 
-    @staticmethod
-    def can_handle(path: str) -> bool:
+    def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
-        return path.startswith("/api/v1/bots/slack/")
+        return path.startswith("/api/v1/bots/slack/") or path.startswith(
+            "/api/v1/integrations/slack/"
+        )
 
     def _is_bot_enabled(self) -> bool:
         """Check if Slack bot is configured."""

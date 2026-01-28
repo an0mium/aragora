@@ -201,7 +201,7 @@ class RecoveryNarrator:
             ],
             "narratives": [
                 "Progress checkpoint saved at round {round}. The debate can now safely resume from this point.",
-                "Checkpoint created! Your debate progress is now protected against interruptions.",
+                "Checkpoint created at round {round}! Your debate progress is now protected against interruptions.",
                 "State captured at round {round}. We've got your back if anything goes wrong.",
             ],
             "mood": "neutral",

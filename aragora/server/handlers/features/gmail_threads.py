@@ -18,7 +18,6 @@ Provides REST API endpoints for Gmail thread and draft operations:
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import logging
 from typing import Any, Dict, List, Optional, Union
@@ -28,7 +27,7 @@ from ..base import (
     error_response,
     json_response,
 )
-from ..secure import SecureHandler, UnauthorizedError, ForbiddenError
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
@@ -90,23 +89,23 @@ class GmailThreadsHandler(SecureHandler):
 
         # Thread operations
         if path == "/api/v1/gmail/threads":
-            return self._list_threads(state, query_params)
+            return await self._list_threads(state, query_params)
 
         if path.startswith("/api/v1/gmail/threads/"):
             parts = path.split("/")
             thread_id = parts[4] if len(parts) > 4 else None
             if thread_id and len(parts) == 5:
-                return self._get_thread(state, thread_id)
+                return await self._get_thread(state, thread_id)
 
         # Draft operations
         if path == "/api/v1/gmail/drafts":
-            return self._list_drafts(state, query_params)
+            return await self._list_drafts(state, query_params)
 
         if path.startswith("/api/v1/gmail/drafts/"):
             parts = path.split("/")
             draft_id = parts[4] if len(parts) > 4 else None
             if draft_id and len(parts) == 5:
-                return self._get_draft(state, draft_id)
+                return await self._get_draft(state, draft_id)
 
         # Attachment download
         if "/attachments/" in path and path.startswith("/api/v1/gmail/messages/"):
@@ -115,7 +114,7 @@ class GmailThreadsHandler(SecureHandler):
             if len(parts) >= 7:
                 message_id = parts[4]
                 attachment_id = parts[6]
-                return self._get_attachment(state, message_id, attachment_id)
+                return await self._get_attachment(state, message_id, attachment_id)
 
         return error_response("Not found", 404)
 
@@ -149,15 +148,15 @@ class GmailThreadsHandler(SecureHandler):
                 action = parts[5]
 
                 if action == "archive":
-                    return self._archive_thread(state, thread_id)
+                    return await self._archive_thread(state, thread_id)
                 elif action == "trash":
-                    return self._trash_thread(state, thread_id, body)
+                    return await self._trash_thread(state, thread_id, body)
                 elif action == "labels":
-                    return self._modify_thread_labels(state, thread_id, body)
+                    return await self._modify_thread_labels(state, thread_id, body)
 
         # Draft operations
         if path == "/api/v1/gmail/drafts":
-            return self._create_draft(state, body)
+            return await self._create_draft(state, body)
 
         if path.startswith("/api/v1/gmail/drafts/"):
             parts = path.split("/")
@@ -166,7 +165,7 @@ class GmailThreadsHandler(SecureHandler):
                 action = parts[5]
 
                 if action == "send":
-                    return self._send_draft(state, draft_id)
+                    return await self._send_draft(state, draft_id)
 
         return error_response("Not found", 404)
 
@@ -197,7 +196,7 @@ class GmailThreadsHandler(SecureHandler):
             parts = path.split("/")
             draft_id = parts[4] if len(parts) > 4 else None
             if draft_id and len(parts) == 5:
-                return self._update_draft(state, draft_id, body)
+                return await self._update_draft(state, draft_id, body)
 
         return error_response("Not found", 404)
 
@@ -228,7 +227,7 @@ class GmailThreadsHandler(SecureHandler):
             parts = path.split("/")
             draft_id = parts[4] if len(parts) > 4 else None
             if draft_id and len(parts) == 5:
-                return self._delete_draft(state, draft_id)
+                return await self._delete_draft(state, draft_id)
 
         return error_response("Not found", 404)
 
@@ -236,7 +235,7 @@ class GmailThreadsHandler(SecureHandler):
     # Thread Operations
     # =========================================================================
 
-    def _list_threads(self, state: Any, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_threads(self, state: Any, query_params: Dict[str, Any]) -> HandlerResult:
         """List Gmail threads."""
         query = query_params.get("q", query_params.get("query", ""))
         label_ids = (
@@ -246,22 +245,16 @@ class GmailThreadsHandler(SecureHandler):
         page_token = query_params.get("page_token")
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                threads, next_page = loop.run_until_complete(
-                    self._api_list_threads(state, query, label_ids, max_results, page_token)
-                )
-                return json_response(
-                    {
-                        "threads": threads,
-                        "count": len(threads),
-                        "next_page_token": next_page,
-                    }
-                )
-            finally:
-                loop.close()
+            threads, next_page = await self._api_list_threads(
+                state, query, label_ids, max_results, page_token
+            )
+            return json_response(
+                {
+                    "threads": threads,
+                    "count": len(threads),
+                    "next_page_token": next_page,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] List threads failed: {e}")
@@ -309,98 +302,88 @@ class GmailThreadsHandler(SecureHandler):
 
         return threads, data.get("nextPageToken")
 
-    def _get_thread(self, state: Any, thread_id: str) -> HandlerResult:
+    async def _get_thread(self, state: Any, thread_id: str) -> HandlerResult:
         """Get a thread with all messages."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            try:
-                from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            connector = GmailConnector()
+            connector._access_token = state.access_token
+            connector._refresh_token = state.refresh_token
+            connector._token_expiry = state.token_expiry
 
-                connector = GmailConnector()
-                connector._access_token = state.access_token
-                connector._refresh_token = state.refresh_token
-                connector._token_expiry = state.token_expiry
+            thread = await connector.get_thread(thread_id)
 
-                thread = loop.run_until_complete(connector.get_thread(thread_id))
-
-                return json_response(
-                    {
-                        "thread": {
-                            "id": thread.id,
-                            "subject": thread.subject,
-                            "snippet": thread.snippet,
-                            "message_count": thread.message_count,
-                            "participants": thread.participants,
-                            "labels": thread.labels,
-                            "last_message_date": (
-                                thread.last_message_date.isoformat()
-                                if thread.last_message_date
-                                else None
-                            ),
-                            "messages": [
-                                {
-                                    "id": msg.id,
-                                    "subject": msg.subject,
-                                    "from": msg.from_address,
-                                    "to": msg.to_addresses,
-                                    "cc": msg.cc_addresses,
-                                    "date": msg.date.isoformat() if msg.date else None,
-                                    "snippet": msg.snippet,
-                                    "body_text": msg.body_text[:2000] if msg.body_text else None,
-                                    "is_read": msg.is_read,
-                                    "is_starred": msg.is_starred,
-                                    "labels": msg.labels,
-                                    "attachments": [
-                                        {
-                                            "id": a.id,
-                                            "filename": a.filename,
-                                            "mime_type": a.mime_type,
-                                            "size": a.size,
-                                        }
-                                        for a in msg.attachments
-                                    ],
-                                }
-                                for msg in thread.messages
-                            ],
-                        }
+            return json_response(
+                {
+                    "thread": {
+                        "id": thread.id,
+                        "subject": thread.subject,
+                        "snippet": thread.snippet,
+                        "message_count": thread.message_count,
+                        "participants": thread.participants,
+                        "labels": thread.labels,
+                        "last_message_date": (
+                            thread.last_message_date.isoformat()
+                            if thread.last_message_date
+                            else None
+                        ),
+                        "messages": [
+                            {
+                                "id": msg.id,
+                                "subject": msg.subject,
+                                "from": msg.from_address,
+                                "to": msg.to_addresses,
+                                "cc": msg.cc_addresses,
+                                "date": msg.date.isoformat() if msg.date else None,
+                                "snippet": msg.snippet,
+                                "body_text": (msg.body_text[:2000] if msg.body_text else None),
+                                "is_read": msg.is_read,
+                                "is_starred": msg.is_starred,
+                                "labels": msg.labels,
+                                "attachments": [
+                                    {
+                                        "id": a.id,
+                                        "filename": a.filename,
+                                        "mime_type": a.mime_type,
+                                        "size": a.size,
+                                    }
+                                    for a in msg.attachments
+                                ],
+                            }
+                            for msg in thread.messages
+                        ],
                     }
-                )
-            finally:
-                loop.close()
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] Get thread failed: {e}")
             return error_response(f"Failed to get thread: {e}", 500)
 
-    def _archive_thread(self, state: Any, thread_id: str) -> HandlerResult:
+    async def _archive_thread(self, state: Any, thread_id: str) -> HandlerResult:
         """Archive a thread (remove INBOX label from all messages)."""
-        return self._modify_thread_labels(state, thread_id, {"remove": ["INBOX"]})
+        return await self._modify_thread_labels(state, thread_id, {"remove": ["INBOX"]})
 
-    def _trash_thread(self, state: Any, thread_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _trash_thread(
+        self, state: Any, thread_id: str, body: Dict[str, Any]
+    ) -> HandlerResult:
         """Move thread to trash or restore from trash."""
         to_trash = body.get("trash", True)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            if to_trash:
+                await self._api_trash_thread(state, thread_id)
+            else:
+                await self._api_untrash_thread(state, thread_id)
 
-            try:
-                if to_trash:
-                    loop.run_until_complete(self._api_trash_thread(state, thread_id))
-                else:
-                    loop.run_until_complete(self._api_untrash_thread(state, thread_id))
-
-                return json_response(
-                    {
-                        "thread_id": thread_id,
-                        "trashed": to_trash,
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            return json_response(
+                {
+                    "thread_id": thread_id,
+                    "trashed": to_trash,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] Trash thread failed: {e}")
@@ -432,7 +415,7 @@ class GmailThreadsHandler(SecureHandler):
             )
             response.raise_for_status()
 
-    def _modify_thread_labels(
+    async def _modify_thread_labels(
         self,
         state: Any,
         thread_id: str,
@@ -446,21 +429,13 @@ class GmailThreadsHandler(SecureHandler):
             return error_response("Must specify labels to add or remove", 400)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(
-                    self._api_modify_thread_labels(state, thread_id, add_labels, remove_labels)
-                )
-                return json_response(
-                    {
-                        "thread_id": thread_id,
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            await self._api_modify_thread_labels(state, thread_id, add_labels, remove_labels)
+            return json_response(
+                {
+                    "thread_id": thread_id,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] Modify thread labels failed: {e}")
@@ -494,28 +469,20 @@ class GmailThreadsHandler(SecureHandler):
     # Draft Operations
     # =========================================================================
 
-    def _list_drafts(self, state: Any, query_params: Dict[str, Any]) -> HandlerResult:
+    async def _list_drafts(self, state: Any, query_params: Dict[str, Any]) -> HandlerResult:
         """List Gmail drafts."""
         max_results = int(query_params.get("limit", 20))
         page_token = query_params.get("page_token")
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                drafts, next_page = loop.run_until_complete(
-                    self._api_list_drafts(state, max_results, page_token)
-                )
-                return json_response(
-                    {
-                        "drafts": drafts,
-                        "count": len(drafts),
-                        "next_page_token": next_page,
-                    }
-                )
-            finally:
-                loop.close()
+            drafts, next_page = await self._api_list_drafts(state, max_results, page_token)
+            return json_response(
+                {
+                    "drafts": drafts,
+                    "count": len(drafts),
+                    "next_page_token": next_page,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] List drafts failed: {e}")
@@ -557,17 +524,11 @@ class GmailThreadsHandler(SecureHandler):
 
         return drafts, data.get("nextPageToken")
 
-    def _get_draft(self, state: Any, draft_id: str) -> HandlerResult:
+    async def _get_draft(self, state: Any, draft_id: str) -> HandlerResult:
         """Get a draft with message content."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                draft = loop.run_until_complete(self._api_get_draft(state, draft_id))
-                return json_response({"draft": draft})
-            finally:
-                loop.close()
+            draft = await self._api_get_draft(state, draft_id)
+            return json_response({"draft": draft})
 
         except Exception as e:
             logger.error(f"[GmailThreads] Get draft failed: {e}")
@@ -588,7 +549,7 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _create_draft(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_draft(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
         """Create a new draft."""
         to = body.get("to", [])
         subject = body.get("subject", "")
@@ -598,18 +559,10 @@ class GmailThreadsHandler(SecureHandler):
         thread_id = body.get("thread_id")
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                draft = loop.run_until_complete(
-                    self._api_create_draft(
-                        state, to, subject, body_text, html_body, reply_to_message_id, thread_id
-                    )
-                )
-                return json_response({"draft": draft, "success": True})
-            finally:
-                loop.close()
+            draft = await self._api_create_draft(
+                state, to, subject, body_text, html_body, reply_to_message_id, thread_id
+            )
+            return json_response({"draft": draft, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailThreads] Create draft failed: {e}")
@@ -627,8 +580,8 @@ class GmailThreadsHandler(SecureHandler):
     ) -> Dict[str, Any]:
         """Create draft via Gmail API."""
         import httpx
-        from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
 
         token = state.access_token
 
@@ -661,7 +614,7 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _update_draft(self, state: Any, draft_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _update_draft(self, state: Any, draft_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Update an existing draft."""
         to = body.get("to", [])
         subject = body.get("subject", "")
@@ -669,16 +622,8 @@ class GmailThreadsHandler(SecureHandler):
         html_body = body.get("html_body")
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                draft = loop.run_until_complete(
-                    self._api_update_draft(state, draft_id, to, subject, body_text, html_body)
-                )
-                return json_response({"draft": draft, "success": True})
-            finally:
-                loop.close()
+            draft = await self._api_update_draft(state, draft_id, to, subject, body_text, html_body)
+            return json_response({"draft": draft, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailThreads] Update draft failed: {e}")
@@ -695,8 +640,8 @@ class GmailThreadsHandler(SecureHandler):
     ) -> Dict[str, Any]:
         """Update draft via Gmail API."""
         import httpx
-        from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
 
         token = state.access_token
 
@@ -724,17 +669,11 @@ class GmailThreadsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _delete_draft(self, state: Any, draft_id: str) -> HandlerResult:
+    async def _delete_draft(self, state: Any, draft_id: str) -> HandlerResult:
         """Delete a draft."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(self._api_delete_draft(state, draft_id))
-                return json_response({"deleted": draft_id, "success": True})
-            finally:
-                loop.close()
+            await self._api_delete_draft(state, draft_id)
+            return json_response({"deleted": draft_id, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailThreads] Delete draft failed: {e}")
@@ -753,23 +692,17 @@ class GmailThreadsHandler(SecureHandler):
             )
             response.raise_for_status()
 
-    def _send_draft(self, state: Any, draft_id: str) -> HandlerResult:
+    async def _send_draft(self, state: Any, draft_id: str) -> HandlerResult:
         """Send a draft."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                result = loop.run_until_complete(self._api_send_draft(state, draft_id))
-                return json_response(
-                    {
-                        "message_id": result.get("id"),
-                        "thread_id": result.get("threadId"),
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            result = await self._api_send_draft(state, draft_id)
+            return json_response(
+                {
+                    "message_id": result.get("id"),
+                    "thread_id": result.get("threadId"),
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] Send draft failed: {e}")
@@ -794,7 +727,7 @@ class GmailThreadsHandler(SecureHandler):
     # Attachment Operations
     # =========================================================================
 
-    def _get_attachment(
+    async def _get_attachment(
         self,
         state: Any,
         message_id: str,
@@ -802,23 +735,15 @@ class GmailThreadsHandler(SecureHandler):
     ) -> HandlerResult:
         """Get attachment data."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                attachment = loop.run_until_complete(
-                    self._api_get_attachment(state, message_id, attachment_id)
-                )
-                return json_response(
-                    {
-                        "attachment_id": attachment_id,
-                        "message_id": message_id,
-                        "data": attachment.get("data"),  # Base64 encoded
-                        "size": attachment.get("size"),
-                    }
-                )
-            finally:
-                loop.close()
+            attachment = await self._api_get_attachment(state, message_id, attachment_id)
+            return json_response(
+                {
+                    "attachment_id": attachment_id,
+                    "message_id": message_id,
+                    "data": attachment.get("data"),  # Base64 encoded
+                    "size": attachment.get("size"),
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailThreads] Get attachment failed: {e}")

@@ -60,6 +60,7 @@ class TestTeamsAuthentication:
         )
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
             "expires_in": 3600,
@@ -68,7 +69,8 @@ class TestTeamsAuthentication:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+            # Mock request() as _http_request uses generic request method
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             token = await connector._get_access_token()
 
@@ -86,6 +88,7 @@ class TestTeamsAuthentication:
         )
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "access_token": "cached-token",
             "expires_in": 3600,
@@ -94,7 +97,7 @@ class TestTeamsAuthentication:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             # First call
             token1 = await connector._get_access_token()
@@ -102,7 +105,7 @@ class TestTeamsAuthentication:
             token2 = await connector._get_access_token()
 
         # Should only call API once
-        assert mock_instance.post.call_count == 1
+        assert mock_instance.request.call_count == 1
         assert token1 == token2
 
 
