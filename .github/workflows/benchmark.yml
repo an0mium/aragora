@@ -62,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[test]"
           pip install pytest-benchmark
 
       - name: Run benchmark tests
@@ -125,7 +125,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[test]"
           pip install pytest-benchmark
 
       - name: Run PR benchmarks
@@ -141,7 +141,7 @@ jobs:
       - name: Run main benchmarks
         run: |
           cd main-branch
-          pip install -e ".[dev]"
+          pip install -e ".[test]"
           pytest tests/benchmarks/test_performance.py \
             --benchmark-only \
             --benchmark-json=../main-benchmark.json \
@@ -208,7 +208,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[test]"
 
       - name: Run latency tests
         run: |
@@ -245,7 +245,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[test]"
 
       - name: Run baseline comparison
         id: baseline
