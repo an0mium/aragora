@@ -568,7 +568,7 @@ class TranscriptionHandler(BaseHandler):
             logger.exception(f"Unexpected YouTube transcription error: {e}")
             return error_response(safe_error_message(e, "transcription"), 500)
 
-    def _handle_youtube_info(self, handler) -> HandlerResult:
+    async def _handle_youtube_info(self, handler) -> HandlerResult:
         """Get YouTube video info without transcribing."""
         try:
             body, err = self.read_json_body_validated(handler)
@@ -585,14 +585,7 @@ class TranscriptionHandler(BaseHandler):
                 return error_response("Invalid YouTube URL", 400)
 
             fetcher = YouTubeFetcher()
-
-            # Get video info synchronously
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                info = loop.run_until_complete(fetcher.get_video_info(url))
-            finally:
-                loop.close()
+            info = await fetcher.get_video_info(url)
 
             return json_response(
                 {
