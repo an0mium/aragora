@@ -116,6 +116,7 @@ from aragora.server.http_utils import run_async as _run_async
 from ...base import (
     BaseHandler,
     HandlerResult,
+    ServerContext,
     error_response,
 )
 from ...utils.rate_limit import RateLimiter, get_client_ip
@@ -264,9 +265,9 @@ class KnowledgeMoundHandler(  # type: ignore[misc]
         "/api/v1/knowledge/mound/confidence/stats",
     ]
 
-    def __init__(self, server_context: dict):
+    def __init__(self, server_context: ServerContext):
         """Initialize knowledge mound handler."""
-        super().__init__(server_context)  # type: ignore[arg-type]
+        super().__init__(server_context)
         self._mound: Optional["KnowledgeMound"] = None
         self._mound_initialized = False
 
