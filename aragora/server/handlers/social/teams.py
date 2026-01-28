@@ -121,16 +121,16 @@ class TeamsIntegrationHandler(BaseHandler):
         return None
 
     @rate_limit(rpm=30, limiter_name="teams_commands")
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/integrations/teams/commands":
-            return self._handle_command(handler)
+            return await self._handle_command(handler)
         elif path == "/api/v1/integrations/teams/interactive":
             return self._handle_interactive(handler)
         elif path == "/api/v1/integrations/teams/notify":
-            return self._handle_notify(handler)
+            return await self._handle_notify(handler)
 
         return error_response("Not found", 404)
 
@@ -147,7 +147,7 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         )
 
-    def _handle_command(self, handler: Any) -> HandlerResult:
+    async def _handle_command(self, handler: Any) -> HandlerResult:
         """Handle @aragora command from Teams.
 
         Commands:
@@ -173,13 +173,13 @@ class TeamsIntegrationHandler(BaseHandler):
             match = COMMAND_PATTERN.match(clean_text)
 
             if not match:
-                return self._send_help_response(conversation, service_url)
+                return await self._send_help_response(conversation, service_url)
 
             command = match.group(1).lower()
             args = match.group(2) or ""
 
             if command == "debate":
-                return self._start_debate(
+                return await self._start_debate(
                     topic=args.strip(),
                     conversation=conversation,
                     service_url=service_url,
@@ -190,9 +190,9 @@ class TeamsIntegrationHandler(BaseHandler):
             elif command == "cancel":
                 return self._cancel_debate(conversation)
             elif command == "help":
-                return self._send_help_response(conversation, service_url)
+                return await self._send_help_response(conversation, service_url)
             else:
-                return self._send_unknown_command(command, conversation, service_url)
+                return await self._send_unknown_command(command, conversation, service_url)
 
         except json.JSONDecodeError:
             return error_response("Invalid JSON", 400)
