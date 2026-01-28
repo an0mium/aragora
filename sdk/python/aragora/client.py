@@ -84,12 +84,16 @@ class AragoraClient:
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.debates import DebatesAPI
+        from .namespaces.onboarding import OnboardingAPI
+        from .namespaces.usage import UsageAPI
         from .namespaces.workflows import WorkflowsAPI
 
         self.admin = AdminAPI(self)
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
         self.debates = DebatesAPI(self)
+        self.onboarding = OnboardingAPI(self)
+        self.usage = UsageAPI(self)
         self.workflows = WorkflowsAPI(self)
 
     def request(
@@ -260,12 +264,16 @@ class AragoraAsyncClient:
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.debates import AsyncDebatesAPI
+        from .namespaces.onboarding import AsyncOnboardingAPI
+        from .namespaces.usage import AsyncUsageAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
 
         self.admin = AsyncAdminAPI(self)
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
         self.debates = AsyncDebatesAPI(self)
+        self.onboarding = AsyncOnboardingAPI(self)
+        self.usage = AsyncUsageAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
 
     async def request(
