@@ -147,7 +147,8 @@ class TestDecisionHandlerGet:
 class TestDecisionHandlerPost:
     """Test POST endpoints for DecisionHandler."""
 
-    def test_create_decision_missing_content(self):
+    @pytest.mark.asyncio
+    async def test_create_decision_missing_content(self):
         """Test that missing content returns 400."""
         from aragora.server.handlers.decision import DecisionHandler
 
@@ -162,15 +163,16 @@ class TestDecisionHandlerPost:
         }
         mock_handler.rfile.read.return_value = body_bytes
 
-        result = handler.handle_post("/api/v1/decisions", {}, mock_handler)
+        result = await handler.handle_post("/api/v1/decisions", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 400
         assert b"content" in result.body.lower()
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers.decision._get_decision_router")
     @patch("aragora.billing.auth.extract_user_from_request")
-    def test_create_decision_router_unavailable(self, mock_auth, mock_get_router):
+    async def test_create_decision_router_unavailable(self, mock_auth, mock_get_router):
         """Test error when router is not available."""
         from aragora.server.handlers.decision import DecisionHandler
 
@@ -187,14 +189,15 @@ class TestDecisionHandlerPost:
         }
         mock_handler.rfile.read.return_value = body_bytes
 
-        result = handler.handle_post("/api/v1/decisions", {}, mock_handler)
+        result = await handler.handle_post("/api/v1/decisions", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 503
 
+    @pytest.mark.asyncio
     @patch("aragora.server.handlers.decision._get_decision_router")
     @patch("aragora.billing.auth.extract_user_from_request")
-    def test_create_decision_success(self, mock_auth, mock_get_router):
+    async def test_create_decision_success(self, mock_auth, mock_get_router):
         """Test successful decision creation."""
         from aragora.server.handlers.decision import DecisionHandler, _decision_results_fallback
         from aragora.core.decision import DecisionResult, DecisionType
@@ -240,7 +243,7 @@ class TestDecisionHandlerPost:
         }
         mock_handler.rfile.read.return_value = body_bytes
 
-        result = handler.handle_post("/api/v1/decisions", {}, mock_handler)
+        result = await handler.handle_post("/api/v1/decisions", {}, mock_handler)
 
         assert result is not None
         assert result.status_code == 200

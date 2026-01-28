@@ -19,8 +19,6 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-import sys
-
 
 # ===========================================================================
 # Test Fixtures
@@ -787,8 +785,8 @@ class TestWebhookRBAC:
         """Permission check should pass when RBAC not available."""
         mock_http = MockHandler(headers={})
 
-        module = sys.modules[handler.__class__.__module__]
-        with patch.object(module, "RBAC_AVAILABLE", False):
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(module_globals, {"RBAC_AVAILABLE": False}):
             result = handler._check_rbac_permission(mock_http, "webhooks.create")
             assert result is None  # None means allowed
 
@@ -796,10 +794,10 @@ class TestWebhookRBAC:
         """Permission check should pass when RBAC allows."""
         mock_http = MockHandler(headers={})
 
-        module = sys.modules[handler.__class__.__module__]
-        with (
-            patch.object(module, "RBAC_AVAILABLE", True),
-            patch.object(module, "check_permission", mock_check_permission_allowed),
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(
+            module_globals,
+            {"RBAC_AVAILABLE": True, "check_permission": mock_check_permission_allowed},
         ):
             with patch.object(
                 handler,
@@ -813,10 +811,10 @@ class TestWebhookRBAC:
         """Permission check should return error when RBAC denies."""
         mock_http = MockHandler(headers={})
 
-        module = sys.modules[handler.__class__.__module__]
-        with (
-            patch.object(module, "RBAC_AVAILABLE", True),
-            patch.object(module, "check_permission", mock_check_permission_denied),
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(
+            module_globals,
+            {"RBAC_AVAILABLE": True, "check_permission": mock_check_permission_denied},
         ):
             with patch.object(
                 handler,
@@ -840,10 +838,10 @@ class TestWebhookRBAC:
             body=body,
         )
 
-        module = sys.modules[handler.__class__.__module__]
-        with (
-            patch.object(module, "RBAC_AVAILABLE", True),
-            patch.object(module, "check_permission", mock_check_permission_denied),
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(
+            module_globals,
+            {"RBAC_AVAILABLE": True, "check_permission": mock_check_permission_denied},
         ):
             with patch.object(
                 handler,
@@ -864,10 +862,10 @@ class TestWebhookRBAC:
         )
         mock_http = MockHandler(headers={})
 
-        module = sys.modules[handler.__class__.__module__]
-        with (
-            patch.object(module, "RBAC_AVAILABLE", True),
-            patch.object(module, "check_permission", mock_check_permission_denied),
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(
+            module_globals,
+            {"RBAC_AVAILABLE": True, "check_permission": mock_check_permission_denied},
         ):
             with patch.object(
                 handler,
@@ -886,10 +884,10 @@ class TestWebhookRBAC:
         )
         mock_http = MockHandler(headers={})
 
-        module = sys.modules[handler.__class__.__module__]
-        with (
-            patch.object(module, "RBAC_AVAILABLE", True),
-            patch.object(module, "check_permission", mock_check_permission_denied),
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(
+            module_globals,
+            {"RBAC_AVAILABLE": True, "check_permission": mock_check_permission_denied},
         ):
             with patch.object(
                 handler,
@@ -908,10 +906,10 @@ class TestWebhookRBAC:
         )
         mock_http = MockHandler(headers={})
 
-        module = sys.modules[handler.__class__.__module__]
-        with (
-            patch.object(module, "RBAC_AVAILABLE", True),
-            patch.object(module, "check_permission", mock_check_permission_denied),
+        module_globals = handler._check_rbac_permission.__globals__
+        with patch.dict(
+            module_globals,
+            {"RBAC_AVAILABLE": True, "check_permission": mock_check_permission_denied},
         ):
             with patch.object(
                 handler,

@@ -373,8 +373,9 @@ class TestControlPlaneHandlerMetrics:
 class TestControlPlaneHandlerRegisterAgent:
     """Test POST /api/control-plane/agents endpoint."""
 
+    @pytest.mark.asyncio
     @pytest.mark.no_auto_auth
-    def test_register_agent_requires_auth(self, control_plane_handler, mock_coordinator):
+    async def test_register_agent_requires_auth(self, control_plane_handler, mock_coordinator):
         """Test registering agent requires authentication."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_request_body(
@@ -384,12 +385,15 @@ class TestControlPlaneHandlerRegisterAgent:
             }
         )
 
-        result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, handler)
+        result = await control_plane_handler.handle_post(
+            "/api/v1/control-plane/agents", {}, handler
+        )
 
         assert result is not None
         assert result.status_code == 401
 
-    def test_register_agent_missing_id(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_register_agent_missing_id(self, control_plane_handler, mock_coordinator):
         """Test registering agent without ID returns error."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -401,12 +405,15 @@ class TestControlPlaneHandlerRegisterAgent:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, handler)
+            result = await control_plane_handler.handle_post(
+                "/api/v1/control-plane/agents", {}, handler
+            )
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_register_agent_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_register_agent_success(self, control_plane_handler, mock_coordinator):
         """Test successfully registering an agent."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -421,7 +428,9 @@ class TestControlPlaneHandlerRegisterAgent:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/v1/control-plane/agents", {}, handler)
+            result = await control_plane_handler.handle_post(
+                "/api/v1/control-plane/agents", {}, handler
+            )
 
         assert result is not None
         assert result.status_code == 201
@@ -432,7 +441,8 @@ class TestControlPlaneHandlerRegisterAgent:
 class TestControlPlaneHandlerHeartbeat:
     """Test POST /api/control-plane/agents/:id/heartbeat endpoint."""
 
-    def test_heartbeat_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_heartbeat_success(self, control_plane_handler, mock_coordinator):
         """Test sending heartbeat."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -444,7 +454,7 @@ class TestControlPlaneHandlerHeartbeat:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/agents/test-agent/heartbeat", {}, handler
             )
 
@@ -452,7 +462,8 @@ class TestControlPlaneHandlerHeartbeat:
         body = json.loads(result.body)
         assert body.get("acknowledged") is True
 
-    def test_heartbeat_agent_not_found(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_heartbeat_agent_not_found(self, control_plane_handler, mock_coordinator):
         """Test heartbeat for non-existent agent."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.heartbeat = AsyncMock(return_value=False)
@@ -465,7 +476,7 @@ class TestControlPlaneHandlerHeartbeat:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/agents/nonexistent/heartbeat", {}, handler
             )
 
@@ -562,8 +573,9 @@ class TestControlPlaneHandlerSubmitTask:
 class TestControlPlaneHandlerDeliberations:
     """Test deliberation endpoints."""
 
+    @pytest.mark.asyncio
     @pytest.mark.no_auto_auth
-    def test_submit_deliberation_requires_auth(
+    async def test_submit_deliberation_requires_auth(
         self, control_plane_handler, mock_coordinator, monkeypatch
     ):
         """Test submitting a deliberation requires authentication."""
@@ -571,14 +583,17 @@ class TestControlPlaneHandlerDeliberations:
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_request_body({"content": "Test deliberation"})
 
-        result = control_plane_handler.handle_post(
+        result = await control_plane_handler.handle_post(
             "/api/v1/control-plane/deliberations", {}, handler
         )
 
         assert result is not None
         assert result.status_code == 401
 
-    def test_submit_deliberation_missing_content(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_deliberation_missing_content(
+        self, control_plane_handler, mock_coordinator
+    ):
         """Test submitting a deliberation without content returns error."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body({"decision_type": "debate"})
@@ -586,14 +601,15 @@ class TestControlPlaneHandlerDeliberations:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/deliberations", {}, handler
             )
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_submit_deliberation_async_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_deliberation_async_success(self, control_plane_handler, mock_coordinator):
         """Test submitting an async deliberation succeeds."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -610,7 +626,7 @@ class TestControlPlaneHandlerDeliberations:
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
             with patch("aragora.billing.auth.extract_user_from_request", return_value=auth_ctx):
-                result = control_plane_handler.handle_post(
+                result = await control_plane_handler.handle_post(
                     "/api/v1/control-plane/deliberations", {}, handler
                 )
 
@@ -621,7 +637,8 @@ class TestControlPlaneHandlerDeliberations:
         assert body.get("status") == "queued"
         assert body.get("task_id") == "task-123"
 
-    def test_submit_deliberation_sync_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_deliberation_sync_success(self, control_plane_handler, mock_coordinator):
         """Test submitting a sync deliberation succeeds."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -652,7 +669,7 @@ class TestControlPlaneHandlerDeliberations:
                     "aragora.control_plane.deliberation.run_deliberation",
                     new=AsyncMock(return_value=result_payload),
                 ):
-                    result = control_plane_handler.handle_post(
+                    result = await control_plane_handler.handle_post(
                         "/api/v1/control-plane/deliberations", {}, handler
                     )
 
@@ -708,7 +725,8 @@ class TestControlPlaneHandlerDeliberations:
 class TestControlPlaneHandlerCompleteTask:
     """Test POST /api/control-plane/tasks/:id/complete endpoint."""
 
-    def test_complete_task_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_complete_task_success(self, control_plane_handler, mock_coordinator):
         """Test completing a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -721,7 +739,7 @@ class TestControlPlaneHandlerCompleteTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks/task-123/complete", {}, handler
             )
 
@@ -729,7 +747,8 @@ class TestControlPlaneHandlerCompleteTask:
         body = json.loads(result.body)
         assert body.get("completed") is True
 
-    def test_complete_task_not_found(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_complete_task_not_found(self, control_plane_handler, mock_coordinator):
         """Test completing non-existent task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.complete_task = AsyncMock(return_value=False)
@@ -742,7 +761,7 @@ class TestControlPlaneHandlerCompleteTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks/nonexistent/complete", {}, handler
             )
 
@@ -753,7 +772,8 @@ class TestControlPlaneHandlerCompleteTask:
 class TestControlPlaneHandlerFailTask:
     """Test POST /api/control-plane/tasks/:id/fail endpoint."""
 
-    def test_fail_task_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_fail_task_success(self, control_plane_handler, mock_coordinator):
         """Test failing a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -766,7 +786,7 @@ class TestControlPlaneHandlerFailTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks/task-123/fail", {}, handler
             )
 
@@ -774,7 +794,8 @@ class TestControlPlaneHandlerFailTask:
         body = json.loads(result.body)
         assert body.get("failed") is True
 
-    def test_fail_task_not_found(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_fail_task_not_found(self, control_plane_handler, mock_coordinator):
         """Test failing non-existent task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.fail_task = AsyncMock(return_value=False)
@@ -787,7 +808,7 @@ class TestControlPlaneHandlerFailTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks/nonexistent/fail", {}, handler
             )
 
@@ -798,7 +819,8 @@ class TestControlPlaneHandlerFailTask:
 class TestControlPlaneHandlerCancelTask:
     """Test POST /api/control-plane/tasks/:id/cancel endpoint."""
 
-    def test_cancel_task_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_cancel_task_success(self, control_plane_handler, mock_coordinator):
         """Test canceling a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body({})
@@ -806,7 +828,7 @@ class TestControlPlaneHandlerCancelTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks/task-123/cancel", {}, handler
             )
 
@@ -814,7 +836,8 @@ class TestControlPlaneHandlerCancelTask:
         body = json.loads(result.body)
         assert body.get("cancelled") is True
 
-    def test_cancel_task_not_found(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_cancel_task_not_found(self, control_plane_handler, mock_coordinator):
         """Test canceling non-existent task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         mock_coordinator.cancel_task = AsyncMock(return_value=False)
@@ -823,7 +846,7 @@ class TestControlPlaneHandlerCancelTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks/nonexistent/cancel", {}, handler
             )
 
@@ -887,7 +910,10 @@ class TestControlPlaneHandlerUnregisterAgent:
 class TestControlPlaneHandlerIntegration:
     """Integration tests for control plane handler."""
 
-    def test_full_agent_lifecycle(self, control_plane_handler, mock_coordinator, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_full_agent_lifecycle(
+        self, control_plane_handler, mock_coordinator, mock_http_handler
+    ):
         """Test full agent registration, heartbeat, unregistration lifecycle."""
         ControlPlaneHandler.coordinator = mock_coordinator
 
@@ -904,7 +930,7 @@ class TestControlPlaneHandlerIntegration:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/agents", {}, register_handler
             )
 
@@ -923,7 +949,7 @@ class TestControlPlaneHandlerIntegration:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/agents/lifecycle-agent/heartbeat", {}, heartbeat_handler
             )
 
@@ -943,7 +969,8 @@ class TestControlPlaneHandlerIntegration:
         body = json.loads(result.body)
         assert body.get("unregistered") is True
 
-    def test_full_task_lifecycle(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_full_task_lifecycle(self, control_plane_handler, mock_coordinator):
         """Test full task submission, claim, completion lifecycle."""
         ControlPlaneHandler.coordinator = mock_coordinator
 
@@ -959,7 +986,7 @@ class TestControlPlaneHandlerIntegration:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 "/api/v1/control-plane/tasks", {}, submit_handler
             )
 
@@ -980,7 +1007,7 @@ class TestControlPlaneHandlerIntegration:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post(
+            result = await control_plane_handler.handle_post(
                 f"/api/v1/control-plane/tasks/{task_id}/complete", {}, complete_handler
             )
 

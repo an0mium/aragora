@@ -264,10 +264,11 @@ class TestGetDebateEvidence:
         assert result.status_code == 400
 
 
+@pytest.mark.asyncio
 class TestSearchEvidence:
     """Tests for POST /api/evidence/search."""
 
-    def test_search_evidence_success(self, handler, mock_http_handler):
+    async def test_search_evidence_success(self, handler, mock_http_handler):
         """Test searching evidence with query."""
         mock_http_handler.rfile = MagicMock()
         mock_http_handler.headers = {
@@ -277,7 +278,7 @@ class TestSearchEvidence:
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": "machine learning"}, None)
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -285,16 +286,16 @@ class TestSearchEvidence:
         assert "results" in data
         assert "count" in data
 
-    def test_search_evidence_empty_query(self, handler, mock_http_handler):
+    async def test_search_evidence_empty_query(self, handler, mock_http_handler):
         """Test error when query is empty."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": ""}, None)
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_search_with_context(self, handler, mock_http_handler, mock_evidence_store):
+    async def test_search_with_context(self, handler, mock_http_handler, mock_evidence_store):
         """Test search with quality context."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = (
@@ -308,7 +309,7 @@ class TestSearchEvidence:
                 },
                 None,
             )
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         mock_evidence_store.search_evidence.assert_called()
@@ -316,14 +317,17 @@ class TestSearchEvidence:
         assert call_kwargs.get("context") is not None
 
 
+@pytest.mark.asyncio
 class TestCollectEvidence:
     """Tests for POST /api/evidence/collect."""
 
-    def test_collect_evidence_success(self, handler, mock_http_handler, mock_evidence_collector):
+    async def test_collect_evidence_success(
+        self, handler, mock_http_handler, mock_evidence_collector
+    ):
         """Test collecting evidence for a task."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": "research AI safety"}, None)
-            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
@@ -332,30 +336,32 @@ class TestCollectEvidence:
         assert "snippets" in data
         assert "count" in data
 
-    def test_collect_evidence_empty_task(self, handler, mock_http_handler):
+    async def test_collect_evidence_empty_task(self, handler, mock_http_handler):
         """Test error when task is empty."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": ""}, None)
-            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_collect_with_debate_association(self, handler, mock_http_handler, mock_evidence_store):
+    async def test_collect_with_debate_association(
+        self, handler, mock_http_handler, mock_evidence_store
+    ):
         """Test evidence collection with debate association."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = (
                 {"task": "test task", "debate_id": "debate-123", "round": 1},
                 None,
             )
-            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
         data = parse_response(result)
         assert data["debate_id"] == "debate-123"
         assert "saved_ids" in data
 
-    def test_collect_with_specific_connectors(
+    async def test_collect_with_specific_connectors(
         self, handler, mock_http_handler, mock_evidence_collector
     ):
         """Test specifying connectors for collection."""
@@ -364,19 +370,20 @@ class TestCollectEvidence:
                 {"task": "test", "connectors": ["arxiv", "wikipedia"]},
                 None,
             )
-            result = handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/collect", {}, mock_http_handler)
 
         assert result is not None
 
 
+@pytest.mark.asyncio
 class TestAssociateEvidence:
     """Tests for POST /api/evidence/debate/:debate_id."""
 
-    def test_associate_evidence_success(self, handler, mock_http_handler):
+    async def test_associate_evidence_success(self, handler, mock_http_handler):
         """Test associating evidence with a debate."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"evidence_ids": ["ev-1", "ev-2"]}, None)
-            result = handler.handle_post(
+            result = await handler.handle_post(
                 "/api/v1/evidence/debate/debate-123", {}, mock_http_handler
             )
 
@@ -386,25 +393,25 @@ class TestAssociateEvidence:
         assert "associated" in data
         assert "count" in data
 
-    def test_associate_evidence_empty_ids(self, handler, mock_http_handler):
+    async def test_associate_evidence_empty_ids(self, handler, mock_http_handler):
         """Test error when evidence_ids is empty."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"evidence_ids": []}, None)
-            result = handler.handle_post(
+            result = await handler.handle_post(
                 "/api/v1/evidence/debate/debate-123", {}, mock_http_handler
             )
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_associate_with_round(self, handler, mock_http_handler, mock_evidence_store):
+    async def test_associate_with_round(self, handler, mock_http_handler, mock_evidence_store):
         """Test associating evidence with specific round."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = (
                 {"evidence_ids": ["ev-1"], "round": 2},
                 None,
             )
-            result = handler.handle_post(
+            result = await handler.handle_post(
                 "/api/v1/evidence/debate/debate-123", {}, mock_http_handler
             )
 
@@ -452,27 +459,29 @@ class TestRateLimiting:
             assert result is not None
             assert result.status_code == 200
 
-    def test_write_rate_limit_allows_normal_traffic(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_write_rate_limit_allows_normal_traffic(self, handler, mock_http_handler):
         """Test normal write traffic is allowed."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": "test"}, None)
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
             assert result is not None
 
 
+@pytest.mark.asyncio
 class TestErrorHandling:
     """Tests for error handling in evidence handler."""
 
-    def test_invalid_json_body(self, handler, mock_http_handler):
+    async def test_invalid_json_body(self, handler, mock_http_handler):
         """Test handling of invalid JSON in request body."""
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = (None, MagicMock(status_code=400))
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         assert result.status_code == 400
 
-    def test_collection_failure_returns_500(self, handler, mock_evidence_collector):
+    async def test_collection_failure_returns_500(self, handler, mock_evidence_collector):
         """Test 500 returned when collection fails."""
         # Create a fresh mock handler with unique IP
         fresh_handler = MagicMock()
@@ -485,7 +494,7 @@ class TestErrorHandling:
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"task": "test"}, None)
-            result = handler.handle_post("/api/v1/evidence/collect", {}, fresh_handler)
+            result = await handler.handle_post("/api/v1/evidence/collect", {}, fresh_handler)
 
         assert result is not None
         # Rate limit (429) is acceptable if tests are running quickly
@@ -502,23 +511,25 @@ class TestEdgeCases:
         assert result is not None
         assert result.status_code == 400
 
-    def test_very_long_query(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_very_long_query(self, handler, mock_http_handler):
         """Test handling of very long search query."""
         long_query = "a" * 10000
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": long_query}, None)
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         # Should succeed (length validation is in store layer)
         assert result is not None
 
-    def test_empty_search_results(self, handler, mock_http_handler, mock_evidence_store):
+    @pytest.mark.asyncio
+    async def test_empty_search_results(self, handler, mock_http_handler, mock_evidence_store):
         """Test handling of empty search results."""
         mock_evidence_store.search_evidence.return_value = []
 
         with patch.object(handler, "read_json_body_validated") as mock_read:
             mock_read.return_value = ({"query": "nonexistent topic"}, None)
-            result = handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
+            result = await handler.handle_post("/api/v1/evidence/search", {}, mock_http_handler)
 
         assert result is not None
         # Check if rate limited first

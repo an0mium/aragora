@@ -112,11 +112,12 @@ class TestEvaluationHandlerUnknownPath:
 
         assert result is None
 
-    def test_unknown_post_path_returns_none(self, handler):
+    @pytest.mark.asyncio
+    async def test_unknown_post_path_returns_none(self, handler):
         """Unknown POST path returns None."""
         mock_http = MagicMock()
         mock_http.client_address = ("127.0.0.1", 12345)
 
-        result = handler.handle_post("/api/v1/other", {}, mock_http)
+        result = await handler.handle_post("/api/v1/other", {}, mock_http)
 
         assert result is None

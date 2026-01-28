@@ -307,7 +307,8 @@ class TestAgentRegistration:
 class TestTaskSubmission:
     """Tests for POST /api/control-plane/tasks endpoint."""
 
-    def test_submit_requires_auth(self, handler, mock_http_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_requires_auth(self, handler, mock_http_handler, mock_coordinator):
         """Should require authentication for task submission."""
         mock_http_handler.command = "POST"
         mock_http_handler.rfile.read.return_value = json.dumps({"task_type": "debate"}).encode()
@@ -324,13 +325,14 @@ class TestTaskSubmission:
                         HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
                     ),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/tasks", {}, mock_http_handler
                     )
 
         assert get_status(result) == 401
 
-    def test_submit_task_success(
+    @pytest.mark.asyncio
+    async def test_submit_task_success(
         self, handler, mock_http_handler, mock_coordinator, mock_admin_user
     ):
         """Should submit task successfully with auth."""
@@ -348,7 +350,7 @@ class TestTaskSubmission:
                     "read_json_body_validated",
                     return_value=({"task_type": "debate", "payload": {"topic": "AI"}}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/tasks", {}, mock_http_handler
                     )
 
@@ -356,7 +358,8 @@ class TestTaskSubmission:
         body = get_body(result)
         assert "task_id" in body
 
-    def test_submit_task_missing_type(
+    @pytest.mark.asyncio
+    async def test_submit_task_missing_type(
         self, handler, mock_http_handler, mock_coordinator, mock_admin_user
     ):
         """Should reject task without task_type."""
@@ -371,7 +374,7 @@ class TestTaskSubmission:
                     "read_json_body_validated",
                     return_value=({"payload": {}}, None),  # Missing task_type
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/tasks", {}, mock_http_handler
                     )
 
@@ -613,7 +616,8 @@ def mock_member_user():
 class TestRBACPermissionDenied:
     """Tests for RBAC permission enforcement - users without correct role should get 403."""
 
-    def test_register_agent_denied_for_member(
+    @pytest.mark.asyncio
+    async def test_register_agent_denied_for_member(
         self, handler, mock_http_handler, mock_coordinator, mock_member_user
     ):
         """Member users should not be able to register agents."""
@@ -628,14 +632,15 @@ class TestRBACPermissionDenied:
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/agents", {}, mock_http_handler
                     )
 
         assert get_status(result) == 403
         assert "controlplane:agents" in get_body(result)["error"]
 
-    def test_submit_task_denied_for_member(
+    @pytest.mark.asyncio
+    async def test_submit_task_denied_for_member(
         self, handler, mock_http_handler, mock_coordinator, mock_member_user
     ):
         """Member users should not be able to submit tasks."""
@@ -650,7 +655,7 @@ class TestRBACPermissionDenied:
                     "read_json_body_validated",
                     return_value=({"task_type": "debate", "payload": {}}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/tasks", {}, mock_http_handler
                     )
 
@@ -672,7 +677,8 @@ class TestRBACPermissionDenied:
         assert get_status(result) == 403
         assert "controlplane:agents" in get_body(result)["error"]
 
-    def test_user_without_role_denied(self, handler, mock_http_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_user_without_role_denied(self, handler, mock_http_handler, mock_coordinator):
         """Users without a role attribute should be denied."""
         mock_http_handler.command = "POST"
         mock_user_no_role = MagicMock(spec=["user_id"])  # No role attribute
@@ -687,13 +693,14 @@ class TestRBACPermissionDenied:
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1"}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/agents", {}, mock_http_handler
                     )
 
         assert get_status(result) == 403
 
-    def test_owner_role_allowed(self, handler, mock_http_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_owner_role_allowed(self, handler, mock_http_handler, mock_coordinator):
         """Owner role should have access to all operations."""
         mock_http_handler.command = "POST"
         mock_owner = MagicMock()
@@ -707,7 +714,7 @@ class TestRBACPermissionDenied:
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1", "capabilities": ["debate"]}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/agents", {}, mock_http_handler
                     )
 

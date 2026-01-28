@@ -220,44 +220,53 @@ class TestUsageMeteringRouting:
         """Create mock HTTP handler."""
         return mock_http_handler(method="GET")
 
-    def test_handle_routes_to_usage(self, metering_handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_usage(self, metering_handler, mock_http):
         """handle() routes /api/v1/billing/usage to _get_usage."""
         with patch.object(
-            metering_handler, "_get_usage", return_value=MagicMock(status_code=200)
+            metering_handler, "_get_usage", new=AsyncMock(return_value=MagicMock(status_code=200))
         ) as mock_get:
             with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
-                metering_handler.handle("/api/v1/billing/usage", {}, mock_http, "GET")
+                await metering_handler.handle("/api/v1/billing/usage", {}, mock_http, "GET")
                 mock_get.assert_called_once()
 
-    def test_handle_routes_to_breakdown(self, metering_handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_breakdown(self, metering_handler, mock_http):
         """handle() routes /api/v1/billing/usage/breakdown to _get_usage_breakdown."""
         with patch.object(
-            metering_handler, "_get_usage_breakdown", return_value=MagicMock(status_code=200)
+            metering_handler,
+            "_get_usage_breakdown",
+            new=AsyncMock(return_value=MagicMock(status_code=200)),
         ) as mock_get:
             with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
-                metering_handler.handle("/api/v1/billing/usage/breakdown", {}, mock_http, "GET")
+                await metering_handler.handle(
+                    "/api/v1/billing/usage/breakdown", {}, mock_http, "GET"
+                )
                 mock_get.assert_called_once()
 
-    def test_handle_routes_to_limits(self, metering_handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_limits(self, metering_handler, mock_http):
         """handle() routes /api/v1/billing/limits to _get_limits."""
         with patch.object(
-            metering_handler, "_get_limits", return_value=MagicMock(status_code=200)
+            metering_handler, "_get_limits", new=AsyncMock(return_value=MagicMock(status_code=200))
         ) as mock_get:
             with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
                 mock_limiter.is_allowed.return_value = True
-                metering_handler.handle("/api/v1/billing/limits", {}, mock_http, "GET")
+                await metering_handler.handle("/api/v1/billing/limits", {}, mock_http, "GET")
                 mock_get.assert_called_once()
 
-    def test_handle_rate_limit_exceeded(self, metering_handler, mock_http):
+    @pytest.mark.asyncio
+    async def test_handle_rate_limit_exceeded(self, metering_handler, mock_http):
         """handle() returns 429 when rate limit exceeded."""
         with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = False
-            result = metering_handler.handle("/api/v1/billing/usage", {}, mock_http, "GET")
+            result = await metering_handler.handle("/api/v1/billing/usage", {}, mock_http, "GET")
             assert result.status_code == 429
 
-    def test_handle_method_not_allowed(self, metering_handler):
+    @pytest.mark.asyncio
+    async def test_handle_method_not_allowed(self, metering_handler):
         """handle() returns 405 for unsupported method."""
         mock_http = MagicMock()
         mock_http.command = "DELETE"
@@ -266,5 +275,5 @@ class TestUsageMeteringRouting:
 
         with patch("aragora.server.handlers.usage_metering._usage_limiter") as mock_limiter:
             mock_limiter.is_allowed.return_value = True
-            result = metering_handler.handle("/api/v1/billing/usage", {}, mock_http, "DELETE")
+            result = await metering_handler.handle("/api/v1/billing/usage", {}, mock_http, "DELETE")
             assert result.status_code == 405
