@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -119,7 +120,12 @@ class ConnectorsAPI:
         response = await self._client._request(
             "DELETE", f"/api/v1/connectors/{connector_id}"
         )
-        return response.json()
+        if hasattr(response, "json") and callable(response.json):
+            result = response.json()
+            if asyncio.iscoroutine(result):
+                return await result
+            return result
+        return {"deleted": True}
 
     # =========================================================================
     # Actions

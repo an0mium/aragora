@@ -221,6 +221,65 @@ export class ReplaysAPI {
   }
 
   /**
+   * Get the replay for a specific debate.
+   */
+  async getFromDebate(debateId: string): Promise<Replay> {
+    return this.client.request('GET', `/api/debates/${debateId}/replay`);
+  }
+
+  /**
+   * Export a replay in a specific format.
+   */
+  async export(
+    replayId: string,
+    options?: {
+      format?: 'json' | 'markdown' | 'html';
+    }
+  ): Promise<{ data: string; format: string; download_url?: string }> {
+    return this.client.request('GET', `/api/replays/${replayId}/export`, { params: options });
+  }
+
+  /**
+   * Get replay summary with key moments.
+   */
+  async getSummary(replayId: string): Promise<{
+    replay_id: string;
+    task: string;
+    total_rounds: number;
+    total_events: number;
+    duration_ms: number;
+    result: string;
+    key_moments: Array<{
+      event_id: string;
+      type: string;
+      description: string;
+      timestamp: number;
+    }>;
+    agent_participation: Record<string, { proposals: number; critiques: number; votes: number }>;
+  }> {
+    return this.client.request('GET', `/api/replays/${replayId}/summary`);
+  }
+
+  /**
+   * Compare two replays to analyze differences.
+   */
+  async compare(
+    replayId1: string,
+    replayId2: string
+  ): Promise<{
+    replay_1: { id: string; task: string; result: string };
+    replay_2: { id: string; task: string; result: string };
+    similarities: string[];
+    differences: string[];
+    agent_overlap: string[];
+    convergence_comparison: { replay_1: number; replay_2: number };
+  }> {
+    return this.client.request('GET', '/api/replays/compare', {
+      params: { replay_id_1: replayId1, replay_id_2: replayId2 },
+    });
+  }
+
+  /**
    * Get replay statistics.
    */
   async getStats(options?: {

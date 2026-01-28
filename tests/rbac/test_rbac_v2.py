@@ -191,9 +191,13 @@ class TestRoleHierarchy:
     """Tests for role hierarchy and permission inheritance."""
 
     def test_owner_has_all_permissions(self):
-        """Owner role should have all permissions."""
+        """Owner role should have all canonical permissions."""
         permissions = get_role_permissions("owner")
-        assert len(permissions) == len(SYSTEM_PERMISSIONS)
+        # SYSTEM_PERMISSIONS includes aliases (colon format, underscore variations)
+        # Owner has all unique/canonical permissions (dot format with underscores)
+        # Aliases point to the same Permission objects so we count unique IDs
+        unique_permission_ids = {p.id for p in SYSTEM_PERMISSIONS.values()}
+        assert len(permissions) == len(unique_permission_ids)
 
     def test_admin_inherits_from_debate_creator(self):
         """Admin should have all debate_creator permissions."""
