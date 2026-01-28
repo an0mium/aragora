@@ -19,9 +19,7 @@ Endpoints:
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import os
 import re
 import secrets
 import threading
@@ -34,6 +32,7 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.models import AuthorizationContext
 
@@ -91,10 +90,15 @@ def _generate_verification_token() -> str:
 
 
 def _hash_password(password: str) -> str:
-    """Hash password (in production, use bcrypt/argon2)."""
-    # Simple hash for demo - use proper password hashing in production
-    salt = os.environ.get("PASSWORD_SALT", "aragora-salt")
-    return hashlib.sha256(f"{password}{salt}".encode()).hexdigest()
+    """Hash password using bcrypt via billing.models.
+
+    Uses secure bcrypt hashing with automatic salt generation.
+    Falls back to SHA-256 only when ARAGORA_ALLOW_INSECURE_PASSWORDS=1.
+    """
+    from aragora.billing.models import hash_password
+
+    hashed, _ = hash_password(password)
+    return hashed
 
 
 def _validate_password(password: str) -> List[str]:
@@ -144,6 +148,7 @@ def _cleanup_expired_tokens():
 # =============================================================================
 
 
+@rate_limit(rpm=5, limiter_name="auth_signup")
 async def handle_signup(
     data: Dict[str, Any],
     user_id: str = "default",

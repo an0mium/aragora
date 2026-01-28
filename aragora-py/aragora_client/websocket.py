@@ -5,9 +5,15 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator, Callable
+from typing import TYPE_CHECKING
 
 import websockets
-from websockets.client import WebSocketClientProtocol
+
+if TYPE_CHECKING:
+    try:
+        from websockets import ClientConnection as WebSocketClientProtocol
+    except Exception:  # pragma: no cover - compatibility fallback
+        from websockets.client import WebSocketClientProtocol  # type: ignore
 
 from aragora_client.types import DebateEvent
 
