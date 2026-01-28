@@ -444,7 +444,7 @@ class TestYouTubeInfoEndpoint:
             mock_fetcher.get_video_info = AsyncMock(return_value=mock_info)
             mock_fetcher_class.return_value = mock_fetcher
 
-            result = handler.handle_post("/api/v1/transcription/youtube/info", {}, mock_http)
+            result = await handler.handle_post("/api/v1/transcription/youtube/info", {}, mock_http)
 
             assert result is not None
             if result.status_code == 200:

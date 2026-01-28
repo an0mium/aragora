@@ -228,6 +228,54 @@ class MockReceiptStore:
             "retention_days": 2555,
         }
 
+    def get_by_user(
+        self,
+        user_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        include_data: bool = True,
+    ) -> tuple[List[MockStoredReceipt], int]:
+        """Get receipts by user ID for GDPR DSAR."""
+        matches = []
+        for receipt in self.receipts.values():
+            data = receipt.data
+            if (
+                data.get("user_id") == user_id
+                or data.get("requestor_id") == user_id
+                or data.get("created_by") == user_id
+            ):
+                matches.append(receipt)
+        total = len(matches)
+        return matches[offset : offset + limit], total
+
+    def get_retention_status(self) -> Dict[str, Any]:
+        """Get retention status for GDPR compliance."""
+        return {
+            "retention_policy": {
+                "max_retention_days": 2555,
+                "auto_delete_enabled": True,
+                "retention_reason": "Regulatory compliance (7 years)",
+            },
+            "current_stats": {
+                "total_receipts": len(self.receipts),
+                "oldest_receipt_days": 365 if self.receipts else None,
+                "newest_receipt_days": 1 if self.receipts else None,
+            },
+            "age_distribution": {
+                "0-30_days": len(self.receipts),
+                "31-90_days": 0,
+                "91-365_days": 0,
+                "1-3_years": 0,
+                "3-7_years": 0,
+                "over_7_years": 0,
+            },
+            "expiring_receipts": {
+                "next_30_days": 0,
+                "next_90_days": 0,
+            },
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
 
 @pytest.fixture
 def mock_receipt_store():
