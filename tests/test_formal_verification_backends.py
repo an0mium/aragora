@@ -115,53 +115,44 @@ class TestZ3BackendTranslate:
         """Create a Z3Backend instance."""
         return Z3Backend()
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_already_smtlib2(self, backend):
         """Already valid SMT-LIB2 should be returned as-is."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         smtlib = "(declare-const x Int)\n(assert (> x 0))\n(check-sat)"
         result = await backend.translate(smtlib)
         assert result == smtlib
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_invalid_smtlib2(self, backend):
         """Invalid SMT-LIB2 should return None."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         # Looks like SMT-LIB2 but is invalid
         invalid = "(assert (invalid syntax here"
         result = await backend.translate(invalid)
         assert result is None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_simple_transitivity(self, backend):
         """Should translate simple transitivity claims."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         claim = "if x > y and y > z then x > z"
         result = await backend.translate(claim)
         # May or may not translate depending on pattern matching
         # Just verify it doesn't crash
         assert result is None or isinstance(result, str)
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_empty_string(self, backend):
         """Empty string should return None."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         result = await backend.translate("")
         assert result is None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_with_llm_translator(self, backend):
         """Should use LLM translator when available."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
 
         async def mock_llm(prompt, context):
             return "(declare-const x Int)\n(assert (> x 0))\n(check-sat)"
@@ -170,11 +161,10 @@ class TestZ3BackendTranslate:
         result = await backend_with_llm.translate("x is positive")
         assert result is not None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_with_llm_returns_markdown(self, backend):
         """Should extract SMT-LIB2 from markdown code blocks."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
 
         async def mock_llm(prompt, context):
             return """```smt2
@@ -188,11 +178,10 @@ class TestZ3BackendTranslate:
         assert result is not None
         assert "```" not in result
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_with_llm_failure(self, backend):
         """Should handle LLM translator failures gracefully."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
 
         async def failing_llm(prompt, context):
             raise RuntimeError("LLM API error")
@@ -219,12 +208,10 @@ class TestZ3BackendProve:
             assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
             assert result.language == FormalLanguage.Z3_SMT
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_valid_unsat(self, backend):
         """Should return PROOF_FOUND for valid unsat result."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         # This is trivially unsatisfiable (negation of tautology)
         smtlib = """
 (declare-const x Int)
@@ -235,12 +222,10 @@ class TestZ3BackendProve:
         assert result.status == FormalProofStatus.PROOF_FOUND
         assert result.is_verified is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_valid_sat(self, backend):
         """Should return PROOF_FAILED for sat result (counterexample exists)."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         # This is satisfiable (x can be 1)
         smtlib = """
 (declare-const x Int)
@@ -251,33 +236,27 @@ class TestZ3BackendProve:
         assert result.status == FormalProofStatus.PROOF_FAILED
         assert result.is_verified is False
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_empty_statement(self, backend):
         """Should handle empty statement gracefully."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         result = await backend.prove("")
         assert result.status in (
             FormalProofStatus.TRANSLATION_FAILED,
             FormalProofStatus.PROOF_FAILED,
         )
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_invalid_syntax(self, backend):
         """Should handle invalid SMT-LIB2 syntax."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         result = await backend.prove("this is not valid SMT-LIB2")
         assert result.status == FormalProofStatus.TRANSLATION_FAILED
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_timeout(self, backend):
         """Should timeout on complex problems."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         # Create a simple problem that should complete quickly
         # Real timeout testing would need a harder problem
         smtlib = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
@@ -313,19 +292,15 @@ class TestZ3BackendHelpers:
         valid = "   (declare-const x Int)   "
         assert backend._is_smtlib2(valid) is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_valid(self, backend):
         """Should validate correct SMT-LIB2."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         valid = "(declare-const x Int)\n(assert (> x 0))\n(check-sat)"
         assert backend._validate_smtlib2(valid) is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_invalid(self, backend):
         """Should reject invalid SMT-LIB2."""
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
-
         invalid = "(declare-const x UnknownType)"
         assert backend._validate_smtlib2(invalid) is False
 
@@ -515,43 +490,35 @@ class TestFormalVerificationEdgeCases:
     def z3_backend(self):
         return Z3Backend()
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_very_long_claim(self, z3_backend):
         """Should handle very long claims without crashing."""
-        if not z3_backend.is_available:
-            pytest.skip("Z3 not installed")
-
         long_claim = "x > y " * 1000
         result = z3_backend.can_verify(long_claim)
         assert isinstance(result, bool)
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_null_bytes_in_claim(self, z3_backend):
         """Should handle null bytes in claims."""
-        if not z3_backend.is_available:
-            pytest.skip("Z3 not installed")
-
         claim_with_null = "x > y\x00 and y > z"
         result = z3_backend.can_verify(claim_with_null)
         assert isinstance(result, bool)
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_unicode_in_smtlib2(self, z3_backend):
         """Should handle unicode in SMT-LIB2 gracefully."""
-        if not z3_backend.is_available:
-            pytest.skip("Z3 not installed")
-
         # Unicode variable names (may or may not be valid depending on Z3)
         smtlib = "(declare-const λ Int)\n(assert (> λ 0))\n(check-sat)"
         result = await z3_backend.translate(smtlib)
         # May return None if invalid, just shouldn't crash
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_concurrent_prove_calls(self, z3_backend):
         """Should handle concurrent prove calls safely."""
-        if not z3_backend.is_available:
-            pytest.skip("Z3 not installed")
-
         smtlib = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
 
         # Run multiple prove calls concurrently
@@ -567,14 +534,13 @@ class TestFormalVerificationEdgeCases:
 # ============================================================================
 
 
+@pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
 class TestZ3BackendCache:
     """Tests for Z3Backend proof caching."""
 
     @pytest.fixture
     def z3_backend(self):
         backend = Z3Backend(cache_size=10, cache_ttl_seconds=300)
-        if not backend.is_available:
-            pytest.skip("Z3 not installed")
         return backend
 
     @pytest.mark.asyncio

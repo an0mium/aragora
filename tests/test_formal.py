@@ -15,6 +15,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+# Import centralized skip markers for Z3
+from tests.conftest import requires_z3, REQUIRES_Z3
+
 from aragora.verification.formal import (
     FormalLanguage,
     FormalProofResult,
@@ -336,50 +339,37 @@ class TestZ3Backend:
         """language property returns Z3_SMT."""
         assert backend.language == FormalLanguage.Z3_SMT
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_is_available_when_z3_installed(self, backend):
         """is_available returns True when z3 is installed."""
-        # This test will pass if z3-solver is installed in test env
-        try:
-            import z3
+        assert backend.is_available is True
 
-            assert backend.is_available is True
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_z3_version_returns_string(self, backend):
         """z3_version returns version string."""
-        try:
-            import z3
+        version = backend.z3_version
+        assert isinstance(version, str)
+        assert "z3" in version.lower() or version == "unknown"
 
-            version = backend.z3_version
-            assert isinstance(version, str)
-            assert "z3" in version.lower() or version == "unknown"
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_smtlib2_format(self, backend):
         """can_verify returns True for SMT-LIB2 format claims."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         smtlib = "(declare-const x Int)\n(assert (= x 1))"
         assert backend.can_verify(smtlib) is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_arithmetic_claim_type(self, backend):
         """can_verify returns True for arithmetic claim type."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         assert backend.can_verify("x > y", claim_type="arithmetic") is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_logical_claim_type(self, backend):
         """can_verify returns True for logical claim type."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         assert backend.can_verify("p implies q", claim_type="logical") is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_quantifiable_patterns(self, backend):
         """can_verify returns True for claims with quantifiable patterns."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         claims = [
             "for all x, x > 0",
             "there exists y such that y = 0",
@@ -389,10 +379,9 @@ class TestZ3Backend:
         for claim in claims:
             assert backend.can_verify(claim) is True, f"Should verify: {claim}"
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_can_verify_math_patterns(self, backend):
         """can_verify returns True for claims with math notation."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         claims = ["x > y", "a + b = c", "x ≤ y", "p → q", "a ∧ b"]
         for claim in claims:
             assert backend.can_verify(claim) is True, f"Should verify: {claim}"
@@ -424,43 +413,38 @@ class TestZ3Backend:
         for stmt in invalid:
             assert backend._is_smtlib2(stmt) is False, f"Should reject: {stmt}"
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_accepts_valid(self, backend):
         """_validate_smtlib2 accepts valid SMT-LIB2."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         valid = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
         assert backend._validate_smtlib2(valid) is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_validate_smtlib2_rejects_invalid(self, backend):
         """_validate_smtlib2 rejects malformed SMT-LIB2."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         invalid = "(declare-const x Int\n(missing paren)"
         assert backend._validate_smtlib2(invalid) is False
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_passthrough_smtlib2(self, backend):
         """translate returns valid SMT-LIB2 unchanged."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         smtlib = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
         result = await backend.translate(smtlib)
         assert result == smtlib
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_translate_returns_none_for_complex_claim(self, backend):
         """translate returns None for claims it cannot translate."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         # Complex natural language without LLM
         result = await backend.translate("The eigenvalues of a symmetric matrix are real")
         assert result is None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_valid_claim(self, backend):
         """prove returns PROOF_FOUND for valid claims."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         # x > 0 and y > 0 implies x + y > 0
         smtlib = """
 (declare-const x Int)
@@ -474,11 +458,10 @@ class TestZ3Backend:
         assert result.proof_text is not None
         assert result.proof_hash is not None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_invalid_claim(self, backend):
         """prove returns PROOF_FAILED for invalid claims with counterexample."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         # x > 0 implies x > 10 (false for x=5)
         smtlib = """
 (declare-const x Int)
@@ -497,38 +480,34 @@ class TestZ3Backend:
             result = await backend.prove("(check-sat)")
             assert result.status == FormalProofStatus.BACKEND_UNAVAILABLE
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_handles_parse_error(self, backend):
         """prove returns TRANSLATION_FAILED for malformed input."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         result = await backend.prove("(invalid smtlib (missing parens")
         assert result.status == FormalProofStatus.TRANSLATION_FAILED
         assert "parse" in result.error_message.lower()
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_records_timing(self, backend):
         """prove records proof search time."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         smtlib = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
         result = await backend.prove(smtlib)
         assert result.proof_search_time_ms >= 0
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_prove_records_version(self, backend):
         """prove records prover version."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         smtlib = "(declare-const x Int)\n(assert (= x 1))\n(check-sat)"
         result = await backend.prove(smtlib)
         assert "z3" in result.prover_version.lower()
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_verify_proof_returns_true_for_valid(self, backend):
         """verify_proof returns True for valid proofs."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         smtlib = """
 (declare-const x Int)
 (declare-const y Int)
@@ -538,11 +517,10 @@ class TestZ3Backend:
         result = await backend.verify_proof(smtlib, "QED")
         assert result is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_verify_proof_returns_false_for_invalid(self, backend):
         """verify_proof returns False for invalid claims."""
-        if not backend.is_available:
-            pytest.skip("z3-solver not installed")
         # False claim
         smtlib = """
 (declare-const x Int)
@@ -586,16 +564,12 @@ class TestFormalVerificationManager:
         for backend in available:
             assert backend.is_available is True
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     def test_get_backend_for_claim_arithmetic(self, manager):
         """get_backend_for_claim returns Z3 for arithmetic claims."""
-        try:
-            import z3
-
-            backend = manager.get_backend_for_claim("x > y", claim_type="arithmetic")
-            assert backend is not None
-            assert backend.language == FormalLanguage.Z3_SMT
-        except ImportError:
-            pytest.skip("z3-solver not installed")
+        backend = manager.get_backend_for_claim("x > y", claim_type="arithmetic")
+        assert backend is not None
+        assert backend.language == FormalLanguage.Z3_SMT
 
     def test_get_backend_for_claim_returns_none_for_unsupported(self, manager):
         """get_backend_for_claim returns None when no backend can verify."""
@@ -605,14 +579,10 @@ class TestFormalVerificationManager:
                 backend = manager.get_backend_for_claim("unsupported claim")
                 assert backend is None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_attempt_formal_verification_success(self, manager):
         """attempt_formal_verification succeeds for valid Z3 claims."""
-        try:
-            import z3
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
         # Already in SMT-LIB2 format
         smtlib = """
 (declare-const x Int)
@@ -630,14 +600,10 @@ class TestFormalVerificationManager:
             result = await manager.attempt_formal_verification("unsupported claim")
             assert result.status == FormalProofStatus.NOT_SUPPORTED
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_attempt_formal_verification_translation_failed(self, manager):
         """attempt_formal_verification returns TRANSLATION_FAILED when translation fails."""
-        try:
-            import z3
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
         # Complex claim that can't be translated without LLM
         result = await manager.attempt_formal_verification(
             "The Riemann hypothesis is true",
@@ -719,14 +685,10 @@ class TestFormalVerificationBackendProtocol:
 class TestFormalVerificationIntegration:
     """Integration tests for formal verification workflow."""
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_full_z3_verification_workflow(self):
         """Test complete Z3 verification from claim to proof."""
-        try:
-            import z3
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
         manager = FormalVerificationManager()
 
         # A simple transitivity claim in SMT-LIB2
@@ -744,14 +706,10 @@ class TestFormalVerificationIntegration:
         assert result.language == FormalLanguage.Z3_SMT
         assert result.proof_hash is not None
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_proof_result_serialization(self):
         """Test that proof results can be serialized to dict."""
-        try:
-            import z3
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
         backend = Z3Backend()
         smtlib = """
 (declare-const x Int)
@@ -772,14 +730,10 @@ class TestFormalVerificationIntegration:
         assert deserialized["status"] == result.status.value
         assert deserialized["language"] == result.language.value
 
+    @pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
     @pytest.mark.asyncio
     async def test_counterexample_detection(self):
         """Test that counterexamples are properly detected and reported."""
-        try:
-            import z3
-        except ImportError:
-            pytest.skip("z3-solver not installed")
-
         backend = Z3Backend()
 
         # False claim: all positive numbers are greater than 100
