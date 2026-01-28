@@ -94,7 +94,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,research,code-intel]"
+          pip install -e ".[dev,research,code-intel,test]"
           pip install pytest-timeout pytest-xdist
 
       - name: Run tests
