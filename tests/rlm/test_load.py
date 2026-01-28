@@ -24,17 +24,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 # Import RLM modules
-try:
-    from aragora.rlm import (
-        HierarchicalCompressor,
-        AbstractionLevel,
-    )
-    from aragora.rlm.types import RLMContext, AbstractionNode, CompressionResult
-
-    HAS_RLM = True
-except ImportError as e:
-    print(f"RLM import error: {e}")
-    HAS_RLM = False
+from aragora.rlm import (
+    HierarchicalCompressor,
+    AbstractionLevel,
+)
+from aragora.rlm.types import RLMContext, AbstractionNode, CompressionResult
 
 
 @dataclass
@@ -79,7 +73,6 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 4
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMCompression:
     """Test RLM compression functionality."""
 
@@ -143,7 +136,6 @@ class TestRLMCompression:
         assert duration < 30, f"Compression took too long: {duration:.2f}s"
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMLoadPerformance:
     """Performance tests for RLM under load."""
 
@@ -230,7 +222,6 @@ class TestRLMLoadPerformance:
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024  # macOS returns KB
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMCompressionRatios:
     """Test compression ratio targets."""
 
@@ -298,7 +289,6 @@ class TestRLMCompressionRatios:
             assert len(result.context.levels) >= 1
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMDebateIntegration:
     """Test RLM integration with debate context."""
 
@@ -365,7 +355,6 @@ class TestRLMDebateIntegration:
         assert isinstance(hint, str)
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMEdgeCases:
     """Test RLM edge cases and error handling."""
 
@@ -436,7 +425,6 @@ class TestRLMEdgeCases:
 
 
 # Performance benchmarks (run with pytest-benchmark)
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMBenchmarks:
     """Benchmark tests for RLM performance."""
 

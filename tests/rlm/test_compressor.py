@@ -14,28 +14,22 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 # Import RLM modules
-try:
-    from aragora.rlm.compressor import (
-        ChunkInfo,
-        HierarchicalCompressor,
-        clear_compression_cache,
-        _compression_cache,
-    )
-    from aragora.rlm.types import (
-        AbstractionLevel,
-        AbstractionNode,
-        CompressionResult,
-        DecompositionStrategy,
-        RLMConfig,
-        RLMContext,
-        RLMQuery,
-        RLMResult,
-    )
-
-    HAS_RLM = True
-except ImportError as e:
-    print(f"RLM import error: {e}")
-    HAS_RLM = False
+from aragora.rlm.compressor import (
+    ChunkInfo,
+    HierarchicalCompressor,
+    clear_compression_cache,
+    _compression_cache,
+)
+from aragora.rlm.types import (
+    AbstractionLevel,
+    AbstractionNode,
+    CompressionResult,
+    DecompositionStrategy,
+    RLMConfig,
+    RLMContext,
+    RLMQuery,
+    RLMResult,
+)
 
 
 # =============================================================================
@@ -43,7 +37,6 @@ except ImportError as e:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestAbstractionLevel:
     """Test AbstractionLevel enum."""
 
@@ -63,7 +56,6 @@ class TestAbstractionLevel:
         assert AbstractionLevel.ABSTRACT.value < AbstractionLevel.METADATA.value
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestDecompositionStrategy:
     """Test DecompositionStrategy enum."""
 
@@ -77,7 +69,6 @@ class TestDecompositionStrategy:
         assert DecompositionStrategy.AUTO.value == "auto"
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMConfig:
     """Test RLMConfig dataclass."""
 
@@ -119,7 +110,6 @@ class TestRLMConfig:
         assert config.cache_compressions is False
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestAbstractionNode:
     """Test AbstractionNode dataclass."""
 
@@ -172,7 +162,6 @@ class TestAbstractionNode:
         assert node.source_chunks == ["chunk1", "chunk2"]
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMContext:
     """Test RLMContext dataclass."""
 
@@ -256,7 +245,6 @@ class TestRLMContext:
         assert tokens == 100
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMQuery:
     """Test RLMQuery dataclass."""
 
@@ -273,7 +261,6 @@ class TestRLMQuery:
         assert query.output_format == "text"
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestRLMResult:
     """Test RLMResult dataclass."""
 
@@ -301,7 +288,6 @@ class TestRLMResult:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestChunkInfo:
     """Test ChunkInfo dataclass."""
 
@@ -327,7 +313,6 @@ class TestChunkInfo:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestHierarchicalCompressorInit:
     """Test HierarchicalCompressor initialization."""
 
@@ -357,7 +342,6 @@ class TestHierarchicalCompressorInit:
         assert compressor.agent_call is not None
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompressorInternals:
     """Test internal compressor methods."""
 
@@ -428,7 +412,6 @@ class TestCompressorInternals:
         assert fidelity == 1.0
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestChunkContent:
     """Test content chunking logic."""
 
@@ -479,7 +462,6 @@ class TestChunkContent:
                 ), f"Chunk ended at: {end_content[-10:]}"
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestTruncationFallback:
     """Test truncation fallback when no LLM available."""
 
@@ -575,7 +557,6 @@ class TestTruncationFallback:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompress:
     """Test main compress method."""
 
@@ -634,7 +615,6 @@ class TestCompress:
         assert result.context.source_type == "debate"
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompressDebateHistory:
     """Test compress_debate_history method."""
 
@@ -683,7 +663,6 @@ class TestCompressDebateHistory:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompressionCache:
     """Test compression caching behavior."""
 
@@ -743,7 +722,6 @@ class TestCompressionCache:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompressionPrompts:
     """Test compression prompt templates."""
 
@@ -780,7 +758,6 @@ class TestCompressionPrompts:
 # =============================================================================
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompressorIntegration:
     """Integration tests for full compression workflow."""
 
@@ -859,7 +836,6 @@ class TestCompressorIntegration:
                         assert chunk_id in result.context.nodes_by_id
 
 
-@pytest.mark.skipif(not HAS_RLM, reason="RLM module not available")
 class TestCompressGroup:
     """Test _compress_group method."""
 

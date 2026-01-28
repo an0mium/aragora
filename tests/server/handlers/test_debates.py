@@ -513,7 +513,8 @@ class TestDebatesHandlerEdgeCases:
 class TestDecisionRouterIntegration:
     """Tests for DecisionRouter integration in debate creation."""
 
-    def test_create_debate_uses_direct_controller(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_create_debate_uses_direct_controller(self, handler, mock_http_handler):
         """Test that _create_debate uses direct controller for immediate response.
 
         The direct controller path is preferred over DecisionRouter because:
@@ -540,7 +541,7 @@ class TestDecisionRouterIntegration:
                     mock_http_handler.headers = {}
 
                     # Call _create_debate
-                    result = handler._create_debate(mock_http_handler)
+                    result = await handler._create_debate(mock_http_handler)
 
             # Verify direct controller was used
             mock_direct.assert_called_once()
