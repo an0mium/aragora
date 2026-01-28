@@ -717,3 +717,107 @@ class TestReceiptStoreBackends:
         """Test custom retention days."""
         store = ReceiptStore(db_path=temp_db_path, retention_days=365)
         assert store.retention_days == 365
+
+
+# ===========================================================================
+# GDPR Compliance Tests
+# ===========================================================================
+
+
+class TestReceiptStoreGDPR:
+    """Tests for GDPR compliance features."""
+
+    def test_get_by_user_no_matches(self, receipt_store, sample_receipt_dict):
+        """Test get_by_user returns empty for no matches."""
+        receipt_store.save(sample_receipt_dict)
+
+        receipts, total = receipt_store.get_by_user("nonexistent-user")
+
+        assert receipts == []
+        assert total == 0
+
+    def test_get_by_user_matches_user_id(self, receipt_store, sample_receipt_dict):
+        """Test get_by_user matches user_id field in data."""
+        sample_receipt_dict["user_id"] = "user-123"
+        receipt_store.save(sample_receipt_dict)
+
+        receipts, total = receipt_store.get_by_user("user-123")
+
+        assert total == 1
+        assert len(receipts) == 1
+        assert receipts[0].receipt_id == "receipt-001"
+
+    def test_get_by_user_matches_created_by(self, receipt_store, sample_receipt_dict):
+        """Test get_by_user matches created_by field in data."""
+        sample_receipt_dict["created_by"] = "admin-user-456"
+        receipt_store.save(sample_receipt_dict)
+
+        receipts, total = receipt_store.get_by_user("admin-user-456")
+
+        assert total == 1
+        assert len(receipts) == 1
+
+    def test_get_by_user_matches_requestor_id(self, receipt_store, sample_receipt_dict):
+        """Test get_by_user matches requestor_id field in data."""
+        sample_receipt_dict["requestor_id"] = "requestor-789"
+        receipt_store.save(sample_receipt_dict)
+
+        receipts, total = receipt_store.get_by_user("requestor-789")
+
+        assert total == 1
+        assert len(receipts) == 1
+
+    def test_get_by_user_pagination(self, receipt_store, sample_receipt_dict):
+        """Test get_by_user pagination."""
+        for i in range(5):
+            sample_receipt_dict["receipt_id"] = f"receipt-{i}"
+            sample_receipt_dict["gauntlet_id"] = f"gauntlet-{i}"
+            sample_receipt_dict["user_id"] = "paginated-user"
+            receipt_store.save(sample_receipt_dict.copy())
+
+        receipts, total = receipt_store.get_by_user("paginated-user", limit=2, offset=0)
+
+        assert total == 5
+        assert len(receipts) == 2
+
+        receipts2, _ = receipt_store.get_by_user("paginated-user", limit=2, offset=2)
+        assert len(receipts2) == 2
+
+    def test_get_retention_status_empty(self, receipt_store):
+        """Test get_retention_status with no receipts."""
+        status = receipt_store.get_retention_status()
+
+        assert status["total_receipts"] == 0
+        assert "retention_policy" in status
+        assert status["retention_policy"]["retention_days"] == DEFAULT_RETENTION_DAYS
+
+    def test_get_retention_status_with_receipts(self, receipt_store, sample_receipt_dict):
+        """Test get_retention_status with some receipts."""
+        for i in range(3):
+            sample_receipt_dict["receipt_id"] = f"retention-{i}"
+            sample_receipt_dict["gauntlet_id"] = f"gauntlet-ret-{i}"
+            receipt_store.save(sample_receipt_dict.copy())
+
+        status = receipt_store.get_retention_status()
+
+        assert status["total_receipts"] == 3
+        assert "age_distribution" in status
+        assert "expiring_receipts" in status
+        assert "timestamps" in status
+        assert status["timestamps"]["newest_receipt"] is not None
+
+    def test_get_retention_status_includes_all_fields(self, receipt_store, sample_receipt_dict):
+        """Test get_retention_status returns all required fields."""
+        receipt_store.save(sample_receipt_dict)
+
+        status = receipt_store.get_retention_status()
+
+        # Check required fields exist
+        assert "retention_policy" in status
+        assert "retention_days" in status["retention_policy"]
+        assert "retention_years" in status["retention_policy"]
+        assert "age_distribution" in status
+        assert "expiring_receipts" in status
+        assert "already_expired" in status
+        assert "timestamps" in status
+        assert "generated_at" in status

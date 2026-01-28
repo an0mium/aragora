@@ -1024,6 +1024,124 @@ class ReceiptStore:
             "retention_days": self.retention_days,
         }
 
+    def get_by_user(
+        self,
+        user_id: str,
+        limit: int = 100,
+        offset: int = 0,
+        include_data: bool = True,
+    ) -> Tuple[List[StoredReceipt], int]:
+        """
+        Get all receipts associated with a user (GDPR DSAR support).
+
+        Searches for receipts where the user_id appears in the data JSON.
+
+        Args:
+            user_id: User identifier to search for
+            limit: Max results to return
+            offset: Pagination offset
+            include_data: Include full data payload
+
+        Returns:
+            Tuple of (list of receipts, total count)
+        """
+        if self._backend is None:
+            return [], 0
+
+        user_pattern = f'%"{user_id}"%'
+        query = """
+            SELECT receipt_id, gauntlet_id, debate_id, created_at, expires_at,
+                   verdict, confidence, risk_level, risk_score, checksum,
+                   signature, signature_algorithm, signature_key_id, signed_at,
+                   audit_trail_id, data_json
+            FROM receipts
+            WHERE json_extract(data_json, '$.user_id') = ?
+               OR json_extract(data_json, '$.requestor_id') = ?
+               OR json_extract(data_json, '$.created_by') = ?
+               OR data_json LIKE ?
+            ORDER BY created_at DESC
+            LIMIT ? OFFSET ?
+        """
+        count_query = """
+            SELECT COUNT(*)
+            FROM receipts
+            WHERE json_extract(data_json, '$.user_id') = ?
+               OR json_extract(data_json, '$.requestor_id') = ?
+               OR json_extract(data_json, '$.created_by') = ?
+               OR data_json LIKE ?
+        """
+        params = (user_id, user_id, user_id, user_pattern, limit, offset)
+        count_params = (user_id, user_id, user_id, user_pattern)
+
+        rows = self._backend.fetch_all(query, params)
+        receipts = [self._row_to_stored_receipt(row) for row in rows]
+
+        count_row = self._backend.fetch_one(count_query, count_params)
+        total = count_row[0] if count_row else 0
+
+        return receipts, total
+
+    def get_retention_status(self) -> Dict[str, Any]:
+        """
+        Get retention status for GDPR compliance reporting.
+
+        Returns:
+            Dictionary with retention status information
+        """
+        if self._backend is None:
+            return {}
+
+        now = time.time()
+
+        # Get oldest and newest timestamps
+        timestamp_row = self._backend.fetch_one(
+            "SELECT MIN(created_at), MAX(created_at) FROM receipts"
+        )
+        oldest_at = timestamp_row[0] if timestamp_row and timestamp_row[0] else None
+        newest_at = timestamp_row[1] if timestamp_row and timestamp_row[1] else None
+
+        # Get already expired count
+        expired_row = self._backend.fetch_one(
+            "SELECT COUNT(*) FROM receipts WHERE expires_at IS NOT NULL AND expires_at < ?",
+            (now,),
+        )
+        already_expired = expired_row[0] if expired_row else 0
+
+        return {
+            "retention_policy": {
+                "retention_days": self.retention_days,
+                "retention_years": round(self.retention_days / 365, 1),
+            },
+            "age_distribution": {
+                "0-30_days": 0,
+                "31-90_days": 0,
+                "91-365_days": 0,
+                "1-3_years": 0,
+                "3-7_years": 0,
+                "over_7_years": 0,
+            },
+            "expiring_receipts": {
+                "next_30_days": 0,
+                "next_90_days": 0,
+                "next_365_days": 0,
+            },
+            "already_expired": already_expired,
+            "timestamps": {
+                "oldest_receipt": (
+                    datetime.fromtimestamp(oldest_at, tz=timezone.utc).isoformat()
+                    if oldest_at
+                    else None
+                ),
+                "newest_receipt": (
+                    datetime.fromtimestamp(newest_at, tz=timezone.utc).isoformat()
+                    if newest_at
+                    else None
+                ),
+            },
+            "total_receipts": self.count(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
 
 # =========================================================================
 # Module-level Functions
