@@ -1798,7 +1798,7 @@ class OAuthHandler(SecureHandler):
                     "id": "google",
                     "name": "Google",
                     "enabled": True,
-                    "auth_url": "/api/v1/auth/oauth/google",
+                    "auth_url": "/api/auth/oauth/google",
                 }
             )
 
@@ -1808,7 +1808,7 @@ class OAuthHandler(SecureHandler):
                     "id": "github",
                     "name": "GitHub",
                     "enabled": True,
-                    "auth_url": "/api/v1/auth/oauth/github",
+                    "auth_url": "/api/auth/oauth/github",
                 }
             )
 
@@ -1818,7 +1818,7 @@ class OAuthHandler(SecureHandler):
                     "id": "microsoft",
                     "name": "Microsoft",
                     "enabled": True,
-                    "auth_url": "/api/v1/auth/oauth/microsoft",
+                    "auth_url": "/api/auth/oauth/microsoft",
                 }
             )
 
@@ -1828,7 +1828,7 @@ class OAuthHandler(SecureHandler):
                     "id": "apple",
                     "name": "Apple",
                     "enabled": True,
-                    "auth_url": "/api/v1/auth/oauth/apple",
+                    "auth_url": "/api/auth/oauth/apple",
                 }
             )
 
@@ -1838,7 +1838,7 @@ class OAuthHandler(SecureHandler):
                     "id": "oidc",
                     "name": "SSO",
                     "enabled": True,
-                    "auth_url": "/api/v1/auth/oauth/oidc",
+                    "auth_url": "/api/auth/oauth/oidc",
                 }
             )
 

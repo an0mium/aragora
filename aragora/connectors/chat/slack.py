@@ -531,24 +531,30 @@ class SlackConnector(ChatPlatformConnector):
                 last_error = f"Request timeout after {request_timeout}s"
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        f"Slack {operation} timeout (attempt {attempt + 1}/{self._max_retries})"
+                        f"[slack] {operation} timeout (attempt {attempt + 1}/{self._max_retries})"
                     )
                     await _exponential_backoff(attempt)
                     continue
+                # Final attempt failed
+                logger.error(f"[slack] {operation} timeout after {self._max_retries} attempts")
 
             except httpx.ConnectError as e:
                 last_error = f"Connection error: {e}"
                 if attempt < self._max_retries - 1:
                     logger.warning(
-                        f"Slack {operation} connection error (attempt {attempt + 1}/{self._max_retries})"
+                        f"[slack] {operation} connection error (attempt {attempt + 1}/{self._max_retries})"
                     )
                     await _exponential_backoff(attempt)
                     continue
+                # Final attempt failed
+                logger.error(
+                    f"[slack] {operation} network error after {self._max_retries} attempts: {e}"
+                )
 
             except Exception as e:
-                last_error = str(e)
-                logger.error(f"Slack {operation} error: {e}")
-                # Don't retry on unexpected errors
+                # Unexpected error - don't retry
+                last_error = f"Unexpected error: {e}"
+                logger.exception(f"[slack] {operation} unexpected error: {e}")
                 break
 
         # All retries exhausted
@@ -696,15 +702,28 @@ class SlackConnector(ChatPlatformConnector):
             except httpx.TimeoutException:
                 last_error = "Request timeout"
                 if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"[slack] send_ephemeral timeout (attempt {attempt + 1}/{self._max_retries})"
+                    )
                     await _exponential_backoff(attempt)
                     continue
+                logger.error("[slack] send_ephemeral timeout after all retries")
+
+            except httpx.ConnectError as e:
+                last_error = f"Connection error: {e}"
+                if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"[slack] send_ephemeral network error (attempt {attempt + 1}/{self._max_retries})"
+                    )
+                    await _exponential_backoff(attempt)
+                    continue
+                logger.error(f"[slack] send_ephemeral network error after all retries: {e}")
 
             except Exception as e:
                 last_error = str(e)
-                logger.error(f"Slack send_ephemeral error: {e}")
-                if attempt < self._max_retries - 1:
-                    await _exponential_backoff(attempt)
-                    continue
+                logger.exception(f"[slack] send_ephemeral unexpected error: {e}")
+                # Don't retry unexpected errors
+                break
 
         if self._circuit_breaker:
             self._circuit_breaker.record_failure()
@@ -823,12 +842,22 @@ class SlackConnector(ChatPlatformConnector):
 
             except httpx.TimeoutException:
                 if attempt == 0:
+                    logger.warning("[slack] response_url timeout, retrying")
                     await _exponential_backoff(0, base=0.5)
                     continue
+                logger.error("[slack] response_url timeout after retries")
                 return SendMessageResponse(success=False, error="Request timeout")
 
+            except httpx.ConnectError as e:
+                if attempt == 0:
+                    logger.warning("[slack] response_url network error, retrying")
+                    await _exponential_backoff(0, base=0.5)
+                    continue
+                logger.error(f"[slack] response_url network error: {e}")
+                return SendMessageResponse(success=False, error=f"Connection error: {e}")
+
             except Exception as e:
-                logger.error(f"Slack response_url error: {e}")
+                logger.exception(f"[slack] response_url unexpected error: {e}")
                 return SendMessageResponse(success=False, error=str(e))
 
         return SendMessageResponse(success=False, error="Request failed")
@@ -913,14 +942,26 @@ class SlackConnector(ChatPlatformConnector):
 
             except httpx.TimeoutException:
                 if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"[slack] upload_file timeout (attempt {attempt + 1}/{self._max_retries})"
+                    )
                     await _exponential_backoff(attempt)
                     continue
+                logger.error("[slack] upload_file timeout after all retries")
+
+            except httpx.ConnectError as e:
+                if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"[slack] upload_file network error (attempt {attempt + 1}/{self._max_retries})"
+                    )
+                    await _exponential_backoff(attempt)
+                    continue
+                logger.error(f"[slack] upload_file network error: {e}")
 
             except Exception as e:
-                logger.error(f"Slack upload_file error: {e}")
-                if attempt < self._max_retries - 1:
-                    await _exponential_backoff(attempt)
-                    continue
+                logger.exception(f"[slack] upload_file unexpected error: {e}")
+                # Don't retry unexpected errors
+                break
 
         if self._circuit_breaker:
             self._circuit_breaker.record_failure()
@@ -1011,14 +1052,26 @@ class SlackConnector(ChatPlatformConnector):
 
             except httpx.TimeoutException:
                 if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"[slack] download_file timeout (attempt {attempt + 1}/{self._max_retries})"
+                    )
                     await _exponential_backoff(attempt)
                     continue
+                logger.error("[slack] download_file timeout after all retries")
+
+            except httpx.ConnectError as e:
+                if attempt < self._max_retries - 1:
+                    logger.warning(
+                        f"[slack] download_file network error (attempt {attempt + 1}/{self._max_retries})"
+                    )
+                    await _exponential_backoff(attempt)
+                    continue
+                logger.error(f"[slack] download_file network error: {e}")
 
             except Exception as e:
-                logger.error(f"Slack download_file error: {e}")
-                if attempt < self._max_retries - 1:
-                    await _exponential_backoff(attempt)
-                    continue
+                logger.exception(f"[slack] download_file unexpected error: {e}")
+                # Don't retry unexpected errors
+                break
 
         if self._circuit_breaker:
             self._circuit_breaker.record_failure()

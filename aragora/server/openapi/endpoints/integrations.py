@@ -15,6 +15,143 @@ def _response(description: str, schema: dict[str, Any] | None = None) -> dict[st
 
 
 INTEGRATION_ENDPOINTS = {
+    "/api/v1/integrations/status": {
+        "get": {
+            "tags": ["Integrations"],
+            "summary": "Get integration status",
+            "description": "Get aggregated integration status for all providers.",
+            "operationId": "getIntegrationsStatusV1",
+            "responses": {
+                "200": _response(
+                    "Integration status",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "integrations": {"type": "array", "items": {"type": "object"}},
+                            "checked_at": {"type": "string", "format": "date-time"},
+                        },
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/integrations/{type}": {
+        "get": {
+            "tags": ["Integrations"],
+            "summary": "Get integration configuration",
+            "description": "Get configuration and status for a specific integration type.",
+            "operationId": "getIntegrationV1",
+            "parameters": [
+                {
+                    "name": "type",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration type",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response("Integration details", {"type": "object"}),
+                "401": STANDARD_ERRORS["401"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "put": {
+            "tags": ["Integrations"],
+            "summary": "Configure integration",
+            "description": "Create or replace an integration configuration by type.",
+            "operationId": "configureIntegrationV1",
+            "parameters": [
+                {
+                    "name": "type",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration type",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            },
+            "responses": {
+                "200": _response("Integration configured", {"type": "object"}),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "patch": {
+            "tags": ["Integrations"],
+            "summary": "Update integration",
+            "description": "Update an integration configuration by type.",
+            "operationId": "updateIntegrationV1",
+            "parameters": [
+                {
+                    "name": "type",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration type",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            },
+            "responses": {
+                "200": _response("Integration updated", {"type": "object"}),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "delete": {
+            "tags": ["Integrations"],
+            "summary": "Delete integration",
+            "description": "Delete an integration configuration by type.",
+            "operationId": "deleteIntegrationV1",
+            "parameters": [
+                {
+                    "name": "type",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration type",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response("Integration deleted", {"type": "object"}),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/integrations/{type}/test": {
+        "post": {
+            "tags": ["Integrations"],
+            "summary": "Test integration",
+            "description": "Test a specific integration configuration.",
+            "operationId": "testIntegrationV1",
+            "parameters": [
+                {
+                    "name": "type",
+                    "in": "path",
+                    "required": True,
+                    "description": "Integration type",
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _response("Test results", {"type": "object"}),
+                "401": STANDARD_ERRORS["401"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
     # OAuth Wizard endpoints
     "/api/v2/integrations/wizard": {
         "get": {
