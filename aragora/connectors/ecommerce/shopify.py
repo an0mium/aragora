@@ -29,7 +29,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult, SyncState
+from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.connectors.exceptions import ConnectorAPIError
 
 logger = logging.getLogger(__name__)
@@ -965,6 +965,122 @@ class ShopifyConnector(EnterpriseConnector):
             duration_ms=duration,
             errors=errors,
         )
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """
+        Yield Shopify data as SyncItems for incremental sync.
+
+        Args:
+            state: Current sync state with cursor
+            batch_size: Number of items per batch
+
+        Yields:
+            SyncItem objects for Knowledge Mound ingestion
+        """
+        since = state.last_sync_at if state else None
+
+        # Sync orders
+        async for order in self.sync_orders(since=since, limit=batch_size):
+            content_parts = [f"# Order {order.name}"]
+            content_parts.append(f"\nTotal: {order.currency} {order.total_price}")
+            content_parts.append(f"\nStatus: {order.financial_status.value}")
+            if order.fulfillment_status:
+                content_parts.append(f"\nFulfillment: {order.fulfillment_status.value}")
+            content_parts.append(f"\nItems: {len(order.line_items)}")
+
+            yield SyncItem(
+                id=f"shopify:order:{order.id}",
+                source_type="ecommerce",
+                source_id=order.id,
+                content="\n".join(content_parts),
+                title=f"Order {order.name}",
+                url="",
+                author=order.email or "",
+                created_at=order.created_at,
+                updated_at=order.updated_at,
+                domain="ecommerce",
+                confidence=0.95,
+                metadata={
+                    "type": "order",
+                    "order_number": order.order_number,
+                    "currency": order.currency,
+                    "total_price": str(order.total_price),
+                    "financial_status": order.financial_status.value,
+                    "fulfillment_status": (
+                        order.fulfillment_status.value if order.fulfillment_status else None
+                    ),
+                    "line_item_count": len(order.line_items),
+                    "customer_id": order.customer_id,
+                },
+            )
+
+        # Sync products
+        async for product in self.sync_products(since=since, limit=batch_size):
+            content_parts = [f"# {product.title}"]
+            if product.description:
+                content_parts.append(f"\n{product.description}")
+            content_parts.append(f"\nVendor: {product.vendor or 'N/A'}")
+            content_parts.append(f"\nVariants: {len(product.variants)}")
+            if product.tags:
+                content_parts.append(f"\nTags: {', '.join(product.tags)}")
+
+            yield SyncItem(
+                id=f"shopify:product:{product.id}",
+                source_type="ecommerce",
+                source_id=product.id,
+                content="\n".join(content_parts),
+                title=product.title,
+                url="",
+                author=product.vendor or "",
+                created_at=product.created_at,
+                updated_at=product.updated_at,
+                domain="ecommerce",
+                confidence=0.95,
+                metadata={
+                    "type": "product",
+                    "handle": product.handle,
+                    "vendor": product.vendor,
+                    "product_type": product.product_type,
+                    "status": product.status,
+                    "variant_count": len(product.variants),
+                    "tags": product.tags,
+                },
+            )
+
+        # Sync customers
+        async for customer in self.sync_customers(since=since, limit=batch_size):
+            content_parts = [f"# {customer.full_name}"]
+            if customer.email:
+                content_parts.append(f"\nEmail: {customer.email}")
+            content_parts.append(f"\nOrders: {customer.orders_count}")
+            content_parts.append(f"\nTotal Spent: {customer.total_spent}")
+
+            yield SyncItem(
+                id=f"shopify:customer:{customer.id}",
+                source_type="ecommerce",
+                source_id=customer.id,
+                content="\n".join(content_parts),
+                title=customer.full_name,
+                url="",
+                author="",
+                created_at=customer.created_at,
+                updated_at=customer.updated_at,
+                domain="ecommerce",
+                confidence=0.9,
+                metadata={
+                    "type": "customer",
+                    "email": customer.email,
+                    "orders_count": customer.orders_count,
+                    "total_spent": str(customer.total_spent),
+                    "verified_email": customer.verified_email,
+                    "accepts_marketing": customer.accepts_marketing,
+                    "tags": customer.tags,
+                },
+            )
 
 
 # =========================================================================

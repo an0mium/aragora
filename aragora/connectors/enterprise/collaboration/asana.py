@@ -846,6 +846,25 @@ class AsanaConnector(EnterpriseConnector):
                         updated_at=task.modified_at,
                     )
 
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """
+        Yield Asana tasks as SyncItems for incremental sync.
+
+        Args:
+            state: Current sync state with cursor
+            batch_size: Number of items per batch (used for rate limiting)
+
+        Yields:
+            SyncItem objects for Knowledge Mound ingestion
+        """
+        modified_since = state.last_sync_at if state else None
+        async for item in self.sync(state=state, modified_since=modified_since):
+            yield item
+
 
 # -----------------------------------------------------------------------------
 # Helper Functions

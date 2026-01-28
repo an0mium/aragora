@@ -32,7 +32,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional
 
-from aragora.connectors.enterprise.base import EnterpriseConnector, SyncResult, SyncState
+from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
 from aragora.reasoning.provenance import SourceType
 
 logger = logging.getLogger(__name__)
@@ -772,6 +772,87 @@ class AmazonConnector(EnterpriseConnector):
             duration_ms=duration,
             errors=errors,
         )
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """
+        Yield Amazon data as SyncItems for incremental sync.
+
+        Args:
+            state: Current sync state with cursor
+            batch_size: Number of items per batch
+
+        Yields:
+            SyncItem objects for Knowledge Mound ingestion
+        """
+        since = state.last_sync_at if state else None
+
+        # Sync orders
+        async for order in self.sync_orders(since=since):
+            content_parts = [f"# Order {order.amazon_order_id}"]
+            content_parts.append(f"\nStatus: {order.order_status.value}")
+            content_parts.append(f"\nTotal: {order.currency_code} {order.order_total}")
+            content_parts.append(f"\nChannel: {order.fulfillment_channel.value}")
+            content_parts.append(f"\nItems: {len(order.order_items)}")
+
+            yield SyncItem(
+                id=f"amazon:order:{order.amazon_order_id}",
+                source_type="ecommerce",
+                source_id=order.amazon_order_id,
+                content="\n".join(content_parts),
+                title=f"Amazon Order {order.amazon_order_id}",
+                url="",
+                author="",
+                created_at=order.purchase_date,
+                updated_at=order.last_update_date,
+                domain="ecommerce",
+                confidence=0.95,
+                metadata={
+                    "type": "order",
+                    "order_status": order.order_status.value,
+                    "fulfillment_channel": order.fulfillment_channel.value,
+                    "sales_channel": order.sales_channel,
+                    "currency_code": order.currency_code,
+                    "order_total": str(order.order_total),
+                    "items_shipped": order.number_of_items_shipped,
+                    "items_unshipped": order.number_of_items_unshipped,
+                },
+            )
+
+        # Sync inventory
+        for item in await self.get_fba_inventory():
+            content_parts = [f"# {item.asin}"]
+            content_parts.append(f"\nSKU: {item.seller_sku}")
+            content_parts.append(f"\nFulfillable: {item.fulfillable_quantity}")
+            content_parts.append(f"\nInbound: {item.inbound_quantity}")
+            content_parts.append(f"\nReserved: {item.reserved_quantity}")
+
+            yield SyncItem(
+                id=f"amazon:inventory:{item.seller_sku}",
+                source_type="ecommerce",
+                source_id=item.seller_sku,
+                content="\n".join(content_parts),
+                title=f"Inventory: {item.seller_sku}",
+                url="",
+                author="",
+                created_at=item.last_updated,
+                updated_at=item.last_updated,
+                domain="ecommerce",
+                confidence=0.95,
+                metadata={
+                    "type": "inventory",
+                    "asin": item.asin,
+                    "sku": item.seller_sku,
+                    "condition": item.condition,
+                    "fulfillable_quantity": item.fulfillable_quantity,
+                    "inbound_quantity": item.inbound_quantity,
+                    "reserved_quantity": item.reserved_quantity,
+                    "total_quantity": item.total_quantity,
+                },
+            )
 
 
 # =========================================================================
