@@ -90,6 +90,191 @@ export interface MetaCritique {
 }
 
 /**
+ * Debate summary with key points
+ */
+export interface DebateSummary {
+  debate_id: string;
+  verdict: string;
+  confidence: number;
+  key_points: string[];
+  dissenting_views: string[];
+  evidence_quality: number;
+  generated_at: string;
+}
+
+/**
+ * Verification report for debate conclusions
+ */
+export interface VerificationReport {
+  debate_id: string;
+  verified: boolean;
+  confidence: number;
+  claims_verified: number;
+  claims_total: number;
+  verification_details: Array<{
+    claim: string;
+    status: 'verified' | 'unverified' | 'disputed';
+    evidence: string[];
+    confidence: number;
+  }>;
+  bonuses: Array<{
+    type: string;
+    amount: number;
+    reason: string;
+  }>;
+  generated_at: string;
+}
+
+/**
+ * Claim verification result
+ */
+export interface ClaimVerification {
+  claim_id: string;
+  verified: boolean;
+  confidence: number;
+  supporting_evidence: string[];
+  counter_evidence: string[];
+  status: 'verified' | 'unverified' | 'disputed' | 'pending';
+}
+
+/**
+ * Follow-up debate suggestion
+ */
+export interface FollowupSuggestion {
+  id: string;
+  topic: string;
+  question: string;
+  crux_id?: string;
+  rationale: string;
+  priority: 'high' | 'medium' | 'low';
+  estimated_value: number;
+}
+
+/**
+ * Fork information
+ */
+export interface ForkInfo {
+  fork_id: string;
+  parent_debate_id: string;
+  branch_point: number;
+  created_at: string;
+  status: string;
+  divergence_reason?: string;
+}
+
+/**
+ * Debate search options
+ */
+export interface DebateSearchOptions {
+  query: string;
+  limit?: number;
+  offset?: number;
+  status?: string;
+  domain?: string;
+  since?: string;
+  until?: string;
+}
+
+/**
+ * Batch job status
+ */
+export interface BatchJob {
+  job_id: string;
+  debate_id?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  progress?: number;
+  error?: string;
+  created_at: string;
+}
+
+/**
+ * Batch submission response
+ */
+export interface BatchSubmission {
+  batch_id: string;
+  jobs: BatchJob[];
+  total_jobs: number;
+  submitted_at: string;
+}
+
+/**
+ * Batch status response
+ */
+export interface BatchStatus {
+  batch_id: string;
+  status: 'pending' | 'running' | 'completed' | 'partially_completed' | 'failed';
+  total_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  jobs: BatchJob[];
+}
+
+/**
+ * Queue status information
+ */
+export interface QueueStatus {
+  pending_count: number;
+  running_count: number;
+  completed_today: number;
+  average_wait_time_ms: number;
+  estimated_completion_time?: string;
+}
+
+/**
+ * Graph visualization data
+ */
+export interface DebateGraph {
+  nodes: Array<{
+    id: string;
+    type: 'claim' | 'evidence' | 'argument' | 'counter';
+    content: string;
+    agent: string;
+    round: number;
+    confidence?: number;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    type: 'supports' | 'attacks' | 'responds_to';
+    weight?: number;
+  }>;
+  metadata: {
+    total_nodes: number;
+    total_edges: number;
+    depth: number;
+    branching_factor: number;
+  };
+}
+
+/**
+ * Graph branch information
+ */
+export interface GraphBranch {
+  branch_id: string;
+  root_node: string;
+  depth: number;
+  node_count: number;
+  conclusion?: string;
+}
+
+/**
+ * Matrix debate comparison
+ */
+export interface MatrixComparison {
+  debate_id: string;
+  scenarios: Array<{
+    scenario_id: string;
+    name: string;
+    parameters: Record<string, unknown>;
+    outcome: string;
+    confidence: number;
+  }>;
+  comparison_matrix: Array<Array<number>>;
+  dominant_scenario?: string;
+  sensitivity_analysis?: Record<string, number>;
+}
+
+/**
  * Interface for the internal client methods used by DebatesAPI.
  * This allows the namespace to work without circular imports.
  */
@@ -360,5 +545,339 @@ export class DebatesAPI {
    */
   async getMetaCritique(debateId: string): Promise<MetaCritique> {
     return this.client.request('GET', `/api/v1/debate/${debateId}/meta-critique`);
+  }
+
+  // ===========================================================================
+  // Summary & Verification
+  // ===========================================================================
+
+  /**
+   * Get a human-readable summary of the debate.
+   *
+   * Provides a condensed verdict with key points, confidence level,
+   * and any dissenting views that emerged.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const summary = await client.debates.getSummary('debate-123');
+   * console.log(`Verdict: ${summary.verdict}`);
+   * console.log(`Confidence: ${summary.confidence}%`);
+   * console.log('Key points:', summary.key_points);
+   * ```
+   */
+  async getSummary(debateId: string): Promise<DebateSummary> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/summary`);
+  }
+
+  /**
+   * Get the verification report for debate conclusions.
+   *
+   * Shows which claims were verified, evidence quality, and any
+   * bonuses awarded for verified conclusions.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const report = await client.debates.getVerificationReport('debate-123');
+   * console.log(`Verified: ${report.claims_verified}/${report.claims_total}`);
+   * for (const detail of report.verification_details) {
+   *   console.log(`${detail.claim}: ${detail.status}`);
+   * }
+   * ```
+   */
+  async getVerificationReport(debateId: string): Promise<VerificationReport> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/verification-report`);
+  }
+
+  /**
+   * Verify a specific claim from the debate.
+   *
+   * @param debateId - The debate ID
+   * @param claimId - The claim to verify
+   * @param evidence - Optional additional evidence to consider
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.verifyClaim('debate-123', 'claim-456');
+   * if (result.verified) {
+   *   console.log(`Claim verified with ${result.confidence}% confidence`);
+   * }
+   * ```
+   */
+  async verifyClaim(
+    debateId: string,
+    claimId: string,
+    evidence?: string
+  ): Promise<ClaimVerification> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/verify`, {
+      body: { claim_id: claimId, evidence },
+    });
+  }
+
+  // ===========================================================================
+  // Follow-up & Continuation
+  // ===========================================================================
+
+  /**
+   * Get suggestions for follow-up debates.
+   *
+   * Based on unresolved cruxes, dissenting views, or areas
+   * that warrant deeper exploration.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const suggestions = await client.debates.getFollowupSuggestions('debate-123');
+   * for (const s of suggestions) {
+   *   console.log(`${s.priority}: ${s.question}`);
+   *   console.log(`  Rationale: ${s.rationale}`);
+   * }
+   * ```
+   */
+  async getFollowupSuggestions(debateId: string): Promise<FollowupSuggestion[]> {
+    const response = await this.client.request<{ suggestions: FollowupSuggestion[] }>(
+      'GET',
+      `/api/v1/debates/${debateId}/followups`
+    );
+    return response.suggestions;
+  }
+
+  /**
+   * Create a follow-up debate from an existing one.
+   *
+   * Can optionally target a specific crux for deeper exploration.
+   *
+   * @param debateId - The parent debate ID
+   * @param options - Follow-up options
+   *
+   * @example
+   * ```typescript
+   * const followup = await client.debates.followUp('debate-123', {
+   *   cruxId: 'crux-456',
+   *   context: 'Focus on the security implications',
+   * });
+   * console.log(`New debate created: ${followup.debate_id}`);
+   * ```
+   */
+  async followUp(
+    debateId: string,
+    options?: { cruxId?: string; context?: string }
+  ): Promise<{ debate_id: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/followup`, {
+      body: options,
+    });
+  }
+
+  /**
+   * List all forks created from a debate.
+   *
+   * @param debateId - The parent debate ID
+   *
+   * @example
+   * ```typescript
+   * const forks = await client.debates.listForks('debate-123');
+   * console.log(`${forks.length} forks created`);
+   * for (const fork of forks) {
+   *   console.log(`Fork at round ${fork.branch_point}: ${fork.fork_id}`);
+   * }
+   * ```
+   */
+  async listForks(debateId: string): Promise<ForkInfo[]> {
+    const response = await this.client.request<{ forks: ForkInfo[] }>(
+      'GET',
+      `/api/v1/debates/${debateId}/forks`
+    );
+    return response.forks;
+  }
+
+  // ===========================================================================
+  // Debate Lifecycle
+  // ===========================================================================
+
+  /**
+   * Cancel a running debate.
+   *
+   * @param debateId - The debate ID to cancel
+   *
+   * @example
+   * ```typescript
+   * const result = await client.debates.cancel('debate-123');
+   * if (result.success) {
+   *   console.log(`Debate cancelled: ${result.status}`);
+   * }
+   * ```
+   */
+  async cancel(debateId: string): Promise<{ success: boolean; status: string }> {
+    return this.client.request('POST', `/api/v1/debates/${debateId}/cancel`);
+  }
+
+  // ===========================================================================
+  // Search & Discovery
+  // ===========================================================================
+
+  /**
+   * Search across all debates.
+   *
+   * @param options - Search options including query, filters, and pagination
+   *
+   * @example
+   * ```typescript
+   * const results = await client.debates.search({
+   *   query: 'microservices architecture',
+   *   limit: 10,
+   *   status: 'completed',
+   * });
+   * console.log(`Found ${results.debates.length} matching debates`);
+   * ```
+   */
+  async search(options: DebateSearchOptions): Promise<{ debates: Debate[]; total: number }> {
+    return this.client.request('GET', '/api/v1/search', {
+      params: options as Record<string, unknown>,
+    });
+  }
+
+  // ===========================================================================
+  // Batch Operations
+  // ===========================================================================
+
+  /**
+   * Submit multiple debates for batch processing.
+   *
+   * @param requests - Array of debate creation requests
+   *
+   * @example
+   * ```typescript
+   * const batch = await client.debates.submitBatch([
+   *   { task: 'Should we use Redis?' },
+   *   { task: 'Should we use PostgreSQL?' },
+   * ]);
+   * console.log(`Batch ${batch.batch_id} submitted with ${batch.total_jobs} jobs`);
+   * ```
+   */
+  async submitBatch(requests: DebateCreateRequest[]): Promise<BatchSubmission> {
+    return this.client.request('POST', '/api/v1/debates/batch', {
+      body: { requests },
+    });
+  }
+
+  /**
+   * Get the status of a batch job.
+   *
+   * @param batchId - The batch ID
+   *
+   * @example
+   * ```typescript
+   * const status = await client.debates.getBatchStatus('batch-123');
+   * console.log(`Progress: ${status.completed_jobs}/${status.total_jobs}`);
+   * ```
+   */
+  async getBatchStatus(batchId: string): Promise<BatchStatus> {
+    return this.client.request('GET', `/api/v1/debates/batch/${batchId}/status`);
+  }
+
+  /**
+   * List all batch jobs.
+   *
+   * @param options - Filter options
+   *
+   * @example
+   * ```typescript
+   * const batches = await client.debates.listBatches({ limit: 10 });
+   * for (const batch of batches) {
+   *   console.log(`${batch.batch_id}: ${batch.status}`);
+   * }
+   * ```
+   */
+  async listBatches(options?: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+  }): Promise<BatchStatus[]> {
+    const response = await this.client.request<{ batches: BatchStatus[] }>(
+      'GET',
+      '/api/v1/debates/batch',
+      { params: options as Record<string, unknown> }
+    );
+    return response.batches;
+  }
+
+  /**
+   * Get the current queue status.
+   *
+   * @example
+   * ```typescript
+   * const queue = await client.debates.getQueueStatus();
+   * console.log(`${queue.pending_count} pending, ${queue.running_count} running`);
+   * console.log(`Avg wait: ${queue.average_wait_time_ms}ms`);
+   * ```
+   */
+  async getQueueStatus(): Promise<QueueStatus> {
+    return this.client.request('GET', '/api/v1/debates/queue/status');
+  }
+
+  // ===========================================================================
+  // Graph & Visualization
+  // ===========================================================================
+
+  /**
+   * Get the argument graph for a debate.
+   *
+   * Returns nodes (claims, evidence, arguments) and edges (relationships)
+   * for visualization.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const graph = await client.debates.getGraph('debate-123');
+   * console.log(`${graph.nodes.length} nodes, ${graph.edges.length} edges`);
+   * console.log(`Max depth: ${graph.metadata.depth}`);
+   * ```
+   */
+  async getGraph(debateId: string): Promise<DebateGraph> {
+    return this.client.request('GET', `/api/v1/debates/graph/${debateId}`);
+  }
+
+  /**
+   * Get branches in the argument graph.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const branches = await client.debates.getGraphBranches('debate-123');
+   * for (const branch of branches) {
+   *   console.log(`Branch ${branch.branch_id}: ${branch.node_count} nodes`);
+   * }
+   * ```
+   */
+  async getGraphBranches(debateId: string): Promise<GraphBranch[]> {
+    const response = await this.client.request<{ branches: GraphBranch[] }>(
+      'GET',
+      `/api/v1/debates/graph/${debateId}/branches`
+    );
+    return response.branches;
+  }
+
+  /**
+   * Get matrix comparison for a multi-scenario debate.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const matrix = await client.debates.getMatrixComparison('debate-123');
+   * console.log(`${matrix.scenarios.length} scenarios compared`);
+   * if (matrix.dominant_scenario) {
+   *   console.log(`Dominant: ${matrix.dominant_scenario}`);
+   * }
+   * ```
+   */
+  async getMatrixComparison(debateId: string): Promise<MatrixComparison> {
+    return this.client.request('GET', `/api/v1/debates/matrix/${debateId}`);
   }
 }

@@ -4,7 +4,27 @@
  * Re-exports all namespace APIs for the Aragora SDK.
  */
 
-export { DebatesAPI } from './debates';
+export {
+  DebatesAPI,
+  type DebateImpasse,
+  type RhetoricalObservation,
+  type RhetoricalAnalysis,
+  type TricksterStatus,
+  type MetaCritique,
+  type DebateSummary,
+  type VerificationReport,
+  type ClaimVerification,
+  type FollowupSuggestion,
+  type ForkInfo,
+  type DebateSearchOptions,
+  type BatchJob,
+  type BatchSubmission,
+  type BatchStatus,
+  type QueueStatus,
+  type DebateGraph,
+  type GraphBranch,
+  type MatrixComparison,
+} from './debates';
 export { AgentsAPI } from './agents';
 export { WorkflowsAPI } from './workflows';
 export { SMEAPI } from './sme';
