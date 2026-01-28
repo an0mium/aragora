@@ -11,13 +11,7 @@ from contextlib import asynccontextmanager
 import json
 
 
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 # Tests that don't require asyncpg
@@ -78,8 +72,6 @@ class TestPostgresEloSchema:
         assert "TIMESTAMPTZ" in POSTGRES_ELO_SCHEMA
 
 
-# Skip remaining tests if asyncpg not available
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresEloDatabase:
     """Tests for PostgresEloDatabase class."""
 

@@ -17,12 +17,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-# Import with fallback for when supabase is not installed
-try:
-    from aragora.persistence.supabase_client import SupabaseClient, SUPABASE_AVAILABLE
-except ImportError:
-    SUPABASE_AVAILABLE = False
-    SupabaseClient = None
+from aragora.persistence.supabase_client import SupabaseClient, SUPABASE_AVAILABLE
 
 from aragora.persistence.models import (
     NomicCycle,
@@ -139,7 +134,6 @@ def sample_metrics():
     )
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestSupabaseClientInitialization:
     """Tests for SupabaseClient initialization."""
 
@@ -200,7 +194,6 @@ class TestSupabaseClientInitialization:
                 assert client.is_configured is False
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestNomicCycleOperations:
     """Tests for NomicCycle operations."""
 
@@ -311,7 +304,6 @@ class TestNomicCycleOperations:
         assert result == []
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestDebateArtifactOperations:
     """Tests for DebateArtifact operations."""
 
@@ -383,7 +375,6 @@ class TestDebateArtifactOperations:
         assert len(result) == 1
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestStreamEventOperations:
     """Tests for StreamEvent operations."""
 
@@ -457,7 +448,6 @@ class TestStreamEventOperations:
         assert len(result) == 1
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestAgentMetricsOperations:
     """Tests for AgentMetrics operations."""
 
@@ -511,7 +501,6 @@ class TestAgentMetricsOperations:
         assert result[0].messages_sent == 10
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestRealtimeSubscriptions:
     """Tests for real-time subscription functionality."""
 
@@ -537,7 +526,6 @@ class TestRealtimeSubscriptions:
                 assert result is None
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestAnalyticsQueries:
     """Tests for analytics query functionality."""
 
@@ -629,7 +617,6 @@ class TestAnalyticsQueries:
         assert result["total_debates"] == 0
 
 
-@pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
 class TestDictToModelConversions:
     """Tests for database dict to model conversions."""
 
@@ -760,7 +747,6 @@ class TestSupabaseNotAvailable:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    @pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
     @pytest.mark.asyncio
     async def test_save_debate_no_data_returned(
         self, client_with_mock, sample_debate, mock_supabase_client
@@ -772,7 +758,6 @@ class TestEdgeCases:
 
         assert result is None
 
-    @pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
     @pytest.mark.asyncio
     async def test_save_events_batch_exception(self, client_with_mock, mock_supabase_client):
         """save_events_batch should return 0 on exception."""
@@ -791,7 +776,6 @@ class TestEdgeCases:
 
         assert result == 0
 
-    @pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
     @pytest.mark.asyncio
     async def test_get_events_exception(self, client_with_mock, mock_supabase_client):
         """get_events should return empty list on exception."""
@@ -801,7 +785,6 @@ class TestEdgeCases:
 
         assert result == []
 
-    @pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
     @pytest.mark.asyncio
     async def test_get_agent_stats_exception(self, client_with_mock, mock_supabase_client):
         """get_agent_stats should return empty list on exception."""
@@ -811,7 +794,6 @@ class TestEdgeCases:
 
         assert result == []
 
-    @pytest.mark.skipif(not SUPABASE_AVAILABLE, reason="supabase not installed")
     def test_subscribe_to_events_exception(self, client_with_mock, mock_supabase_client):
         """subscribe_to_events should return None on exception."""
         mock_supabase_client.channel.side_effect = Exception("Channel creation failed")

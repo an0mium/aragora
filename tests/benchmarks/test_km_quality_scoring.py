@@ -16,13 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Try to import benchmark plugin
-try:
-    import pytest_benchmark
-
-    HAS_BENCHMARK = True
-except ImportError:
-    HAS_BENCHMARK = False
+import pytest_benchmark
 
 from aragora.knowledge.mound.quality import (
     QualityScorer,
@@ -83,7 +77,6 @@ def sample_items():
 class TestQualityScoringPerformance:
     """Performance tests for quality scoring."""
 
-    @pytest.mark.skipif(not HAS_BENCHMARK, reason="pytest-benchmark not installed")
     def test_score_single_item(self, quality_scorer, sample_items, benchmark):
         """Benchmark scoring a single item."""
         item = sample_items[0]
@@ -95,7 +88,6 @@ class TestQualityScoringPerformance:
         assert result is not None
         assert 0 <= result.total_score <= 1
 
-    @pytest.mark.skipif(not HAS_BENCHMARK, reason="pytest-benchmark not installed")
     def test_score_batch_100(self, quality_scorer, sample_items, benchmark):
         """Benchmark scoring 100 items."""
         items = sample_items[:100]
@@ -107,7 +99,6 @@ class TestQualityScoringPerformance:
         assert len(results) == 100
         assert all(0 <= r.total_score <= 1 for r in results)
 
-    @pytest.mark.skipif(not HAS_BENCHMARK, reason="pytest-benchmark not installed")
     def test_score_batch_1000(self, quality_scorer, sample_items, benchmark):
         """Benchmark scoring 1000 items."""
         items = sample_items[:1000]
@@ -118,7 +109,6 @@ class TestQualityScoringPerformance:
         results = benchmark(score_batch)
         assert len(results) == 1000
 
-    @pytest.mark.skipif(not HAS_BENCHMARK, reason="pytest-benchmark not installed")
     def test_score_batch_10000(self, quality_scorer, sample_items, benchmark):
         """Benchmark scoring 10000 items."""
 

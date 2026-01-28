@@ -19,20 +19,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Try to import websockets - skip tests if not available
-try:
-    import websockets
-    from websockets.exceptions import ConnectionClosed
-
-    WEBSOCKETS_AVAILABLE = True
-except ImportError:
-    WEBSOCKETS_AVAILABLE = False
+import websockets
+from websockets.exceptions import ConnectionClosed
 
 from aragora.server.stream.events import StreamEvent, StreamEventType
 from aragora.server.stream.server_base import ServerBase
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestWebSocketServerStartStop:
     """Test server lifecycle."""
 
@@ -56,7 +49,6 @@ class TestWebSocketServerStartStop:
         assert hasattr(server._emitter, "emit")
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestWebSocketEventBroadcast:
     """Test event broadcasting to clients."""
 
@@ -112,7 +104,6 @@ class TestWebSocketEventBroadcast:
         assert events_received[2].type == StreamEventType.AGENT_MESSAGE
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestWebSocketClientManagement:
     """Test client connection tracking."""
 
@@ -154,7 +145,6 @@ class TestWebSocketClientManagement:
         assert len(server.clients) == 1
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestDebateStateCaching:
     """Test debate state caching functionality."""
 
@@ -189,7 +179,6 @@ class TestDebateStateCaching:
         assert server.debate_states["test-123"]["status"] == "completed"
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestAudienceInbox:
     """Test audience participation features."""
 
@@ -220,7 +209,6 @@ class TestAudienceInbox:
         assert len(messages) == 1
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestRateLimiting:
     """Test rate limiting functionality."""
 
@@ -238,7 +226,6 @@ class TestRateLimiting:
         assert server._rate_limiters_lock is not None
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestStreamEventTypes:
     """Test StreamEvent and StreamEventType definitions."""
 
@@ -277,7 +264,6 @@ class TestStreamEventTypes:
         assert "data" in parsed
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestActiveLoopsTracking:
     """Test active loops tracking for nomic integration."""
 
@@ -291,7 +277,6 @@ class TestActiveLoopsTracking:
         assert hasattr(server, "active_loops") or hasattr(server, "_active_loops")
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestConcurrentOperations:
     """Test thread safety of server operations."""
 
@@ -354,7 +339,6 @@ class TestConcurrentOperations:
         assert len(errors) == 0
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestEventEmitterSubscriptions:
     """Test event emitter subscription management."""
 
@@ -399,7 +383,6 @@ class TestEventEmitterSubscriptions:
         )
 
 
-@pytest.mark.skipif(not WEBSOCKETS_AVAILABLE, reason="websockets package not installed")
 class TestWebSocketMessageRateLimiter:
     """Test the per-connection message rate limiter."""
 

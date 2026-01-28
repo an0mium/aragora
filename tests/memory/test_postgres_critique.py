@@ -10,13 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 from contextlib import asynccontextmanager
 
 
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 class TestPostgresCritiqueSchema:
@@ -86,7 +80,6 @@ class TestPostgresCritiqueSchema:
         assert "REFERENCES patterns" in POSTGRES_CRITIQUE_SCHEMA
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresCritiqueStore:
     """Tests for PostgresCritiqueStore class."""
 
@@ -256,7 +249,6 @@ class TestPostgresCritiqueStore:
         assert result["patterns_by_type"]["security"] == 10
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresPatternOperations:
     """Tests for pattern operations."""
 
@@ -361,7 +353,6 @@ class TestPostgresPatternOperations:
         mock_conn.execute.assert_called()
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresReputationOperations:
     """Tests for reputation operations."""
 
@@ -523,7 +514,6 @@ class TestPostgresReputationOperations:
         assert result[0].agent_name == "claude"
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresAdaptiveForgetting:
     """Tests for adaptive forgetting (Titans/MIRAS)."""
 
@@ -684,7 +674,6 @@ class TestPredictionOutcome:
         db.transaction = mock_transaction_ctx
         return db, mock_connection
 
-    @pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
     @pytest.mark.asyncio
     async def test_update_prediction_outcome(self, mock_db):
         """update_prediction_outcome should calculate and store error."""
@@ -703,7 +692,6 @@ class TestPredictionOutcome:
         # |0.8 - 0.5| = 0.3
         assert error == pytest.approx(0.3)
 
-    @pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
     @pytest.mark.asyncio
     async def test_update_prediction_outcome_missing_critique(self, mock_db):
         """update_prediction_outcome should return 0 for missing critique."""

@@ -97,9 +97,8 @@ class TestTwilioVoiceIntegration:
     def test_is_configured(self):
         """is_configured checks both SDK and config."""
         voice = TwilioVoiceIntegration()
-        # Without SDK or config, should be False (or True if SDK available but no config)
-        if HAS_TWILIO:
-            assert not voice.is_configured  # No config
+        # Without config, should be False
+        assert not voice.is_configured
 
         config = TwilioVoiceConfig(
             account_sid="ACtest",
@@ -107,9 +106,8 @@ class TestTwilioVoiceIntegration:
             phone_number="+15551234567",
         )
         voice = TwilioVoiceIntegration(config)
-        assert voice.is_configured == HAS_TWILIO
+        assert voice.is_configured is True
 
-    @pytest.mark.skipif(not HAS_TWILIO, reason="Twilio SDK not installed")
     def test_handle_inbound_call(self):
         """handle_inbound_call generates valid TwiML."""
         config = TwilioVoiceConfig(
@@ -132,7 +130,6 @@ class TestTwilioVoiceIntegration:
         assert "<Gather" in twiml
         assert "Welcome to Aragora" in twiml
 
-    @pytest.mark.skipif(not HAS_TWILIO, reason="Twilio SDK not installed")
     def test_handle_gather_result(self):
         """handle_gather_result processes speech."""
         config = TwilioVoiceConfig(
@@ -160,7 +157,6 @@ class TestTwilioVoiceIntegration:
         assert session is not None
         assert session.transcription == "What is the best programming language?"
 
-    @pytest.mark.skipif(not HAS_TWILIO, reason="Twilio SDK not installed")
     def test_handle_gather_empty_speech(self):
         """handle_gather_result handles empty speech."""
         config = TwilioVoiceConfig()
@@ -174,7 +170,6 @@ class TestTwilioVoiceIntegration:
 
         assert "couldn't understand" in twiml
 
-    @pytest.mark.skipif(not HAS_TWILIO, reason="Twilio SDK not installed")
     def test_handle_confirmation(self):
         """handle_confirmation processes digit input."""
         config = TwilioVoiceConfig()
@@ -200,40 +195,37 @@ class TestTwilioVoiceIntegration:
         assert voice.get_session("CA123") is None
 
         # After handling call, session exists
-        if HAS_TWILIO:
-            voice.handle_inbound_call("CA123", "+1", "+2")
-            session = voice.get_session("CA123")
-            assert session is not None
-            assert session.call_sid == "CA123"
+        voice.handle_inbound_call("CA123", "+1", "+2")
+        session = voice.get_session("CA123")
+        assert session is not None
+        assert session.call_sid == "CA123"
 
     def test_mark_debate_started(self):
         """mark_debate_started updates session."""
         voice = TwilioVoiceIntegration()
 
-        if HAS_TWILIO:
-            voice.handle_inbound_call("CA123", "+1", "+2")
-            voice.mark_debate_started("CA123", "debate-456")
+        voice.handle_inbound_call("CA123", "+1", "+2")
+        voice.mark_debate_started("CA123", "debate-456")
 
-            session = voice.get_session("CA123")
-            assert session.debate_id == "debate-456"
+        session = voice.get_session("CA123")
+        assert session.debate_id == "debate-456"
 
     def test_get_pending_debates(self):
         """get_pending_debates returns sessions awaiting debate."""
         voice = TwilioVoiceIntegration()
 
-        if HAS_TWILIO:
-            # Create session with transcription but no debate
-            voice.handle_inbound_call("CA123", "+1", "+2")
-            voice.handle_gather_result("CA123", "Test question", 0.9)
+        # Create session with transcription but no debate
+        voice.handle_inbound_call("CA123", "+1", "+2")
+        voice.handle_gather_result("CA123", "Test question", 0.9)
 
-            pending = voice.get_pending_debates()
-            assert len(pending) == 1
-            assert pending[0].call_sid == "CA123"
+        pending = voice.get_pending_debates()
+        assert len(pending) == 1
+        assert pending[0].call_sid == "CA123"
 
-            # Mark debate started
-            voice.mark_debate_started("CA123", "debate-123")
-            pending = voice.get_pending_debates()
-            assert len(pending) == 0
+        # Mark debate started
+        voice.mark_debate_started("CA123", "debate-123")
+        pending = voice.get_pending_debates()
+        assert len(pending) == 0
 
 
 class TestVoiceWebhookSignature:

@@ -29,7 +29,6 @@ from tests.conftest import requires_z3, REQUIRES_Z3
 # ============================================================================
 
 
-@pytest.mark.skipif(requires_z3, reason=REQUIRES_Z3)
 class TestZ3BackendCanVerify:
     """Tests for Z3Backend.can_verify() method."""
 

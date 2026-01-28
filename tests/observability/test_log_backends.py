@@ -272,7 +272,6 @@ class TestLocalFileBackend:
         assert retrieved.merkle_root == "a" * 64
 
 
-@needs_psycopg2
 class TestPostgreSQLAuditBackend:
     """Tests for PostgreSQLAuditBackend with mocked connections."""
 
@@ -568,7 +567,6 @@ class TestCreateAuditBackend:
                 assert isinstance(backend, LocalFileBackend)
                 assert str(backend.log_dir) == tmpdir
 
-    @needs_psycopg2
     def test_create_postgresql_backend(self):
         """Can create PostgreSQL backend."""
         from aragora.observability.log_backends import (

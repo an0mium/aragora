@@ -22,19 +22,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Check if benchmark plugin is available
-try:
-    import pytest_benchmark
-
-    HAS_BENCHMARK = True
-except ImportError:
-    HAS_BENCHMARK = False
-
-# Skip benchmark-specific tests if plugin not installed
-requires_benchmark = pytest.mark.skipif(not HAS_BENCHMARK, reason="pytest-benchmark not installed")
+import pytest_benchmark
 
 
-@requires_benchmark
 class TestHealthEndpointBenchmarks:
     """Benchmark health check endpoint."""
 
@@ -51,10 +41,7 @@ class TestHealthEndpointBenchmarks:
         app.router.add_get("/api/health", health_handler)
         return app
 
-    @pytest.mark.skipif(
-        HAS_BENCHMARK,
-        reason="aiohttp event loop incompatibility with benchmark iterations",
-    )
+    @pytest.mark.skip(reason="aiohttp event loop incompatibility with benchmark iterations")
     def test_health_endpoint_latency(self, benchmark, mock_app):
         """Benchmark health endpoint latency.
 
@@ -64,7 +51,6 @@ class TestHealthEndpointBenchmarks:
         pass
 
 
-@requires_benchmark
 class TestUsageTrackingBenchmarks:
     """Benchmark usage tracking system."""
 
@@ -118,7 +104,6 @@ class TestUsageTrackingBenchmarks:
         assert result.total_debates == 100
 
 
-@requires_benchmark
 class TestAuditLogBenchmarks:
     """Benchmark audit log system."""
 
@@ -190,7 +175,6 @@ class TestAuditLogBenchmarks:
         assert len(errors) == 0
 
 
-@requires_benchmark
 class TestPersonasBenchmarks:
     """Benchmark persona system."""
 
@@ -235,7 +219,6 @@ class TestPersonasBenchmarks:
         benchmark(create_persona)
 
 
-@requires_benchmark
 class TestTokenCostCalculation:
     """Benchmark token cost calculations."""
 
@@ -255,7 +238,6 @@ class TestTokenCostCalculation:
         assert result > 0
 
 
-@requires_benchmark
 class TestJSONSerializationBenchmarks:
     """Benchmark JSON serialization performance."""
 
@@ -303,7 +285,6 @@ class TestJSONSerializationBenchmarks:
         assert result["total_debates"] == 100
 
 
-@requires_benchmark
 class TestConcurrencyBenchmarks:
     """Benchmark concurrent operations."""
 

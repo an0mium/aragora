@@ -435,7 +435,6 @@ class TestTokenExchange:
         assert "No token_endpoint" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HAS_HTTPX, reason="httpx not installed")
     async def test_exchange_code_includes_pkce_verifier(self, provider: OIDCProvider):
         """Token exchange includes PKCE verifier when available."""
         provider._discovery_cache = {"token_endpoint": "https://example.com/token"}

@@ -30,19 +30,14 @@ import pytest
 POSTGRES_DSN = os.environ.get("ARAGORA_POSTGRES_DSN") or os.environ.get("DATABASE_URL")
 POSTGRES_AVAILABLE = bool(POSTGRES_DSN)
 
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
-        not POSTGRES_AVAILABLE or not ASYNCPG_AVAILABLE,
-        reason="PostgreSQL not configured (set ARAGORA_POSTGRES_DSN) or asyncpg not installed",
+        not POSTGRES_AVAILABLE,
+        reason="PostgreSQL not configured (set ARAGORA_POSTGRES_DSN)",
     ),
 ]
 

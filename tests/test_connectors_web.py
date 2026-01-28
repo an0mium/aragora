@@ -341,20 +341,21 @@ class TestURLFetchWithMockedHTTPX:
         """Test that fetch_url handles timeouts gracefully."""
         connector = WebConnector(cache_dir=str(temp_dir))
 
-        with patch("aragora.connectors.web.httpx.AsyncClient") as mock_client_class:
-            import httpx
+        with patch.object(connector, "_resolve_and_validate_ip", return_value=(True, None)):
+            with patch("aragora.connectors.web.httpx.AsyncClient") as mock_client_class:
+                import httpx
 
-            mock_client = AsyncMock()
-            mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client_class.return_value = mock_client
+                mock_client = AsyncMock()
+                mock_client.get = AsyncMock(side_effect=httpx.TimeoutException("Timeout"))
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=None)
+                mock_client_class.return_value = mock_client
 
-            result = await connector.fetch_url("https://slow-site.com")
+                result = await connector.fetch_url("https://slow-site.com")
 
-            assert result is not None
-            assert "Timeout" in result.content
-            assert result.confidence == 0.0
+                assert result is not None
+                assert "Timeout" in result.content
+                assert result.confidence == 0.0
 
 
 class TestResultToEvidence:
