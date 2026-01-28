@@ -228,7 +228,7 @@ class WebhookHandler(SecureHandler):
 
         return None
 
-    def handle(
+    async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests for webhook endpoints."""
@@ -242,18 +242,18 @@ class WebhookHandler(SecureHandler):
 
         # GET /api/webhooks/dead-letter - list dead-letter queue
         if path == "/api/v1/webhooks/dead-letter":
-            return self._handle_list_dead_letters(query_params, handler)
+            return await self._handle_list_dead_letters(query_params, handler)
 
         # GET /api/webhooks/dead-letter/:id - get specific dead-letter delivery
         if path.startswith("/api/v1/webhooks/dead-letter/") and not path.endswith("/retry"):
             delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return self._handle_get_dead_letter(delivery_id, handler)
+            return await self._handle_get_dead_letter(delivery_id, handler)
 
         # GET /api/webhooks/queue/stats - get queue statistics
         if path == "/api/v1/webhooks/queue/stats":
-            return self._handle_queue_stats(handler)
+            return await self._handle_queue_stats(handler)
 
         # GET /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
@@ -268,7 +268,7 @@ class WebhookHandler(SecureHandler):
 
         return None
 
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests for webhook endpoints."""
@@ -281,7 +281,7 @@ class WebhookHandler(SecureHandler):
             delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return self._handle_retry_dead_letter(delivery_id, handler)
+            return await self._handle_retry_dead_letter(delivery_id, handler)
 
         # POST /api/v1/webhooks/:id/test
         if path.endswith("/test") and path.count("/") == 5:
@@ -299,7 +299,7 @@ class WebhookHandler(SecureHandler):
 
         return None
 
-    def handle_delete(
+    async def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle DELETE requests for webhook endpoints."""
@@ -308,7 +308,7 @@ class WebhookHandler(SecureHandler):
             delivery_id, err = self.extract_path_param(path, 5, "delivery_id", SAFE_ID_PATTERN)
             if err:
                 return err
-            return self._handle_delete_dead_letter(delivery_id, handler)
+            return await self._handle_delete_dead_letter(delivery_id, handler)
 
         # DELETE /api/webhooks/:id
         if path.startswith("/api/v1/webhooks/") and path.count("/") == 4:
@@ -746,7 +746,7 @@ class WebhookHandler(SecureHandler):
     # Dead-Letter Queue Handlers
     # =========================================================================
 
-    def _handle_list_dead_letters(self, query_params: dict, handler: Any) -> HandlerResult:
+    async def _handle_list_dead_letters(self, query_params: dict, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/dead-letter - list dead-letter deliveries."""
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.admin")
@@ -754,19 +754,13 @@ class WebhookHandler(SecureHandler):
             return rbac_error
 
         try:
-            import asyncio
             from aragora.webhooks.retry_queue import get_retry_queue
 
             queue = get_retry_queue()
             limit = int(query_params.get("limit", ["100"])[0])
             limit = min(limit, 1000)  # Cap at 1000
 
-            # Run async method
-            loop = asyncio.new_event_loop()
-            try:
-                dead_letters = loop.run_until_complete(queue.get_dead_letters(limit))
-            finally:
-                loop.close()
+            dead_letters = await queue.get_dead_letters(limit)
 
             return json_response(
                 {
@@ -782,7 +776,7 @@ class WebhookHandler(SecureHandler):
             logger.error(f"Error listing dead letters: {e}")
             return error_response(f"Failed to list dead letters: {e}", 500)
 
-    def _handle_get_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
+    async def _handle_get_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/dead-letter/:id - get specific dead-letter delivery."""
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.admin")
@@ -790,17 +784,10 @@ class WebhookHandler(SecureHandler):
             return rbac_error
 
         try:
-            import asyncio
-            from aragora.webhooks.retry_queue import get_retry_queue, DeliveryStatus
+            from aragora.webhooks.retry_queue import DeliveryStatus, get_retry_queue
 
             queue = get_retry_queue()
-
-            # Run async method
-            loop = asyncio.new_event_loop()
-            try:
-                delivery = loop.run_until_complete(queue.get_delivery(delivery_id))
-            finally:
-                loop.close()
+            delivery = await queue.get_delivery(delivery_id)
 
             if not delivery:
                 return error_response(f"Delivery not found: {delivery_id}", 404)
@@ -816,7 +803,7 @@ class WebhookHandler(SecureHandler):
             logger.error(f"Error getting dead letter: {e}")
             return error_response(f"Failed to get dead letter: {e}", 500)
 
-    def _handle_retry_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
+    async def _handle_retry_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
         """Handle POST /api/webhooks/dead-letter/:id/retry - retry dead-letter delivery."""
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.admin")
@@ -824,17 +811,10 @@ class WebhookHandler(SecureHandler):
             return rbac_error
 
         try:
-            import asyncio
             from aragora.webhooks.retry_queue import get_retry_queue
 
             queue = get_retry_queue()
-
-            # Run async method
-            loop = asyncio.new_event_loop()
-            try:
-                success = loop.run_until_complete(queue.retry_dead_letter(delivery_id))
-            finally:
-                loop.close()
+            success = await queue.retry_dead_letter(delivery_id)
 
             if not success:
                 return error_response(
@@ -865,7 +845,7 @@ class WebhookHandler(SecureHandler):
             logger.error(f"Error retrying dead letter: {e}")
             return error_response(f"Failed to retry dead letter: {e}", 500)
 
-    def _handle_delete_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
+    async def _handle_delete_dead_letter(self, delivery_id: str, handler: Any) -> HandlerResult:
         """Handle DELETE /api/webhooks/dead-letter/:id - remove from dead-letter queue."""
         # RBAC permission check
         rbac_error = self._check_rbac_permission(handler, "webhooks.admin")
@@ -873,17 +853,10 @@ class WebhookHandler(SecureHandler):
             return rbac_error
 
         try:
-            import asyncio
             from aragora.webhooks.retry_queue import get_retry_queue
 
             queue = get_retry_queue()
-
-            # Run async method
-            loop = asyncio.new_event_loop()
-            try:
-                success = loop.run_until_complete(queue.cancel_delivery(delivery_id))
-            finally:
-                loop.close()
+            success = await queue.cancel_delivery(delivery_id)
 
             if not success:
                 return error_response(f"Delivery not found: {delivery_id}", 404)
@@ -911,7 +884,7 @@ class WebhookHandler(SecureHandler):
             logger.error(f"Error deleting dead letter: {e}")
             return error_response(f"Failed to delete dead letter: {e}", 500)
 
-    def _handle_queue_stats(self, handler: Any) -> HandlerResult:
+    async def _handle_queue_stats(self, handler: Any) -> HandlerResult:
         """Handle GET /api/webhooks/queue/stats - get queue statistics."""
         # RBAC permission check (read-only stats can use lower permission)
         rbac_error = self._check_rbac_permission(handler, "webhooks.read")
@@ -919,17 +892,10 @@ class WebhookHandler(SecureHandler):
             return rbac_error
 
         try:
-            import asyncio
             from aragora.webhooks.retry_queue import get_retry_queue
 
             queue = get_retry_queue()
-
-            # Run async method
-            loop = asyncio.new_event_loop()
-            try:
-                stats = loop.run_until_complete(queue.get_stats())
-            finally:
-                loop.close()
+            stats = await queue.get_stats()
 
             return json_response({"stats": stats})
 
