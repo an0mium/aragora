@@ -178,19 +178,11 @@ export interface ListMessagesParams extends PaginationParams {
 // =============================================================================
 
 interface OutlookClientInterface {
-  getOutlookOAuthUrl(redirectUri: string): Promise<OutlookOAuthResponse>;
-  completeOutlookOAuth(code: string, state: string, redirectUri?: string): Promise<OutlookAuthResult>;
-  getOutlookStatus(): Promise<OutlookStatus>;
-  listOutlookFolders(): Promise<FolderListResponse>;
-  listOutlookMessages(params?: ListMessagesParams): Promise<MessageListResponse>;
-  getOutlookMessage(messageId: string, includeAttachments?: boolean): Promise<Message>;
-  getOutlookConversation(conversationId: string, maxMessages?: number): Promise<Conversation>;
-  sendOutlookMessage(request: SendMessageRequest): Promise<{ success: boolean; message?: string }>;
-  replyOutlookMessage(request: ReplyMessageRequest): Promise<{ success: boolean; message?: string; in_reply_to?: string }>;
-  searchOutlookMessages(query: string, maxResults?: number, folderId?: string): Promise<SearchResponse>;
-  markOutlookMessageRead(messageId: string, isRead?: boolean): Promise<{ success: boolean; message_id: string; is_read: boolean }>;
-  moveOutlookMessage(messageId: string, destinationFolderId: string): Promise<{ success: boolean; message_id: string; destination_folder_id: string }>;
-  deleteOutlookMessage(messageId: string, permanent?: boolean): Promise<{ success: boolean; message_id: string; deleted: boolean; permanent: boolean }>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 // =============================================================================
@@ -243,7 +235,9 @@ export class OutlookAPI {
    * @returns OAuth URL and state parameter.
    */
   async getOAuthUrl(redirectUri: string): Promise<OutlookOAuthResponse> {
-    return this.client.getOutlookOAuthUrl(redirectUri);
+    return this.client.request('POST', '/api/v2/outlook/oauth/url', {
+      json: { redirect_uri: redirectUri },
+    });
   }
 
   /**
@@ -254,14 +248,16 @@ export class OutlookAPI {
    * @param redirectUri - Optional redirect URI.
    */
   async completeOAuth(code: string, state: string, redirectUri?: string): Promise<OutlookAuthResult> {
-    return this.client.completeOutlookOAuth(code, state, redirectUri);
+    return this.client.request('POST', '/api/v2/outlook/oauth/callback', {
+      json: { code, state, redirect_uri: redirectUri },
+    });
   }
 
   /**
    * Get Outlook connection status.
    */
   async getStatus(): Promise<OutlookStatus> {
-    return this.client.getOutlookStatus();
+    return this.client.request('GET', '/api/v2/outlook/status');
   }
 
   // ===========================================================================
@@ -272,7 +268,7 @@ export class OutlookAPI {
    * List mail folders.
    */
   async listFolders(): Promise<MailFolder[]> {
-    const response = await this.client.listOutlookFolders();
+    const response = await this.client.request<FolderListResponse>('GET', '/api/v2/outlook/folders');
     return response.folders;
   }
 
@@ -289,7 +285,9 @@ export class OutlookAPI {
    * @param params.filter - OData filter query.
    */
   async listMessages(params?: ListMessagesParams): Promise<MessageListResponse> {
-    return this.client.listOutlookMessages(params);
+    return this.client.request('GET', '/api/v2/outlook/messages', {
+      params: params as Record<string, unknown>,
+    });
   }
 
   /**
@@ -299,7 +297,9 @@ export class OutlookAPI {
    * @param includeAttachments - Include attachment metadata.
    */
   async getMessage(messageId: string, includeAttachments = false): Promise<Message> {
-    return this.client.getOutlookMessage(messageId, includeAttachments);
+    return this.client.request('GET', `/api/v2/outlook/messages/${messageId}`, {
+      params: { include_attachments: includeAttachments },
+    });
   }
 
   /**
@@ -309,7 +309,9 @@ export class OutlookAPI {
    * @param maxMessages - Maximum messages to include.
    */
   async getConversation(conversationId: string, maxMessages = 50): Promise<Conversation> {
-    return this.client.getOutlookConversation(conversationId, maxMessages);
+    return this.client.request('GET', `/api/v2/outlook/conversations/${conversationId}`, {
+      params: { max_messages: maxMessages },
+    });
   }
 
   // ===========================================================================
@@ -330,7 +332,9 @@ export class OutlookAPI {
    * ```
    */
   async send(request: SendMessageRequest): Promise<{ success: boolean; message?: string }> {
-    return this.client.sendOutlookMessage(request);
+    return this.client.request('POST', '/api/v2/outlook/messages/send', {
+      json: request,
+    });
   }
 
   /**
@@ -346,7 +350,9 @@ export class OutlookAPI {
    * ```
    */
   async reply(request: ReplyMessageRequest): Promise<{ success: boolean; message?: string; in_reply_to?: string }> {
-    return this.client.replyOutlookMessage(request);
+    return this.client.request('POST', '/api/v2/outlook/messages/reply', {
+      json: request,
+    });
   }
 
   // ===========================================================================
@@ -361,7 +367,13 @@ export class OutlookAPI {
    * @param folderId - Optional folder to search within.
    */
   async search(query: string, maxResults = 25, folderId?: string): Promise<SearchResponse> {
-    return this.client.searchOutlookMessages(query, maxResults, folderId);
+    return this.client.request('GET', '/api/v2/outlook/messages/search', {
+      params: {
+        query,
+        max_results: maxResults,
+        ...(folderId && { folder_id: folderId }),
+      },
+    });
   }
 
   // ===========================================================================
@@ -371,15 +383,25 @@ export class OutlookAPI {
   /**
    * Mark a message as read or unread.
    */
-  async markRead(messageId: string, isRead = true): Promise<{ success: boolean; message_id: string; is_read: boolean }> {
-    return this.client.markOutlookMessageRead(messageId, isRead);
+  async markRead(
+    messageId: string,
+    isRead = true
+  ): Promise<{ success: boolean; message_id: string; is_read: boolean }> {
+    return this.client.request('PATCH', `/api/v2/outlook/messages/${messageId}/read`, {
+      json: { is_read: isRead },
+    });
   }
 
   /**
    * Move a message to a different folder.
    */
-  async move(messageId: string, destinationFolderId: string): Promise<{ success: boolean; message_id: string; destination_folder_id: string }> {
-    return this.client.moveOutlookMessage(messageId, destinationFolderId);
+  async move(
+    messageId: string,
+    destinationFolderId: string
+  ): Promise<{ success: boolean; message_id: string; destination_folder_id: string }> {
+    return this.client.request('POST', `/api/v2/outlook/messages/${messageId}/move`, {
+      json: { destination_folder_id: destinationFolderId },
+    });
   }
 
   /**
@@ -388,7 +410,12 @@ export class OutlookAPI {
    * @param messageId - Message ID.
    * @param permanent - Permanently delete (skip Deleted Items).
    */
-  async delete(messageId: string, permanent = false): Promise<{ success: boolean; message_id: string; deleted: boolean; permanent: boolean }> {
-    return this.client.deleteOutlookMessage(messageId, permanent);
+  async delete(
+    messageId: string,
+    permanent = false
+  ): Promise<{ success: boolean; message_id: string; deleted: boolean; permanent: boolean }> {
+    return this.client.request('DELETE', `/api/v2/outlook/messages/${messageId}`, {
+      params: { permanent },
+    });
   }
 }

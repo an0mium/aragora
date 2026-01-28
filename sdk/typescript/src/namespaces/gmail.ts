@@ -268,7 +268,7 @@ export class GmailAPI {
    */
   async createTriageRule(request: CreateTriageRuleRequest): Promise<EmailTriageRule> {
     return this.client.request('POST', '/api/v2/gmail/triage-rules', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -277,7 +277,7 @@ export class GmailAPI {
    */
   async updateTriageRule(ruleId: string, request: UpdateTriageRuleRequest): Promise<EmailTriageRule> {
     return this.client.request('PATCH', `/api/v2/gmail/triage-rules/${ruleId}`, {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 
@@ -315,7 +315,7 @@ export class GmailAPI {
    */
   async createDebateConfig(request: CreateDebateConfigRequest): Promise<EmailDebateConfig> {
     return this.client.request('POST', '/api/v2/gmail/debate-configs', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 

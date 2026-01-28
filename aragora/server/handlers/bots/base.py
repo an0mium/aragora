@@ -216,22 +216,27 @@ class BotHandlerMixin:
         return handler.rfile.read(content_length)
 
     def _parse_json_body(
-        self, body: bytes, context: str = "webhook"
+        self, body: bytes, context: str = "webhook", allow_empty: bool = False
     ) -> Tuple[Optional[Dict[str, Any]], Optional[HandlerResult]]:
         """Parse JSON from request body with standardized error handling.
 
         Args:
             body: Raw request body bytes.
             context: Context string for error logging (e.g., "webhook", "event").
+            allow_empty: If True, empty body returns ({}, None). If False, returns error.
 
         Returns:
             Tuple of (parsed_data, error_response).
             If parsing succeeds: (dict, None)
             If parsing fails: (None, HandlerResult with 400 error)
-            If body is empty: ({}, None)
+            If body is empty and allow_empty: ({}, None)
+            If body is empty and not allow_empty: (None, HandlerResult with 400 error)
         """
         if not body:
-            return {}, None
+            if allow_empty:
+                return {}, None
+            logger.error(f"Empty body in {self.bot_platform} {context}")
+            return None, error_response("Empty request body", 400)
 
         try:
             return json.loads(body.decode("utf-8")), None

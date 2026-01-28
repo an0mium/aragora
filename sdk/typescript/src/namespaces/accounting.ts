@@ -359,7 +359,7 @@ export class AccountingAPI {
    */
   async generateReport(request: ReportRequest): Promise<ReportResponse> {
     return this.client.request('POST', '/api/v2/accounting/reports', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 

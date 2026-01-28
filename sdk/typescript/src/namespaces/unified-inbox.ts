@@ -169,12 +169,16 @@ export interface BulkActionRequest {
 // Unified Inbox API
 // =============================================================================
 
-type RequestFn = (
-  method: string,
-  path: string,
-  data?: unknown,
-  params?: Record<string, unknown>
-) => Promise<unknown>;
+/**
+ * Client interface for unified inbox operations.
+ */
+interface UnifiedInboxClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
 
 /**
  * Unified Inbox namespace API for multi-account email management.
@@ -185,7 +189,7 @@ type RequestFn = (
  * - Inbox health metrics and analytics
  */
 export class UnifiedInboxAPI {
-  constructor(private request: RequestFn) {}
+  constructor(private client: UnifiedInboxClientInterface) {}
 
   // ===========================================================================
   // OAuth Flow
@@ -201,7 +205,7 @@ export class UnifiedInboxAPI {
   async getGmailOAuthUrl(redirectUri: string, state?: string): Promise<OAuthUrlResponse> {
     const params: Record<string, string> = { redirect_uri: redirectUri };
     if (state) params.state = state;
-    return this.request('GET', '/inbox/oauth/gmail', undefined, params) as Promise<OAuthUrlResponse>;
+    return this.client.request('GET', '/inbox/oauth/gmail', { params });
   }
 
   /**
@@ -214,7 +218,7 @@ export class UnifiedInboxAPI {
   async getOutlookOAuthUrl(redirectUri: string, state?: string): Promise<OAuthUrlResponse> {
     const params: Record<string, string> = { redirect_uri: redirectUri };
     if (state) params.state = state;
-    return this.request('GET', '/inbox/oauth/outlook', undefined, params) as Promise<OAuthUrlResponse>;
+    return this.client.request('GET', '/inbox/oauth/outlook', { params });
   }
 
   // ===========================================================================
@@ -228,7 +232,9 @@ export class UnifiedInboxAPI {
    * @returns Connected account details
    */
   async connect(request: ConnectAccountRequest): Promise<{ account: ConnectedAccount; message: string }> {
-    return this.request('POST', '/inbox/connect', request) as Promise<{ account: ConnectedAccount; message: string }>;
+    return this.client.request('POST', '/inbox/connect', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -237,7 +243,7 @@ export class UnifiedInboxAPI {
    * @returns Array of connected accounts
    */
   async listAccounts(): Promise<{ accounts: ConnectedAccount[]; total: number }> {
-    return this.request('GET', '/inbox/accounts') as Promise<{ accounts: ConnectedAccount[]; total: number }>;
+    return this.client.request('GET', '/inbox/accounts');
   }
 
   /**
@@ -247,7 +253,7 @@ export class UnifiedInboxAPI {
    * @returns Confirmation message
    */
   async disconnect(accountId: string): Promise<{ message: string; account_id: string }> {
-    return this.request('DELETE', `/inbox/accounts/${accountId}`) as Promise<{ message: string; account_id: string }>;
+    return this.client.request('DELETE', `/inbox/accounts/${accountId}`);
   }
 
   // ===========================================================================
@@ -267,13 +273,9 @@ export class UnifiedInboxAPI {
     offset: number;
     has_more: boolean;
   }> {
-    return this.request('GET', '/inbox/messages', undefined, params) as Promise<{
-      messages: UnifiedMessage[];
-      total: number;
-      limit: number;
-      offset: number;
-      has_more: boolean;
-    }>;
+    return this.client.request('GET', '/inbox/messages', {
+      params: params as unknown as Record<string, unknown>,
+    });
   }
 
   /**

@@ -63,8 +63,11 @@ export interface CrossPollinationRequest {
  * Interface for the internal client methods used by LaboratoryAPI.
  */
 interface LaboratoryClientInterface {
-  getEmergentTraits(options?: EmergentTraitsOptions): Promise<EmergentTraitsResponse>;
-  suggestCrossPollinations(request: CrossPollinationRequest): Promise<CrossPollinationResponse>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -102,13 +105,17 @@ export class LaboratoryAPI {
    * Get emergent traits detected from agent performance.
    */
   async getEmergentTraits(options?: EmergentTraitsOptions): Promise<EmergentTraitsResponse> {
-    return this.client.getEmergentTraits(options);
+    return this.client.request('GET', '/api/v2/laboratory/emergent-traits', {
+      params: options as Record<string, unknown>,
+    });
   }
 
   /**
    * Suggest beneficial trait transfers for a target agent.
    */
   async suggestCrossPollinations(request: CrossPollinationRequest): Promise<CrossPollinationResponse> {
-    return this.client.suggestCrossPollinations(request);
+    return this.client.request('POST', '/api/v2/laboratory/cross-pollinations', {
+      json: request,
+    });
   }
 }

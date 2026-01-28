@@ -307,6 +307,16 @@ cProfile.run('...')
 - **Architecture**: See `docs/ARCHITECTURE.md`
 - **API Reference**: See `docs/API_REFERENCE.md`
 
+## Code Review Policy
+
+Code ownership is managed via `.github/CODEOWNERS`. As of v2.4.0, ownership rules use broad directory patterns rather than file-specific entries. This simplifies maintenance but means reviewers should pay extra attention to changes in safety-critical areas:
+
+- `CLAUDE.md`, `core.py`, `aragora/__init__.py` — core definitions
+- `scripts/nomic_loop.py` — self-improvement safety
+- `.env*` — secrets (never commit actual secrets)
+
+If you need tighter review gating on specific files, add explicit entries to CODEOWNERS.
+
 ## License
 
 MIT License - see LICENSE file for details.

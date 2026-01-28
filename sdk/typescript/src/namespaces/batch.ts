@@ -163,7 +163,7 @@ export class BatchAPI {
    */
   async submit(request: BatchSubmitRequest): Promise<BatchSubmitResponse> {
     return this.client.request('POST', '/api/v2/batch', {
-      json: request,
+      json: request as unknown as Record<string, unknown>,
     });
   }
 

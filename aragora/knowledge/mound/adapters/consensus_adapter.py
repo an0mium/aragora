@@ -50,6 +50,9 @@ class ValidationSyncResult(TypedDict):
 
 logger = logging.getLogger(__name__)
 
+# Import mixin for semantic search functionality
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+
 
 @dataclass
 class ConsensusSearchResult:
@@ -64,7 +67,7 @@ class ConsensusSearchResult:
             self.dissents = []
 
 
-class ConsensusAdapter:
+class ConsensusAdapter(SemanticSearchMixin):
     """
     Adapter that bridges ConsensusMemory to the Knowledge Mound.
 
@@ -72,6 +75,7 @@ class ConsensusAdapter:
     - search_by_topic: Find similar debates and consensus outcomes
     - to_knowledge_item: Convert records to unified format
     - get_dissents: Retrieve dissenting views for a topic
+    - semantic_search: Vector-based similarity search (via SemanticSearchMixin)
 
     Usage:
         from aragora.memory.consensus import ConsensusMemory
@@ -86,6 +90,10 @@ class ConsensusAdapter:
         # Convert to knowledge items
         items = [adapter.to_knowledge_item(r) for r in results]
     """
+
+    # SemanticSearchMixin configuration
+    adapter_name = "consensus"
+    source_type = "consensus"
 
     def __init__(
         self,
@@ -174,6 +182,40 @@ class ConsensusAdapter:
     def consensus(self) -> "ConsensusMemory":
         """Access the underlying ConsensusMemory."""
         return self._consensus
+
+    # SemanticSearchMixin required methods
+    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+        """Get a consensus record by ID (required by SemanticSearchMixin)."""
+        # Handle prefixed IDs from SemanticStore
+        if record_id.startswith("cs_"):
+            record_id = record_id[3:]
+        return self._consensus.get_consensus(record_id)
+
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+        """Convert a consensus record to dict (required by SemanticSearchMixin)."""
+        return {
+            "id": record.id,
+            "topic": record.topic,
+            "conclusion": record.conclusion,
+            "strength": record.strength.value
+            if hasattr(record.strength, "value")
+            else record.strength,
+            "confidence": record.confidence,
+            "domain": record.domain,
+            "similarity": similarity,
+            "timestamp": (
+                record.timestamp.isoformat()
+                if hasattr(record.timestamp, "isoformat")
+                else str(record.timestamp)
+            ),
+            "metadata": record.metadata,
+        }
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID (override for SemanticSearchMixin)."""
+        if source_id.startswith("cs_"):
+            return source_id[3:]
+        return source_id
 
     async def search_by_topic(
         self,
@@ -486,118 +528,6 @@ class ConsensusAdapter:
             return results
         finally:
             self._record_metric("search", success, time.time() - start)
-
-    async def semantic_search(
-        self,
-        query: str,
-        limit: int = 10,
-        min_similarity: float = 0.6,
-        tenant_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Semantic vector search over consensus records.
-
-        Uses the Knowledge Mound's SemanticStore for embedding-based similarity
-        search, falling back to keyword search if embeddings aren't available.
-
-        Args:
-            query: The search query
-            limit: Maximum results to return
-            min_similarity: Minimum similarity threshold (0.0-1.0)
-            tenant_id: Optional tenant filter
-
-        Returns:
-            List of matching consensus records with similarity scores
-        """
-        import time
-
-        start = time.time()
-        success = False
-
-        try:
-            # Try semantic search first
-            try:
-                from aragora.knowledge.mound.semantic_store import SemanticStore
-
-                # Get or create semantic store
-                store = SemanticStore()  # type: ignore[call-arg]
-
-                # Search using embeddings
-                results = await store.search_similar(  # type: ignore[call-arg]
-                    query=query,
-                    tenant_id=tenant_id or "default",
-                    limit=limit,
-                    min_similarity=min_similarity,
-                    source_type="consensus",
-                )
-
-                # Enrich results with full consensus records
-                enriched = []
-                for r in results:
-                    # Try to get the full record from consensus memory
-                    record_id = r.source_id
-                    if record_id.startswith("cs_"):
-                        record_id = record_id[3:]
-
-                    record = self._consensus.get_consensus(record_id)
-                    if record:
-                        enriched.append(
-                            {
-                                "id": record.id,
-                                "topic": record.topic,
-                                "conclusion": record.conclusion,
-                                "strength": record.strength.value,
-                                "confidence": record.confidence,
-                                "domain": record.domain,
-                                "similarity": r.similarity,
-                                "timestamp": (
-                                    record.timestamp.isoformat()
-                                    if hasattr(record.timestamp, "isoformat")
-                                    else str(record.timestamp)
-                                ),
-                                "metadata": record.metadata,
-                            }
-                        )
-                    else:
-                        # Record may not be in memory
-                        enriched.append(
-                            {
-                                "id": r.source_id,
-                                "similarity": r.similarity,
-                                "domain": r.domain,
-                                "importance": r.importance,
-                                "metadata": r.metadata,
-                            }
-                        )
-
-                success = True
-                logger.debug(f"Semantic search returned {len(enriched)} results for '{query[:50]}'")
-
-                # Emit event
-                self._emit_event(
-                    "km_adapter_semantic_search",
-                    {
-                        "source": "consensus",
-                        "query_preview": query[:50],
-                        "results_count": len(enriched),
-                        "search_type": "vector",
-                    },
-                )
-
-                return enriched
-
-            except ImportError:
-                logger.debug("SemanticStore not available, falling back to keyword search")
-            except Exception as e:
-                logger.debug(f"Semantic search failed, falling back: {e}")
-
-            # Fallback to keyword search
-            results = self.search_similar(query, limit=limit, min_confidence=min_similarity)  # type: ignore[attr-defined,call-arg,assignment]
-            success = True  # type: ignore[possibly-undefined]
-            return results  # type: ignore[return-value]
-
-        finally:
-            self._record_metric("semantic_search", success, time.time() - start)
 
     def store_consensus(self, record: "ConsensusRecord") -> None:
         """

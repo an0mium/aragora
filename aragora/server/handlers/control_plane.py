@@ -41,6 +41,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional
@@ -689,7 +690,7 @@ class ControlPlaneHandler(BaseHandler):
 
     @user_rate_limit(action="agent_call")
     @rate_limit(rpm=60, limiter_name="control_plane_post")
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
@@ -700,7 +701,7 @@ class ControlPlaneHandler(BaseHandler):
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_submit_deliberation(body, handler)
+            return await self._handle_submit_deliberation(body, handler)
 
         # /api/control-plane/agents
         if path == "/api/control-plane/agents":
@@ -900,7 +901,9 @@ class ControlPlaneHandler(BaseHandler):
             logger.error(f"Error submitting task: {e}")
             return error_response(safe_error_message(e, "control plane"), 500)
 
-    def _handle_submit_deliberation(self, body: Dict[str, Any], handler: Any) -> HandlerResult:
+    async def _handle_submit_deliberation(
+        self, body: Dict[str, Any], handler: Any
+    ) -> HandlerResult:
         """Submit a deliberation (sync or async via control plane)."""
         user, err = self.require_auth_or_error(handler)
         if err:
@@ -983,18 +986,12 @@ class ControlPlaneHandler(BaseHandler):
                 return error_response(safe_error_message(e, "control plane"), 500)
 
         try:
-            import asyncio
             from aragora.control_plane.deliberation import (
                 run_deliberation,
                 record_deliberation_error,
             )
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(run_deliberation(request))
-            finally:
-                loop.close()
+            result = await run_deliberation(request)
 
             return json_response(
                 {

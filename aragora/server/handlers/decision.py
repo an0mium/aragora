@@ -15,6 +15,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -134,13 +135,15 @@ class DecisionHandler(BaseHandler):
         return None
 
     @require_permission("decisions:create")
-    def handle_post(self, path: str, query_params: dict, handler=None) -> Optional[HandlerResult]:
+    async def handle_post(
+        self, path: str, query_params: dict, handler=None
+    ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/decisions":
-            return self._create_decision(handler)
+            return await self._create_decision(handler)
         return None
 
-    def _create_decision(self, handler) -> HandlerResult:
+    async def _create_decision(self, handler) -> HandlerResult:
         """
         Create a new decision request.
 
@@ -235,16 +238,9 @@ class DecisionHandler(BaseHandler):
                 logger.error(f"RBAC authorization check failed: {e}")
                 return error_response("Authorization service unavailable", 503)
 
-        # Route the decision (run synchronously for now)
-        import asyncio
-
+        # Route the decision
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(router.route(request))
-            finally:
-                loop.close()
+            result = await router.route(request)
 
             # Cache result for polling (persistent)
             _save_result(

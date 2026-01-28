@@ -15,7 +15,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -72,7 +71,7 @@ class A2AHandler(BaseHandler):
 
     @rate_limit(rpm=120)
     @require_permission("a2a:read")
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route A2A requests."""
@@ -98,7 +97,7 @@ class A2AHandler(BaseHandler):
 
         # Tasks
         if subpath == "/tasks" and method == "POST":
-            return self._handle_submit_task(handler)
+            return await self._handle_submit_task(handler)
         if subpath.startswith("/tasks/"):
             task_id = subpath[7:]
             # Handle stream suffix
@@ -108,7 +107,7 @@ class A2AHandler(BaseHandler):
             if method == "GET":
                 return self._handle_get_task(task_id)
             if method == "DELETE":
-                return self._handle_cancel_task(task_id)
+                return await self._handle_cancel_task(task_id)
 
         return error_response("Unknown A2A endpoint", 404)
 
@@ -164,7 +163,7 @@ class A2AHandler(BaseHandler):
         return json_response(agent.to_dict())
 
     @require_permission("a2a:create")
-    def _handle_submit_task(self, handler: Any) -> HandlerResult:
+    async def _handle_submit_task(self, handler: Any) -> HandlerResult:
         """Submit a task for execution."""
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
@@ -213,13 +212,7 @@ class A2AHandler(BaseHandler):
         server = get_a2a_server()
 
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            result = loop.run_until_complete(server.handle_task(request))
+            result = await server.handle_task(request)
             return json_response(result.to_dict())
         except Exception as e:
             logger.error(f"Task execution failed: {e}")
@@ -235,18 +228,12 @@ class A2AHandler(BaseHandler):
 
         return json_response(result.to_dict())
 
-    def _handle_cancel_task(self, task_id: str) -> HandlerResult:
+    async def _handle_cancel_task(self, task_id: str) -> HandlerResult:
         """Cancel a running task."""
         server = get_a2a_server()
 
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            success = loop.run_until_complete(server.cancel_task(task_id))
+            success = await server.cancel_task(task_id)
             if success:
                 return HandlerResult(
                     status_code=204,

@@ -5740,7 +5740,7 @@ export class AragoraClient {
       }
     );
     if (!response.ok) {
-      throw new AragoraError(`Failed to export PDF: ${response.statusText}`, 'API_ERROR');
+      throw new AragoraError(`Failed to export PDF: ${response.statusText}`, 'INTERNAL_ERROR');
     }
     return response.blob();
   }
@@ -5761,7 +5761,7 @@ export class AragoraClient {
       }
     );
     if (!response.ok) {
-      throw new AragoraError(`Failed to export CSV: ${response.statusText}`, 'API_ERROR');
+      throw new AragoraError(`Failed to export CSV: ${response.statusText}`, 'INTERNAL_ERROR');
     }
     return response.blob();
   }

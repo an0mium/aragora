@@ -134,15 +134,11 @@ export interface ListGenomesOptions {
  * Interface for the internal client methods used by GenesisAPI.
  */
 interface GenesisClientInterface {
-  getGenesisStats(): Promise<GenesisStats>;
-  listGenesisEvents(options?: ListEventsOptions): Promise<{ events: GenesisEvent[]; count: number; filter?: string }>;
-  listGenomes(options?: ListGenomesOptions): Promise<{ genomes: Genome[]; total: number; limit: number; offset: number }>;
-  getTopGenomes(limit?: number): Promise<{ genomes: Genome[]; count: number }>;
-  getGenome(genomeId: string): Promise<{ genome: Genome }>;
-  getGenomeLineage(genomeId: string, maxDepth?: number): Promise<{ genome_id: string; lineage: LineageNode[]; generations: number }>;
-  getGenomeDescendants(genomeId: string, maxDepth?: number): Promise<{ genome_id: string; root_genome: Partial<Genome>; descendants: DescendantNode[]; total_descendants: number; max_generation: number }>;
-  getPopulation(): Promise<Population>;
-  getDebateTree(debateId: string): Promise<DebateTree>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -176,62 +172,88 @@ export class GenesisAPI {
    * Get overall genesis statistics.
    */
   async getStats(): Promise<GenesisStats> {
-    return this.client.getGenesisStats();
+    return this.client.request('GET', '/api/v2/genesis/stats');
   }
 
   /**
    * List recent genesis events.
    */
-  async listEvents(options?: ListEventsOptions): Promise<{ events: GenesisEvent[]; count: number; filter?: string }> {
-    return this.client.listGenesisEvents(options);
+  async listEvents(
+    options?: ListEventsOptions
+  ): Promise<{ events: GenesisEvent[]; count: number; filter?: string }> {
+    return this.client.request('GET', '/api/v2/genesis/events', {
+      params: options as Record<string, unknown>,
+    });
   }
 
   /**
    * List all genomes with pagination.
    */
-  async listGenomes(options?: ListGenomesOptions): Promise<{ genomes: Genome[]; total: number; limit: number; offset: number }> {
-    return this.client.listGenomes(options);
+  async listGenomes(
+    options?: ListGenomesOptions
+  ): Promise<{ genomes: Genome[]; total: number; limit: number; offset: number }> {
+    return this.client.request('GET', '/api/v2/genesis/genomes', {
+      params: options as Record<string, unknown>,
+    });
   }
 
   /**
    * Get top genomes by fitness score.
    */
   async getTopGenomes(limit?: number): Promise<{ genomes: Genome[]; count: number }> {
-    return this.client.getTopGenomes(limit);
+    return this.client.request('GET', '/api/v2/genesis/genomes/top', {
+      params: limit !== undefined ? { limit } : undefined,
+    });
   }
 
   /**
    * Get a specific genome by ID.
    */
   async getGenome(genomeId: string): Promise<{ genome: Genome }> {
-    return this.client.getGenome(genomeId);
+    return this.client.request('GET', `/api/v2/genesis/genomes/${genomeId}`);
   }
 
   /**
    * Get the ancestry lineage of a genome.
    */
-  async getLineage(genomeId: string, maxDepth?: number): Promise<{ genome_id: string; lineage: LineageNode[]; generations: number }> {
-    return this.client.getGenomeLineage(genomeId, maxDepth);
+  async getLineage(
+    genomeId: string,
+    maxDepth?: number
+  ): Promise<{ genome_id: string; lineage: LineageNode[]; generations: number }> {
+    return this.client.request('GET', `/api/v2/genesis/genomes/${genomeId}/lineage`, {
+      params: maxDepth !== undefined ? { max_depth: maxDepth } : undefined,
+    });
   }
 
   /**
    * Get all descendants of a genome.
    */
-  async getDescendants(genomeId: string, maxDepth?: number): Promise<{ genome_id: string; root_genome: Partial<Genome>; descendants: DescendantNode[]; total_descendants: number; max_generation: number }> {
-    return this.client.getGenomeDescendants(genomeId, maxDepth);
+  async getDescendants(
+    genomeId: string,
+    maxDepth?: number
+  ): Promise<{
+    genome_id: string;
+    root_genome: Partial<Genome>;
+    descendants: DescendantNode[];
+    total_descendants: number;
+    max_generation: number;
+  }> {
+    return this.client.request('GET', `/api/v2/genesis/genomes/${genomeId}/descendants`, {
+      params: maxDepth !== undefined ? { max_depth: maxDepth } : undefined,
+    });
   }
 
   /**
    * Get the active population status.
    */
   async getPopulation(): Promise<Population> {
-    return this.client.getPopulation();
+    return this.client.request('GET', '/api/v2/genesis/population');
   }
 
   /**
    * Get the debate tree structure for fractal visualization.
    */
   async getDebateTree(debateId: string): Promise<DebateTree> {
-    return this.client.getDebateTree(debateId);
+    return this.client.request('GET', `/api/v2/genesis/debates/${debateId}/tree`);
   }
 }

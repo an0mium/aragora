@@ -20,7 +20,11 @@ export interface TeamsBotStatus {
  * Interface for the internal client methods used by TeamsAPI.
  */
 interface TeamsClientInterface {
-  getTeamsBotStatus(): Promise<TeamsBotStatus>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -48,6 +52,6 @@ export class TeamsAPI {
    * Get Teams bot status and configuration.
    */
   async getStatus(): Promise<TeamsBotStatus> {
-    return this.client.getTeamsBotStatus();
+    return this.client.request('GET', '/api/v2/teams/status');
   }
 }

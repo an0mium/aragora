@@ -88,11 +88,11 @@ export interface ListPatternsOptions {
  * Interface for the internal client methods used by LearningAPI.
  */
 interface LearningClientInterface {
-  getMetaLearningStats(): Promise<MetaLearningStats>;
-  listLearningSessions(options?: ListSessionsOptions): Promise<{ sessions: LearningSession[]; total: number }>;
-  getLearningSession(sessionId: string): Promise<LearningSession>;
-  listLearningPatterns(options?: ListPatternsOptions): Promise<{ patterns: LearningPattern[]; count: number }>;
-  getLearningEfficiency(agentName: string, domain?: string): Promise<LearningEfficiency[]>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -128,34 +128,40 @@ export class LearningAPI {
    * Get meta-learning statistics across all agents.
    */
   async getStats(): Promise<MetaLearningStats> {
-    return this.client.getMetaLearningStats();
+    return this.client.request('GET', '/api/v2/learning/stats');
   }
 
   /**
    * List learning sessions with optional filtering.
    */
   async listSessions(options?: ListSessionsOptions): Promise<{ sessions: LearningSession[]; total: number }> {
-    return this.client.listLearningSessions(options);
+    return this.client.request('GET', '/api/v2/learning/sessions', {
+      params: options as Record<string, unknown>,
+    });
   }
 
   /**
    * Get a specific learning session by ID.
    */
   async getSession(sessionId: string): Promise<LearningSession> {
-    return this.client.getLearningSession(sessionId);
+    return this.client.request('GET', `/api/v2/learning/sessions/${sessionId}`);
   }
 
   /**
    * List detected learning patterns.
    */
   async listPatterns(options?: ListPatternsOptions): Promise<{ patterns: LearningPattern[]; count: number }> {
-    return this.client.listLearningPatterns(options);
+    return this.client.request('GET', '/api/v2/learning/patterns', {
+      params: options as Record<string, unknown>,
+    });
   }
 
   /**
    * Get learning efficiency metrics for an agent.
    */
   async getEfficiency(agentName: string, domain?: string): Promise<LearningEfficiency[]> {
-    return this.client.getLearningEfficiency(agentName, domain);
+    return this.client.request('GET', `/api/v2/learning/efficiency/${agentName}`, {
+      params: domain !== undefined ? { domain } : undefined,
+    });
   }
 }
