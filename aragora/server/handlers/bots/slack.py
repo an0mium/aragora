@@ -770,6 +770,8 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
     def __init__(self, server_context: Dict[str, Any]):
         """Initialize the Slack handler."""
         super().__init__(server_context)  # type: ignore[arg-type]
+        # Cache signing secret at init time (important for tests with patched env)
+        self._signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can handle the given path."""
@@ -784,15 +786,28 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
     def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle GET requests for Slack endpoints."""
-        if path == "/api/v1/bots/slack/status":
-            # Use the mixin's status handler - need to run async
+        """Handle requests for Slack endpoints.
+
+        Handles:
+        - GET /status endpoints
+        - POST webhook endpoints (commands, events, interactions)
+        """
+        # Normalize paths: support both /api/v1/bots/slack and /api/integrations/slack
+        normalized_path = path.replace("/api/integrations/slack", "/api/v1/bots/slack")
+        normalized_path = normalized_path.replace(
+            "/api/v1/integrations/slack", "/api/v1/bots/slack"
+        )
+
+        # Check HTTP method
+        method = getattr(handler, "command", "GET")
+
+        # Status endpoint - GET only
+        if normalized_path in ["/api/v1/bots/slack/status", "/api/v1/bots/slack/status/"]:
             import asyncio
 
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # Create a new task and let the event loop handle it
                     import concurrent.futures
 
                     with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -803,6 +818,49 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
             except Exception as e:
                 logger.error(f"Error getting Slack status: {e}")
                 return error_response(f"Error: {str(e)}", 500)
+
+        # Webhook endpoints require POST
+        webhook_paths = [
+            "/api/v1/bots/slack/commands",
+            "/api/v1/bots/slack/events",
+            "/api/v1/bots/slack/interactions",
+            "/api/v1/bots/slack/interactive",
+        ]
+
+        if normalized_path in webhook_paths or any(
+            normalized_path.startswith(p) for p in webhook_paths
+        ):
+            if method != "POST":
+                return error_response("Method not allowed. Use POST.", 405)
+
+            # Verify Slack signature
+            signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+            if signing_secret:
+                if not self._verify_signature(handler):
+                    return error_response("Invalid Slack signature", 401)
+
+            # Handle the POST request
+            import asyncio
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        future = pool.submit(
+                            asyncio.run,
+                            self.handle_post(normalized_path, query_params, handler),
+                        )
+                        return future.result(timeout=30)
+                else:
+                    return loop.run_until_complete(
+                        self.handle_post(normalized_path, query_params, handler)
+                    )
+            except Exception as e:
+                logger.error(f"Error handling Slack POST: {e}")
+                return error_response(f"Error: {str(e)}", 500)
+
         return None
 
     async def _get_status_sync(self, handler: Any) -> HandlerResult:
@@ -859,8 +917,10 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
         This is a convenience wrapper around verify_slack_signature for testing.
         """
-        # Get signing secret from environment (tests may reload module)
-        signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+        # Use cached signing secret (set at init time for test compatibility)
+        signing_secret = getattr(self, "_signing_secret", "") or os.environ.get(
+            "SLACK_SIGNING_SECRET", ""
+        )
         if not signing_secret:
             return True  # Skip verification if not configured
 
