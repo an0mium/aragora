@@ -1536,3 +1536,28 @@ export interface MomentsByType {
   moments?: DebateMoment[];
   total?: number;
 }
+
+export interface UnifiedCampaign {
+  /** Platform-specific campaign ID */
+  id: string;
+  /** Advertising platform name */
+  platform: "google_ads" | "meta_ads" | "linkedin_ads" | "microsoft_ads";
+  /** Campaign name */
+  name: string;
+  /** Campaign status */
+  status: "ENABLED" | "PAUSED" | "REMOVED";
+  /** Campaign objective/goal */
+  objective?: string;
+  /** Daily budget in account currency */
+  daily_budget?: number;
+  /** Total campaign budget */
+  total_budget?: number;
+  /** Campaign start date */
+  start_date?: string;
+  /** Campaign end date */
+  end_date?: string;
+  /** When the campaign was created */
+  created_at?: string;
+  /** When the campaign was last updated */
+  updated_at?: string;
+}
