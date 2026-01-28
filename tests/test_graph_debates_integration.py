@@ -72,7 +72,7 @@ class TestGraphDebateStructure:
             assert policy.max_branches > 0
             assert isinstance(policy.auto_merge, bool)
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
     def test_merge_strategy_enum(self):
         """Test MergeStrategy enum values."""
@@ -82,7 +82,7 @@ class TestGraphDebateStructure:
             assert MergeStrategy.SYNTHESIS
             assert MergeStrategy.VOTE
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
     def test_graph_node_creation(self):
         """Test creating graph nodes."""
@@ -100,7 +100,7 @@ class TestGraphDebateStructure:
             assert node.content == "Test content"
             assert node.agent == "claude"
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
 
 # ============================================================================
@@ -142,7 +142,7 @@ class TestBranchCreation:
             assert graph is not None
             assert len(graph.nodes) > 0
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
     @pytest.mark.asyncio
     async def test_max_branches_respected(self, mock_agents):
@@ -168,7 +168,7 @@ class TestBranchCreation:
             # Should not exceed max branches
             assert len(graph.branches) <= 2
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
 
 # ============================================================================
@@ -207,7 +207,7 @@ class TestMergeOperations:
             # Test passes if no errors
             assert graph is not None
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
     @pytest.mark.asyncio
     async def test_vote_merge(self, mock_agents):
@@ -236,7 +236,7 @@ class TestMergeOperations:
 
             assert graph is not None
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
 
 # ============================================================================
@@ -257,7 +257,7 @@ class TestGraphDebatesHandlerIntegration:
             # Test route recognition
             assert "/api/v1/debates/graph" in handler.ROUTES
         except ImportError:
-            pytest.skip("GraphDebatesHandler not available")
+            pytest.skip("GraphDebatesHandler not available (see #137)")
 
     @pytest.mark.asyncio
     async def test_get_graph_debate_not_found(self, mock_handler):
@@ -271,7 +271,7 @@ class TestGraphDebatesHandlerIntegration:
 
             assert result.status_code == 404
         except ImportError:
-            pytest.skip("GraphDebatesHandler not available")
+            pytest.skip("GraphDebatesHandler not available (see #137)")
 
     @pytest.mark.asyncio
     async def test_get_branches_empty(self, mock_handler):
@@ -287,7 +287,7 @@ class TestGraphDebatesHandlerIntegration:
             data = json.loads(result.body)
             assert "branches" in data
         except ImportError:
-            pytest.skip("GraphDebatesHandler not available")
+            pytest.skip("GraphDebatesHandler not available (see #137)")
 
 
 # ============================================================================
@@ -327,7 +327,7 @@ class TestGraphEventEmission:
             # Should emit at least some events
             # (specific events depend on implementation)
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
 
 # ============================================================================
@@ -356,7 +356,7 @@ class TestGraphSerialization:
             assert "nodes" in result
             assert len(result["nodes"]) == 1
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")
 
     def test_branch_to_dict(self):
         """Test branch can be serialized to dict."""
@@ -375,4 +375,4 @@ class TestGraphSerialization:
             assert result["id"] == "branch-1"
             assert result["name"] == "Alternative"
         except ImportError:
-            pytest.skip("Graph orchestrator not available")
+            pytest.skip("Graph orchestrator not available (see #137)")

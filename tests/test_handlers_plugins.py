@@ -144,7 +144,7 @@ class TestListPlugins:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/v1/plugins", {}, None)
@@ -160,7 +160,7 @@ class TestListPlugins:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         mock_registry.list_plugins.return_value = []
 
@@ -198,7 +198,7 @@ class TestGetPluginDetails:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/v1/plugins/test-plugin-1", {}, None)
@@ -214,7 +214,7 @@ class TestGetPluginDetails:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/v1/plugins/nonexistent", {}, None)
@@ -235,7 +235,7 @@ class TestGetPluginDetails:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         mock_plugin_runner._validate_requirements.return_value = (False, ["missing-lib"])
 
@@ -274,7 +274,7 @@ class TestPluginsSecurity:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         valid_names = ["test-plugin", "plugin_name", "plugin123"]
         for name in valid_names:
@@ -300,7 +300,7 @@ class TestPluginsErrorHandling:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         mock_registry = Mock()
         mock_registry.list_plugins.side_effect = Exception("Database error")
@@ -315,7 +315,7 @@ class TestPluginsErrorHandling:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         mock_registry = Mock()
         mock_registry.get.side_effect = Exception("Database error")
@@ -351,7 +351,7 @@ class TestPluginsEdgeCases:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         # No runner available
         mock_registry.get_runner.return_value = None
@@ -405,7 +405,7 @@ class TestPluginPathVariants:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle(path_prefix, {}, None)
@@ -422,7 +422,7 @@ class TestPluginPathVariants:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle(f"{path_prefix}/test-plugin-1", {}, None)
@@ -450,7 +450,7 @@ class TestSunsetHeaders:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins", {}, None)
@@ -466,7 +466,7 @@ class TestSunsetHeaders:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins", {}, None)
@@ -481,7 +481,7 @@ class TestSunsetHeaders:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/v1/plugins", {}, None)
@@ -497,7 +497,7 @@ class TestSunsetHeaders:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/plugins/test-plugin-1", {}, None)
@@ -511,7 +511,7 @@ class TestSunsetHeaders:
         import aragora.server.handlers.features.plugins as mod
 
         if not mod.PLUGINS_AVAILABLE:
-            pytest.skip("Plugins module not available")
+            pytest.skip("Plugins module not available (see #135)")
 
         with patch.object(mod, "get_registry", return_value=mock_registry):
             result = plugins_handler.handle("/api/v1/plugins/test-plugin-1", {}, None)

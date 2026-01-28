@@ -12,6 +12,20 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
+# Check if MatrixDebatesHandler is available at module level
+try:
+    from aragora.server.handlers.debates import MatrixDebatesHandler
+
+    HAS_MATRIX_HANDLER = True
+except ImportError:
+    HAS_MATRIX_HANDLER = False
+    MatrixDebatesHandler = None  # type: ignore
+
+# Reusable skipif marker for all tests requiring MatrixDebatesHandler
+requires_matrix_handler = pytest.mark.skipif(
+    not HAS_MATRIX_HANDLER, reason="MatrixDebatesHandler not available (see #133)"
+)
+
 
 # ============================================================================
 # Test Fixtures
@@ -127,32 +141,23 @@ def sample_results():
 # ============================================================================
 
 
+@requires_matrix_handler
 class TestMatrixDebatesHandlerRoutes:
     """Tests for MatrixDebatesHandler route recognition."""
 
     def test_handler_routes(self):
         """Test handler recognizes all matrix debate routes."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
-
-            # Test route recognition (versioned routes)
-            assert "/api/v1/debates/matrix" in handler.ROUTES
-            assert "/api/v1/debates/matrix/" in handler.ROUTES
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        # Test route recognition (versioned routes)
+        assert "/api/v1/debates/matrix" in handler.ROUTES
+        assert "/api/v1/debates/matrix/" in handler.ROUTES
 
     def test_auth_required_endpoints(self):
         """Test auth is required for POST endpoint."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
-
-            assert "/api/v1/debates/matrix" in handler.AUTH_REQUIRED_ENDPOINTS
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert "/api/v1/debates/matrix" in handler.AUTH_REQUIRED_ENDPOINTS
 
 
 # ============================================================================
@@ -160,99 +165,75 @@ class TestMatrixDebatesHandlerRoutes:
 # ============================================================================
 
 
+@requires_matrix_handler
 class TestMatrixDebatesGetEndpoints:
     """Tests for GET endpoints."""
 
     @pytest.mark.asyncio
     async def test_get_matrix_debate_not_found(self, mock_handler):
         """Test 404 response for non-existent matrix debate."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        result = await handler._get_matrix_debate(mock_handler, "nonexistent-id")
 
-            result = await handler._get_matrix_debate(mock_handler, "nonexistent-id")
-
-            assert result.status_code == 404
-            data = json.loads(result.body)
-            assert "not found" in data.get("error", "").lower()
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 404
+        data = json.loads(result.body)
+        assert "not found" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_get_matrix_debate_success(self, mock_handler, mock_storage):
         """Test successful matrix debate retrieval."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        # Configure storage to return a debate
+        mock_storage.get_matrix_debate = AsyncMock(
+            return_value={
+                "matrix_id": "test-123",
+                "task": "Test task",
+                "scenario_count": 3,
+            }
+        )
+        mock_handler.storage = mock_storage
 
-            # Configure storage to return a debate
-            mock_storage.get_matrix_debate = AsyncMock(
-                return_value={
-                    "matrix_id": "test-123",
-                    "task": "Test task",
-                    "scenario_count": 3,
-                }
-            )
-            mock_handler.storage = mock_storage
+        handler = MatrixDebatesHandler({})
+        result = await handler._get_matrix_debate(mock_handler, "test-123")
 
-            handler = MatrixDebatesHandler({})
-            result = await handler._get_matrix_debate(mock_handler, "test-123")
-
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert data["matrix_id"] == "test-123"
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["matrix_id"] == "test-123"
 
     @pytest.mark.asyncio
     async def test_get_matrix_debate_no_storage(self, mock_handler):
         """Test 503 when storage not configured."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        mock_handler.storage = None
 
-            mock_handler.storage = None
+        handler = MatrixDebatesHandler({})
+        result = await handler._get_matrix_debate(mock_handler, "test-123")
 
-            handler = MatrixDebatesHandler({})
-            result = await handler._get_matrix_debate(mock_handler, "test-123")
-
-            assert result.status_code == 503
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 503
 
     @pytest.mark.asyncio
     async def test_get_scenarios_empty(self, mock_handler):
         """Test empty scenarios response."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        result = await handler._get_scenarios(mock_handler, "matrix-123")
 
-            result = await handler._get_scenarios(mock_handler, "matrix-123")
-
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert "scenarios" in data
-            assert data["matrix_id"] == "matrix-123"
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "scenarios" in data
+        assert data["matrix_id"] == "matrix-123"
 
     @pytest.mark.asyncio
     async def test_get_conclusions_empty(self, mock_handler):
         """Test empty conclusions response."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        result = await handler._get_conclusions(mock_handler, "matrix-123")
 
-            result = await handler._get_conclusions(mock_handler, "matrix-123")
-
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert "universal_conclusions" in data
-            assert "conditional_conclusions" in data
-            assert data["matrix_id"] == "matrix-123"
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "universal_conclusions" in data
+        assert "conditional_conclusions" in data
+        assert data["matrix_id"] == "matrix-123"
 
 
 # ============================================================================
@@ -260,68 +241,54 @@ class TestMatrixDebatesGetEndpoints:
 # ============================================================================
 
 
+@requires_matrix_handler
 class TestMatrixDebatesPostEndpoint:
     """Tests for POST /api/debates/matrix endpoint."""
 
     @pytest.mark.asyncio
     async def test_create_matrix_debate_missing_task(self, mock_handler):
         """Test 400 response when task is missing."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        # Call internal method directly to avoid decorator complexity
+        result = await handler._run_matrix_debate(
+            mock_handler,
+            {"scenarios": [{"name": "Test"}]},
+        )
 
-            # Call internal method directly to avoid decorator complexity
-            result = await handler._run_matrix_debate(
-                mock_handler,
-                {"scenarios": [{"name": "Test"}]},
-            )
-
-            assert result.status_code == 400
-            data = json.loads(result.body)
-            assert "task" in data.get("error", "").lower()
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "task" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_create_matrix_debate_missing_scenarios(self, mock_handler):
         """Test 400 response when scenarios are missing."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        # Call internal method directly (task must be 10+ chars)
+        result = await handler._run_matrix_debate(
+            mock_handler,
+            {"task": "Test matrix debate task"},
+        )
 
-            # Call internal method directly (task must be 10+ chars)
-            result = await handler._run_matrix_debate(
-                mock_handler,
-                {"task": "Test matrix debate task"},
-            )
-
-            assert result.status_code == 400
-            data = json.loads(result.body)
-            assert "scenario" in data.get("error", "").lower()
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "scenario" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_create_matrix_debate_empty_scenarios(self, mock_handler):
         """Test 400 response when scenarios list is empty."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        # Task must be 10+ chars to pass task validation first
+        result = await handler._run_matrix_debate(
+            mock_handler,
+            {"task": "Test matrix debate task", "scenarios": []},
+        )
 
-            # Task must be 10+ chars to pass task validation first
-            result = await handler._run_matrix_debate(
-                mock_handler,
-                {"task": "Test matrix debate task", "scenarios": []},
-            )
-
-            assert result.status_code == 400
-            data = json.loads(result.body)
-            assert "scenario" in data.get("error", "").lower()
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "scenario" in data.get("error", "").lower()
 
 
 # ============================================================================
@@ -345,7 +312,7 @@ class TestMatrixDebatesUtilities:
             assert len(result) > 0
             assert "consensus" in result[0].lower()
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     def test_find_universal_conclusions_no_consensus(self):
         """Test finding universal conclusions when some don't reach consensus."""
@@ -364,7 +331,7 @@ class TestMatrixDebatesUtilities:
             # Not all scenarios reached consensus
             assert result == []
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     def test_find_universal_conclusions_empty(self):
         """Test finding universal conclusions with empty results."""
@@ -377,7 +344,7 @@ class TestMatrixDebatesUtilities:
 
             assert result == []
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     def test_find_conditional_conclusions(self, sample_results):
         """Test finding conditional conclusions."""
@@ -398,7 +365,7 @@ class TestMatrixDebatesUtilities:
                 assert "conclusion" in conclusion
                 assert "confidence" in conclusion
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     def test_find_conditional_conclusions_empty(self):
         """Test finding conditional conclusions with empty results."""
@@ -411,7 +378,7 @@ class TestMatrixDebatesUtilities:
 
             assert result == []
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     def test_build_comparison_matrix(self, sample_results):
         """Test building comparison matrix."""
@@ -434,7 +401,7 @@ class TestMatrixDebatesUtilities:
             assert "avg_rounds" in result
             assert result["avg_rounds"] == 2.0  # (2+3+1)/3 = 2.0
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     def test_build_comparison_matrix_empty(self):
         """Test building comparison matrix with empty results."""
@@ -450,7 +417,7 @@ class TestMatrixDebatesUtilities:
             assert result["avg_confidence"] == 0
             assert result["avg_rounds"] == 0
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
 
 # ============================================================================
@@ -484,7 +451,7 @@ class TestAgentLoading:
                 # The patched method was called
                 assert mock_load.called
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     @pytest.mark.asyncio
     async def test_load_agents_returns_empty_on_failure(self):
@@ -502,7 +469,7 @@ class TestAgentLoading:
 
                 assert agents == []
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
 
 # ============================================================================
@@ -536,7 +503,7 @@ class TestHandleGetRouting:
             data = json.loads(result.body)
             assert data["matrix_id"] == "abc-123"
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     @pytest.mark.asyncio
     async def test_get_scenarios_by_matrix_id(self, mock_handler, mock_storage):
@@ -561,7 +528,7 @@ class TestHandleGetRouting:
             assert "scenarios" in data
             assert len(data["scenarios"]) == 2
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     @pytest.mark.asyncio
     async def test_get_conclusions_by_matrix_id(self, mock_handler, mock_storage):
@@ -587,7 +554,7 @@ class TestHandleGetRouting:
             assert "conditional_conclusions" in data
             assert len(data["universal_conclusions"]) == 1
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
 
 # ============================================================================
@@ -641,7 +608,7 @@ class TestMatrixDebateFallback:
                     assert "matrix_id" in data
                     assert data["scenario_count"] == 3
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")
 
     @pytest.mark.asyncio
     async def test_fallback_no_agents(self, mock_handler, sample_scenarios):
@@ -666,4 +633,4 @@ class TestMatrixDebateFallback:
                 data = json.loads(result.body)
                 assert "agent" in data.get("error", "").lower()
         except ImportError:
-            pytest.skip("MatrixDebatesHandler not available")
+            pytest.skip("MatrixDebatesHandler not available (see #133)")

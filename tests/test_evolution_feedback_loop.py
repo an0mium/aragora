@@ -71,7 +71,7 @@ class TestPatternExtraction:
             assert patterns is not None
             assert "winning_patterns" in patterns or len(patterns) > 0
         except ImportError:
-            pytest.skip("Pattern extractor not available")
+            pytest.skip("Pattern extractor not available (see #136)")
 
     def test_identify_successful_strategies(self, mock_debate_outcome):
         """Test identifying successful debate strategies."""
@@ -82,7 +82,7 @@ class TestPatternExtraction:
 
             assert strategies is not None
         except ImportError:
-            pytest.skip("Pattern extractor not available")
+            pytest.skip("Pattern extractor not available (see #136)")
 
     def test_patterns_associated_with_winner(self, mock_debate_outcome):
         """Test patterns are correctly associated with winner."""
@@ -95,7 +95,7 @@ class TestPatternExtraction:
             # Patterns should reference the winning agent
             assert winner in str(patterns) or len(patterns) > 0
         except ImportError:
-            pytest.skip("Pattern extractor not available")
+            pytest.skip("Pattern extractor not available (see #136)")
 
 
 # ============================================================================
@@ -165,7 +165,7 @@ class TestPopulationManagement:
             assert manager is not None
             assert manager.max_population_size == 10
         except ImportError:
-            pytest.skip("PopulationManager not available")
+            pytest.skip("PopulationManager not available (see #136)")
 
     def test_selection_by_fitness(self, mock_population):
         """Test selecting agents by fitness."""
@@ -177,7 +177,7 @@ class TestPopulationManagement:
             assert len(selected) == 2
             # Higher rated agents should be more likely to be selected
         except ImportError:
-            pytest.skip("Selection function not available")
+            pytest.skip("Selection function not available (see #136)")
 
     @pytest.mark.skipif(
         not os.environ.get("RUN_FUTURE_API_TESTS"),
@@ -220,7 +220,7 @@ class TestPerformanceTracking:
             stats = tracker.get_agent_stats("claude")
             assert stats["wins"] >= 1
         except ImportError:
-            pytest.skip("EvolutionTracker not available")
+            pytest.skip("EvolutionTracker not available (see #136)")
 
     def test_generation_metrics(self):
         """Test tracking metrics across generations."""
@@ -252,7 +252,7 @@ class TestPerformanceTracking:
                 if os.path.exists(temp_db):
                     os.unlink(temp_db)
         except ImportError:
-            pytest.skip("EvolutionTracker not available")
+            pytest.skip("EvolutionTracker not available (see #136)")
 
     def test_performance_delta_calculation(self):
         """Test calculating performance change between generations."""
@@ -272,7 +272,7 @@ class TestPerformanceTracking:
             # Gen 1 had 50% win rate, Gen 2 had 100%
             assert delta["win_rate_delta"] > 0
         except ImportError:
-            pytest.skip("EvolutionTracker not available")
+            pytest.skip("EvolutionTracker not available (see #136)")
 
 
 # ============================================================================
@@ -358,7 +358,7 @@ class TestEvolutionHandlerIntegration:
             # Should have routes for evolution operations
             assert len(handler.ROUTES) > 0
         except ImportError:
-            pytest.skip("Evolution handler not available")
+            pytest.skip("Evolution handler not available (see #136)")
 
     def test_get_patterns_endpoint(self, tmp_path):
         """Test patterns endpoint returns data."""
@@ -410,7 +410,7 @@ class TestGenesisLedger:
                 ledger = GenesisLedger(db_path=Path(tmpdir) / "genesis.db")
                 assert ledger is not None
         except ImportError:
-            pytest.skip("GenesisLedger not available")
+            pytest.skip("GenesisLedger not available (see #136)")
 
     @pytest.mark.skipif(
         not os.environ.get("RUN_FUTURE_API_TESTS"),
@@ -466,4 +466,4 @@ class TestEvolutionErrorHandling:
             # Should handle gracefully
             assert manager is not None
         except ImportError:
-            pytest.skip("PopulationManager not available")
+            pytest.skip("PopulationManager not available (see #136)")

@@ -73,7 +73,7 @@ class TestScriptGeneration:
             assert script is not None
             assert len(script.segments) > 0
         except ImportError:
-            pytest.skip("Script generator not available")
+            pytest.skip("Script generator not available (see #134)")
 
     def test_script_includes_all_speakers(self, mock_debate):
         """Test script includes all debate participants."""
@@ -85,7 +85,7 @@ class TestScriptGeneration:
             speakers = set(seg.speaker for seg in script.segments)
             assert "claude" in speakers or "narrator" in speakers
         except ImportError:
-            pytest.skip("Script generator not available")
+            pytest.skip("Script generator not available (see #134)")
 
     def test_script_has_intro_and_outro(self, mock_debate):
         """Test script has introduction and conclusion."""
@@ -100,7 +100,7 @@ class TestScriptGeneration:
             # Should have some kind of intro/outro
             assert len(script.segments) >= 2
         except ImportError:
-            pytest.skip("Script generator not available")
+            pytest.skip("Script generator not available (see #134)")
 
 
 # ============================================================================
@@ -120,7 +120,7 @@ class TestAudioGeneration:
             engine = AudioEngine()
             assert engine is not None
         except ImportError:
-            pytest.skip("Audio engine not available")
+            pytest.skip("Audio engine not available (see #134)")
 
     @pytest.mark.asyncio
     async def test_generate_audio_for_segment(self):
@@ -141,7 +141,7 @@ class TestAudioGeneration:
 
                 assert result is not None
         except ImportError:
-            pytest.skip("Audio engine not available")
+            pytest.skip("Audio engine not available (see #134)")
 
     def test_voice_mapping(self):
         """Test agent to voice mapping."""
@@ -156,7 +156,7 @@ class TestAudioGeneration:
             assert voice1 is not None
             assert voice2 is not None
         except ImportError:
-            pytest.skip("Audio engine not available")
+            pytest.skip("Audio engine not available (see #134)")
 
 
 # ============================================================================
@@ -175,7 +175,7 @@ class TestVideoGeneration:
             generator = VideoGenerator()
             assert generator is not None
         except ImportError:
-            pytest.skip("Video generator not available")
+            pytest.skip("Video generator not available (see #134)")
 
     def test_check_ffmpeg_available(self):
         """Test FFmpeg availability check."""
@@ -186,7 +186,7 @@ class TestVideoGeneration:
             result = is_ffmpeg_available()
             assert isinstance(result, bool)
         except ImportError:
-            pytest.skip("Video generator not available")
+            pytest.skip("Video generator not available (see #134)")
 
 
 # ============================================================================
@@ -212,7 +212,7 @@ class TestRSSGeneration:
             assert episode["audio_url"] == "https://example.com/audio.mp3"
             assert episode["duration"] == 120
         except ImportError:
-            pytest.skip("RSS generator not available")
+            pytest.skip("RSS generator not available (see #134)")
 
     def test_generate_rss_feed(self):
         """Test generating full RSS feed XML."""
@@ -238,7 +238,7 @@ class TestRSSGeneration:
             assert "<rss" in feed_xml
             assert "Episode 1" in feed_xml
         except ImportError:
-            pytest.skip("RSS generator not available")
+            pytest.skip("RSS generator not available (see #134)")
 
 
 # ============================================================================
@@ -281,7 +281,7 @@ class TestBroadcastPipeline:
                 assert result is not None
                 assert result.success or result.error_message is not None
         except ImportError:
-            pytest.skip("Broadcast pipeline not available")
+            pytest.skip("Broadcast pipeline not available (see #134)")
 
     @pytest.mark.asyncio
     async def test_pipeline_with_video(self, mock_debate, temp_output_dir):
@@ -309,7 +309,7 @@ class TestBroadcastPipeline:
 
                 assert result.get("video_path") is not None
         except ImportError:
-            pytest.skip("Broadcast pipeline not available")
+            pytest.skip("Broadcast pipeline not available (see #134)")
 
     @pytest.mark.asyncio
     async def test_pipeline_step_tracking(self, mock_debate, temp_output_dir):
@@ -334,7 +334,7 @@ class TestBroadcastPipeline:
                 assert result is not None
                 assert isinstance(result.steps_completed, list)
         except ImportError:
-            pytest.skip("Broadcast pipeline not available")
+            pytest.skip("Broadcast pipeline not available (see #134)")
 
 
 # ============================================================================
@@ -355,7 +355,7 @@ class TestBroadcastHandlerIntegration:
             # Should have routes for broadcast operations
             assert len(handler.ROUTES) > 0
         except ImportError:
-            pytest.skip("Broadcast handler not available")
+            pytest.skip("Broadcast handler not available (see #134)")
 
     @pytest.mark.asyncio
     async def test_get_pipeline(self, mock_storage):
@@ -370,7 +370,7 @@ class TestBroadcastHandlerIntegration:
             pipeline = handler._get_pipeline()
             assert pipeline is None  # Expected without nomic_dir configured
         except ImportError:
-            pytest.skip("Broadcast handler not available")
+            pytest.skip("Broadcast handler not available (see #134)")
 
 
 # ============================================================================
@@ -392,7 +392,7 @@ class TestBroadcastStorage:
 
             assert "debate-123" in str(path)
         except ImportError:
-            pytest.skip("Broadcast storage not available")
+            pytest.skip("Broadcast storage not available (see #134)")
 
     def test_storage_saves_audio(self, temp_output_dir):
         """Test saving audio file to storage."""
@@ -408,7 +408,7 @@ class TestBroadcastStorage:
             assert saved_path.exists()
             assert saved_path.read_bytes() == audio_data
         except ImportError:
-            pytest.skip("Broadcast storage not available")
+            pytest.skip("Broadcast storage not available (see #134)")
 
 
 # ============================================================================
@@ -442,7 +442,7 @@ class TestBroadcastErrorHandling:
 
                 assert "TTS" in str(exc_info.value) or "unavailable" in str(exc_info.value)
         except ImportError:
-            pytest.skip("Broadcast pipeline not available")
+            pytest.skip("Broadcast pipeline not available (see #134)")
 
     def test_rss_handles_missing_fields(self):
         """Test RSS generator handles debates with missing fields."""
@@ -465,4 +465,4 @@ class TestBroadcastErrorHandling:
             assert episode is not None
             assert episode["title"] is not None
         except ImportError:
-            pytest.skip("RSS generator not available")
+            pytest.skip("RSS generator not available (see #134)")
