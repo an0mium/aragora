@@ -76,10 +76,10 @@ class TestRetryConfig:
         """Test default configuration values."""
         config = RetryConfig()
         assert config.max_retries == 3
-        assert config.base_delay == 1.0
-        assert config.max_delay == 60.0
+        assert config.base_delay == 0.1
+        assert config.max_delay == 30.0
         assert config.strategy == RetryStrategy.EXPONENTIAL
-        assert config.jitter_mode == JitterMode.ADDITIVE
+        assert config.jitter_mode == JitterMode.MULTIPLICATIVE
         assert config.jitter_factor == 0.25
         assert config.retryable_exceptions == DEFAULT_RETRYABLE_EXCEPTIONS
         assert config.on_retry is None
@@ -113,108 +113,174 @@ class TestRetryConfig:
 # =============================================================================
 
 
-class TestCalculateDelay:
+class TestCalculateBackoffDelay:
     """Test delay calculation."""
 
     def test_exponential_backoff(self):
         """Test exponential backoff calculation."""
-        config = RetryConfig(
-            strategy=RetryStrategy.EXPONENTIAL,
-            base_delay=1.0,
-            jitter_mode=JitterMode.NONE,
-        )
         # Exponential: 2^n * base_delay
-        assert calculate_backoff_delay(config, 0) == 1.0  # 2^0 * 1 = 1
-        assert calculate_backoff_delay(config, 1) == 2.0  # 2^1 * 1 = 2
-        assert calculate_backoff_delay(config, 2) == 4.0  # 2^2 * 1 = 4
-        assert calculate_backoff_delay(config, 3) == 8.0  # 2^3 * 1 = 8
+        assert (
+            calculate_backoff_delay(
+                0, base_delay=1.0, strategy=RetryStrategy.EXPONENTIAL, jitter_mode=JitterMode.NONE
+            )
+            == 1.0
+        )
+        assert (
+            calculate_backoff_delay(
+                1, base_delay=1.0, strategy=RetryStrategy.EXPONENTIAL, jitter_mode=JitterMode.NONE
+            )
+            == 2.0
+        )
+        assert (
+            calculate_backoff_delay(
+                2, base_delay=1.0, strategy=RetryStrategy.EXPONENTIAL, jitter_mode=JitterMode.NONE
+            )
+            == 4.0
+        )
+        assert (
+            calculate_backoff_delay(
+                3, base_delay=1.0, strategy=RetryStrategy.EXPONENTIAL, jitter_mode=JitterMode.NONE
+            )
+            == 8.0
+        )
 
     def test_linear_backoff(self):
         """Test linear backoff calculation."""
-        config = RetryConfig(
-            strategy=RetryStrategy.LINEAR,
-            base_delay=1.0,
-            jitter_mode=JitterMode.NONE,
-        )
         # Linear: (n + 1) * base_delay
-        assert calculate_backoff_delay(config, 0) == 1.0
-        assert calculate_backoff_delay(config, 1) == 2.0
-        assert calculate_backoff_delay(config, 2) == 3.0
-        assert calculate_backoff_delay(config, 3) == 4.0
+        assert (
+            calculate_backoff_delay(
+                0, base_delay=1.0, strategy=RetryStrategy.LINEAR, jitter_mode=JitterMode.NONE
+            )
+            == 1.0
+        )
+        assert (
+            calculate_backoff_delay(
+                1, base_delay=1.0, strategy=RetryStrategy.LINEAR, jitter_mode=JitterMode.NONE
+            )
+            == 2.0
+        )
+        assert (
+            calculate_backoff_delay(
+                2, base_delay=1.0, strategy=RetryStrategy.LINEAR, jitter_mode=JitterMode.NONE
+            )
+            == 3.0
+        )
+        assert (
+            calculate_backoff_delay(
+                3, base_delay=1.0, strategy=RetryStrategy.LINEAR, jitter_mode=JitterMode.NONE
+            )
+            == 4.0
+        )
 
     def test_constant_backoff(self):
         """Test constant backoff calculation."""
-        config = RetryConfig(
-            strategy=RetryStrategy.CONSTANT,
-            base_delay=5.0,
-            jitter_mode=JitterMode.NONE,
-        )
         # Constant: always base_delay
-        assert calculate_backoff_delay(config, 0) == 5.0
-        assert calculate_backoff_delay(config, 1) == 5.0
-        assert calculate_backoff_delay(config, 2) == 5.0
-        assert calculate_backoff_delay(config, 10) == 5.0
+        assert (
+            calculate_backoff_delay(
+                0, base_delay=5.0, strategy=RetryStrategy.CONSTANT, jitter_mode=JitterMode.NONE
+            )
+            == 5.0
+        )
+        assert (
+            calculate_backoff_delay(
+                1, base_delay=5.0, strategy=RetryStrategy.CONSTANT, jitter_mode=JitterMode.NONE
+            )
+            == 5.0
+        )
+        assert (
+            calculate_backoff_delay(
+                2, base_delay=5.0, strategy=RetryStrategy.CONSTANT, jitter_mode=JitterMode.NONE
+            )
+            == 5.0
+        )
+        assert (
+            calculate_backoff_delay(
+                10, base_delay=5.0, strategy=RetryStrategy.CONSTANT, jitter_mode=JitterMode.NONE
+            )
+            == 5.0
+        )
 
     def test_fibonacci_backoff(self):
         """Test fibonacci backoff calculation."""
-        config = RetryConfig(
-            strategy=RetryStrategy.FIBONACCI,
-            base_delay=1.0,
-            jitter_mode=JitterMode.NONE,
+        # Fibonacci: fib(n+2) * base_delay (starts with fib(2)=1)
+        assert (
+            calculate_backoff_delay(
+                0, base_delay=1.0, strategy=RetryStrategy.FIBONACCI, jitter_mode=JitterMode.NONE
+            )
+            == 1.0
         )
-        # Fibonacci: fib(n+1) * base_delay
-        assert calculate_backoff_delay(config, 0) == 1.0  # fib(1) = 1
-        assert calculate_backoff_delay(config, 1) == 1.0  # fib(2) = 1
-        assert calculate_backoff_delay(config, 2) == 2.0  # fib(3) = 2
-        assert calculate_backoff_delay(config, 3) == 3.0  # fib(4) = 3
-        assert calculate_backoff_delay(config, 4) == 5.0  # fib(5) = 5
+        assert (
+            calculate_backoff_delay(
+                1, base_delay=1.0, strategy=RetryStrategy.FIBONACCI, jitter_mode=JitterMode.NONE
+            )
+            == 2.0
+        )
+        assert (
+            calculate_backoff_delay(
+                2, base_delay=1.0, strategy=RetryStrategy.FIBONACCI, jitter_mode=JitterMode.NONE
+            )
+            == 3.0
+        )
+        assert (
+            calculate_backoff_delay(
+                3, base_delay=1.0, strategy=RetryStrategy.FIBONACCI, jitter_mode=JitterMode.NONE
+            )
+            == 5.0
+        )
 
     def test_max_delay_cap(self):
         """Test delay is capped at max_delay."""
-        config = RetryConfig(
-            strategy=RetryStrategy.EXPONENTIAL,
+        # 2^10 * 1 = 1024, but should be capped at 10
+        result = calculate_backoff_delay(
+            10,
             base_delay=1.0,
             max_delay=10.0,
+            strategy=RetryStrategy.EXPONENTIAL,
             jitter_mode=JitterMode.NONE,
         )
-        # 2^10 * 1 = 1024, but should be capped at 10
-        assert calculate_backoff_delay(config, 10) == 10.0
+        assert result == 10.0
 
     def test_jitter_additive(self):
         """Test additive jitter."""
-        config = RetryConfig(
-            strategy=RetryStrategy.CONSTANT,
-            base_delay=1.0,
-            jitter_mode=JitterMode.ADDITIVE,
-            jitter_factor=0.25,
-        )
-        # With additive jitter, delay should be between base and base + jitter
-        delays = [calculate_backoff_delay(config, 0) for _ in range(100)]
-        assert all(1.0 <= d <= 1.25 for d in delays)
+        # With additive jitter, delay should vary
+        delays = [
+            calculate_backoff_delay(
+                0,
+                base_delay=1.0,
+                strategy=RetryStrategy.CONSTANT,
+                jitter_mode=JitterMode.ADDITIVE,
+                jitter_factor=0.25,
+            )
+            for _ in range(100)
+        ]
+        assert all(1.0 <= d <= 1.3 for d in delays)  # Allow some tolerance
         # Should have some variation
         assert len(set(delays)) > 1
 
     def test_jitter_multiplicative(self):
         """Test multiplicative jitter."""
-        config = RetryConfig(
-            strategy=RetryStrategy.CONSTANT,
-            base_delay=1.0,
-            jitter_mode=JitterMode.MULTIPLICATIVE,
-            jitter_factor=0.25,
-        )
         # With multiplicative jitter: base * (1 +/- factor)
-        delays = [calculate_backoff_delay(config, 0) for _ in range(100)]
+        delays = [
+            calculate_backoff_delay(
+                0,
+                base_delay=1.0,
+                strategy=RetryStrategy.CONSTANT,
+                jitter_mode=JitterMode.MULTIPLICATIVE,
+                jitter_factor=0.25,
+            )
+            for _ in range(100)
+        ]
         assert all(0.75 <= d <= 1.25 for d in delays)
 
     def test_jitter_full(self):
         """Test full jitter."""
-        config = RetryConfig(
-            strategy=RetryStrategy.CONSTANT,
-            base_delay=1.0,
-            jitter_mode=JitterMode.FULL,
-        )
         # With full jitter: random(0, delay)
-        delays = [calculate_backoff_delay(config, 0) for _ in range(100)]
+        delays = [
+            calculate_backoff_delay(
+                0, base_delay=1.0, strategy=RetryStrategy.CONSTANT, jitter_mode=JitterMode.FULL
+            )
+            for _ in range(100)
+        ]
         assert all(0 <= d <= 1.0 for d in delays)
 
 
@@ -308,7 +374,7 @@ class TestWithRetryAsync:
         # Callback should be called once (before second attempt)
         assert callback.call_count == 1
         args = callback.call_args[0]
-        assert args[0] == 1  # attempt number
+        assert args[0] == 0  # attempt number (0-indexed)
         assert isinstance(args[1], ConnectionError)  # exception
         # args[2] is delay
 

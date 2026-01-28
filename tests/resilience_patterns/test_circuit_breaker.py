@@ -46,7 +46,8 @@ class TestCircuitState:
     def test_state_string_enum(self):
         """Test CircuitState is a string enum."""
         assert isinstance(CircuitState.CLOSED, str)
-        assert str(CircuitState.CLOSED) == "closed"
+        # The value attribute contains the actual string
+        assert CircuitState.CLOSED.value == "closed"
 
 
 # =============================================================================
@@ -163,9 +164,9 @@ class TestBaseCircuitBreakerInitialization:
         cb = BaseCircuitBreaker("test_service")
         assert cb.name == "test_service"
         assert cb.state == CircuitState.CLOSED
-        assert cb.is_closed() is True
-        assert cb.is_open() is False
-        assert cb.is_half_open() is False
+        assert cb.is_closed is True
+        assert cb.is_open is False
+        assert cb.is_half_open is False
 
     def test_init_with_custom_config(self):
         """Test initialization with custom config."""
@@ -183,7 +184,7 @@ class TestCircuitBreakerStateTransitions:
         cb.record_success()
         cb.record_success()
         cb.record_success()
-        assert cb.is_closed() is True
+        assert cb.is_closed is True
 
     def test_opens_on_failure_threshold(self):
         """Test circuit opens when failure threshold is reached."""
@@ -192,11 +193,11 @@ class TestCircuitBreakerStateTransitions:
 
         # Record failures up to threshold
         cb.record_failure(Exception("fail 1"))
-        assert cb.is_closed() is True
+        assert cb.is_closed is True
         cb.record_failure(Exception("fail 2"))
-        assert cb.is_closed() is True
+        assert cb.is_closed is True
         cb.record_failure(Exception("fail 3"))
-        assert cb.is_open() is True
+        assert cb.is_open is True
 
     def test_transitions_to_half_open_after_cooldown(self):
         """Test circuit transitions to half-open after cooldown."""
@@ -205,14 +206,14 @@ class TestCircuitBreakerStateTransitions:
 
         # Open the circuit
         cb.record_failure(Exception("fail"))
-        assert cb.is_open() is True
+        assert cb.is_open is True
 
         # Wait for cooldown
         time.sleep(0.15)
 
         # Check can_execute (should transition to half-open)
         assert cb.can_execute() is True
-        assert cb.is_half_open() is True
+        assert cb.is_half_open is True
 
     def test_closes_from_half_open_on_success(self):
         """Test circuit closes from half-open after successes."""
@@ -227,13 +228,13 @@ class TestCircuitBreakerStateTransitions:
 
         # Transition to half-open
         cb.can_execute()
-        assert cb.is_half_open() is True
+        assert cb.is_half_open is True
 
         # Record successes to close
         cb.record_success()
-        assert cb.is_half_open() is True  # Still half-open
+        assert cb.is_half_open is True  # Still half-open
         cb.record_success()
-        assert cb.is_closed() is True  # Now closed
+        assert cb.is_closed is True  # Now closed
 
     def test_reopens_from_half_open_on_failure(self):
         """Test circuit reopens from half-open on failure."""
@@ -244,11 +245,11 @@ class TestCircuitBreakerStateTransitions:
         cb.record_failure(Exception("fail"))
         time.sleep(0.15)
         cb.can_execute()
-        assert cb.is_half_open() is True
+        assert cb.is_half_open is True
 
         # Failure in half-open should reopen
         cb.record_failure(Exception("fail again"))
-        assert cb.is_open() is True
+        assert cb.is_open is True
 
 
 class TestCircuitBreakerCanExecute:
@@ -320,11 +321,11 @@ class TestCircuitBreakerReset:
         # Accumulate state
         cb.record_failure(Exception("fail"))
         cb.record_failure(Exception("fail"))
-        assert cb.is_open() is True
+        assert cb.is_open is True
 
         # Reset
         cb.reset()
-        assert cb.is_closed() is True
+        assert cb.is_closed is True
         stats = cb.get_stats()
         assert stats.failure_count == 0
         assert stats.consecutive_failures == 0
@@ -341,12 +342,12 @@ class TestCircuitBreakerExcludedExceptions:
         # ValueError should be excluded
         cb.record_failure(ValueError("excluded"))
         cb.record_failure(ValueError("excluded"))
-        assert cb.is_closed() is True
+        assert cb.is_closed is True
 
         # Non-excluded exception should count
         cb.record_failure(RuntimeError("not excluded"))
         cb.record_failure(RuntimeError("not excluded"))
-        assert cb.is_open() is True
+        assert cb.is_open is True
 
 
 class TestCircuitBreakerCallback:
