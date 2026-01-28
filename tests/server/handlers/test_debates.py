@@ -540,7 +540,7 @@ class TestDecisionRouterIntegration:
                         mock_http_handler.stream_emitter = MagicMock()
                         mock_http_handler.headers = {}
 
-                        # Call _create_debate (sync method)
+                        # Call _create_debate
                         result = handler._create_debate(mock_http_handler)
 
             # Verify direct controller was used

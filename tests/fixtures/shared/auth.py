@@ -121,6 +121,8 @@ DEFAULT_TEST_PERMISSIONS: Set[str] = {
     "audit:read",
     "backups:read",
     "backups:write",
+    "tournaments:read",
+    "tournaments:create",
 }
 
 

@@ -24,6 +24,7 @@ from aragora.server.handlers.tournaments import (
     _tournament_limiter,
 )
 from aragora.server.handlers.utils.rate_limit import RateLimiter
+from tests.fixtures.shared.auth import setup_full_auth_bypass
 
 
 # =============================================================================
@@ -108,6 +109,12 @@ def tournament_ctx(tmp_path):
 def handler_with_ctx(tournament_ctx):
     """Create TournamentHandler with context."""
     return TournamentHandler(tournament_ctx)
+
+
+@pytest.fixture(autouse=True)
+def bypass_rbac(monkeypatch):
+    """Bypass RBAC checks for all tests in this module."""
+    setup_full_auth_bypass(monkeypatch)
 
 
 # =============================================================================
@@ -249,7 +256,7 @@ class TestTournamentResponseFormat:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("claude", 5, 2, 1),
@@ -276,7 +283,7 @@ class TestTournamentResponseFormat:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("claude", 5, 2, 1),
@@ -309,7 +316,7 @@ class TestTournamentResponseFormat:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("claude", 5, 2, 1),
@@ -338,7 +345,7 @@ class TestTournamentResponseFormat:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("claude", 5, 2, 1),
@@ -402,7 +409,7 @@ class TestTournamentEdgeCases:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = []
             MockManager.return_value = mock_manager
@@ -424,7 +431,7 @@ class TestTournamentEdgeCases:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = []
             MockManager.return_value = mock_manager
@@ -451,7 +458,7 @@ class TestTournamentEdgeCases:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("agent", 1, 0, 0)
@@ -474,7 +481,7 @@ class TestTournamentEdgeCases:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             # Create 500 participants
             mock_manager.get_current_standings.return_value = [
@@ -580,7 +587,7 @@ class TestTournamentDataParsing:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             # 2 agents: A has 3 wins/2 losses/1 draw, B has 2 wins/3 losses/1 draw
             # Total matches = (3+2+1 + 2+3+1) / 2 = 6
@@ -607,7 +614,7 @@ class TestTournamentDataParsing:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             # gpt4 is first (top agent)
             mock_manager.get_current_standings.return_value = [
@@ -632,7 +639,7 @@ class TestTournamentDataParsing:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             mock_manager.get_current_standings.return_value = [
                 MockStanding.create("agent", 5, 3, 2),  # 5/10 = 0.5 win rate
@@ -655,7 +662,7 @@ class TestTournamentDataParsing:
 
         _tournament_limiter.clear()
 
-        with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+        with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
             mock_manager = Mock()
             # 5 wins * 3 + 2 draws = 17 points
             mock_manager.get_current_standings.return_value = [
@@ -791,7 +798,7 @@ class TestTournamentConcurrency:
         def make_request(ip_suffix):
             try:
                 mock_h = mock_handler_factory(f"10.1.0.{ip_suffix}")
-                with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+                with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
                     mock_manager = Mock()
                     mock_manager.get_current_standings.return_value = [
                         MockStanding.create("agent", 1, 0, 0)
@@ -830,7 +837,7 @@ class TestTournamentConcurrency:
         def make_request(ip_suffix):
             try:
                 mock_h = mock_handler_factory(f"10.2.0.{ip_suffix}")
-                with patch("aragora.server.handlers.tournaments.TournamentManager") as MockManager:
+                with patch("aragora.server.handlers.tournaments._TournamentManager") as MockManager:
                     mock_manager = Mock()
                     mock_manager.get_current_standings.return_value = [
                         MockStanding.create("agent", ip_suffix, 0, 0)
