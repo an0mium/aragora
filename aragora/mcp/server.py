@@ -302,22 +302,16 @@ def create_rate_limiter(
         return RateLimiter(limits=limits)
 
 
-# Check if mcp package is available
-try:
-    from mcp.server import Server
-    from mcp.server.stdio import stdio_server
-    from mcp.types import (
-        Resource,
-        ResourceTemplate,
-        TextContent,
-        Tool,
-    )
+from mcp.server import Server
+from mcp.server.stdio import stdio_server
+from mcp.types import (
+    Resource,
+    ResourceTemplate,
+    TextContent,
+    Tool,
+)
 
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-    Server = None  # type: ignore[assignment,misc]
-    stdio_server = None  # type: ignore[assignment]
+MCP_AVAILABLE = True  # Kept for backwards compatibility
 
 
 class AragoraMCPServer:

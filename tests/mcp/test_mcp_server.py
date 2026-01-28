@@ -150,7 +150,6 @@ class TestRateLimiter:
 class TestAragoraMCPServerInit:
     """Tests for AragoraMCPServer initialization."""
 
-    @pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
     def test_server_init_success(self):
         """Test successful server initialization."""
         from aragora.mcp.server import AragoraMCPServer
@@ -349,7 +348,6 @@ class TestMaxInputSizes:
         assert MAX_QUERY_LENGTH > 0
 
 
-@pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
 class TestMCPServerTools:
     """Tests for MCP server tool handling."""
 

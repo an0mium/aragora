@@ -16,38 +16,19 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Any, Dict
 
-# Check if MCP is available
-try:
-    from mcp.types import (
-        Tool,
-        TextContent,
-        Resource,
-        ResourceTemplate,
-        ListToolsRequest,
-        CallToolRequest,
-        CallToolRequestParams,
-        ListResourcesRequest,
-        ListResourceTemplatesRequest,
-        ReadResourceRequest,
-        ReadResourceRequestParams,
-    )
-
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-    Tool = None  # type: ignore[assignment,misc]
-    TextContent = None  # type: ignore[assignment,misc]
-    Resource = None  # type: ignore[assignment,misc]
-    ResourceTemplate = None  # type: ignore[assignment,misc]
-    ListToolsRequest = None  # type: ignore[assignment,misc]
-    CallToolRequest = None  # type: ignore[assignment,misc]
-    CallToolRequestParams = None  # type: ignore[assignment,misc]
-    ListResourcesRequest = None  # type: ignore[assignment,misc]
-    ListResourceTemplatesRequest = None  # type: ignore[assignment,misc]
-    ReadResourceRequest = None  # type: ignore[assignment,misc]
-    ReadResourceRequestParams = None  # type: ignore[assignment,misc]
-
-pytestmark = pytest.mark.skipif(not MCP_AVAILABLE, reason="MCP package not installed")
+from mcp.types import (
+    Tool,
+    TextContent,
+    Resource,
+    ResourceTemplate,
+    ListToolsRequest,
+    CallToolRequest,
+    CallToolRequestParams,
+    ListResourcesRequest,
+    ListResourceTemplatesRequest,
+    ReadResourceRequest,
+    ReadResourceRequestParams,
+)
 
 # Import orchestrator module to make it available for patching
 # This is required because aragora.debate uses lazy imports via __getattr__
