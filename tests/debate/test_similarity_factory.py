@@ -126,6 +126,7 @@ class TestSimilarityFactory:
         backend = SimilarityFactory.create("jaccard")
         assert isinstance(backend, JaccardBackend)
 
+    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_create_tfidf_backend(self):
         """Test creating tfidf backend."""
         backend = SimilarityFactory.create("tfidf")
@@ -226,6 +227,7 @@ class TestBackendFunctionality:
         sim = backend.compute_similarity("", "")
         assert sim == 0.0
 
+    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_tfidf_compute_similarity(self):
         """Test tfidf backend computes similarity."""
         backend = SimilarityFactory.create("tfidf")
@@ -237,6 +239,7 @@ class TestBackendFunctionality:
         # Should have some similarity due to shared words
         assert sim > 0.1
 
+    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_tfidf_identical_texts(self):
         """Test tfidf returns 1.0 for identical texts."""
         backend = SimilarityFactory.create("tfidf")
