@@ -22,6 +22,7 @@ from aragora.server.handlers.base import (
     success_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
+from aragora.resilience_patterns import with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ def _get_bridge():
     return _bridge
 
 
+@with_timeout(15.0)
 async def handle_knowledge_search(
     query: str,
     workspace_id: str = "default",
@@ -114,6 +116,7 @@ async def handle_knowledge_search(
         }
 
 
+@with_timeout(15.0)
 async def handle_knowledge_inject(
     messages: List[Dict[str, Any]],
     workspace_id: str = "default",
@@ -158,6 +161,7 @@ async def handle_knowledge_inject(
         }
 
 
+@with_timeout(20.0)
 async def handle_store_chat_knowledge(
     messages: List[Dict[str, Any]],
     workspace_id: str = "default",
