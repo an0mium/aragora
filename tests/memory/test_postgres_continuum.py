@@ -11,7 +11,14 @@ from contextlib import asynccontextmanager
 import json
 
 
-import asyncpg
+# Check if asyncpg is available
+try:
+    import asyncpg
+
+    ASYNCPG_AVAILABLE = True
+except ImportError:
+    asyncpg = None  # type: ignore
+    ASYNCPG_AVAILABLE = False
 
 
 # Tests that don't require asyncpg
