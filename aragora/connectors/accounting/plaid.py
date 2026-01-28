@@ -29,6 +29,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+from aragora.connectors.model_base import ConnectorDataclass
+
 
 class PlaidEnvironment(str, Enum):
     """Plaid environment."""
@@ -63,8 +65,10 @@ class AccountType(str, Enum):
 
 
 @dataclass
-class PlaidCredentials:
+class PlaidCredentials(ConnectorDataclass):
     """Credentials for a linked Plaid account."""
+
+    _include_none = True
 
     access_token: str
     item_id: str
@@ -75,22 +79,17 @@ class PlaidCredentials:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_sync: Optional[datetime] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "access_token": self.access_token[:20] + "...",  # Mask token
-            "item_id": self.item_id,
-            "institution_id": self.institution_id,
-            "institution_name": self.institution_name,
-            "user_id": self.user_id,
-            "tenant_id": self.tenant_id,
-            "created_at": self.created_at.isoformat(),
-            "last_sync": self.last_sync.isoformat() if self.last_sync else None,
-        }
+    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result["access_token"] = self.access_token[:20] + "..."  # Mask token
+        return result
 
 
 @dataclass
-class BankAccount:
+class BankAccount(ConnectorDataclass):
     """A linked bank account."""
+
+    _include_none = True
 
     account_id: str
     name: str
@@ -104,25 +103,16 @@ class BankAccount:
     currency: str = "USD"
     institution_name: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "account_id": self.account_id,
-            "name": self.name,
-            "official_name": self.official_name,
-            "account_type": self.account_type.value,
-            "subtype": self.subtype,
-            "mask": self.mask,
-            "current_balance": float(self.current_balance),
-            "available_balance": float(self.available_balance) if self.available_balance else None,
-            "limit": float(self.limit) if self.limit else None,
-            "currency": self.currency,
-            "institution_name": self.institution_name,
-        }
+    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class BankTransaction:
+class BankTransaction(ConnectorDataclass):
     """A bank transaction from Plaid."""
+
+    _include_none = True
+    _exclude_fields = {"category_id", "anomaly_score", "location"}
 
     transaction_id: str
     account_id: str
@@ -152,25 +142,8 @@ class BankTransaction:
     location: Optional[Dict[str, Any]] = None
     iso_currency_code: str = "USD"
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "transaction_id": self.transaction_id,
-            "account_id": self.account_id,
-            "amount": float(self.amount),
-            "date": self.date.isoformat(),
-            "name": self.name,
-            "merchant_name": self.merchant_name,
-            "pending": self.pending,
-            "category": self.category,
-            "accounting_category": self.accounting_category.value,
-            "qbo_account_id": self.qbo_account_id,
-            "confidence": self.confidence,
-            "categorization_source": self.categorization_source,
-            "is_anomaly": self.is_anomaly,
-            "anomaly_reason": self.anomaly_reason,
-            "payment_channel": self.payment_channel,
-            "iso_currency_code": self.iso_currency_code,
-        }
+    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
     @property
     def is_inflow(self) -> bool:

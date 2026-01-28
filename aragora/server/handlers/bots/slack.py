@@ -854,6 +854,191 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
 
         return None
 
+    def _verify_signature(self, handler: Any) -> bool:
+        """Verify Slack request signature from handler.
+
+        This is a convenience wrapper around verify_slack_signature for testing.
+        """
+        # Get signing secret from environment (tests may reload module)
+        signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+        if not signing_secret:
+            return True  # Skip verification if not configured
+
+        try:
+            timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")
+            signature = handler.headers.get("X-Slack-Signature", "")
+
+            # Try to get body from different sources
+            if hasattr(handler, "_body"):
+                body = handler._body
+            elif hasattr(handler, "rfile"):
+                content_length = int(handler.headers.get("Content-Length", 0))
+                body = handler.rfile.read(content_length)
+            else:
+                body = b""
+
+            return verify_slack_signature(body, timestamp, signature, signing_secret)
+        except Exception as e:
+            logger.warning(f"Signature verification error: {e}")
+            return False
+
+    def _get_status(self) -> HandlerResult:
+        """Get Slack integration status.
+
+        Returns status information about the Slack integration.
+        """
+        integration = get_slack_integration()
+        return json_response(
+            {
+                "enabled": self._is_bot_enabled(),
+                "configured": integration is not None,
+                "active_debates": len(_active_debates),
+                "features": {
+                    "slash_commands": True,
+                    "events_api": True,
+                    "interactive_components": True,
+                    "block_kit": True,
+                },
+            }
+        )
+
+    def _command_help(self) -> HandlerResult:
+        """Return help text for Slack commands.
+
+        Returns an ephemeral message with available commands and examples.
+        """
+        help_text = """*Aragora Slack Commands*
+
+*Available Commands:*
+• `/aragora debate <topic>` - Start a debate on a topic
+• `/aragora status` - Show system status and active debates
+• `/aragora help` - Show this help message
+• `/aragora agents` - List available agents with ELO ratings
+• `/aragora vote <debate_id> <agent>` - Vote for an agent in a debate
+
+*Examples:*
+• `/aragora debate Should AI be regulated?`
+• `/aragora debate "What's the best programming language?"`
+• `/aragora status`
+
+Need more help? Visit https://aragora.ai/docs/slack"""
+
+        return json_response(
+            {
+                "response_type": "ephemeral",
+                "text": help_text,
+            }
+        )
+
+    def _command_status(self) -> HandlerResult:
+        """Return system status for Slack.
+
+        Returns status information formatted for Slack.
+        """
+        error_msg = None
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            elo_store = get_elo_store()
+            ratings = elo_store.get_all_ratings()
+            agent_count = len(ratings)
+        except Exception as e:
+            agent_count = 0
+            error_msg = str(e)
+
+        status_text = f"""*System Status: Online*
+
+• Active debates: {len(_active_debates)}
+• Registered agents: {agent_count}
+• Integration: {"Configured" if self._is_bot_enabled() else "Not configured"}"""
+
+        if error_msg:
+            status_text += f"\n• Error: {error_msg}"
+
+        return json_response(
+            {
+                "response_type": "ephemeral",
+                "text": status_text,
+            }
+        )
+
+    def _command_agents(self) -> HandlerResult:
+        """Return list of available agents with ELO ratings.
+
+        Returns an ephemeral message listing agents sorted by ELO.
+        """
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            elo_store = get_elo_store()
+            ratings = elo_store.get_all_ratings()
+
+            if not ratings:
+                return json_response(
+                    {
+                        "response_type": "ephemeral",
+                        "text": "No agents registered yet.",
+                    }
+                )
+
+            # Sort by ELO rating descending
+            sorted_ratings = sorted(ratings, key=lambda x: x.get("rating", 1000), reverse=True)
+
+            agent_lines = [
+                f"• {r.get('agent_id', 'Unknown')}: {r.get('rating', 1000):.0f} ELO"
+                for r in sorted_ratings[:10]  # Top 10
+            ]
+
+            return json_response(
+                {
+                    "response_type": "ephemeral",
+                    "text": "*Available Agents (by ELO):*\n" + "\n".join(agent_lines),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error getting agents: {e}")
+            return json_response(
+                {
+                    "response_type": "ephemeral",
+                    "text": f"Error fetching agents: {str(e)}",
+                }
+            )
+
+    def _slack_response(self, text: str, response_type: str = "in_channel") -> HandlerResult:
+        """Create a Slack response with text.
+
+        Args:
+            text: Response text
+            response_type: "ephemeral" (only visible to user) or "in_channel" (visible to all)
+        """
+        return json_response(
+            {
+                "response_type": response_type,
+                "text": text,
+            }
+        )
+
+    def _slack_blocks_response(
+        self,
+        blocks: list[dict[str, Any]],
+        text: str = "",
+        response_type: str = "in_channel",
+    ) -> HandlerResult:
+        """Create a Slack response with Block Kit blocks.
+
+        Args:
+            blocks: Block Kit blocks
+            text: Fallback text for notifications
+            response_type: "ephemeral" (only visible to user) or "in_channel" (visible to all)
+        """
+        response: dict[str, Any] = {
+            "response_type": response_type,
+            "blocks": blocks,
+        }
+        if text:
+            response["text"] = text
+        return json_response(response)
+
 
 def register_slack_routes(router: Any) -> None:
     """Register Slack routes with the server router.

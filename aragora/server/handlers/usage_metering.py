@@ -263,7 +263,7 @@ class UsageMeteringHandler(SecureHandler):
 
     @handle_errors("get limits")
     @require_permission("org:billing")
-    def _get_limits(
+    async def _get_limits(
         self,
         handler,
         query_params: dict,
@@ -300,8 +300,6 @@ class UsageMeteringHandler(SecureHandler):
                 }
             }
         """
-        import asyncio
-
         # Get user and organization
         user_store = self._get_user_store()
         if not user_store:
@@ -325,22 +323,16 @@ class UsageMeteringHandler(SecureHandler):
         meter = self._get_usage_meter()
 
         # Get limits
-        loop = asyncio.new_event_loop()
-        try:
-            limits = loop.run_until_complete(
-                meter.get_usage_limits(
-                    org_id=org.id,
-                    tier=tier,
-                )
-            )
-        finally:
-            loop.close()
+        limits = await meter.get_usage_limits(
+            org_id=org.id,
+            tier=tier,
+        )
 
         return json_response({"limits": limits.to_dict()})
 
     @handle_errors("get quota status")
     @require_permission("org:billing")
-    def _get_quota_status(
+    async def _get_quota_status(
         self,
         handler,
         query_params: dict,
@@ -367,8 +359,6 @@ class UsageMeteringHandler(SecureHandler):
                 }
             }
         """
-        import asyncio
-
         from aragora.server.middleware.tier_enforcement import get_quota_manager
 
         # Get user and organization
@@ -393,34 +383,26 @@ class UsageMeteringHandler(SecureHandler):
         # Core resources to check
         resources = ["debates", "api_requests", "tokens", "storage_bytes", "knowledge_bytes"]
 
-        loop = asyncio.new_event_loop()
-        try:
-            quotas = {}
-            for resource in resources:
-                try:
-                    status = loop.run_until_complete(
-                        manager.get_quota_status(resource, tenant_id=org.id)
-                    )
-                    if status:
-                        quotas[resource] = {
-                            "limit": status.limit,
-                            "current": status.current,
-                            "remaining": status.remaining,
-                            "period": status.period.value,
-                            "percentage_used": status.percentage_used,
-                            "is_exceeded": status.is_exceeded,
-                            "is_warning": status.is_warning,
-                            "resets_at": (
-                                status.period_resets_at.isoformat()
-                                if status.period_resets_at
-                                else None
-                            ),
-                        }
-                except Exception as e:
-                    logger.warning(f"Failed to get quota status for {resource}: {e}")
-                    continue
-        finally:
-            loop.close()
+        quotas = {}
+        for resource in resources:
+            try:
+                status = await manager.get_quota_status(resource, tenant_id=org.id)
+                if status:
+                    quotas[resource] = {
+                        "limit": status.limit,
+                        "current": status.current,
+                        "remaining": status.remaining,
+                        "period": status.period.value,
+                        "percentage_used": status.percentage_used,
+                        "is_exceeded": status.is_exceeded,
+                        "is_warning": status.is_warning,
+                        "resets_at": (
+                            status.period_resets_at.isoformat() if status.period_resets_at else None
+                        ),
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to get quota status for {resource}: {e}")
+                continue
 
         return json_response({"quotas": quotas})
 
