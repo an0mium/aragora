@@ -362,7 +362,8 @@ class TestResendVerification:
 class TestSetupOrganization:
     """Tests for handle_setup_organization."""
 
-    async def test_setup_organization_success(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_setup_organization_success(self, mock_check):
         """Test successful organization creation."""
         from aragora.server.handlers.auth.signup_handlers import handle_setup_organization
 
@@ -384,7 +385,8 @@ class TestSetupOrganization:
         assert "id" in org
         assert org["slug"]  # Auto-generated from name
 
-    async def test_setup_organization_with_slug(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_setup_organization_with_slug(self, mock_check):
         """Test organization creation with custom slug."""
         from aragora.server.handlers.auth.signup_handlers import handle_setup_organization
 
@@ -399,7 +401,8 @@ class TestSetupOrganization:
         data = get_response_data(body)
         assert data["organization"]["slug"] == "acme-corp-2024"
 
-    async def test_setup_organization_invalid_slug(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_setup_organization_invalid_slug(self, mock_check):
         """Test organization creation fails with invalid slug."""
         from aragora.server.handlers.auth.signup_handlers import handle_setup_organization
 
@@ -414,7 +417,8 @@ class TestSetupOrganization:
         body = json.loads(result.body)
         assert "slug" in get_response_error(body).lower()
 
-    async def test_setup_organization_missing_name(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_setup_organization_missing_name(self, mock_check):
         """Test organization creation fails without name."""
         from aragora.server.handlers.auth.signup_handlers import handle_setup_organization
 
@@ -422,7 +426,8 @@ class TestSetupOrganization:
 
         assert result.status_code == 400
 
-    async def test_setup_organization_short_name(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_setup_organization_short_name(self, mock_check):
         """Test organization creation fails with very short name."""
         from aragora.server.handlers.auth.signup_handlers import handle_setup_organization
 
@@ -695,7 +700,8 @@ class TestAcceptInvite:
 class TestOnboarding:
     """Tests for onboarding completion tracking."""
 
-    async def test_onboarding_complete_success(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_onboarding_complete_success(self, mock_check):
         """Test marking onboarding as complete."""
         from aragora.server.handlers.auth.signup_handlers import handle_onboarding_complete
 
@@ -714,7 +720,8 @@ class TestOnboarding:
         assert data["completed"] is True
         assert data["organization_id"] == "org_123"
 
-    async def test_onboarding_status_not_completed(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_onboarding_status_not_completed(self, mock_check):
         """Test onboarding status when not completed."""
         from aragora.server.handlers.auth.signup_handlers import handle_onboarding_status
 
@@ -726,7 +733,8 @@ class TestOnboarding:
         assert data["completed"] is False
         assert "steps" in data
 
-    async def test_onboarding_status_completed(self):
+    @patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
+    async def test_onboarding_status_completed(self, mock_check):
         """Test onboarding status after completion."""
         from aragora.server.handlers.auth.signup_handlers import (
             handle_onboarding_complete,
