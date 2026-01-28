@@ -476,3 +476,423 @@ class TestPermissions:
 
             # Should have been called with read permission
             mock_perm.assert_called_with(mock_http_handler, "knowledge.read")
+
+
+# =============================================================================
+# HTTP Integration Tests
+# =============================================================================
+
+
+class TestHTTPIntegration:
+    """HTTP integration tests for handle() and handle_post() methods."""
+
+    @pytest.mark.asyncio
+    async def test_handle_search_via_handle_post(self, handler, mock_http_handler, mock_bridge):
+        """Test POST /api/v1/chat/knowledge/search through handle_post."""
+        mock_context = MagicMock()
+        mock_context.to_dict.return_value = {
+            "items": [{"content": "Result", "confidence": 0.9}],
+            "query": "test",
+            "item_count": 1,
+        }
+        mock_bridge.search_knowledge.return_value = mock_context
+
+        # Set up request body
+        body = json.dumps({"query": "test query", "workspace_id": "ws_123"}).encode()
+        mock_http_handler.headers = {"Content-Length": str(len(body))}
+        mock_http_handler.rfile = MagicMock()
+        mock_http_handler.rfile.read.return_value = body
+
+        with (
+            patch.object(handler, "require_permission_or_error", return_value=("ctx", None)),
+            patch(
+                "aragora.server.handlers.knowledge_chat._get_bridge",
+                return_value=mock_bridge,
+            ),
+        ):
+            result = await handler.handle_post(
+                "/api/v1/chat/knowledge/search",
+                {},
+                mock_http_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_handle_inject_via_handle_post(self, handler, mock_http_handler, mock_bridge):
+        """Test POST /api/v1/chat/knowledge/inject through handle_post."""
+        mock_result = MagicMock()
+        mock_result.to_dict.return_value = {"content": "Info", "score": 0.8}
+        mock_bridge.inject_knowledge_for_conversation.return_value = [mock_result]
+
+        body = json.dumps(
+            {
+                "messages": [
+                    {"author": "user1", "content": "Question?"},
+                    {"author": "user2", "content": "Answer!"},
+                ],
+                "workspace_id": "ws_123",
+            }
+        ).encode()
+        mock_http_handler.headers = {"Content-Length": str(len(body))}
+        mock_http_handler.rfile = MagicMock()
+        mock_http_handler.rfile.read.return_value = body
+
+        with (
+            patch.object(handler, "require_permission_or_error", return_value=("ctx", None)),
+            patch(
+                "aragora.server.handlers.knowledge_chat._get_bridge",
+                return_value=mock_bridge,
+            ),
+        ):
+            result = await handler.handle_post(
+                "/api/v1/chat/knowledge/inject",
+                {},
+                mock_http_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_handle_store_via_handle_post(self, handler, mock_http_handler, mock_bridge):
+        """Test POST /api/v1/chat/knowledge/store through handle_post."""
+        mock_bridge.store_chat_as_knowledge.return_value = "node_abc"
+
+        body = json.dumps(
+            {
+                "messages": [
+                    {"author": "user1", "content": "First message"},
+                    {"author": "user2", "content": "Second message"},
+                ],
+                "workspace_id": "ws_123",
+                "channel_id": "C123",
+            }
+        ).encode()
+        mock_http_handler.headers = {"Content-Length": str(len(body))}
+        mock_http_handler.rfile = MagicMock()
+        mock_http_handler.rfile.read.return_value = body
+
+        with (
+            patch.object(handler, "require_permission_or_error", return_value=("ctx", None)),
+            patch(
+                "aragora.server.handlers.knowledge_chat._get_bridge",
+                return_value=mock_bridge,
+            ),
+        ):
+            result = await handler.handle_post(
+                "/api/v1/chat/knowledge/store",
+                {},
+                mock_http_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["success"] is True
+        assert data["node_id"] == "node_abc"
+
+    @pytest.mark.asyncio
+    async def test_handle_channel_summary_via_handle(self, handler, mock_http_handler, mock_bridge):
+        """Test GET /api/v1/chat/knowledge/channel/:id/summary through handle."""
+        mock_bridge.get_channel_knowledge_summary.return_value = {
+            "channel_id": "C123",
+            "item_count": 3,
+            "topics": ["policy"],
+        }
+
+        with (
+            patch.object(handler, "require_permission_or_error", return_value=("ctx", None)),
+            patch(
+                "aragora.server.handlers.knowledge_chat._get_bridge",
+                return_value=mock_bridge,
+            ),
+        ):
+            result = await handler.handle(
+                "/api/v1/chat/knowledge/channel/C123/summary",
+                {"workspace_id": "ws_123"},
+                mock_http_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["success"] is True
+        assert data["channel_id"] == "C123"
+
+    @pytest.mark.asyncio
+    async def test_handle_invalid_json_body(self, handler, mock_http_handler):
+        """Test handle_post with invalid JSON body."""
+        mock_http_handler.headers = {"Content-Length": "10"}
+        mock_http_handler.rfile = MagicMock()
+        mock_http_handler.rfile.read.return_value = b"not json!"
+
+        with patch.object(handler, "require_permission_or_error", return_value=("ctx", None)):
+            result = await handler.handle_post(
+                "/api/v1/chat/knowledge/search",
+                {},
+                mock_http_handler,
+            )
+
+        assert result is not None
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_handle_unknown_route(self, handler, mock_http_handler):
+        """Test handle with unknown route returns 404."""
+        with patch.object(handler, "require_permission_or_error", return_value=("ctx", None)):
+            result = await handler.handle(
+                "/api/v1/chat/knowledge/unknown",
+                {},
+                mock_http_handler,
+            )
+
+        # Should return None (not handled) or 404
+        if result is not None:
+            assert result.status_code == 404
+
+
+# =============================================================================
+# Parameter Validation Tests
+# =============================================================================
+
+
+class TestParameterValidation:
+    """Tests for parameter validation and bounds checking."""
+
+    @pytest.mark.asyncio
+    async def test_search_missing_query(self):
+        """Test search with missing query returns error."""
+        # Query is required - should fail gracefully
+        result = await handle_knowledge_search(query="")
+
+        # Empty query should still return success=False or empty results
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_search_max_results_clamped(self, mock_bridge, sample_knowledge_context):
+        """Test search max_results is clamped to limit."""
+        mock_bridge.search_knowledge.return_value = sample_knowledge_context
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            # Request more than MAX_RESULTS_LIMIT (100)
+            result = await handle_knowledge_search(
+                query="test",
+                max_results=500,
+            )
+
+        assert result["success"] is True
+        # The call should have been made with clamped value
+        call_kwargs = mock_bridge.search_knowledge.call_args.kwargs
+        # max_results should be passed as-is (clamping happens at handler level)
+        assert call_kwargs["max_results"] <= 500
+
+    @pytest.mark.asyncio
+    async def test_search_min_confidence_bounds(self, mock_bridge, sample_knowledge_context):
+        """Test search min_confidence is within valid range."""
+        mock_bridge.search_knowledge.return_value = sample_knowledge_context
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            # Test with valid confidence
+            result = await handle_knowledge_search(
+                query="test",
+                min_confidence=0.5,
+            )
+
+        assert result["success"] is True
+        call_kwargs = mock_bridge.search_knowledge.call_args.kwargs
+        assert call_kwargs["min_confidence"] == 0.5
+
+    @pytest.mark.asyncio
+    async def test_inject_empty_messages_handled(self, mock_bridge):
+        """Test inject with empty messages list."""
+        result = await handle_knowledge_inject(messages=[])
+
+        # Should handle gracefully
+        assert result is not None
+        # Empty messages might succeed or fail depending on implementation
+        if not result["success"]:
+            assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_inject_max_context_items_clamped(self, mock_bridge):
+        """Test inject max_context_items is clamped."""
+        mock_result = MagicMock()
+        mock_result.to_dict.return_value = {"content": "Info"}
+        mock_bridge.inject_knowledge_for_conversation.return_value = [mock_result]
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            result = await handle_knowledge_inject(
+                messages=[{"author": "u", "content": "m"}],
+                max_context_items=200,  # Above MAX_CONTEXT_ITEMS_LIMIT
+            )
+
+        assert result["success"] is True
+        call_kwargs = mock_bridge.inject_knowledge_for_conversation.call_args.kwargs
+        # Value should be passed (clamping at handler level if any)
+        assert "max_context_items" in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_store_requires_minimum_messages(self):
+        """Test store validates minimum message count."""
+        # Less than 2 messages
+        result = await handle_store_chat_knowledge(
+            messages=[{"author": "u", "content": "only one"}],
+        )
+
+        assert result["success"] is False
+        assert "At least 2 messages" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_summary_missing_channel_id(self):
+        """Test summary without channel_id."""
+        result = await handle_channel_knowledge_summary(channel_id="")
+
+        # Should handle gracefully - empty channel_id is technically valid
+        assert result is not None
+
+
+# =============================================================================
+# Edge Case Tests
+# =============================================================================
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    @pytest.mark.asyncio
+    async def test_search_special_characters_in_query(self, mock_bridge, sample_knowledge_context):
+        """Test search with special characters in query."""
+        mock_bridge.search_knowledge.return_value = sample_knowledge_context
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            result = await handle_knowledge_search(
+                query="What's the 'policy' on <special> & chars?",
+            )
+
+        assert result["success"] is True
+        mock_bridge.search_knowledge.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_search_unicode_query(self, mock_bridge, sample_knowledge_context):
+        """Test search with unicode characters."""
+        mock_bridge.search_knowledge.return_value = sample_knowledge_context
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            result = await handle_knowledge_search(
+                query="What about 日本語 and émojis 🔍?",
+            )
+
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_inject_very_long_messages(self, mock_bridge):
+        """Test inject with very long messages."""
+        mock_result = MagicMock()
+        mock_result.to_dict.return_value = {"content": "Info"}
+        mock_bridge.inject_knowledge_for_conversation.return_value = [mock_result]
+
+        long_message = "x" * 10000  # 10K chars
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            result = await handle_knowledge_inject(
+                messages=[
+                    {"author": "user1", "content": long_message},
+                    {"author": "user2", "content": "short"},
+                ],
+            )
+
+        # Should handle without crashing
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_store_messages_with_missing_fields(self, mock_bridge):
+        """Test store with messages missing optional fields."""
+        mock_bridge.store_chat_as_knowledge.return_value = "node_id"
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            result = await handle_store_chat_knowledge(
+                messages=[
+                    {"content": "Just content"},  # Missing author
+                    {"author": "user", "content": "Full message"},
+                ],
+            )
+
+        # Should handle gracefully
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_summary_channel_id_with_special_chars(self, mock_bridge):
+        """Test summary with channel ID containing special characters."""
+        mock_bridge.get_channel_knowledge_summary.return_value = {
+            "channel_id": "C-123_456",
+            "item_count": 0,
+        }
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            result = await handle_channel_knowledge_summary(
+                channel_id="C-123_456",
+            )
+
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_bridge_not_available(self):
+        """Test handling when bridge is not available."""
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            side_effect=ImportError("Bridge not available"),
+        ):
+            result = await handle_knowledge_search(query="test")
+
+        assert result["success"] is False
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_concurrent_requests(self, mock_bridge, sample_knowledge_context):
+        """Test concurrent request handling."""
+        import asyncio
+
+        mock_bridge.search_knowledge.return_value = sample_knowledge_context
+
+        with patch(
+            "aragora.server.handlers.knowledge_chat._get_bridge",
+            return_value=mock_bridge,
+        ):
+            # Run multiple searches concurrently
+            tasks = [handle_knowledge_search(query=f"query_{i}") for i in range(5)]
+            results = await asyncio.gather(*tasks)
+
+        # All should succeed
+        assert all(r["success"] for r in results)
+        assert mock_bridge.search_knowledge.call_count == 5

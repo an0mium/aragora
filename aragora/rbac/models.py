@@ -115,6 +115,14 @@ class ResourceType(str, Enum):
     # User feedback and engagement
     FEEDBACK = "feedback"  # User feedback and NPS data
 
+    # Financial operations
+    FINANCE = "finance"  # Financial operations (invoices, payments, AR/AP)
+    RECEIPT = "receipts"  # Decision receipts and audit trails
+    COST = "costs"  # Cost tracking and optimization
+
+    # Scheduling operations
+    SCHEDULER = "scheduler"  # Task scheduling and job management
+
 
 class Action(str, Enum):
     """Actions that can be performed on resources."""
