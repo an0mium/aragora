@@ -94,6 +94,24 @@ class TestSystemPermissions:
         for key in required:
             assert key in SYSTEM_PERMISSIONS, f"Missing agent permission: {key}"
 
+    def test_performance_permissions_exist(self):
+        """Performance/ranking permissions should exist."""
+        required = [
+            "analytics.read",  # PERM_PERFORMANCE_READ uses ResourceType.ANALYTICS
+            "analytics.update",  # PERM_PERFORMANCE_WRITE uses ResourceType.ANALYTICS
+        ]
+        for key in required:
+            assert key in SYSTEM_PERMISSIONS, f"Missing performance permission: {key}"
+
+    def test_culture_permissions_exist(self):
+        """Culture permissions should exist."""
+        required = [
+            "knowledge.read",  # PERM_CULTURE_READ uses ResourceType.KNOWLEDGE
+            "knowledge.update",  # PERM_CULTURE_WRITE uses ResourceType.KNOWLEDGE
+        ]
+        for key in required:
+            assert key in SYSTEM_PERMISSIONS, f"Missing culture permission: {key}"
+
     def test_admin_permissions_exist(self):
         """Admin permissions should exist."""
         required = [
@@ -468,3 +486,45 @@ class TestRolePermissionIntegration:
             assert dangerous_perm not in perms, (
                 f"{role_name} should not have impersonate permission"
             )
+
+    def test_member_has_performance_read(self):
+        """Member role should have performance read permission."""
+        member_perms = get_role_permissions("member", include_inherited=True)
+        assert "analytics.read" in member_perms, (
+            "Member should have analytics.read (performance:read)"
+        )
+
+    def test_member_has_culture_read(self):
+        """Member role should have culture read permission."""
+        member_perms = get_role_permissions("member", include_inherited=True)
+        assert "knowledge.read" in member_perms, "Member should have knowledge.read (culture:read)"
+
+    def test_admin_has_performance_write(self):
+        """Admin role should have performance write permission."""
+        admin_perms = get_role_permissions("admin", include_inherited=True)
+        assert "analytics.update" in admin_perms, (
+            "Admin should have analytics.update (performance:write)"
+        )
+
+    def test_admin_has_culture_write(self):
+        """Admin role should have culture write permission."""
+        admin_perms = get_role_permissions("admin", include_inherited=True)
+        assert "knowledge.update" in admin_perms, (
+            "Admin should have knowledge.update (culture:write)"
+        )
+
+    def test_member_cannot_write_performance(self):
+        """Member role should NOT have performance write permission."""
+        member_perms = get_role_permissions("member", include_inherited=False)
+        # Member doesn't have analytics.update directly
+        assert "analytics.update" not in member_perms, (
+            "Member should not have direct analytics.update"
+        )
+
+    def test_member_cannot_write_culture(self):
+        """Member role should NOT have culture write permission."""
+        member_perms = get_role_permissions("member", include_inherited=False)
+        # Member doesn't have knowledge.update directly
+        assert "knowledge.update" not in member_perms, (
+            "Member should not have direct knowledge.update"
+        )

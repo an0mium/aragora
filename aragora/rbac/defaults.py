@@ -209,6 +209,34 @@ PERM_PROVENANCE_EXPORT = _permission(
     "Export provenance reports for compliance",
 )
 
+# Performance/Ranking permissions
+PERM_PERFORMANCE_READ = _permission(
+    ResourceType.ANALYTICS,
+    Action.READ,
+    "View Performance",
+    "View agent performance metrics and rankings",
+)
+PERM_PERFORMANCE_WRITE = _permission(
+    ResourceType.ANALYTICS,
+    Action.UPDATE,
+    "Update Performance",
+    "Modify agent performance data and ELO adjustments",
+)
+
+# Culture permissions
+PERM_CULTURE_READ = _permission(
+    ResourceType.KNOWLEDGE,
+    Action.READ,
+    "View Culture",
+    "View organizational culture patterns",
+)
+PERM_CULTURE_WRITE = _permission(
+    ResourceType.KNOWLEDGE,
+    Action.UPDATE,
+    "Update Culture",
+    "Modify culture patterns and promote to organization",
+)
+
 # Inbox permissions
 PERM_INBOX_READ = _permission(
     ResourceType.INBOX,
@@ -1218,6 +1246,8 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Analytics
         PERM_ANALYTICS_READ,
         PERM_ANALYTICS_EXPORT,
+        PERM_PERFORMANCE_READ,
+        PERM_PERFORMANCE_WRITE,  # analytics.update for performance operations
         # Introspection
         PERM_INTROSPECTION_READ,
         # Reasoning
@@ -1226,6 +1256,8 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         # Knowledge
         PERM_KNOWLEDGE_READ,
         PERM_KNOWLEDGE_UPDATE,
+        PERM_CULTURE_READ,
+        PERM_CULTURE_WRITE,
         # Inbox
         PERM_INBOX_READ,
         PERM_INBOX_UPDATE,
@@ -1638,6 +1670,12 @@ ROLE_ADMIN = Role(
         # Codebase analysis (all operations)
         PERM_CODEBASE_READ.key,
         PERM_CODEBASE_ANALYZE.key,
+        # Performance (all operations)
+        PERM_PERFORMANCE_READ.key,
+        PERM_PERFORMANCE_WRITE.key,
+        # Culture (all operations)
+        PERM_CULTURE_READ.key,
+        PERM_CULTURE_WRITE.key,
     },
     parent_roles=[],
     priority=80,
@@ -1808,6 +1846,10 @@ ROLE_MEMBER = Role(
         PERM_REASONING_READ.key,
         # Knowledge
         PERM_KNOWLEDGE_READ.key,
+        # Performance (read-only)
+        PERM_PERFORMANCE_READ.key,
+        # Culture (read-only)
+        PERM_CULTURE_READ.key,
         # Provenance
         PERM_PROVENANCE_READ.key,
         # Inbox
