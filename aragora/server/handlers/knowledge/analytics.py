@@ -116,7 +116,7 @@ class AnalyticsHandler(BaseHandler):
             return self._get_federation_stats(workspace_id)
 
         if path == "/api/v1/knowledge/analytics/summary":
-            return self._get_summary(workspace_id, user_id)
+            return await self._get_summary(workspace_id, user_id)
 
         if path == "/api/v1/knowledge/learning/stats":
             return self._get_learning_stats(workspace_id)
@@ -279,7 +279,7 @@ class AnalyticsHandler(BaseHandler):
             logger.error(f"Failed to get federation stats: {e}")
             return error_response("Failed to get federation stats", 500)
 
-    def _get_summary(
+    async def _get_summary(
         self,
         workspace_id: Optional[str],
         user_id: Optional[str],
@@ -287,7 +287,7 @@ class AnalyticsHandler(BaseHandler):
         """Get combined analytics summary."""
         try:
             # Get all stats
-            mound_result = self._get_mound_stats(workspace_id)
+            mound_result = await self._get_mound_stats(workspace_id)
             sharing_result = self._get_sharing_stats(workspace_id, user_id)
             federation_result = self._get_federation_stats(workspace_id)
 

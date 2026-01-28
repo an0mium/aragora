@@ -952,16 +952,17 @@ class CompositeAnalytics:
         Returns:
             Summary dict with adapter statistics.
         """
-        summary = {
-            "adapter_count": len(self._historical_times),
-            "adapters": {},
-        }
-
+        adapters: Dict[str, Any] = {}
         for adapter_name in self._historical_times:
-            summary["adapters"][adapter_name] = {
+            adapters[adapter_name] = {
                 "stats": self.get_historical_stats(adapter_name),
                 "trend": self.compute_trend(adapter_name),
             }
+
+        summary: Dict[str, Any] = {
+            "adapter_count": len(self._historical_times),
+            "adapters": adapters,
+        }
 
         return summary
 

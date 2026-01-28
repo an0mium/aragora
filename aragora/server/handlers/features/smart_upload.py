@@ -9,7 +9,6 @@ Routes:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import io
 import logging
@@ -680,7 +679,7 @@ if HANDLER_BASE_AVAILABLE:
 
             return None
 
-        def handle_post(
+        async def handle_post(
             self,
             path: str,
             body: Dict[str, Any],
@@ -689,20 +688,22 @@ if HANDLER_BASE_AVAILABLE:
             """Handle POST uploads."""
 
             if path == "/api/v1/upload/smart":
-                return self._handle_smart_upload(body, handler)
+                return await self._handle_smart_upload(body, handler)
 
             elif path == "/api/v1/upload/batch":
-                return self._handle_batch_upload(body, handler)
+                return await self._handle_batch_upload(body, handler)
 
             return error_response("Not found", 404)
 
         @require_permission("upload:create")
-        def _handle_smart_upload(
+        async def _handle_smart_upload(
             self,
             body: Dict[str, Any],
             handler: Any,
         ) -> HandlerResult:
             """Handle single smart upload."""
+            import base64
+
             # Get file from multipart form or base64 body
             file_content = body.get("content")
             filename = body.get("filename", "unknown")
@@ -715,21 +716,10 @@ if HANDLER_BASE_AVAILABLE:
 
             # Decode base64 if needed
             if isinstance(file_content, str):
-                import base64
-
                 file_content = base64.b64decode(file_content)
 
-            # Process
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
             override_action = ProcessingAction(action) if action else None
-            result = loop.run_until_complete(
-                smart_upload(file_content, filename, mime_type, override_action, options)
-            )
+            result = await smart_upload(file_content, filename, mime_type, override_action, options)
 
             return json_response(
                 {
@@ -745,52 +735,42 @@ if HANDLER_BASE_AVAILABLE:
             )
 
         @require_permission("upload:create")
-        def _handle_batch_upload(
+        async def _handle_batch_upload(
             self,
             body: Dict[str, Any],
             handler: Any,
         ) -> HandlerResult:
             """Handle batch upload."""
+            import base64
+
             files = body.get("files", [])
             if not files:
                 return error_response("No files provided", 400)
 
             # Process all files
-            import asyncio
-            import base64
+            results = []
+            for file_info in files:
+                content = file_info.get("content", "")
+                if isinstance(content, str):
+                    content = base64.b64decode(content)
 
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                result = await smart_upload(
+                    content,
+                    file_info.get("filename", "unknown"),
+                    file_info.get("mime_type"),
+                    ProcessingAction(file_info["action"]) if file_info.get("action") else None,
+                    file_info.get("options"),
+                )
+                results.append(
+                    {
+                        "id": result.id,
+                        "filename": result.filename,
+                        "status": result.status,
+                        "category": result.category.value,
+                        "error": result.error,
+                    }
+                )
 
-            async def process_all():
-                results = []
-                for file_info in files:
-                    content = file_info.get("content", "")
-                    if isinstance(content, str):
-                        content = base64.b64decode(content)
-
-                    result = await smart_upload(
-                        content,
-                        file_info.get("filename", "unknown"),
-                        file_info.get("mime_type"),
-                        ProcessingAction(file_info["action"]) if file_info.get("action") else None,
-                        file_info.get("options"),
-                    )
-                    results.append(
-                        {
-                            "id": result.id,
-                            "filename": result.filename,
-                            "status": result.status,
-                            "category": result.category.value,
-                            "error": result.error,
-                        }
-                    )
-                return results
-
-            results = loop.run_until_complete(process_all())
             return json_response({"files": results, "count": len(results)})
 
         def _get_status(self, upload_id: str) -> HandlerResult:

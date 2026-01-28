@@ -268,7 +268,7 @@ if HANDLER_BASE_AVAILABLE:
                 sub_action = parts[5] if len(parts) > 5 else ""
 
                 if sub_action == "url":
-                    return self._get_auth_url(provider, query_params)
+                    return await self._get_auth_url(provider, query_params)
 
                 if sub_action == "callback":
                     # Handle OAuth callback via POST
@@ -277,7 +277,7 @@ if HANDLER_BASE_AVAILABLE:
                     return None  # Let handle_post handle it
 
             if action == "files":
-                return self._list_files(provider, query_params)
+                return await self._list_files(provider, query_params)
 
             return error_response("Not found", 404)
 
@@ -306,14 +306,14 @@ if HANDLER_BASE_AVAILABLE:
             sub_action = parts[5]
 
             if action == "auth" and sub_action == "callback":
-                return self._handle_auth_callback(provider, body)
+                return await self._handle_auth_callback(provider, body)
 
             if action == "download":
-                return self._download_file(provider, body)
+                return await self._download_file(provider, body)
 
             return error_response("Not found", 404)
 
-        def _get_auth_url(
+        async def _get_auth_url(
             self,
             provider: str,
             query_params: Dict[str, Any],
@@ -322,22 +322,14 @@ if HANDLER_BASE_AVAILABLE:
             redirect_uri = query_params.get("redirect_uri", "http://localhost:3000/auth/callback")
             state = query_params.get("state", "")
 
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            url = loop.run_until_complete(get_auth_url(provider, redirect_uri, state))
+            url = await get_auth_url(provider, redirect_uri, state)
 
             if not url:
                 return error_response("Provider not configured", 400)
 
             return json_response({"url": url})
 
-        def _handle_auth_callback(
+        async def _handle_auth_callback(
             self,
             provider: str,
             body: Dict[str, Any],
@@ -349,21 +341,13 @@ if HANDLER_BASE_AVAILABLE:
             if not code:
                 return error_response("Missing authorization code", 400)
 
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            success = loop.run_until_complete(handle_auth_callback(provider, code, redirect_uri))
+            success = await handle_auth_callback(provider, code, redirect_uri)
 
             if success:
                 return json_response({"success": True})
             return error_response("Authentication failed", 401)
 
-        def _list_files(
+        async def _list_files(
             self,
             provider: str,
             query_params: Dict[str, Any],
@@ -372,42 +356,26 @@ if HANDLER_BASE_AVAILABLE:
             path = query_params.get("path", "/")
             page_size = int(query_params.get("limit", 100))
 
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            files = loop.run_until_complete(list_files(provider, path, page_size))
+            files = await list_files(provider, path, page_size)
 
             return json_response({"files": files, "path": path})
 
-        def _download_file(
+        async def _download_file(
             self,
             provider: str,
             body: Dict[str, Any],
         ) -> HandlerResult:
             """Download a file."""
+            import base64
+
             file_id = body.get("file_id")
             if not file_id:
                 return error_response("Missing file_id", 400)
 
-            import asyncio
-
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            content = loop.run_until_complete(download_file(provider, file_id))
+            content = await download_file(provider, file_id)
 
             if content is None:
                 return error_response("Download failed", 500)
-
-            import base64
 
             return json_response(
                 {

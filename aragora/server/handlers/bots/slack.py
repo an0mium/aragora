@@ -1042,10 +1042,10 @@ Need more help? Visit https://aragora.ai/docs/slack"""
                 )
 
             # Sort by ELO rating descending
-            sorted_ratings = sorted(ratings, key=lambda x: x.get("rating", 1000), reverse=True)
+            sorted_ratings = sorted(ratings, key=lambda x: x.elo, reverse=True)
 
             agent_lines = [
-                f"• {r.get('agent_id', 'Unknown')}: {r.get('rating', 1000):.0f} ELO"
+                f"• {r.agent_name}: {r.elo:.0f} ELO"
                 for r in sorted_ratings[:10]  # Top 10
             ]
 
