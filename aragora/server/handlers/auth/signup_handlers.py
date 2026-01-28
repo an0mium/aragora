@@ -390,6 +390,10 @@ async def handle_setup_organization(
         billing_email: str (optional)
     }
     """
+    # RBAC check: requires org:create permission
+    if error := _check_permission(user_id, "org:create"):
+        return error
+
     try:
         name = data.get("name", "").strip()
         slug = data.get("slug", "").lower().strip()
@@ -580,6 +584,10 @@ async def handle_accept_invite(
         token: str
     }
     """
+    # RBAC check: requires team:join permission
+    if error := _check_permission(user_id, "team:join"):
+        return error
+
     try:
         token = data.get("token", "")
 
@@ -641,6 +649,10 @@ async def handle_onboarding_complete(
         template_used: str (optional) - Template ID used for first debate
     }
     """
+    # RBAC check: requires org:admin permission
+    if error := _check_permission(user_id, "org:admin", org_id=organization_id):
+        return error
+
     try:
         first_debate_id = data.get("first_debate_id")
         template_used = data.get("template_used")
@@ -671,12 +683,17 @@ async def handle_onboarding_complete(
 
 async def handle_onboarding_status(
     organization_id: str = "default",
+    user_id: str = "default",
 ) -> HandlerResult:
     """
     Get onboarding status for an organization.
 
     GET /api/v1/onboarding/status
     """
+    # RBAC check: requires org:read permission
+    if error := _check_permission(user_id, "org:read", org_id=organization_id):
+        return error
+
     try:
         with _onboarding_lock:
             status = _onboarding_status.get(organization_id, {})

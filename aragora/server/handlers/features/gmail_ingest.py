@@ -37,8 +37,12 @@ from ..base import (
     json_response,
     safe_error_message,
 )
-from ..secure import SecureHandler
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
+
+# Gmail permissions
+GMAIL_READ_PERMISSION = "gmail:read"
+GMAIL_WRITE_PERMISSION = "gmail:write"
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +149,15 @@ class GmailIngestHandler(SecureHandler):
             logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
+        # RBAC: Require authentication and gmail:read permission
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, GMAIL_READ_PERMISSION)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
+
         # SECURITY: Extract user_id from JWT token, not from query params
         user_id, org_id, auth_error = self._get_authenticated_user(handler)
         if auth_error:
@@ -184,6 +197,19 @@ class GmailIngestHandler(SecureHandler):
         if not _gmail_limiter.is_allowed(client_ip):
             logger.warning(f"Rate limit exceeded for Gmail endpoint: {client_ip}")
             return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        # RBAC: Require authentication and appropriate permission
+        # Note: search is a POST but only reads data; use gmail:read for it
+        required_permission = (
+            GMAIL_READ_PERMISSION if path == "/api/v1/gmail/search" else GMAIL_WRITE_PERMISSION
+        )
+        try:
+            auth_context = await self.get_auth_context(handler, require_auth=True)
+            self.check_permission(auth_context, required_permission)
+        except UnauthorizedError:
+            return error_response("Authentication required", 401)
+        except ForbiddenError as e:
+            return error_response(str(e), 403)
 
         # SECURITY: Extract user_id from JWT token, not from body
         user_id, org_id, auth_error = self._get_authenticated_user(handler)
