@@ -91,6 +91,7 @@ class AragoraClient:
         from .namespaces.budgets import BudgetsAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.control_plane import ControlPlaneAPI
+        from .namespaces.critiques import CritiquesAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
         from .namespaces.documents import DocumentsAPI
@@ -140,6 +141,7 @@ class AragoraClient:
         self.budgets = BudgetsAPI(self)
         self.consensus = ConsensusAPI(self)
         self.control_plane = ControlPlaneAPI(self)
+        self.critiques = CritiquesAPI(self)
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
         self.documents = DocumentsAPI(self)
@@ -364,6 +366,7 @@ class AragoraAsyncClient:
         from .namespaces.budgets import AsyncBudgetsAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.control_plane import AsyncControlPlaneAPI
+        from .namespaces.critiques import AsyncCritiquesAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
         from .namespaces.documents import AsyncDocumentsAPI
@@ -413,6 +416,7 @@ class AragoraAsyncClient:
         self.budgets = AsyncBudgetsAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.control_plane = AsyncControlPlaneAPI(self)
+        self.critiques = AsyncCritiquesAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
         self.documents = AsyncDocumentsAPI(self)
