@@ -24,16 +24,21 @@ import hashlib
 import json
 import logging
 import os
+import sys
 from collections import OrderedDict
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Protocol
 
 if TYPE_CHECKING:
     from aragora.knowledge.mound import KnowledgeMound
 
 from aragora.workflow.types import WorkflowCheckpoint
+
+# Type aliases for optional dependencies
+_RedisClientGetter = Callable[[], Any]
+_PoolType = Any  # asyncpg.Pool when available
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +54,23 @@ DEFAULT_OPERATION_TIMEOUT = 30.0
 
 # Maximum entries in checkpoint cache (for LRU eviction)
 MAX_CHECKPOINT_CACHE_SIZE = 100
+
+# Python 3.11+ asyncio.timeout compatibility
+if sys.version_info >= (3, 11):
+    _asyncio_timeout = asyncio.timeout
+else:
+    # Fallback for Python 3.10 and earlier - use contextlib version or simple wrapper
+    try:
+        from async_timeout import timeout as _asyncio_timeout
+    except ImportError:
+        # Simple fallback that doesn't provide true timeout context manager
+        # but allows the code to run - actual timeout handled by wait_for
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _asyncio_timeout(delay: float):  # type: ignore[misc]
+            """No-op timeout context manager for Python < 3.11."""
+            yield
 
 
 class CheckpointValidationError(Exception):
@@ -129,25 +151,27 @@ class LRUCheckpointCache:
 
 
 # Optional Redis import - graceful degradation
-try:
-    from aragora.server.redis_config import get_redis_client
+_get_redis_client: Optional[_RedisClientGetter] = None
+REDIS_AVAILABLE = False
 
+try:
+    from aragora.server.redis_config import get_redis_client as _redis_getter
+
+    _get_redis_client = _redis_getter
     REDIS_AVAILABLE = True
 except ImportError:
-    get_redis_client = None  # type: ignore
-    REDIS_AVAILABLE = False
     logger.debug("Redis not available for checkpoint store")
 
 # Optional asyncpg import - graceful degradation
-try:
-    import asyncpg
-    from asyncpg import Pool
+_asyncpg_module: Optional[Any] = None
+ASYNCPG_AVAILABLE = False
 
+try:
+    import asyncpg as _asyncpg
+
+    _asyncpg_module = _asyncpg
     ASYNCPG_AVAILABLE = True
 except ImportError:
-    asyncpg = None  # type: ignore
-    Pool = Any  # type: ignore
-    ASYNCPG_AVAILABLE = False
     logger.debug("asyncpg not available for checkpoint store")
 
 
@@ -314,7 +338,9 @@ class RedisCheckpointStore:
     def _get_redis(self) -> Any:
         """Get Redis client (lazy initialization)."""
         if self._redis is None:
-            self._redis = get_redis_client()  # type: ignore
+            if _get_redis_client is None:
+                raise RuntimeError("Redis client not available")
+            self._redis = _get_redis_client()
             if self._redis is None:
                 raise RuntimeError("Redis client not available")
             # Configure socket timeouts if supported
@@ -631,7 +657,7 @@ class PostgresCheckpointStore:
             ON workflow_checkpoints(workflow_id, created_at DESC);
     """
 
-    def __init__(self, pool: "Pool"):
+    def __init__(self, pool: _PoolType):
         """
         Initialize Postgres checkpoint store.
 
@@ -644,7 +670,7 @@ class PostgresCheckpointStore:
                 "Install with: pip install aragora[postgres] or pip install asyncpg"
             )
 
-        self._pool = pool
+        self._pool: _PoolType = pool
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -702,7 +728,7 @@ class PostgresCheckpointStore:
         checkpoint_dict = self._checkpoint_to_dict(checkpoint)
 
         try:
-            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):  # type: ignore[attr-defined]
+            async with _asyncio_timeout(DEFAULT_CONNECTION_TIMEOUT):
                 async with self._pool.acquire() as conn:
                     await asyncio.wait_for(
                         conn.execute(
@@ -752,7 +778,7 @@ class PostgresCheckpointStore:
             WorkflowCheckpoint or None if not found
         """
         try:
-            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):  # type: ignore[attr-defined]
+            async with _asyncio_timeout(DEFAULT_CONNECTION_TIMEOUT):
                 async with self._pool.acquire() as conn:
                     row = await asyncio.wait_for(
                         conn.fetchrow(
@@ -796,7 +822,7 @@ class PostgresCheckpointStore:
             Most recent WorkflowCheckpoint or None
         """
         try:
-            async with asyncio.timeout(DEFAULT_CONNECTION_TIMEOUT):  # type: ignore[attr-defined]
+            async with _asyncio_timeout(DEFAULT_CONNECTION_TIMEOUT):
                 async with self._pool.acquire() as conn:
                     row = await asyncio.wait_for(
                         conn.fetchrow(
@@ -1026,15 +1052,23 @@ class KnowledgeMoundCheckpointStore:
             Checkpoint node ID
         """
         try:
-            from aragora.knowledge.mound import KnowledgeNode, MemoryTier, ProvenanceChain  # type: ignore[attr-defined]
+            # Import KM types dynamically - these may not be available at type-check time
+            # as the KM module has multiple implementations
+            km_module = __import__(
+                "aragora.knowledge.mound",
+                fromlist=["KnowledgeNode", "MemoryTier", "ProvenanceChain"],
+            )
+            KnowledgeNode: Any = getattr(km_module, "KnowledgeNode")
+            MemoryTier: Any = getattr(km_module, "MemoryTier")
+            ProvenanceChain: Any = getattr(km_module, "ProvenanceChain")
 
             # Serialize checkpoint to JSON
             checkpoint_dict = self._checkpoint_to_dict(checkpoint)
             content = json.dumps(checkpoint_dict, indent=2, default=str)
 
             # Build provenance chain
-            provenance = ProvenanceChain(  # type: ignore[call-arg]
-                source_type="workflow_engine",  # type: ignore[arg-type]
+            provenance = ProvenanceChain(
+                source_type="workflow_engine",
                 source_id=checkpoint.workflow_id,
                 timestamp=datetime.now().isoformat(),
                 chain=[
@@ -1051,8 +1085,8 @@ class KnowledgeMoundCheckpointStore:
             )
 
             # Create knowledge node
-            node = KnowledgeNode(  # type: ignore[call-arg]
-                node_type="workflow_checkpoint",  # type: ignore[arg-type]
+            node = KnowledgeNode(
+                node_type="workflow_checkpoint",
                 content=content,
                 confidence=1.0,  # Checkpoints are authoritative
                 provenance=provenance,
@@ -1060,8 +1094,9 @@ class KnowledgeMoundCheckpointStore:
                 workspace_id=self.workspace_id,
             )
 
-            # Store in mound
-            node_id = await self.mound.add_node(node)  # type: ignore[arg-type,misc]
+            # Store in mound - mound interface is duck-typed
+            add_node_method: Any = getattr(self.mound, "add_node")
+            node_id: str = await add_node_method(node)
             logger.info(
                 f"Saved workflow checkpoint: workflow={checkpoint.workflow_id}, "
                 f"step={checkpoint.current_step}, node_id={node_id}"
@@ -1083,11 +1118,13 @@ class KnowledgeMoundCheckpointStore:
             WorkflowCheckpoint or None if not found
         """
         try:
-            node = await self.mound.get_node(checkpoint_id)  # type: ignore[arg-type,misc]
+            # Duck-typed mound interface - get_node may have varying signatures
+            get_node: Callable[..., Any] = getattr(self.mound, "get_node")
+            node: Any = await get_node(checkpoint_id)
             if node is None:
                 return None
 
-            if node.node_type != "workflow_checkpoint":
+            if getattr(node, "node_type", None) != "workflow_checkpoint":
                 logger.warning(f"Node {checkpoint_id} is not a checkpoint")
                 return None
 
@@ -1110,7 +1147,9 @@ class KnowledgeMoundCheckpointStore:
         """
         try:
             # Query for checkpoints with this workflow ID
-            nodes = await self.mound.query_by_provenance(  # type: ignore[attr-defined]
+            # Duck-typed mound interface - query_by_provenance may not exist on all impls
+            query_method: Callable[..., Any] = getattr(self.mound, "query_by_provenance")
+            nodes: List[Any] = await query_method(
                 source_type="workflow_engine",
                 source_id=workflow_id,
                 node_type="workflow_checkpoint",
@@ -1140,13 +1179,15 @@ class KnowledgeMoundCheckpointStore:
             List of checkpoint node IDs
         """
         try:
-            nodes = await self.mound.query_by_provenance(  # type: ignore[attr-defined]
+            # Duck-typed mound interface
+            query_method: Callable[..., Any] = getattr(self.mound, "query_by_provenance")
+            nodes: List[Any] = await query_method(
                 source_type="workflow_engine",
                 source_id=workflow_id,
                 node_type="workflow_checkpoint",
                 limit=100,
             )
-            return [node.id for node in nodes]
+            return [getattr(node, "id", "") for node in nodes]
 
         except Exception as e:
             logger.error(f"Failed to list checkpoints for {workflow_id}: {e}")
@@ -1163,7 +1204,10 @@ class KnowledgeMoundCheckpointStore:
             True if deleted, False otherwise
         """
         try:
-            return await self.mound.delete_node(checkpoint_id)  # type: ignore[attr-defined]
+            # Duck-typed mound interface
+            delete_method: Callable[..., Any] = getattr(self.mound, "delete_node")
+            result: bool = await delete_method(checkpoint_id)
+            return result
         except Exception as e:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
@@ -1468,11 +1512,11 @@ def get_checkpoint_store(
                     # Can't await in sync context, skip Postgres
                     logger.debug("Postgres pool requires async context, skipping")
                 else:
-                    pool = loop.run_until_complete(get_postgres_pool())  # type: ignore[arg-type]
-                    store = PostgresCheckpointStore(pool)  # type: ignore[arg-type,assignment]
-                    loop.run_until_complete(store.initialize())  # type: ignore[attr-defined]
+                    pool: _PoolType = loop.run_until_complete(get_postgres_pool())
+                    pg_store = PostgresCheckpointStore(pool)
+                    loop.run_until_complete(pg_store.initialize())
                     logger.info("Using PostgresCheckpointStore for checkpoints")
-                    return _maybe_wrap_with_cache(store)
+                    return _maybe_wrap_with_cache(pg_store)
             except RuntimeError:
                 # No event loop
                 logger.debug("No event loop for Postgres initialization")
@@ -1593,11 +1637,11 @@ async def get_checkpoint_store_async(
         try:
             from aragora.storage.postgres_store import get_postgres_pool
 
-            pool = await get_postgres_pool()  # type: ignore[misc]
-            store = PostgresCheckpointStore(pool)  # type: ignore[arg-type,assignment]
-            await store.initialize()  # type: ignore[attr-defined]
+            pool: _PoolType = await get_postgres_pool()
+            pg_store = PostgresCheckpointStore(pool)
+            await pg_store.initialize()
             logger.info("Using PostgresCheckpointStore for checkpoints")
-            return _maybe_wrap_with_cache(store)
+            return _maybe_wrap_with_cache(pg_store)
         except Exception as e:
             logger.debug(f"Postgres checkpoint store not available: {e}")
 
