@@ -229,8 +229,17 @@ class ShopifyProduct(ConnectorDataclass):
 
 
 @dataclass
-class ShopifyVariant:
+class ShopifyVariant(ConnectorDataclass):
     """Product variant."""
+
+    _field_mapping = {
+        "product_id": "productId",
+        "inventory_quantity": "inventoryQuantity",
+        "inventory_policy": "inventoryPolicy",
+        "compare_at_price": "compareAtPrice",
+        "weight_unit": "weightUnit",
+    }
+    _include_none = True
 
     id: str
     product_id: str
@@ -247,28 +256,26 @@ class ShopifyVariant:
     option2: Optional[str] = None
     option3: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "productId": self.product_id,
-            "title": self.title,
-            "price": str(self.price),
-            "sku": self.sku,
-            "inventoryQuantity": self.inventory_quantity,
-            "inventoryPolicy": self.inventory_policy.value,
-            "compareAtPrice": str(self.compare_at_price) if self.compare_at_price else None,
-            "weight": self.weight,
-            "weightUnit": self.weight_unit,
-            "barcode": self.barcode,
-            "option1": self.option1,
-            "option2": self.option2,
-            "option3": self.option3,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class ShopifyCustomer:
+class ShopifyCustomer(ConnectorDataclass):
     """Shopify customer."""
+
+    _field_mapping = {
+        "first_name": "firstName",
+        "last_name": "lastName",
+        "created_at": "createdAt",
+        "updated_at": "updatedAt",
+        "orders_count": "ordersCount",
+        "total_spent": "totalSpent",
+        "verified_email": "verifiedEmail",
+        "accepts_marketing": "acceptsMarketing",
+        "tax_exempt": "taxExempt",
+    }
+    _include_none = True
 
     id: str
     email: Optional[str]
@@ -291,42 +298,30 @@ class ShopifyCustomer:
         parts = [p for p in [self.first_name, self.last_name] if p]
         return " ".join(parts) or "Unknown"
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "email": self.email,
-            "firstName": self.first_name,
-            "lastName": self.last_name,
-            "fullName": self.full_name,
-            "phone": self.phone,
-            "createdAt": self.created_at.isoformat(),
-            "updatedAt": self.updated_at.isoformat(),
-            "ordersCount": self.orders_count,
-            "totalSpent": str(self.total_spent),
-            "verifiedEmail": self.verified_email,
-            "acceptsMarketing": self.accepts_marketing,
-            "taxExempt": self.tax_exempt,
-            "tags": self.tags,
-            "note": self.note,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result["fullName"] = self.full_name
+        return result
 
 
 @dataclass
-class ShopifyInventoryLevel:
+class ShopifyInventoryLevel(ConnectorDataclass):
     """Inventory level at a location."""
+
+    _field_mapping = {
+        "inventory_item_id": "inventoryItemId",
+        "location_id": "locationId",
+        "updated_at": "updatedAt",
+    }
+    _include_none = True
 
     inventory_item_id: str
     location_id: str
     available: int
     updated_at: datetime
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "inventoryItemId": self.inventory_item_id,
-            "locationId": self.location_id,
-            "available": self.available,
-            "updatedAt": self.updated_at.isoformat(),
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 class ShopifyConnector(EnterpriseConnector):

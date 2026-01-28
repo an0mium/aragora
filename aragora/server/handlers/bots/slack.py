@@ -47,6 +47,36 @@ SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 _active_debates: dict[str, dict[str, Any]] = {}
 _user_votes: dict[str, dict[str, str]] = {}  # debate_id -> {user_id: vote}
 
+# Slack integration singleton
+_slack_integration: Optional[Any] = None
+
+
+def get_slack_integration() -> Optional[Any]:
+    """Get the Slack integration singleton.
+
+    Returns None if Slack is not configured (no webhook URL).
+    """
+    global _slack_integration
+
+    # Return cached if available
+    if _slack_integration is not None:
+        return _slack_integration
+
+    # Check if Slack is configured
+    webhook_url = os.environ.get("SLACK_WEBHOOK_URL", "")
+    if not webhook_url:
+        return None
+
+    # Create integration (lazy import to avoid circular dependencies)
+    try:
+        from aragora.connectors.slack import SlackConnector
+
+        _slack_integration = SlackConnector(webhook_url=webhook_url)
+        return _slack_integration
+    except ImportError:
+        logger.debug("SlackConnector not available")
+        return None
+
 
 def verify_slack_signature(
     body: bytes,

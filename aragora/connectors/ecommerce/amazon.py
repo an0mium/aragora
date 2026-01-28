@@ -826,7 +826,7 @@ class AmazonConnector(EnterpriseConnector):
         for item in await self.get_fba_inventory():
             content_parts = [f"# {item.asin}"]
             content_parts.append(f"\nSKU: {item.seller_sku}")
-            content_parts.append(f"\nFulfillable: {item.fulfillable_quantity}")
+            content_parts.append(f"\nAvailable: {item.available_quantity}")
             content_parts.append(f"\nInbound: {item.inbound_quantity}")
             content_parts.append(f"\nReserved: {item.reserved_quantity}")
 
@@ -838,8 +838,8 @@ class AmazonConnector(EnterpriseConnector):
                 title=f"Inventory: {item.seller_sku}",
                 url="",
                 author="",
-                created_at=item.last_updated,
-                updated_at=item.last_updated,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
                 domain="ecommerce",
                 confidence=0.95,
                 metadata={
@@ -847,7 +847,7 @@ class AmazonConnector(EnterpriseConnector):
                     "asin": item.asin,
                     "sku": item.seller_sku,
                     "condition": item.condition,
-                    "fulfillable_quantity": item.fulfillable_quantity,
+                    "available_quantity": item.available_quantity,
                     "inbound_quantity": item.inbound_quantity,
                     "reserved_quantity": item.reserved_quantity,
                     "total_quantity": item.total_quantity,

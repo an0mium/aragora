@@ -862,3 +862,58 @@ export {
   type ListRulesOptions,
   type EvaluateRulesRequest,
 } from './routing';
+
+// Relationships (Agent Network)
+export {
+  RelationshipsNamespace,
+  type AgentRelationship,
+  type RelationshipNode,
+  type RelationshipEdge,
+  type RelationshipGraph,
+  type RelationshipStats,
+  type RelationshipSummary,
+} from './relationships';
+
+// YouTube (Video Publishing)
+export {
+  YouTubeNamespace,
+  type YouTubePublishRequest,
+  type YouTubePublishResponse,
+  type YouTubeAuthStatus,
+  type YouTubeAuthUrl,
+} from './youtube';
+
+// Podcast (Audio Content)
+export {
+  PodcastNamespace,
+  type PodcastEpisode,
+  type PodcastFeed,
+  type GenerateEpisodeOptions,
+} from './podcast';
+
+// History (Historical Data)
+export {
+  HistoryNamespace,
+  type HistoricalDebate,
+  type NomicCycle,
+  type HistoricalEvent,
+  type HistorySummary,
+  type HistoryQueryOptions,
+} from './history';
+
+// Ranking (ELO Rankings)
+export {
+  RankingNamespace,
+  type AgentRanking,
+  type RankingStats,
+  type RankingQueryOptions,
+} from './ranking';
+
+// Health (System Health)
+export {
+  HealthNamespace,
+  type HealthStatus,
+  type DetailedHealthStatus,
+  type HealthCheck,
+  type ComponentHealth,
+} from './health';
