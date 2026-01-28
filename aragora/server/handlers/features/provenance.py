@@ -182,6 +182,7 @@ def _compute_max_depth(manager: ProvenanceManager) -> int:
     return len(manager.chain.records)
 
 
+@require_permission("provenance:read")
 async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
     """Get full provenance graph for a debate.
 
@@ -215,6 +216,7 @@ async def handle_get_debate_provenance(debate_id: str) -> HandlerResult:
     return json_response(graph_data)
 
 
+@require_permission("provenance:read")
 async def handle_get_provenance_timeline(
     debate_id: str,
     round_number: Optional[int] = None,
@@ -279,6 +281,7 @@ async def handle_get_provenance_timeline(
     return json_response(timeline_data)
 
 
+@require_permission("provenance:verify")
 async def handle_verify_provenance_chain(
     debate_id: str,
 ) -> HandlerResult:
@@ -405,6 +408,7 @@ async def handle_export_provenance_report(
     return json_response(report)
 
 
+@require_permission("provenance:read")
 async def handle_get_claim_provenance(
     debate_id: str,
     claim_id: str,
@@ -487,6 +491,7 @@ async def handle_get_claim_provenance(
     return json_response(claim_provenance)
 
 
+@require_permission("provenance:read")
 async def handle_get_agent_contributions(
     debate_id: str,
     agent_id: Optional[str] = None,
