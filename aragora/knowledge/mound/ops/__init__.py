@@ -118,6 +118,64 @@ from aragora.knowledge.mound.ops.extraction import (
     get_debate_extractor,
 )
 
+# Phase A3 Operations
+from aragora.knowledge.mound.ops.fusion import (
+    FusionStrategy,
+    ConflictResolution,
+    AdapterValidation,
+    FusedValidation,
+    FusionConfig,
+    FusionCoordinator,
+    get_fusion_coordinator,
+)
+from aragora.knowledge.mound.ops.calibration_fusion import (
+    CalibrationFusionStrategy,
+    AgentPrediction,
+    CalibrationConsensus,
+    CalibrationFusionConfig,
+    CalibrationFusionEngine,
+    get_calibration_fusion_engine,
+)
+from aragora.knowledge.mound.ops.multi_party_validation import (
+    ValidationVoteType,
+    ValidationConsensusStrategy,
+    ValidationState,
+    ValidationVote,
+    ValidationRequest,
+    ValidationResult,
+    EscalationResult,
+    ValidatorConfig,
+    MultiPartyValidator,
+    get_multi_party_validator,
+)
+from aragora.knowledge.mound.ops.quality_signals import (
+    QualityDimension,
+    OverconfidenceLevel,
+    QualityTier,
+    CalibrationMetrics,
+    SourceReliability,
+    QualitySignals,
+    ContributorCalibration,
+    QualityEngineConfig,
+    QualitySignalEngine,
+    get_quality_signal_engine,
+)
+from aragora.knowledge.mound.ops.composite_analytics import (
+    SLOStatus,
+    BottleneckSeverity,
+    OptimizationType,
+    AdapterMetrics,
+    SLOConfig,
+    SLOResult,
+    BottleneckAnalysis,
+    OptimizationRecommendation,
+    CompositeMetrics,
+    SyncResultInput,
+    CompositeAnalytics,
+    get_composite_analytics,
+)
+from aragora.knowledge.mound.ops.contradiction import ValidatorVote
+
 __all__ = [
     "StalenessOperationsMixin",
     "CultureOperationsMixin",
@@ -206,4 +264,55 @@ __all__ = [
     "ExtractionType",
     "ConfidenceSource",
     "get_debate_extractor",
+    # Phase A3: Adapter Fusion Protocol
+    "FusionStrategy",
+    "ConflictResolution",
+    "AdapterValidation",
+    "FusedValidation",
+    "FusionConfig",
+    "FusionCoordinator",
+    "get_fusion_coordinator",
+    # Phase A3: Calibration Fusion
+    "CalibrationFusionStrategy",
+    "AgentPrediction",
+    "CalibrationConsensus",
+    "CalibrationFusionConfig",
+    "CalibrationFusionEngine",
+    "get_calibration_fusion_engine",
+    # Phase A3: Multi-Party Validation
+    "ValidationVoteType",
+    "ValidationConsensusStrategy",
+    "ValidationState",
+    "ValidationVote",
+    "ValidationRequest",
+    "ValidationResult",
+    "EscalationResult",
+    "ValidatorConfig",
+    "MultiPartyValidator",
+    "get_multi_party_validator",
+    "ValidatorVote",  # From contradiction for validator voting
+    # Phase A3: Quality Signals
+    "QualityDimension",
+    "OverconfidenceLevel",
+    "QualityTier",
+    "CalibrationMetrics",
+    "SourceReliability",
+    "QualitySignals",
+    "ContributorCalibration",
+    "QualityEngineConfig",
+    "QualitySignalEngine",
+    "get_quality_signal_engine",
+    # Phase A3: Composite Analytics
+    "SLOStatus",
+    "BottleneckSeverity",
+    "OptimizationType",
+    "AdapterMetrics",
+    "SLOConfig",
+    "SLOResult",
+    "BottleneckAnalysis",
+    "OptimizationRecommendation",
+    "CompositeMetrics",
+    "SyncResultInput",
+    "CompositeAnalytics",
+    "get_composite_analytics",
 ]

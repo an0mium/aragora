@@ -74,7 +74,7 @@ class EvidenceSearchResult:
             self.matched_topics = []
 
 
-class EvidenceAdapter:
+class EvidenceAdapter(SemanticSearchMixin):
     """
     Adapter that bridges EvidenceStore to the Knowledge Mound.
 
@@ -83,6 +83,7 @@ class EvidenceAdapter:
     - search_similar: Find similar evidence for deduplication
     - to_knowledge_item: Convert evidence to unified format
     - store: Store content with KM sync
+    - semantic_search: Vector-based similarity search (via SemanticSearchMixin)
 
     Usage:
         from aragora.evidence.store import EvidenceStore
@@ -101,6 +102,10 @@ class EvidenceAdapter:
     ID_PREFIX = "ev_"
     MIN_RELIABILITY = 0.6
     MIN_QUALITY = 0.7
+
+    # SemanticSearchMixin configuration
+    adapter_name = "evidence"
+    source_type = "evidence"
 
     def __init__(
         self,
@@ -128,6 +133,38 @@ class EvidenceAdapter:
             callback: Function taking (event_type: str, data: Dict)
         """
         self._event_callback = callback
+
+    # SemanticSearchMixin required methods
+    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+        """Get an evidence record by ID (required by SemanticSearchMixin)."""
+        if not self._store:
+            return None
+        if record_id.startswith(self.ID_PREFIX):
+            record_id = record_id[len(self.ID_PREFIX) :]
+        return self._store.get_evidence(record_id)
+
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+        """Convert an evidence record to dict (required by SemanticSearchMixin)."""
+        if isinstance(record, dict):
+            result = dict(record)
+            result["similarity"] = similarity
+            return result
+        return {
+            "id": getattr(record, "id", None),
+            "content": getattr(record, "content", None),
+            "source": getattr(record, "source", None),
+            "reliability": getattr(record, "reliability", 0.0),
+            "quality": getattr(record, "quality", 0.0),
+            "similarity": similarity,
+            "topics": getattr(record, "topics", []),
+            "metadata": getattr(record, "metadata", {}),
+        }
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID."""
+        if source_id.startswith(self.ID_PREFIX):
+            return source_id[len(self.ID_PREFIX) :]
+        return source_id
 
     def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Emit an event if callback is configured.

@@ -311,23 +311,23 @@ class ExplainabilityHandler(BaseHandler):
 
     @rate_limit(rpm=60)
     @require_permission("explainability:read")
-    def handle(
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Route explainability requests."""
         # Handle batch endpoints first
         if path == "/api/v1/explainability/batch":
-            return self._handle_batch_create(handler)
+            return await self._handle_batch_create(handler)
         if path.startswith("/api/v1/explainability/batch/") and path.endswith("/status"):
             batch_id = path.split("/")[-2]
-            return self._handle_batch_status(batch_id)
+            return await self._handle_batch_status(batch_id)
         if path.startswith("/api/v1/explainability/batch/") and path.endswith("/results"):
             batch_id = path.split("/")[-2]
-            return self._handle_batch_results(batch_id, query_params)
+            return await self._handle_batch_results(batch_id, query_params)
 
         # Handle compare endpoint
         if path == "/api/v1/explainability/compare":
-            return self._handle_compare(handler)
+            return await self._handle_compare(handler)
 
         # Add deprecation headers for legacy routes
         is_legacy = self._is_legacy_route(path)
@@ -344,7 +344,7 @@ class ExplainabilityHandler(BaseHandler):
         # Handle /explain/{id} shortcut
         if parts[0] == "explain" and len(parts) >= 2:
             debate_id = parts[1]
-            return self._handle_full_explanation(debate_id, query_params, is_legacy)
+            return await self._handle_full_explanation(debate_id, query_params, is_legacy)
 
         # Handle /debates/{id}/...
         if parts[0] == "debates" and len(parts) >= 3:
@@ -352,15 +352,15 @@ class ExplainabilityHandler(BaseHandler):
             endpoint = "/".join(parts[2:])
 
             if endpoint == "explanation":
-                return self._handle_full_explanation(debate_id, query_params, is_legacy)
+                return await self._handle_full_explanation(debate_id, query_params, is_legacy)
             elif endpoint == "evidence":
-                return self._handle_evidence(debate_id, query_params, is_legacy)
+                return await self._handle_evidence(debate_id, query_params, is_legacy)
             elif endpoint == "votes/pivots":
-                return self._handle_vote_pivots(debate_id, query_params, is_legacy)
+                return await self._handle_vote_pivots(debate_id, query_params, is_legacy)
             elif endpoint == "counterfactuals":
-                return self._handle_counterfactuals(debate_id, query_params, is_legacy)
+                return await self._handle_counterfactuals(debate_id, query_params, is_legacy)
             elif endpoint == "summary":
-                return self._handle_summary(debate_id, query_params, is_legacy)
+                return await self._handle_summary(debate_id, query_params, is_legacy)
 
         return error_response("Invalid explainability endpoint", 400)
 
@@ -422,20 +422,12 @@ class ExplainabilityHandler(BaseHandler):
             logger.error(f"Failed to build decision for {debate_id}: {e}")
             return None
 
-    def _handle_full_explanation(
+    async def _handle_full_explanation(
         self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle full explanation request."""
-        import asyncio
-
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+            decision = await self._get_or_build_decision(debate_id)
 
             if not decision:
                 return error_response(f"Debate not found: {debate_id}", 404)
@@ -463,20 +455,12 @@ class ExplainabilityHandler(BaseHandler):
             logger.error(f"Explanation error for {debate_id}: {e}")
             return error_response(f"Failed to generate explanation: {str(e)[:100]}", 500)
 
-    def _handle_evidence(
+    async def _handle_evidence(
         self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle evidence chain request."""
-        import asyncio
-
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+            decision = await self._get_or_build_decision(debate_id)
 
             if not decision:
                 return error_response(f"Debate not found: {debate_id}", 404)
@@ -506,20 +490,12 @@ class ExplainabilityHandler(BaseHandler):
             logger.error(f"Evidence error for {debate_id}: {e}")
             return error_response(f"Failed to get evidence: {str(e)[:100]}", 500)
 
-    def _handle_vote_pivots(
+    async def _handle_vote_pivots(
         self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle vote pivot analysis request."""
-        import asyncio
-
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+            decision = await self._get_or_build_decision(debate_id)
 
             if not decision:
                 return error_response(f"Debate not found: {debate_id}", 404)
@@ -547,20 +523,12 @@ class ExplainabilityHandler(BaseHandler):
             logger.error(f"Vote pivot error for {debate_id}: {e}")
             return error_response(f"Failed to get vote pivots: {str(e)[:100]}", 500)
 
-    def _handle_counterfactuals(
+    async def _handle_counterfactuals(
         self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle counterfactual analysis request."""
-        import asyncio
-
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+            decision = await self._get_or_build_decision(debate_id)
 
             if not decision:
                 return error_response(f"Debate not found: {debate_id}", 404)
@@ -586,20 +554,12 @@ class ExplainabilityHandler(BaseHandler):
             logger.error(f"Counterfactual error for {debate_id}: {e}")
             return error_response(f"Failed to get counterfactuals: {str(e)[:100]}", 500)
 
-    def _handle_summary(
+    async def _handle_summary(
         self, debate_id: str, query_params: Dict[str, Any], is_legacy: bool
     ) -> HandlerResult:
         """Handle human-readable summary request."""
-        import asyncio
-
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            decision = loop.run_until_complete(self._get_or_build_decision(debate_id))
+            decision = await self._get_or_build_decision(debate_id)
 
             if not decision:
                 return error_response(f"Debate not found: {debate_id}", 404)

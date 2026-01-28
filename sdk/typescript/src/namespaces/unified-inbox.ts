@@ -352,4 +352,61 @@ export class UnifiedInboxAPI {
   async getTrends(days: number = 7): Promise<{ trends: InboxTrends }> {
     return this.client.request('GET', '/inbox/trends', { params: { days } });
   }
+
+  // =========================================================================
+  // Convenience aliases
+  // =========================================================================
+
+  /**
+   * List messages (alias for listMessages).
+   */
+  async list(params?: ListMessagesParams): Promise<{
+    messages: UnifiedMessage[];
+    total: number;
+    unread_count: number;
+  }> {
+    return this.listMessages(params);
+  }
+
+  /**
+   * Get message by ID (alias for getMessage).
+   */
+  async get(messageId: string): Promise<UnifiedMessage> {
+    const result = await this.getMessage(messageId);
+    return result.message;
+  }
+
+  /**
+   * Send a new message.
+   */
+  async send(request: {
+    channel: string;
+    to: string;
+    content: string;
+    subject?: string;
+  }): Promise<{
+    message_id: string;
+    channel: string;
+    sent_at: string;
+    status: string;
+  }> {
+    return this.client.request('POST', '/inbox/messages/send', { json: request });
+  }
+
+  /**
+   * Reply to a message.
+   */
+  async reply(
+    messageId: string,
+    request: { content: string }
+  ): Promise<{
+    message_id: string;
+    in_reply_to: string;
+    channel: string;
+    status: string;
+  }> {
+    return this.client.request('POST', `/inbox/messages/${messageId}/reply`, {
+      json: request,
+    });
+  }
 }
