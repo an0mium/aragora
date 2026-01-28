@@ -661,7 +661,21 @@ async def handle_accept_invite(
         organization_id = invite.get("organization_id")
         role = invite.get("role")
 
-        logger.info(f"User {user_id} joined org {organization_id} as {role}")
+        logger.info(f"User joined organization {organization_id}")
+
+        # Audit logging
+        try:
+            from aragora.audit.unified import audit_action
+
+            audit_action(
+                user_id=user_id,
+                action="team_invitation_accepted",
+                resource_type="membership",
+                organization_id=organization_id,
+                role=role,
+            )
+        except ImportError:
+            pass  # Audit not available
 
         return success_response(
             {
