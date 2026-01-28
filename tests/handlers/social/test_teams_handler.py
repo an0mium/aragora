@@ -182,17 +182,19 @@ class TestTeamsStatusEndpoint:
 class TestTeamsCommandHandler:
     """Tests for Teams command handling."""
 
-    def test_handle_invalid_json_body(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handle_invalid_json_body(self, handler, mock_http_handler):
         """Command handler returns error for invalid JSON."""
         mock_http_handler.rfile = MagicMock()
         mock_http_handler.rfile.read.return_value = b"not json"
         mock_http_handler.headers = {"Content-Length": "8"}
 
         with patch.object(handler, "_read_json_body", return_value=None):
-            result = handler._handle_command(mock_http_handler)
+            result = await handler._handle_command(mock_http_handler)
             assert result.status_code == 400
 
-    def test_handle_help_command(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handle_help_command(self, handler, mock_http_handler):
         """Handler returns help for unknown commands."""
         body = {
             "text": "help",
@@ -204,10 +206,11 @@ class TestTeamsCommandHandler:
         with patch.object(handler, "_read_json_body", return_value=body):
             with patch.object(handler, "_send_help_response") as mock_help:
                 mock_help.return_value = MagicMock(body=b'{"status": "help_sent"}', status_code=200)
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 mock_help.assert_called_once()
 
-    def test_handle_debate_command(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handle_debate_command(self, handler, mock_http_handler):
         """Handler starts debate for debate command."""
         body = {
             "text": "debate Should we adopt Kubernetes?",
@@ -221,12 +224,13 @@ class TestTeamsCommandHandler:
                 mock_start.return_value = MagicMock(
                     body=b'{"status": "debate_started"}', status_code=200
                 )
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 mock_start.assert_called_once()
                 call_args = mock_start.call_args
                 assert call_args.kwargs["topic"] == "Should we adopt Kubernetes?"
 
-    def test_handle_status_command(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handle_status_command(self, handler, mock_http_handler):
         """Handler returns status for status command."""
         body = {
             "text": "status",
@@ -240,10 +244,11 @@ class TestTeamsCommandHandler:
                 mock_status.return_value = MagicMock(
                     body=b'{"status": "no_active_debate"}', status_code=200
                 )
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 mock_status.assert_called_once()
 
-    def test_handle_cancel_command(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handle_cancel_command(self, handler, mock_http_handler):
         """Handler cancels debate for cancel command."""
         body = {
             "text": "cancel",
@@ -257,10 +262,11 @@ class TestTeamsCommandHandler:
                 mock_cancel.return_value = MagicMock(
                     body=b'{"status": "cancelled"}', status_code=200
                 )
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 mock_cancel.assert_called_once()
 
-    def test_handle_unknown_command(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handle_unknown_command(self, handler, mock_http_handler):
         """Handler returns unknown command response."""
         body = {
             "text": "unknowncommand arg1 arg2",
@@ -274,7 +280,7 @@ class TestTeamsCommandHandler:
                 mock_unknown.return_value = MagicMock(
                     body=b'{"error": "unknown_command"}', status_code=200
                 )
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 mock_unknown.assert_called_once()
 
 
@@ -407,7 +413,8 @@ class TestTeamsErrorHandling:
             # The handler catches JSONDecodeError internally
             pass  # Would be tested at integration level
 
-    def test_exception_logged(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_exception_logged(self, handler, mock_http_handler):
         """Exceptions are logged."""
         body = {
             "text": "debate test",
@@ -420,7 +427,7 @@ class TestTeamsErrorHandling:
             with patch.object(handler, "_start_debate", side_effect=Exception("Test error")):
                 with patch("aragora.server.handlers.social.teams.logger") as mock_logger:
                     try:
-                        handler._handle_command(mock_http_handler)
+                        await handler._handle_command(mock_http_handler)
                     except Exception:
                         pass
 
@@ -433,7 +440,8 @@ class TestTeamsErrorHandling:
 class TestTeamsBotActivity:
     """Tests for Bot Framework activity parsing."""
 
-    def test_parse_activity_text(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_parse_activity_text(self, handler, mock_http_handler):
         """Parse text from Bot Framework activity."""
         body = {
             "type": "message",
@@ -447,10 +455,11 @@ class TestTeamsBotActivity:
         with patch.object(handler, "_read_json_body", return_value=body):
             with patch.object(handler, "_start_debate") as mock_start:
                 mock_start.return_value = MagicMock(body=b'{"status": "ok"}', status_code=200)
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 # Bot mention should be stripped
 
-    def test_parse_conversation_info(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_parse_conversation_info(self, handler, mock_http_handler):
         """Extract conversation info from activity."""
         body = {
             "text": "status",
@@ -466,7 +475,7 @@ class TestTeamsBotActivity:
         with patch.object(handler, "_read_json_body", return_value=body):
             with patch.object(handler, "_get_debate_status") as mock_status:
                 mock_status.return_value = MagicMock(body=b'{"status": "ok"}', status_code=200)
-                result = handler._handle_command(mock_http_handler)
+                result = await handler._handle_command(mock_http_handler)
                 mock_status.assert_called_once()
                 call_args = mock_status.call_args[0][0]
                 assert call_args["id"] == "19:abc123@thread.tacv2"

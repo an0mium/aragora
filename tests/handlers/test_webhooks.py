@@ -621,19 +621,22 @@ class TestWebhookHandlerRouting:
         h.get_current_user = MagicMock(return_value=None)
         return h
 
-    def test_handle_routes_to_list_events(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_list_events(self, handler):
         """Test routing to list events."""
-        result = handler.handle("/api/v1/webhooks/events", {}, MagicMock())
+        result = await handler.handle("/api/v1/webhooks/events", {}, MagicMock())
         assert result is not None
 
-    def test_handle_routes_to_list_webhooks(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_routes_to_list_webhooks(self, handler):
         """Test routing to list webhooks."""
         with patch.object(handler, "_get_webhook_store") as mock_store:
             mock_store.return_value.list.return_value = []
-            result = handler.handle("/api/v1/webhooks", {}, MagicMock())
+            result = await handler.handle("/api/v1/webhooks", {}, MagicMock())
             assert result is not None
 
-    def test_handle_unmatched_path(self, handler):
+    @pytest.mark.asyncio
+    async def test_handle_unmatched_path(self, handler):
         """Test unmatched path returns None."""
-        result = handler.handle("/api/v1/other", {}, MagicMock())
+        result = await handler.handle("/api/v1/other", {}, MagicMock())
         assert result is None

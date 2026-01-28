@@ -45,8 +45,11 @@ async def load_config(config_path: str | None = None) -> dict[str, Any]:
     ]
 
     for path in paths:
-        if path and Path(path).exists():
-            with open(path) as f:
+        if path is None:
+            continue
+        path_obj: Path = Path(path) if isinstance(path, str) else path
+        if path_obj.exists():
+            with path_obj.open() as f:
                 config = yaml.safe_load(f)
                 logger.info(f"Loaded config from {path}")
                 return config.get("rotation", {})
@@ -105,9 +108,9 @@ async def get_rotation_history(secret_id: str) -> datetime | None:
         from aragora.scheduler.secrets_rotation_scheduler import SecretsRotationScheduler
 
         scheduler = SecretsRotationScheduler()
-        metadata = scheduler.get_secret_metadata(secret_id)
-        if metadata and "last_rotated" in metadata:
-            return datetime.fromisoformat(metadata["last_rotated"])
+        metadata = scheduler.get_secret(secret_id)
+        if metadata and metadata.last_rotated_at:
+            return metadata.last_rotated_at
     except ImportError:
         pass
     except Exception as e:
