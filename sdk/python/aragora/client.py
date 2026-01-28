@@ -103,6 +103,7 @@ class AragoraClient:
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.memory import MemoryAPI
         from .namespaces.monitoring import MonitoringAPI
+        from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.organizations import OrganizationsAPI
@@ -146,6 +147,7 @@ class AragoraClient:
         self.marketplace = MarketplaceAPI(self)
         self.memory = MemoryAPI(self)
         self.monitoring = MonitoringAPI(self)
+        self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
@@ -353,6 +355,7 @@ class AragoraAsyncClient:
         from .namespaces.marketplace import AsyncMarketplaceAPI
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.monitoring import AsyncMonitoringAPI
+        from .namespaces.nomic import AsyncNomicAPI
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
@@ -396,6 +399,7 @@ class AragoraAsyncClient:
         self.marketplace = AsyncMarketplaceAPI(self)
         self.memory = AsyncMemoryAPI(self)
         self.monitoring = AsyncMonitoringAPI(self)
+        self.nomic = AsyncNomicAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)

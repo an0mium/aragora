@@ -27,6 +27,7 @@ from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .monitoring import AsyncMonitoringAPI, MonitoringAPI
+from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
@@ -94,6 +95,8 @@ __all__ = [
     "AsyncMemoryAPI",
     "MonitoringAPI",
     "AsyncMonitoringAPI",
+    "NomicAPI",
+    "AsyncNomicAPI",
     "NotificationsAPI",
     "AsyncNotificationsAPI",
     "OnboardingAPI",
