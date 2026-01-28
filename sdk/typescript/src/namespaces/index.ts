@@ -368,6 +368,12 @@ export {
 export {
   TeamsAPI,
   type TeamsBotStatus,
+  type TeamsTenant,
+  type TeamsInstallResponse,
+  type TeamsOAuthResult,
+  type TeamsChannel,
+  type TeamsNotificationSettings,
+  type TeamsDebateMessage,
 } from './teams';
 
 // Learning (Meta-Learning Analytics)
