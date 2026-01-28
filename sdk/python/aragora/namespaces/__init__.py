@@ -38,10 +38,12 @@ from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
 from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
 from .replays import AsyncReplaysAPI, ReplaysAPI
+from .rlm import RLMAPI, AsyncRLMAPI
 from .sme import SMEAPI, AsyncSMEAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
 from .tenants import AsyncTenantsAPI, TenantsAPI
 from .tournaments import AsyncTournamentsAPI, TournamentsAPI
+from .training import AsyncTrainingAPI, TrainingAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
@@ -117,6 +119,8 @@ __all__ = [
     "AsyncRelationshipsAPI",
     "ReplaysAPI",
     "AsyncReplaysAPI",
+    "RLMAPI",
+    "AsyncRLMAPI",
     "SMEAPI",
     "AsyncSMEAPI",
     "TeamsAPI",
@@ -125,6 +129,8 @@ __all__ = [
     "AsyncTournamentsAPI",
     "TenantsAPI",
     "AsyncTenantsAPI",
+    "TrainingAPI",
+    "AsyncTrainingAPI",
     "UsageAPI",
     "AsyncUsageAPI",
     "VerificationAPI",

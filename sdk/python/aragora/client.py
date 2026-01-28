@@ -114,10 +114,12 @@ class AragoraClient:
         from .namespaces.receipts import ReceiptsAPI
         from .namespaces.relationships import RelationshipsAPI
         from .namespaces.replays import ReplaysAPI
+        from .namespaces.rlm import RLMAPI
         from .namespaces.sme import SMEAPI
         from .namespaces.teams import TeamsAPI
         from .namespaces.tenants import TenantsAPI
         from .namespaces.tournaments import TournamentsAPI
+        from .namespaces.training import TrainingAPI
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.webhooks import WebhooksAPI
@@ -158,9 +160,11 @@ class AragoraClient:
         self.receipts = ReceiptsAPI(self)
         self.relationships = RelationshipsAPI(self)
         self.replays = ReplaysAPI(self)
+        self.rlm = RLMAPI(self)
         self.sme = SMEAPI(self)
         self.teams = TeamsAPI(self)
         self.tenants = TenantsAPI(self)
+        self.training = TrainingAPI(self)
         self.tournaments = TournamentsAPI(self)
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
@@ -366,10 +370,12 @@ class AragoraAsyncClient:
         from .namespaces.receipts import AsyncReceiptsAPI
         from .namespaces.relationships import AsyncRelationshipsAPI
         from .namespaces.replays import AsyncReplaysAPI
+        from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.teams import AsyncTeamsAPI
         from .namespaces.tenants import AsyncTenantsAPI
         from .namespaces.tournaments import AsyncTournamentsAPI
+        from .namespaces.training import AsyncTrainingAPI
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
@@ -410,9 +416,11 @@ class AragoraAsyncClient:
         self.receipts = AsyncReceiptsAPI(self)
         self.relationships = AsyncRelationshipsAPI(self)
         self.replays = AsyncReplaysAPI(self)
+        self.rlm = AsyncRLMAPI(self)
         self.sme = AsyncSMEAPI(self)
         self.teams = AsyncTeamsAPI(self)
         self.tenants = AsyncTenantsAPI(self)
+        self.training = AsyncTrainingAPI(self)
         self.tournaments = AsyncTournamentsAPI(self)
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
