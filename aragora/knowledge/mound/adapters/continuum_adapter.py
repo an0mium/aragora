@@ -32,8 +32,9 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
-# Import mixin for semantic search functionality
+# Import mixins for semantic search and fusion functionality
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 
 
 @dataclass
@@ -80,7 +81,7 @@ class ContinuumSearchResult:
             self.matched_keywords = []
 
 
-class ContinuumAdapter(SemanticSearchMixin):
+class ContinuumAdapter(FusionMixin, SemanticSearchMixin):
     """
     Adapter that bridges ContinuumMemory to the Knowledge Mound.
 
@@ -107,6 +108,87 @@ class ContinuumAdapter(SemanticSearchMixin):
     # SemanticSearchMixin configuration
     adapter_name = "continuum"
     source_type = "continuum"
+
+    # FusionMixin abstract method implementations
+    def _get_fusion_sources(self) -> List[str]:
+        """Return list of source adapters this adapter can fuse data from."""
+        return ["consensus", "elo", "evidence", "belief", "insights"]
+
+    def _extract_fusible_data(
+        self,
+        km_item: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Extract fusible data from a KM item.
+
+        Args:
+            km_item: A Knowledge Mound item with validation data.
+
+        Returns:
+            Dictionary of extracted data suitable for fusion.
+        """
+        metadata = km_item.get("metadata", {})
+        confidence = km_item.get("confidence") or metadata.get("confidence", 0.5)
+
+        # Extract tier information
+        tier = metadata.get("tier") or metadata.get("continuum_tier")
+
+        return {
+            "confidence": float(confidence) if confidence else 0.5,
+            "source_id": km_item.get("id") or metadata.get("source_id"),
+            "tier": tier,
+            "importance": km_item.get("importance", confidence),
+            "is_valid": float(confidence) >= 0.5 if confidence else True,
+            "sources": metadata.get("sources", []),
+            "reasoning": metadata.get("reasoning"),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to a continuum memory entry.
+
+        Args:
+            record: The ContinuumMemoryEntry to update.
+            fusion_result: The fused validation result with fused_confidence.
+            metadata: Optional additional metadata.
+
+        Returns:
+            True if the record was updated.
+        """
+        try:
+            # Get fused confidence from result
+            fused_confidence = getattr(fusion_result, "fused_confidence", None)
+            if fused_confidence is None:
+                return False
+
+            # Update the record's importance based on fused confidence
+            record_id = record.id if hasattr(record, "id") else str(record)
+
+            # Update metadata with fusion information
+            record_metadata = record.metadata.copy() if hasattr(record, "metadata") else {}
+            record_metadata["km_fused"] = True
+            record_metadata["km_fused_confidence"] = fused_confidence
+            if metadata:
+                record_metadata["fusion_metadata"] = metadata
+
+            # Update the entry in continuum memory
+            self._continuum.update(
+                record_id,
+                importance=fused_confidence,
+                metadata=record_metadata,
+            )
+
+            logger.debug(
+                f"Applied fusion result to continuum entry {record_id}: "
+                f"fused_confidence={fused_confidence:.3f}"
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result: {e}")
+            return False
 
     def __init__(
         self,

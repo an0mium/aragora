@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
@@ -74,7 +75,7 @@ class EvidenceSearchResult:
             self.matched_topics = []
 
 
-class EvidenceAdapter(SemanticSearchMixin):
+class EvidenceAdapter(FusionMixin, SemanticSearchMixin):
     """
     Adapter that bridges EvidenceStore to the Knowledge Mound.
 
@@ -106,6 +107,82 @@ class EvidenceAdapter(SemanticSearchMixin):
     # SemanticSearchMixin configuration
     adapter_name = "evidence"
     source_type = "evidence"
+
+    # FusionMixin abstract method implementations
+    def _get_fusion_sources(self) -> List[str]:
+        """Return list of source adapters this adapter can fuse data from."""
+        return ["consensus", "elo", "belief", "continuum", "insights"]
+
+    def _extract_fusible_data(
+        self,
+        km_item: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Extract fusible data from a KM item.
+
+        Args:
+            km_item: A Knowledge Mound item with validation data.
+
+        Returns:
+            Dictionary of extracted data suitable for fusion.
+        """
+        metadata = km_item.get("metadata", {})
+        confidence = km_item.get("confidence") or metadata.get("reliability_score", 0.5)
+
+        return {
+            "confidence": float(confidence) if confidence else 0.5,
+            "source_id": km_item.get("id") or metadata.get("source_id"),
+            "reliability": metadata.get("reliability_score", confidence),
+            "quality": metadata.get("quality_score", 0.5),
+            "is_valid": float(confidence) >= self.MIN_RELIABILITY if confidence else True,
+            "sources": metadata.get("sources", []),
+            "reasoning": metadata.get("reasoning"),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to an evidence record.
+
+        Args:
+            record: The evidence record (dict) to update.
+            fusion_result: The fused validation result with fused_confidence.
+            metadata: Optional additional metadata.
+
+        Returns:
+            True if the record was updated.
+        """
+        try:
+            # Get fused confidence from result
+            fused_confidence = getattr(fusion_result, "fused_confidence", None)
+            if fused_confidence is None:
+                return False
+
+            # Handle both dict and object records
+            if isinstance(record, dict):
+                record["reliability_score"] = fused_confidence
+                record["km_fused"] = True
+                record["km_fused_confidence"] = fused_confidence
+                if metadata:
+                    record["fusion_metadata"] = metadata
+                record_id = record.get("id", "unknown")
+            else:
+                record.reliability_score = fused_confidence  # type: ignore
+                if hasattr(record, "metadata"):
+                    record.metadata["km_fused"] = True  # type: ignore
+                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore
+                record_id = getattr(record, "id", "unknown")
+
+            logger.debug(
+                f"Applied fusion result to evidence {record_id}: "
+                f"fused_confidence={fused_confidence:.3f}"
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result to evidence: {e}")
+            return False
 
     def __init__(
         self,

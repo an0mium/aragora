@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.reasoning.belief import BeliefNetwork, BeliefNode, CruxClaim
@@ -122,7 +124,7 @@ class CruxSearchResult:
             self.debate_ids = []
 
 
-class BeliefAdapter:
+class BeliefAdapter(FusionMixin):
     """
     Adapter that bridges BeliefNetwork to the Knowledge Mound.
 
@@ -158,6 +160,96 @@ class BeliefAdapter:
     # Thresholds from plan
     MIN_BELIEF_CONFIDENCE = 0.8  # Only store high-confidence beliefs
     MIN_CRUX_SCORE = 0.3  # Store cruxes above this threshold
+
+    # FusionMixin configuration
+    adapter_name = "belief"
+
+    # FusionMixin abstract method implementations
+    def _get_fusion_sources(self) -> List[str]:
+        """Return list of source adapters this adapter can fuse data from."""
+        return ["consensus", "elo", "evidence", "continuum", "insights"]
+
+    def _extract_fusible_data(
+        self,
+        km_item: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Extract fusible data from a KM item.
+
+        Args:
+            km_item: A Knowledge Mound item with validation data.
+
+        Returns:
+            Dictionary of extracted data suitable for fusion.
+        """
+        metadata = km_item.get("metadata", {})
+        confidence = km_item.get("confidence") or metadata.get("confidence", 0.5)
+
+        # Check if this is a crux
+        is_crux = metadata.get("is_crux", False)
+        crux_score = metadata.get("crux_score", 0.0) if is_crux else None
+
+        return {
+            "confidence": float(confidence) if confidence else 0.5,
+            "source_id": km_item.get("id") or metadata.get("source_id"),
+            "is_crux": is_crux,
+            "crux_score": crux_score,
+            "centrality": metadata.get("centrality", 0.0),
+            "is_valid": float(confidence) >= self.MIN_BELIEF_CONFIDENCE if confidence else True,
+            "sources": metadata.get("sources", []),
+            "reasoning": metadata.get("reasoning"),
+        }
+
+    def _apply_fusion_result(
+        self,
+        record: Any,
+        fusion_result: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Apply a fusion result to a belief record.
+
+        Args:
+            record: The belief record (dict) to update.
+            fusion_result: The fused validation result with fused_confidence.
+            metadata: Optional additional metadata.
+
+        Returns:
+            True if the record was updated.
+        """
+        try:
+            # Get fused confidence from result
+            fused_confidence = getattr(fusion_result, "fused_confidence", None)
+            if fused_confidence is None:
+                return False
+
+            # Handle dict records
+            if isinstance(record, dict):
+                record["confidence"] = fused_confidence
+                record["km_fused"] = True
+                record["km_fused_confidence"] = fused_confidence
+                if metadata:
+                    record.setdefault("metadata", {})["fusion_metadata"] = metadata
+                record_id = record.get("id", "unknown")
+
+                # Update stored belief if it exists
+                belief_id = record.get("id")
+                if belief_id and belief_id in self._beliefs:
+                    self._beliefs[belief_id]["confidence"] = fused_confidence
+                    self._beliefs[belief_id]["km_fused"] = True
+            else:
+                record.confidence = fused_confidence  # type: ignore
+                if hasattr(record, "metadata"):
+                    record.metadata["km_fused"] = True  # type: ignore
+                    record.metadata["km_fused_confidence"] = fused_confidence  # type: ignore
+                record_id = getattr(record, "id", "unknown")
+
+            logger.debug(
+                f"Applied fusion result to belief {record_id}: "
+                f"fused_confidence={fused_confidence:.3f}"
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to apply fusion result to belief: {e}")
+            return False
 
     def __init__(
         self,
