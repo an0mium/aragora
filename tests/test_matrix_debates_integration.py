@@ -12,19 +12,8 @@ import json
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
 
-# Check if MatrixDebatesHandler is available at module level
-try:
-    from aragora.server.handlers.debates import MatrixDebatesHandler
-
-    HAS_MATRIX_HANDLER = True
-except ImportError:
-    HAS_MATRIX_HANDLER = False
-    MatrixDebatesHandler = None  # type: ignore
-
-# Reusable skipif marker for all tests requiring MatrixDebatesHandler
-requires_matrix_handler = pytest.mark.skipif(
-    not HAS_MATRIX_HANDLER, reason="MatrixDebatesHandler not available (see #133)"
-)
+# Import MatrixDebatesHandler directly since it's now available
+from aragora.server.handlers.debates import MatrixDebatesHandler
 
 
 # ============================================================================
@@ -141,7 +130,6 @@ def sample_results():
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestMatrixDebatesHandlerRoutes:
     """Tests for MatrixDebatesHandler route recognition."""
 
@@ -165,7 +153,6 @@ class TestMatrixDebatesHandlerRoutes:
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestMatrixDebatesGetEndpoints:
     """Tests for GET endpoints."""
 
@@ -241,7 +228,6 @@ class TestMatrixDebatesGetEndpoints:
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestMatrixDebatesPostEndpoint:
     """Tests for POST /api/debates/matrix endpoint."""
 
@@ -296,7 +282,6 @@ class TestMatrixDebatesPostEndpoint:
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestMatrixDebatesUtilities:
     """Tests for utility methods."""
 
@@ -391,7 +376,6 @@ class TestMatrixDebatesUtilities:
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestAgentLoading:
     """Tests for agent loading functionality."""
 
@@ -434,7 +418,6 @@ class TestAgentLoading:
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestHandleGetRouting:
     """Tests for GET request routing via internal methods."""
 
@@ -505,7 +488,6 @@ class TestHandleGetRouting:
 # ============================================================================
 
 
-@requires_matrix_handler
 class TestMatrixDebateFallback:
     """Tests for fallback implementation when MatrixDebateRunner unavailable."""
 
