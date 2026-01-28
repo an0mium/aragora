@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import time
 import os
 
-from aragora.connectors.twitter import TwitterConnector, HTTPX_AVAILABLE
+from aragora.connectors.twitter import TwitterConnector
 from aragora.connectors.base import Evidence
 from aragora.reasoning.provenance import SourceType
 
@@ -33,9 +33,9 @@ class TestTwitterConnectorBasics:
         assert connector.default_confidence == 0.5
 
     def test_is_available(self):
-        """Test is_available matches httpx availability."""
+        """Test is_available is True when httpx installed."""
         connector = TwitterConnector()
-        assert connector.is_available == HTTPX_AVAILABLE
+        assert connector.is_available is True
 
     def test_is_configured_without_token(self):
         """Test is_configured returns False without token."""
@@ -112,7 +112,6 @@ class TestTwitterConnectorSearch:
         }
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_without_token_returns_empty(self):
         """Test search returns empty when not configured."""
         connector = TwitterConnector(bearer_token="")
@@ -120,7 +119,6 @@ class TestTwitterConnectorSearch:
         assert results == []
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_parses_results(self, mock_search_response):
         """Test that search correctly parses Twitter response."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -141,7 +139,6 @@ class TestTwitterConnectorSearch:
             assert all(isinstance(r, Evidence) for r in results)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_evidence_properties(self, mock_search_response):
         """Test evidence object has correct properties."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -166,7 +163,6 @@ class TestTwitterConnectorSearch:
             assert "twitter.com" in evidence.url
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_metadata(self, mock_search_response):
         """Test evidence metadata contains Twitter-specific fields."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -191,7 +187,6 @@ class TestTwitterConnectorSearch:
             assert metadata["followers_count"] == 50000
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_handles_auth_error(self):
         """Test search handles authentication errors."""
         connector = TwitterConnector(bearer_token="invalid_token")
@@ -208,7 +203,6 @@ class TestTwitterConnectorSearch:
             assert results == []
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_handles_rate_limit(self):
         """Test search handles rate limit errors."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -262,7 +256,6 @@ class TestTwitterConnectorFetch:
         }
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_tweet(self, mock_tweet_response):
         """Test fetching a specific tweet."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -285,7 +278,6 @@ class TestTwitterConnectorFetch:
             assert evidence.author == "@expertuser"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_handles_prefix(self, mock_tweet_response):
         """Test fetch handles 'twitter:' prefix in ID."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -306,7 +298,6 @@ class TestTwitterConnectorFetch:
             assert evidence.id == "twitter:9876543210"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_caches_result(self, mock_tweet_response):
         """Test fetch caches result."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -330,7 +321,6 @@ class TestTwitterConnectorFetch:
             assert mock_get.call_count == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_not_found(self):
         """Test fetch handles 404."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -468,7 +458,6 @@ class TestTwitterConnectorHelperMethods:
     """Test helper methods."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_hashtag(self):
         """Test search_hashtag adds # prefix."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -481,7 +470,6 @@ class TestTwitterConnectorHelperMethods:
             mock.assert_called_once_with("#AIResearch", limit=10)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_hashtag_preserves_existing_hash(self):
         """Test search_hashtag doesn't double the #."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -494,7 +482,6 @@ class TestTwitterConnectorHelperMethods:
             mock.assert_called_once_with("#MachineLearning", limit=10)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_from_user(self):
         """Test search_from_user constructs correct query."""
         connector = TwitterConnector(bearer_token="test_token")
@@ -511,7 +498,6 @@ class TestTwitterConnectorRateLimiting:
     """Test rate limiting behavior."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_rate_limit_delay(self):
         """Test rate limiting enforces delay."""
         connector = TwitterConnector(bearer_token="test_token", rate_limit_delay=0.1)
@@ -579,7 +565,6 @@ class TestTwitterConnectorEdgeCases:
 
 
 # Integration-style test
-@pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
 class TestTwitterConnectorIntegration:
     """Integration tests for full flow."""
 

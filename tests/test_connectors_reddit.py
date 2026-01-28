@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 import time
 
-from aragora.connectors.reddit import RedditConnector, HTTPX_AVAILABLE
+from aragora.connectors.reddit import RedditConnector
 from aragora.connectors.base import Evidence
 from aragora.reasoning.provenance import SourceType
 
@@ -33,9 +33,9 @@ class TestRedditConnectorBasics:
         assert connector.default_confidence == 0.6
 
     def test_is_available(self):
-        """Test is_available matches httpx availability."""
+        """Test is_available is True when httpx installed."""
         connector = RedditConnector()
-        assert connector.is_available == HTTPX_AVAILABLE
+        assert connector.is_available is True
 
 
 class TestRedditConnectorSearch:
@@ -92,7 +92,6 @@ class TestRedditConnectorSearch:
         }
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_parses_results(self, mock_search_response):
         """Test that search correctly parses Reddit response."""
         connector = RedditConnector()
@@ -112,7 +111,6 @@ class TestRedditConnectorSearch:
             assert all(isinstance(r, Evidence) for r in results)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_evidence_properties(self, mock_search_response):
         """Test evidence object has correct properties."""
         connector = RedditConnector()
@@ -140,7 +138,6 @@ class TestRedditConnectorSearch:
             )
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_metadata(self, mock_search_response):
         """Test evidence metadata contains Reddit-specific fields."""
         connector = RedditConnector()
@@ -164,7 +161,6 @@ class TestRedditConnectorSearch:
             assert metadata["is_self"] is True
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_external_link(self, mock_search_response):
         """Test external link posts include link URL."""
         connector = RedditConnector()
@@ -185,7 +181,6 @@ class TestRedditConnectorSearch:
             assert link_post.metadata["is_self"] is False
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_handles_timeout(self):
         """Test search gracefully handles timeout."""
         import httpx
@@ -201,7 +196,6 @@ class TestRedditConnectorSearch:
             assert results == []
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_search_handles_http_error(self):
         """Test search gracefully handles HTTP errors."""
         import httpx
@@ -277,7 +271,6 @@ class TestRedditConnectorFetch:
         ]
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_post(self, mock_post_response):
         """Test fetching a specific post."""
         connector = RedditConnector()
@@ -299,7 +292,6 @@ class TestRedditConnectorFetch:
             assert "Detailed content here" in evidence.content
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_includes_comments(self, mock_post_response):
         """Test fetch includes top comments in metadata."""
         connector = RedditConnector()
@@ -320,7 +312,6 @@ class TestRedditConnectorFetch:
             assert evidence.metadata["top_comments"][0]["body"] == "Great post!"
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_caches_result(self, mock_post_response):
         """Test fetch caches result to avoid duplicate API calls."""
         connector = RedditConnector()
@@ -343,7 +334,6 @@ class TestRedditConnectorFetch:
             assert mock_get.call_count == 1
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_fetch_handles_prefix(self, mock_post_response):
         """Test fetch handles 'reddit:' prefix in ID."""
         connector = RedditConnector()
@@ -475,7 +465,6 @@ class TestRedditConnectorHelperMethods:
     """Test helper methods for getting subreddit content."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_get_hot(self):
         """Test get_hot calls correct endpoint."""
         connector = RedditConnector()
@@ -488,7 +477,6 @@ class TestRedditConnectorHelperMethods:
             mock.assert_called_once_with("programming", sort="hot", limit=10)
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_get_top(self):
         """Test get_top calls correct endpoint with time filter."""
         connector = RedditConnector()
@@ -501,7 +489,6 @@ class TestRedditConnectorHelperMethods:
             mock.assert_called_once_with("programming", sort="top", limit=10, time_filter="week")
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_get_new(self):
         """Test get_new calls correct endpoint."""
         connector = RedditConnector()
@@ -518,7 +505,6 @@ class TestRedditConnectorRateLimiting:
     """Test rate limiting behavior."""
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
     async def test_rate_limit_delay(self):
         """Test rate limiting enforces delay between requests."""
         connector = RedditConnector(rate_limit_delay=0.1)
@@ -618,8 +604,7 @@ class TestRedditConnectorEdgeCases:
         assert len(results) == 1
 
 
-# Integration-style test (requires httpx)
-@pytest.mark.skipif(not HTTPX_AVAILABLE, reason="httpx not installed")
+# Integration-style test
 class TestRedditConnectorIntegration:
     """Integration tests that verify the full flow."""
 

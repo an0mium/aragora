@@ -7,6 +7,9 @@ Tests cover:
 - GDPR data export
 - Audit verification
 - SIEM-compatible event export
+- GDPR deletion endpoints
+- Legal hold management
+- RBAC permission enforcement
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.compliance_handler import (
     ComplianceHandler,
     create_compliance_handler,
@@ -409,6 +413,103 @@ class TestComplianceHandlerRouting_Extended:
         assert handler.can_handle("/api/v2/compliance/gdpr/execute-pending", "POST")
         assert handler.can_handle("/api/v2/compliance/gdpr/backup-exclusions", "GET")
         assert handler.can_handle("/api/v2/compliance/gdpr/backup-exclusions", "POST")
+
+
+class TestComplianceRBACPermissions:
+    """Test RBAC permission enforcement for compliance endpoints."""
+
+    @pytest.fixture
+    def handler_with_context(self, mock_server_context):
+        """Create handler that can test with auth contexts."""
+        return ComplianceHandler(mock_server_context)
+
+    @pytest.mark.asyncio
+    async def test_status_allows_compliance_read(self, handler_with_context):
+        """Test compliance:read permission allows status access."""
+        # Default auto-auth provides admin with all permissions
+        result = await handler_with_context.handle("GET", "/api/v2/compliance/status")
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_soc2_allows_compliance_soc2(self, handler_with_context):
+        """Test compliance:soc2 permission allows SOC2 report access."""
+        result = await handler_with_context.handle(
+            "GET",
+            "/api/v2/compliance/soc2-report",
+            query_params={"format": "json"},
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_gdpr_export_allows_compliance_gdpr(self, handler_with_context):
+        """Test compliance:gdpr permission allows GDPR export."""
+        result = await handler_with_context.handle(
+            "GET",
+            "/api/v2/compliance/gdpr-export",
+            query_params={"user_id": "user-001", "format": "json"},
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_audit_verify_allows_compliance_audit(self, handler_with_context):
+        """Test compliance:audit permission allows audit verification."""
+        result = await handler_with_context.handle(
+            "POST",
+            "/api/v2/compliance/audit-verify",
+            body={"trail_id": "trail-001"},
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_legal_hold_allows_compliance_legal(self, handler_with_context):
+        """Test compliance:legal permission allows legal hold listing."""
+        result = await handler_with_context.handle(
+            "GET",
+            "/api/v2/compliance/gdpr/legal-holds",
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.no_auto_auth
+    @pytest.mark.asyncio
+    async def test_status_denied_without_permission(self, handler_with_context):
+        """Test status endpoint denied without compliance:read permission."""
+        # Create context with no permissions
+        context = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            org_id="test-org",
+            roles=set(),
+            permissions=set(),  # No permissions
+        )
+        with patch(
+            "aragora.rbac.decorators._get_context_from_args",
+            return_value=context,
+        ):
+            result = await handler_with_context.handle("GET", "/api/v2/compliance/status")
+            # Should get 403 Forbidden
+            assert result.status_code == 403
+
+    @pytest.mark.no_auto_auth
+    @pytest.mark.asyncio
+    async def test_gdpr_denied_without_permission(self, handler_with_context):
+        """Test GDPR export denied without compliance:gdpr permission."""
+        context = AuthorizationContext(
+            user_id="test-user",
+            user_email="test@example.com",
+            org_id="test-org",
+            roles=set(),
+            permissions={"compliance:read"},  # Has read but not gdpr
+        )
+        with patch(
+            "aragora.rbac.decorators._get_context_from_args",
+            return_value=context,
+        ):
+            result = await handler_with_context.handle(
+                "GET",
+                "/api/v2/compliance/gdpr-export",
+                query_params={"user_id": "user-001"},
+            )
+            assert result.status_code == 403
 
 
 class TestFactoryFunction:
