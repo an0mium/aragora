@@ -8,7 +8,7 @@ and integrating with LangChain's callback system.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -151,7 +151,7 @@ class AragoraCallbackHandler(BaseCallbackHandler):
 
     def on_llm_error(
         self,
-        error: Union[Exception, KeyboardInterrupt],
+        error: BaseException,
         *,
         run_id: UUID,
         parent_run_id: Optional[UUID] = None,

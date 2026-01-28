@@ -54,7 +54,7 @@ except ImportError:
 
         pass
 
-    def Field(*args: Any, **kwargs: Any) -> Any:
+    def Field(*args: Any, **kwargs: Any) -> Any:  # type: ignore[no-redef]
         """Stub Field."""
         return None
 
@@ -381,7 +381,7 @@ class AragoraDecisionTool(BaseTool):
         if self.api_token:
             headers["Authorization"] = f"Bearer {self.api_token}"
 
-        payload = {"question": question}
+        payload: dict[str, Any] = {"question": question}
         if options:
             payload["options"] = options
 

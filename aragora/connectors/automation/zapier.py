@@ -227,7 +227,7 @@ class ZapierConnector(AutomationConnector):
         Returns:
             Sample event payload
         """
-        samples = {
+        samples: Dict[AutomationEventType, Dict[str, Any]] = {
             AutomationEventType.DEBATE_COMPLETED: {
                 "debate_id": "deb_sample123",
                 "task": "Should we adopt microservices?",

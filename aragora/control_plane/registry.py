@@ -19,7 +19,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 # Observability
 from aragora.observability import (
@@ -112,7 +112,7 @@ class AgentInfo:
         cap_str = capability.value if isinstance(capability, AgentCapability) else capability
         return cap_str in self.capabilities
 
-    def has_all_capabilities(self, capabilities: List[str | AgentCapability]) -> bool:
+    def has_all_capabilities(self, capabilities: Sequence[str | AgentCapability]) -> bool:
         """Check if agent has all specified capabilities."""
         return all(self.has_capability(c) for c in capabilities)
 
@@ -289,7 +289,7 @@ class AgentRegistry:
     async def register(
         self,
         agent_id: str,
-        capabilities: List[str | AgentCapability],
+        capabilities: Sequence[str | AgentCapability],
         model: str = "unknown",
         provider: str = "unknown",
         metadata: Optional[Dict[str, Any]] = None,
@@ -474,7 +474,7 @@ class AgentRegistry:
 
     async def find_by_capabilities(
         self,
-        capabilities: List[str | AgentCapability],
+        capabilities: Sequence[str | AgentCapability],
         only_available: bool = True,
     ) -> List[AgentInfo]:
         """
@@ -548,7 +548,7 @@ class AgentRegistry:
 
     async def find_by_capabilities_and_regions(
         self,
-        capabilities: List[str | AgentCapability],
+        capabilities: Sequence[str | AgentCapability],
         regions: List[str],
         only_available: bool = True,
     ) -> List[AgentInfo]:
@@ -591,7 +591,7 @@ class AgentRegistry:
 
     async def select_agent(
         self,
-        capabilities: List[str | AgentCapability],
+        capabilities: Sequence[str | AgentCapability],
         strategy: str = "least_loaded",
         exclude: Optional[List[str]] = None,
     ) -> Optional[AgentInfo]:
@@ -630,7 +630,7 @@ class AgentRegistry:
 
     async def select_agent_in_region(
         self,
-        capabilities: List[str | AgentCapability],
+        capabilities: Sequence[str | AgentCapability],
         target_region: Optional[str] = None,
         fallback_regions: Optional[List[str]] = None,
         strategy: str = "least_loaded",

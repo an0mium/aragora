@@ -16,7 +16,7 @@ Performance optimizations:
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional, Pattern
+from typing import TYPE_CHECKING, Any, Awaitable, Optional, Pattern, Union
 
 if TYPE_CHECKING:
     from aragora.server.handlers.base import BaseHandler, HandlerResult
@@ -156,7 +156,7 @@ class RequestRouter:
         path: str,
         query_params: dict,
         http_handler: Any = None,
-    ) -> Optional["HandlerResult"]:
+    ) -> Union["HandlerResult", Awaitable["HandlerResult"], None]:
         """Dispatch a request to the appropriate handler.
 
         Uses cached results when available for O(1) lookup on frequently
@@ -169,7 +169,7 @@ class RequestRouter:
             http_handler: HTTP handler instance for reading body, etc.
 
         Returns:
-            HandlerResult if handled, None otherwise
+            HandlerResult or Awaitable[HandlerResult] if handled, None otherwise
         """
         # Check cache first
         cache_key = (method, path)
@@ -247,7 +247,7 @@ class RequestRouter:
         query_params: dict,
         path_params: dict,
         http_handler: Any,
-    ) -> Optional["HandlerResult"]:
+    ) -> Union["HandlerResult", Awaitable["HandlerResult"], None]:
         """Invoke the appropriate method on a handler.
 
         Args:
@@ -259,7 +259,7 @@ class RequestRouter:
             http_handler: HTTP handler instance
 
         Returns:
-            HandlerResult if handled, None otherwise
+            HandlerResult or Awaitable[HandlerResult] if handled, None otherwise
         """
         try:
             if method == "GET" and hasattr(handler, "handle"):
