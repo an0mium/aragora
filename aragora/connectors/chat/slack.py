@@ -2530,21 +2530,17 @@ class SlackThreadManager:
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx required for thread operations")
 
-        async with httpx.AsyncClient(timeout=self.connector._request_timeout) as client:
-            response = await client.get(
-                f"{SLACK_API_BASE}/conversations.replies",
-                headers={
-                    "Authorization": f"Bearer {self.connector.bot_token}",
-                    **build_trace_headers(),
-                },
-                params={"channel": channel_id, "ts": thread_ts, "limit": 1, "inclusive": True},
-            )
-            data = response.json()
-            if not data.get("ok"):
-                error = data.get("error", "unknown")
-                if error in ("thread_not_found", "message_not_found"):
-                    raise ThreadNotFoundError(thread_ts, channel_id, "slack")
-                raise Exception(f"Slack API error: {error}")
+        success, data, error = await self.connector._slack_api_request(
+            "conversations.replies",
+            operation="get_thread",
+            method="GET",
+            params={"channel": channel_id, "ts": thread_ts, "limit": 1, "inclusive": True},
+        )
+        if not success or not data:
+            error_str = error or "unknown"
+            if error_str in ("thread_not_found", "message_not_found"):
+                raise ThreadNotFoundError(thread_ts, channel_id, "slack")
+            raise Exception(f"Slack API error: {error_str}")
 
             messages = data.get("messages", [])
             if not messages:
@@ -2582,27 +2578,23 @@ class SlackThreadManager:
         if not HTTPX_AVAILABLE:
             return [], None
 
-        async with httpx.AsyncClient(timeout=self.connector._request_timeout) as client:
-            params: dict[str, Any] = {
-                "channel": channel_id,
-                "ts": thread_ts,
-                "limit": min(limit, 1000),
-                "inclusive": True,
-            }
-            if cursor:
-                params["cursor"] = cursor
+        params: dict[str, Any] = {
+            "channel": channel_id,
+            "ts": thread_ts,
+            "limit": min(limit, 1000),
+            "inclusive": True,
+        }
+        if cursor:
+            params["cursor"] = cursor
 
-            response = await client.get(
-                f"{SLACK_API_BASE}/conversations.replies",
-                headers={
-                    "Authorization": f"Bearer {self.connector.bot_token}",
-                    **build_trace_headers(),
-                },
-                params=params,
-            )
-            data = response.json()
-            if not data.get("ok"):
-                return [], None
+        success, data, _ = await self.connector._slack_api_request(
+            "conversations.replies",
+            operation="get_thread_messages",
+            method="GET",
+            params=params,
+        )
+        if not success or not data:
+            return [], None
 
             messages = []
             for msg in data.get("messages", []):
@@ -2637,55 +2629,51 @@ class SlackThreadManager:
             return [], None
 
         threads: list[ThreadInfo] = []
-        async with httpx.AsyncClient(timeout=self.connector._request_timeout) as client:
-            params: dict[str, Any] = {"channel": channel_id, "limit": min(limit * 5, 200)}
-            if cursor:
-                params["cursor"] = cursor
+        params: dict[str, Any] = {"channel": channel_id, "limit": min(limit * 5, 200)}
+        if cursor:
+            params["cursor"] = cursor
 
-            response = await client.get(
-                f"{SLACK_API_BASE}/conversations.history",
-                headers={
-                    "Authorization": f"Bearer {self.connector.bot_token}",
-                    **build_trace_headers(),
-                },
-                params=params,
+        success, data, _ = await self.connector._slack_api_request(
+            "conversations.history",
+            operation="list_threads",
+            method="GET",
+            params=params,
+        )
+        if not success or not data:
+            return [], None
+
+        for msg in data.get("messages", []):
+            reply_count = int(msg.get("reply_count", 0))
+            if reply_count == 0:
+                continue
+            ts = msg.get("ts", "")
+            created_ts = float(ts.split(".")[0]) if ts else 0
+            created_at = datetime.fromtimestamp(created_ts)
+            latest_reply = msg.get("latest_reply")
+            updated_at = (
+                datetime.fromtimestamp(float(latest_reply.split(".")[0]))
+                if latest_reply
+                else created_at
             )
-            data = response.json()
-            if not data.get("ok"):
-                return [], None
 
-            for msg in data.get("messages", []):
-                reply_count = int(msg.get("reply_count", 0))
-                if reply_count == 0:
-                    continue
-                ts = msg.get("ts", "")
-                created_ts = float(ts.split(".")[0]) if ts else 0
-                created_at = datetime.fromtimestamp(created_ts)
-                latest_reply = msg.get("latest_reply")
-                updated_at = (
-                    datetime.fromtimestamp(float(latest_reply.split(".")[0]))
-                    if latest_reply
-                    else created_at
+            threads.append(
+                ThreadInfo(
+                    id=ts,
+                    channel_id=channel_id,
+                    platform="slack",
+                    created_by=msg.get("user", ""),
+                    created_at=created_at,
+                    updated_at=updated_at,
+                    message_count=reply_count + 1,
+                    participant_count=len(msg.get("reply_users", [])) + 1,
+                    title=msg.get("text", "")[:100],
+                    root_message_id=ts,
                 )
+            )
+            if len(threads) >= limit:
+                break
 
-                threads.append(
-                    ThreadInfo(
-                        id=ts,
-                        channel_id=channel_id,
-                        platform="slack",
-                        created_by=msg.get("user", ""),
-                        created_at=created_at,
-                        updated_at=updated_at,
-                        message_count=reply_count + 1,
-                        participant_count=len(msg.get("reply_users", [])) + 1,
-                        title=msg.get("text", "")[:100],
-                        root_message_id=ts,
-                    )
-                )
-                if len(threads) >= limit:
-                    break
-
-            next_cursor = data.get("response_metadata", {}).get("next_cursor")
+        next_cursor = data.get("response_metadata", {}).get("next_cursor")
         return threads, next_cursor if next_cursor else None
 
     async def reply_to_thread(
@@ -2714,43 +2702,37 @@ class SlackThreadManager:
         if not HTTPX_AVAILABLE:
             raise RuntimeError("httpx required for broadcast reply")
 
-        async with httpx.AsyncClient(timeout=self.connector._request_timeout) as client:
-            payload = {
-                "channel": channel_id,
-                "text": message,
-                "thread_ts": thread_ts,
-                "reply_broadcast": True,
-            }
-            if kwargs.get("blocks"):
-                payload["blocks"] = kwargs["blocks"]
+        payload: dict[str, Any] = {
+            "channel": channel_id,
+            "text": message,
+            "thread_ts": thread_ts,
+            "reply_broadcast": True,
+        }
+        if kwargs.get("blocks"):
+            payload["blocks"] = kwargs["blocks"]
 
-            response = await client.post(
-                f"{SLACK_API_BASE}/chat.postMessage",
-                headers={
-                    "Authorization": f"Bearer {self.connector.bot_token}",
-                    "Content-Type": "application/json",
-                    **build_trace_headers(),
-                },
-                json=payload,
-            )
-            data = response.json()
-            if not data.get("ok"):
-                raise Exception(f"Slack broadcast error: {data.get('error')}")
+        success, data, error = await self.connector._slack_api_request(
+            "chat.postMessage",
+            operation="broadcast_thread_reply",
+            json_data=payload,
+        )
+        if not success or not data:
+            raise Exception(f"Slack broadcast error: {error}")
 
-            msg_data = data.get("message", {})
-            channel = ChatChannel(id=channel_id, platform="slack")
-            user = ChatUser(
-                id=msg_data.get("user", msg_data.get("bot_id", "")), platform="slack", is_bot=True
-            )
-            return ChatMessage(
-                id=data.get("ts", ""),
-                platform="slack",
-                channel=channel,
-                author=user,
-                content=message,
-                thread_id=thread_ts,
-                timestamp=datetime.utcnow(),
-            )
+        msg_data = data.get("message", {})
+        channel = ChatChannel(id=channel_id, platform="slack")
+        user = ChatUser(
+            id=msg_data.get("user", msg_data.get("bot_id", "")), platform="slack", is_bot=True
+        )
+        return ChatMessage(
+            id=data.get("ts", ""),
+            platform="slack",
+            channel=channel,
+            author=user,
+            content=message,
+            thread_id=thread_ts,
+            timestamp=datetime.utcnow(),
+        )
 
     async def get_thread_stats(self, thread_ts: str, channel_id: str) -> "ThreadStats":
         """Get statistics for a thread."""
