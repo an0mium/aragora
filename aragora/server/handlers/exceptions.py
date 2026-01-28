@@ -153,6 +153,84 @@ class HandlerDatabaseError(HandlerError):
         self.operation = operation
 
 
+class HandlerJSONParseError(HandlerValidationError):
+    """JSON parsing failed (400 Bad Request)."""
+
+    def __init__(self, source: str = "request body", reason: str | None = None):
+        msg = f"Invalid JSON in {source}"
+        if reason:
+            msg += f": {reason}"
+        super().__init__(msg, field=source, details={"source": source, "reason": reason})
+        self.source = source
+        self.reason = reason
+
+
+class HandlerTimeoutError(HandlerError):
+    """Operation timed out (504 Gateway Timeout)."""
+
+    status_code = 504
+
+    def __init__(self, operation: str, timeout_seconds: float | None = None):
+        msg = f"Operation timed out: {operation}"
+        if timeout_seconds:
+            msg += f" (timeout: {timeout_seconds}s)"
+        super().__init__(
+            msg,
+            details={"operation": operation, "timeout_seconds": timeout_seconds},
+        )
+        self.operation = operation
+        self.timeout_seconds = timeout_seconds
+
+
+class HandlerStreamError(HandlerError):
+    """WebSocket or streaming error (500 or custom code)."""
+
+    status_code = 500
+
+    def __init__(
+        self,
+        reason: str,
+        code: int | None = None,
+        stream_type: str = "websocket",
+    ):
+        if code:
+            self.status_code = code
+        super().__init__(
+            f"Stream error ({stream_type}): {reason}",
+            details={"stream_type": stream_type, "reason": reason},
+        )
+        self.reason = reason
+        self.stream_type = stream_type
+
+
+class HandlerOAuthError(HandlerError):
+    """OAuth flow error (400 Bad Request by default)."""
+
+    status_code = 400
+
+    def __init__(
+        self,
+        provider: str,
+        reason: str,
+        oauth_error: str | None = None,
+        recoverable: bool = True,
+    ):
+        msg = f"OAuth error with {provider}: {reason}"
+        super().__init__(
+            msg,
+            details={
+                "provider": provider,
+                "reason": reason,
+                "oauth_error": oauth_error,
+                "recoverable": recoverable,
+            },
+        )
+        self.provider = provider
+        self.reason = reason
+        self.oauth_error = oauth_error
+        self.recoverable = recoverable
+
+
 # =============================================================================
 # Exception Classification
 # =============================================================================

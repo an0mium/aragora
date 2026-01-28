@@ -12,7 +12,18 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from aragora.rbac.models import AuthorizationContext
+from aragora.rbac.decorators import PermissionDeniedError
+from aragora.rbac.checker import get_permission_checker
 from aragora.server.handlers.base import error_response, json_response
+
+
+@pytest.fixture(autouse=True)
+def clear_permission_cache():
+    """Clear the permission checker cache before each test."""
+    checker = get_permission_checker()
+    checker.clear_cache()
+    yield
+    checker.clear_cache()
 
 
 class TestKnowledgeMoundRBACEnforcement:
