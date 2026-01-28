@@ -94,6 +94,7 @@ class AragoraClient:
         from .namespaces.memory import MemoryAPI
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
+        from .namespaces.organizations import OrganizationsAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
@@ -117,6 +118,7 @@ class AragoraClient:
         self.memory = MemoryAPI(self)
         self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
+        self.organizations = OrganizationsAPI(self)
         self.pulse = PulseAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)

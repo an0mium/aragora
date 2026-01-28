@@ -18,6 +18,7 @@ from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
+from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .pulse import AsyncPulseAPI, PulseAPI
 from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
@@ -54,6 +55,8 @@ __all__ = [
     "AsyncMemoryAPI",
     "NotificationsAPI",
     "AsyncNotificationsAPI",
+    "OrganizationsAPI",
+    "AsyncOrganizationsAPI",
     "OnboardingAPI",
     "AsyncOnboardingAPI",
     "PulseAPI",
