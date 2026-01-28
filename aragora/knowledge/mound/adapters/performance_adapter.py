@@ -47,6 +47,9 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
+# Import mixin for fusion capabilities
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
+
 
 # =============================================================================
 # Dataclasses from EloAdapter
@@ -147,7 +150,7 @@ class ExpertiseSearchResult:
 # =============================================================================
 
 
-class PerformanceAdapter:
+class PerformanceAdapter(FusionMixin):
     """
     Unified adapter for agent performance metrics (ELO + domain expertise).
 
