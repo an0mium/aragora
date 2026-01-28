@@ -30,23 +30,41 @@ from aragora.connectors.automation import (
     N8NConnector,
     ZapierConnector,
 )
+from aragora.rbac import AuthorizationContext, check_permission
+from aragora.rbac.defaults import get_role_permissions
 from aragora.server.handlers.base import (
-    BaseHandler,
     HandlerResult,
     error_response,
     success_response,
 )
+from aragora.server.handlers.secure import SecureHandler
 
 logger = logging.getLogger(__name__)
 
+# RBAC permissions for automation webhook operations
+WEBHOOKS_READ = "webhooks.read"
+WEBHOOKS_CREATE = "webhooks.create"
+WEBHOOKS_DELETE = "webhooks.delete"
+WEBHOOKS_DISPATCH = "webhooks.all"  # Admin-level: dispatch events
+INTEGRATIONS_ADMIN = "connectors.authorize"  # Admin-level: n8n definitions
 
-class AutomationHandler(BaseHandler):
+
+class AutomationHandler(SecureHandler):
     """
     HTTP handler for automation webhook management.
 
     Manages webhook subscriptions for Zapier, n8n, and other
     automation platforms.
+
+    RBAC Protection:
+    - GET /webhooks: webhooks:read
+    - POST /webhooks/subscribe: webhooks:create
+    - DELETE /webhooks/{id}: webhooks:delete
+    - POST /webhooks/dispatch: webhooks:dispatch (internal)
+    - GET /n8n/*: integrations:admin
     """
+
+    RESOURCE_TYPE = "webhook"
 
     HANDLED_PATHS = [
         "/api/v1/webhooks",
@@ -60,9 +78,9 @@ class AutomationHandler(BaseHandler):
         "/api/v1/n8n/trigger",
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, server_context: Any = None) -> None:
         """Initialize automation handler."""
-        super().__init__()
+        super().__init__(server_context or {})
         self._zapier = ZapierConnector()
         self._n8n = N8NConnector()
         self._connectors = {
@@ -72,41 +90,97 @@ class AutomationHandler(BaseHandler):
         }
         logger.info("[AutomationHandler] Initialized")
 
+    def _check_rbac_permission(
+        self, handler: Any, permission: str, resource_id: Optional[str] = None
+    ) -> Optional[HandlerResult]:
+        """Check RBAC permission. Returns error response if denied, None if allowed."""
+        try:
+            from aragora.billing.jwt_auth import extract_user_from_request
+
+            user_store = self.ctx.get("user_store") if hasattr(self, "ctx") else None
+            auth_ctx = extract_user_from_request(handler, user_store)
+
+            # Not authenticated - return 401
+            if not auth_ctx.is_authenticated or not auth_ctx.user_id:
+                return error_response("Authentication required", status_code=401)
+
+            # Build RBAC authorization context
+            roles = {auth_ctx.role} if auth_ctx.role else {"member"}
+            permissions: set[str] = set()
+            for role in roles:
+                permissions |= get_role_permissions(role, include_inherited=True)
+
+            rbac_context = AuthorizationContext(
+                user_id=auth_ctx.user_id,
+                org_id=auth_ctx.org_id,
+                roles=roles,
+                permissions=permissions,
+                ip_address=auth_ctx.client_ip,
+            )
+
+            # Check permission
+            decision = check_permission(rbac_context, permission, resource_id)
+            if not decision.allowed:
+                logger.warning(
+                    f"Permission denied: user={auth_ctx.user_id} permission={permission} "
+                    f"reason={decision.reason}"
+                )
+                return error_response(f"Permission denied: {decision.reason}", status_code=403)
+
+            return None  # Allowed
+        except Exception as e:
+            logger.warning(f"RBAC check failed: {e}")
+            return error_response("Authentication required", status_code=401)
+
     def handle_get(
         self,
         path: str,
         query_params: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
-        """Handle GET requests."""
-        # List webhooks
+        """Handle GET requests with RBAC enforcement."""
+        # List webhooks - requires webhooks:read
         if path == "/api/v1/webhooks":
+            if err := self._check_rbac_permission(handler, WEBHOOKS_READ):
+                return err
             return self._list_webhooks(query_params)
 
-        # Get specific webhook
+        # Get specific webhook - requires webhooks:read
         if path.startswith("/api/v1/webhooks/") and not path.endswith("/test"):
             webhook_id = path.split("/")[-1]
             if webhook_id not in ["events", "subscribe", "dispatch", "platforms"]:
+                if err := self._check_rbac_permission(handler, WEBHOOKS_READ, webhook_id):
+                    return err
                 return self._get_webhook(webhook_id)
 
-        # List available events
+        # List available events - requires webhooks:read
         if path == "/api/v1/webhooks/events":
+            if err := self._check_rbac_permission(handler, WEBHOOKS_READ):
+                return err
             return self._list_events()
 
-        # List supported platforms
+        # List supported platforms - requires webhooks:read
         if path == "/api/v1/webhooks/platforms":
+            if err := self._check_rbac_permission(handler, WEBHOOKS_READ):
+                return err
             return self._list_platforms()
 
-        # n8n node definition
+        # n8n node definition - requires integrations:admin
         if path == "/api/v1/n8n/node":
+            if err := self._check_rbac_permission(handler, INTEGRATIONS_ADMIN):
+                return err
             return self._get_n8n_node()
 
-        # n8n credentials definition
+        # n8n credentials definition - requires integrations:admin
         if path == "/api/v1/n8n/credentials":
+            if err := self._check_rbac_permission(handler, INTEGRATIONS_ADMIN):
+                return err
             return self._get_n8n_credentials()
 
-        # n8n trigger definition
+        # n8n trigger definition - requires integrations:admin
         if path == "/api/v1/n8n/trigger":
+            if err := self._check_rbac_permission(handler, INTEGRATIONS_ADMIN):
+                return err
             return self._get_n8n_trigger()
 
         return None
@@ -117,18 +191,24 @@ class AutomationHandler(BaseHandler):
         query_params: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
-        """Handle POST requests."""
-        # Subscribe to webhooks
+        """Handle POST requests with RBAC enforcement."""
+        # Subscribe to webhooks - requires webhooks:create
         if path in ["/api/v1/webhooks", "/api/v1/webhooks/subscribe"]:
+            if err := self._check_rbac_permission(handler, WEBHOOKS_CREATE):
+                return err
             return await self._subscribe(handler)
 
-        # Test a webhook
+        # Test a webhook - requires webhooks:read
         if path.startswith("/api/v1/webhooks/") and path.endswith("/test"):
             webhook_id = path.split("/")[-2]
+            if err := self._check_rbac_permission(handler, WEBHOOKS_READ, webhook_id):
+                return err
             return await self._test_webhook(webhook_id)
 
-        # Dispatch event (internal use)
+        # Dispatch event (internal use) - requires webhooks:dispatch
         if path == "/api/v1/webhooks/dispatch":
+            if err := self._check_rbac_permission(handler, WEBHOOKS_DISPATCH):
+                return err
             return await self._dispatch_event(handler)
 
         return None
@@ -139,9 +219,12 @@ class AutomationHandler(BaseHandler):
         query_params: Dict[str, Any],
         handler: Any,
     ) -> Optional[HandlerResult]:
-        """Handle DELETE requests."""
+        """Handle DELETE requests with RBAC enforcement."""
         if path.startswith("/api/v1/webhooks/"):
             webhook_id = path.split("/")[-1]
+            # Requires webhooks:delete permission
+            if err := self._check_rbac_permission(handler, WEBHOOKS_DELETE, webhook_id):
+                return err
             return self._unsubscribe(webhook_id)
         return None
 
