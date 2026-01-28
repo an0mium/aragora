@@ -378,12 +378,13 @@ class TestSignatureUtilities:
 class TestWebhookHandlerListEvents:
     """Tests for GET /api/webhooks/events endpoint."""
 
-    def test_list_events_returns_all_event_types(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_list_events_returns_all_event_types(self, webhook_handler):
         """Should return all available webhook event types."""
         from aragora.server.handlers.webhooks import WEBHOOK_EVENTS
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/v1/webhooks/events", {}, handler)
+        result = await webhook_handler.handle("/api/v1/webhooks/events", {}, handler)
 
         assert result is not None
         assert result.status_code == 200
@@ -397,7 +398,8 @@ class TestWebhookHandlerListEvents:
 class TestWebhookHandlerRegister:
     """Tests for POST /api/webhooks endpoint."""
 
-    def test_register_webhook_success(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_register_webhook_success(self, webhook_handler):
         """Should successfully register a webhook."""
         body = json.dumps(
             {
@@ -411,7 +413,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result is not None
         assert result.status_code == 201
@@ -422,7 +424,8 @@ class TestWebhookHandlerRegister:
         # Secret should be included on creation
         assert "secret" in body["webhook"]
 
-    def test_register_webhook_missing_url(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_register_webhook_missing_url(self, webhook_handler):
         """Should reject registration without URL."""
         body = json.dumps({"events": ["debate_start"]}).encode()
         handler = MockHandler(
@@ -430,12 +433,13 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"URL is required" in result.body
 
-    def test_register_webhook_invalid_url(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_register_webhook_invalid_url(self, webhook_handler):
         """Should reject registration with invalid URL."""
         body = json.dumps(
             {
@@ -448,12 +452,13 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"http" in result.body.lower()
 
-    def test_register_webhook_missing_events(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_register_webhook_missing_events(self, webhook_handler):
         """Should reject registration without events."""
         body = json.dumps({"url": "https://example.com"}).encode()
         handler = MockHandler(
@@ -461,12 +466,13 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"event" in result.body.lower()
 
-    def test_register_webhook_invalid_events(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_register_webhook_invalid_events(self, webhook_handler):
         """Should reject registration with invalid event types."""
         body = json.dumps(
             {
@@ -479,7 +485,7 @@ class TestWebhookHandlerRegister:
             body=body,
         )
 
-        result = webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
         assert b"Invalid event" in result.body
@@ -488,18 +494,20 @@ class TestWebhookHandlerRegister:
 class TestWebhookHandlerList:
     """Tests for GET /api/webhooks endpoint."""
 
-    def test_list_webhooks_empty(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_list_webhooks_empty(self, webhook_handler):
         """Should return empty list when no webhooks registered."""
         handler = MockHandler(headers={})
 
-        result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["webhooks"] == []
         assert body["count"] == 0
 
-    def test_list_webhooks_returns_registered(self, webhook_handler, server_context):
+    @pytest.mark.asyncio
+    async def test_list_webhooks_returns_registered(self, webhook_handler, server_context):
         """Should return registered webhooks."""
         # Register some webhooks (with user_id matching mock auth context)
         store = server_context["webhook_store"]
@@ -507,19 +515,20 @@ class TestWebhookHandlerList:
         store.register(url="https://b.com", events=["debate_end"], user_id="test-user-001")
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert len(body["webhooks"]) == 2
 
-    def test_list_webhooks_excludes_secrets(self, webhook_handler, server_context):
+    @pytest.mark.asyncio
+    async def test_list_webhooks_excludes_secrets(self, webhook_handler, server_context):
         """Should not include secrets in list response."""
         store = server_context["webhook_store"]
         store.register(url="https://a.com", events=["debate_start"], user_id="test-user-001")
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/v1/webhooks", {}, handler)
+        result = await webhook_handler.handle("/api/v1/webhooks", {}, handler)
 
         body = json.loads(result.body)
         for webhook in body["webhooks"]:
@@ -529,7 +538,8 @@ class TestWebhookHandlerList:
 class TestWebhookHandlerGet:
     """Tests for GET /api/webhooks/:id endpoint."""
 
-    def test_get_webhook_success(self, webhook_handler, server_context):
+    @pytest.mark.asyncio
+    async def test_get_webhook_success(self, webhook_handler, server_context):
         """Should return specific webhook by ID."""
         store = server_context["webhook_store"]
         webhook = store.register(
@@ -537,16 +547,17 @@ class TestWebhookHandlerGet:
         )
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+        result = await webhook_handler.handle(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
         assert body["webhook"]["id"] == webhook.id
 
-    def test_get_webhook_not_found(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_get_webhook_not_found(self, webhook_handler):
         """Should return 404 for non-existent webhook."""
         handler = MockHandler(headers={})
-        result = webhook_handler.handle("/api/v1/webhooks/non-existent-id", {}, handler)
+        result = await webhook_handler.handle("/api/v1/webhooks/non-existent-id", {}, handler)
 
         assert result.status_code == 404
 
@@ -554,7 +565,8 @@ class TestWebhookHandlerGet:
 class TestWebhookHandlerDelete:
     """Tests for DELETE /api/webhooks/:id endpoint."""
 
-    def test_delete_webhook_success(self, webhook_handler, server_context):
+    @pytest.mark.asyncio
+    async def test_delete_webhook_success(self, webhook_handler, server_context):
         """Should delete webhook."""
         store = server_context["webhook_store"]
         webhook = store.register(
@@ -562,7 +574,7 @@ class TestWebhookHandlerDelete:
         )
 
         handler = MockHandler(headers={})
-        result = webhook_handler.handle_delete(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+        result = await webhook_handler.handle_delete(f"/api/v1/webhooks/{webhook.id}", {}, handler)
 
         assert result.status_code == 200
         body = json.loads(result.body)
@@ -571,10 +583,13 @@ class TestWebhookHandlerDelete:
         # Verify webhook is actually deleted
         assert store.get(webhook.id) is None
 
-    def test_delete_webhook_not_found(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_delete_webhook_not_found(self, webhook_handler):
         """Should return 404 when deleting non-existent webhook."""
         handler = MockHandler(headers={})
-        result = webhook_handler.handle_delete("/api/v1/webhooks/non-existent-id", {}, handler)
+        result = await webhook_handler.handle_delete(
+            "/api/v1/webhooks/non-existent-id", {}, handler
+        )
 
         assert result.status_code == 404
 
@@ -633,13 +648,17 @@ class TestWebhookHandlerUpdate:
 class TestWebhookHandlerTest:
     """Tests for POST /api/webhooks/:id/test endpoint."""
 
-    def test_test_webhook_not_found(self, webhook_handler):
+    @pytest.mark.asyncio
+    async def test_test_webhook_not_found(self, webhook_handler):
         """Should return 404 when testing non-existent webhook."""
         handler = MockHandler(headers={})
-        result = webhook_handler.handle_post("/api/v1/webhooks/non-existent-id/test", {}, handler)
+        result = await webhook_handler.handle_post(
+            "/api/v1/webhooks/non-existent-id/test", {}, handler
+        )
         assert result.status_code == 404
 
-    def test_test_webhook_success(self, webhook_handler, server_context):
+    @pytest.mark.asyncio
+    async def test_test_webhook_success(self, webhook_handler, server_context):
         """Should send test event to webhook."""
         store = server_context["webhook_store"]
         webhook = store.register(
@@ -652,14 +671,17 @@ class TestWebhookHandlerTest:
         with patch("aragora.events.dispatcher.dispatch_webhook") as mock_dispatch:
             mock_dispatch.return_value = (True, 200, None)
 
-            result = webhook_handler.handle_post(f"/api/v1/webhooks/{webhook.id}/test", {}, handler)
+            result = await webhook_handler.handle_post(
+                f"/api/v1/webhooks/{webhook.id}/test", {}, handler
+            )
 
             assert result.status_code == 200
             body = json.loads(result.body)
             assert body["success"] is True
             mock_dispatch.assert_called_once()
 
-    def test_test_webhook_delivery_failure(self, webhook_handler, server_context):
+    @pytest.mark.asyncio
+    async def test_test_webhook_delivery_failure(self, webhook_handler, server_context):
         """Should report delivery failure."""
         store = server_context["webhook_store"]
         webhook = store.register(
@@ -671,7 +693,9 @@ class TestWebhookHandlerTest:
         with patch("aragora.events.dispatcher.dispatch_webhook") as mock_dispatch:
             mock_dispatch.return_value = (False, 500, "Connection refused")
 
-            result = webhook_handler.handle_post(f"/api/v1/webhooks/{webhook.id}/test", {}, handler)
+            result = await webhook_handler.handle_post(
+                f"/api/v1/webhooks/{webhook.id}/test", {}, handler
+            )
 
             assert result.status_code == 502
             body = json.loads(result.body)

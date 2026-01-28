@@ -44,7 +44,7 @@ import os
 import re
 from functools import wraps
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Tuple, TypedDict, Union
 
 from aragora.config import DB_TIMEOUT_SECONDS
 from aragora.billing.auth.context import UserAuthContext
@@ -454,6 +454,11 @@ from aragora.server.handlers.utils.responses import (
     json_response,
     success_response,
 )
+
+# Type alias for handlers that may be sync or async.
+# This allows child classes to override with async methods while maintaining
+# type safety. The registry dynamically awaits coroutines at runtime.
+MaybeAsyncHandlerResult = Union[Optional[HandlerResult], Awaitable[Optional[HandlerResult]]]
 
 
 def safe_error_response(
