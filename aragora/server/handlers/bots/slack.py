@@ -17,14 +17,21 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import time
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import parse_qs
 
 from aragora.audit.unified import audit_data
-from aragora.server.handlers.base import HandlerResult, json_response
+from aragora.server.handlers.base import HandlerResult, error_response, json_response
+from aragora.server.handlers.bots.base import BotHandlerMixin
+from aragora.server.handlers.secure import SecureHandler
 
 logger = logging.getLogger(__name__)
+
+# Environment variables for Slack configuration
+SLACK_SIGNING_SECRET = os.environ.get("SLACK_SIGNING_SECRET", "")
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", "")
 
 # Store active debate sessions for Slack
 # In production, this would be in Redis/database
@@ -697,8 +704,123 @@ def get_debate_vote_counts(debate_id: str) -> dict[str, int]:
     return counts
 
 
+class SlackHandler(BotHandlerMixin, SecureHandler):
+    """Handler for Slack bot integration endpoints.
+
+    Uses BotHandlerMixin for shared auth/status patterns.
+
+    RBAC Protected:
+    - bots.read - required for status endpoint
+
+    Endpoints:
+    - GET  /api/v1/bots/slack/status       - Get Slack integration status
+    - POST /api/v1/bots/slack/events       - Handle Slack Events API
+    - POST /api/v1/bots/slack/interactions - Handle interactive components
+    - POST /api/v1/bots/slack/commands     - Handle slash commands
+    """
+
+    bot_platform = "slack"
+
+    ROUTES = [
+        "/api/v1/bots/slack/status",
+        "/api/v1/bots/slack/events",
+        "/api/v1/bots/slack/interactions",
+        "/api/v1/bots/slack/commands",
+    ]
+
+    def __init__(self, server_context: Dict[str, Any]):
+        """Initialize the Slack handler."""
+        super().__init__(server_context)  # type: ignore[arg-type]
+
+    @staticmethod
+    def can_handle(path: str) -> bool:
+        """Check if this handler can handle the given path."""
+        return path.startswith("/api/v1/bots/slack/")
+
+    def _is_bot_enabled(self) -> bool:
+        """Check if Slack bot is configured."""
+        return bool(SLACK_BOT_TOKEN) or bool(SLACK_SIGNING_SECRET)
+
+    def handle(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Handle GET requests for Slack endpoints."""
+        if path == "/api/v1/bots/slack/status":
+            # Use the mixin's status handler - need to run async
+            import asyncio
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Create a new task and let the event loop handle it
+                    import concurrent.futures
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        future = pool.submit(asyncio.run, self._get_status_sync(handler))
+                        return future.result(timeout=5)
+                else:
+                    return loop.run_until_complete(self._get_status_sync(handler))
+            except Exception as e:
+                logger.error(f"Error getting Slack status: {e}")
+                return error_response(f"Error: {str(e)}", 500)
+        return None
+
+    async def _get_status_sync(self, handler: Any) -> HandlerResult:
+        """Get status using the mixin's handler."""
+        extra_status = {
+            "configured": self._is_bot_enabled(),
+            "active_debates": len(_active_debates),
+            "features": {
+                "slash_commands": True,
+                "events_api": True,
+                "interactive_components": True,
+                "block_kit": True,
+            },
+        }
+        return await self.handle_status_request(handler, extra_status)
+
+    async def handle_post(
+        self, path: str, query_params: Dict[str, Any], handler: Any
+    ) -> Optional[HandlerResult]:
+        """Handle POST requests for Slack endpoints."""
+        # Verify Slack signature for webhook endpoints
+        if path in [
+            "/api/v1/bots/slack/events",
+            "/api/v1/bots/slack/interactions",
+            "/api/v1/bots/slack/commands",
+        ]:
+            if SLACK_SIGNING_SECRET:
+                try:
+                    timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")
+                    signature = handler.headers.get("X-Slack-Signature", "")
+                    body = handler.rfile.read(int(handler.headers.get("Content-Length", 0)))
+                    # Reset the file position for later reads
+                    handler.rfile.seek(0)
+
+                    if not verify_slack_signature(body, timestamp, signature, SLACK_SIGNING_SECRET):
+                        return error_response("Invalid Slack signature", 401)
+                except Exception as e:
+                    logger.warning(f"Slack signature verification error: {e}")
+                    # Continue without verification if headers are missing
+
+        if path == "/api/v1/bots/slack/events":
+            return await handle_slack_events(handler)
+
+        if path == "/api/v1/bots/slack/interactions":
+            return await handle_slack_interactions(handler)
+
+        if path == "/api/v1/bots/slack/commands":
+            return await handle_slack_commands(handler)
+
+        return None
+
+
 def register_slack_routes(router: Any) -> None:
-    """Register Slack routes with the server router."""
+    """Register Slack routes with the server router.
+
+    Note: This function is deprecated in favor of using SlackHandler class
+    with the unified handler registration system.
+    """
 
     async def events_handler(request: Any) -> HandlerResult:
         return await handle_slack_events(request)
@@ -716,6 +838,7 @@ def register_slack_routes(router: Any) -> None:
 
 
 __all__ = [
+    "SlackHandler",
     "handle_slack_events",
     "handle_slack_interactions",
     "handle_slack_commands",

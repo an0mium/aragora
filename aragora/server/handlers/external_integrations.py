@@ -245,7 +245,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         if path == "/api/v1/integrations/n8n/credentials":
             return self._handle_list_n8n_credentials(query_params, handler)
         if path == "/api/v1/integrations/n8n/nodes":
-            return self._handle_get_n8n_nodes()
+            return self._handle_get_n8n_nodes(handler)
 
         return None
 
@@ -750,8 +750,13 @@ class ExternalIntegrationsHandler(SecureHandler):
             }
         )
 
-    def _handle_get_n8n_nodes(self) -> HandlerResult:
+    def _handle_get_n8n_nodes(self, handler: Any) -> HandlerResult:
         """Handle GET /api/integrations/n8n/nodes - get node definitions."""
+        # Check RBAC permission
+        perm_error = self._check_permission(handler, "connectors.read")
+        if perm_error:
+            return perm_error
+
         n8n = self._get_n8n()
 
         return json_response(
