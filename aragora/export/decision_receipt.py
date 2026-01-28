@@ -659,13 +659,172 @@ class DecisionReceipt:
 
         return output.getvalue()
 
+    def to_sarif(self) -> dict[str, Any]:
+        """Export as SARIF 2.1.0 format.
+
+        SARIF (Static Analysis Results Interchange Format) is the OASIS standard
+        for exchanging static analysis results. This enables interoperability with:
+        - GitHub Security (code scanning)
+        - Azure DevOps
+        - VS Code SARIF Viewer
+        - SonarQube
+        - DefectDojo
+
+        Returns:
+            SARIF 2.1.0 compliant dictionary
+        """
+        import hashlib
+
+        # Map severity to SARIF levels
+        sarif_level_map = {
+            "CRITICAL": "error",
+            "HIGH": "error",
+            "MEDIUM": "warning",
+            "LOW": "note",
+            "critical": "error",
+            "high": "error",
+            "medium": "warning",
+            "low": "note",
+        }
+
+        # Map severity to SARIF security-severity scores (CVSS-like)
+        sarif_severity_map = {
+            "CRITICAL": "9.0",
+            "HIGH": "7.0",
+            "MEDIUM": "4.0",
+            "LOW": "1.0",
+            "critical": "9.0",
+            "high": "7.0",
+            "medium": "4.0",
+            "low": "1.0",
+        }
+
+        # Build rules from unique finding categories
+        rules: list[dict[str, Any]] = []
+        rule_ids: dict[str, int] = {}
+
+        for finding in self.findings:
+            category = finding.category or "general"
+            if category not in rule_ids:
+                rule_id = f"ARAGORA-{len(rule_ids) + 1:03d}"
+                rule_ids[category] = len(rules)
+                rules.append(
+                    {
+                        "id": rule_id,
+                        "name": category.replace("_", " ").replace("-", " ").title(),
+                        "shortDescription": {"text": f"Aragora Decision Receipt: {category}"},
+                        "fullDescription": {"text": f"Finding in category: {category}"},
+                        "helpUri": "https://aragora.ai/docs/receipts",
+                        "properties": {
+                            "security-severity": sarif_severity_map.get(finding.severity, "4.0"),
+                            "tags": ["decision", "aragora", category],
+                        },
+                    }
+                )
+
+        # Build results from findings
+        results = []
+        for finding in self.findings:
+            category = finding.category or "general"
+            severity = finding.severity or "MEDIUM"
+            rule_idx = rule_ids.get(category, 0)
+            rule_id = rules[rule_idx]["id"] if rule_idx < len(rules) else "ARAGORA-000"
+
+            # Create unique fingerprint for the finding
+            fingerprint_input = f"{finding.title}:{finding.description}:{finding.source}"
+            fingerprint = hashlib.sha256(fingerprint_input.encode()).hexdigest()[:32]
+
+            result: dict[str, Any] = {
+                "ruleId": rule_id,
+                "ruleIndex": rule_idx,
+                "level": sarif_level_map.get(severity, "warning"),
+                "message": {"text": finding.description or finding.title},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": f"receipt/{self.receipt_id[:8]}",
+                                "uriBaseId": "RECEIPT_ROOT",
+                            }
+                        },
+                        "logicalLocations": [
+                            {
+                                "name": finding.title,
+                                "kind": "finding",
+                            }
+                        ],
+                    }
+                ],
+                "fingerprints": {"aragora/v1": fingerprint},
+                "properties": {
+                    "receipt_id": self.receipt_id,
+                    "category": category,
+                    "severity": severity,
+                    "source": finding.source,
+                    "verified": finding.verified,
+                },
+            }
+
+            # Add remediation if present
+            if finding.remediation:
+                result["fixes"] = [{"description": {"text": finding.remediation}}]
+
+            results.append(result)
+
+        # Build SARIF document
+        sarif: dict[str, Any] = {
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "Aragora Decision Receipt",
+                            "version": "1.0.0",
+                            "informationUri": "https://aragora.ai/receipts",
+                            "rules": rules,
+                            "properties": {
+                                "verdict": self.verdict,
+                                "confidence": self.confidence,
+                                "risk_level": self.risk_level,
+                            },
+                        }
+                    },
+                    "results": results,
+                    "invocations": [
+                        {
+                            "executionSuccessful": True,
+                            "endTimeUtc": self.timestamp,
+                            "properties": {
+                                "receipt_id": self.receipt_id,
+                                "debate_id": self.debate_id,
+                                "task": self.task[:200] if self.task else None,
+                            },
+                        }
+                    ],
+                    "properties": {
+                        "summary": self.summary,
+                        "risk_level": self.risk_level,
+                        "verified_claims_count": len(self.verified_claims),
+                        "dissenting_views_count": len(self.dissenting_views),
+                    },
+                }
+            ],
+        }
+
+        return sarif
+
+    def to_sarif_json(self, indent: int = 2) -> str:
+        """Export as SARIF JSON string."""
+        return json.dumps(self.to_sarif(), indent=indent)
+
     def save(self, path: Path, format: str = "json") -> Path:
         """
         Save receipt to file.
 
         Args:
             path: Output path (extension will be adjusted if needed)
-            format: Output format ("json", "md", "html")
+            format: Output format ("json", "md", "html", "csv", "sarif", "pdf")
 
         Returns:
             Path to saved file
@@ -679,8 +838,19 @@ class DecisionReceipt:
         elif format == "html":
             output_path = path.with_suffix(".html")
             output_path.write_text(self.to_html())
+        elif format == "csv":
+            output_path = path.with_suffix(".csv")
+            output_path.write_text(self.to_csv())
+        elif format == "sarif":
+            output_path = path.with_suffix(".sarif.json")
+            output_path.write_text(self.to_sarif_json())
+        elif format == "pdf":
+            output_path = path.with_suffix(".pdf")
+            output_path.write_bytes(self.to_pdf())
         else:
-            raise ValueError(f"Unknown format: {format}")
+            raise ValueError(
+                f"Unknown format: {format}. Supported: json, md, html, csv, sarif, pdf"
+            )
 
         return output_path
 
