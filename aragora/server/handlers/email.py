@@ -37,6 +37,50 @@ from aragora.server.handlers.base import (
 
 logger = logging.getLogger(__name__)
 
+# RBAC imports (optional - graceful degradation if not available)
+try:
+    from aragora.rbac import check_permission
+
+    RBAC_AVAILABLE = True
+except ImportError:
+    RBAC_AVAILABLE = False
+
+
+def _check_email_permission(
+    auth_context: Optional[Any], permission_key: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Check RBAC permission for email operations.
+
+    Args:
+        auth_context: Optional AuthorizationContext from request
+        permission_key: Permission like "email:read" or "email:write"
+
+    Returns:
+        None if allowed, error dict with success=False if denied
+    """
+    if not RBAC_AVAILABLE or auth_context is None:
+        return None  # Graceful degradation
+
+    try:
+        decision = check_permission(auth_context, permission_key)
+        if not decision.allowed:
+            logger.warning(
+                f"RBAC denied: permission={permission_key} "
+                f"user={getattr(auth_context, 'user_id', 'unknown')} "
+                f"reason={decision.reason}"
+            )
+            return {
+                "success": False,
+                "error": f"Permission denied: {decision.reason}",
+            }
+    except Exception as e:
+        logger.warning(f"RBAC check failed for {permission_key}: {e}")
+        return None  # Fail open
+
+    return None
+
+
 # =============================================================================
 # Persistent Storage
 # =============================================================================
@@ -171,6 +215,7 @@ async def handle_prioritize_email(
     user_id: str = "default",
     workspace_id: str = "default",
     force_tier: Optional[str] = None,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Score a single email for priority.
@@ -194,6 +239,11 @@ async def handle_prioritize_email(
     Returns:
         Priority result with score, confidence, and rationale
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.communication.models import EmailMessage
     from aragora.services.email_prioritization import ScoringTier
 
@@ -252,6 +302,7 @@ async def handle_rank_inbox(
     user_id: str = "default",
     workspace_id: str = "default",
     limit: Optional[int] = None,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Rank multiple emails by priority.
@@ -265,6 +316,11 @@ async def handle_rank_inbox(
     Returns:
         Ranked list of email priority results
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -320,6 +376,7 @@ async def handle_email_feedback(
     user_id: str = "default",
     workspace_id: str = "default",
     email_data: Optional[Dict[str, Any]] = None,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Record user action for learning.
@@ -331,6 +388,11 @@ async def handle_email_feedback(
         "email": {...}  // Optional: full email data for context
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:write")
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -385,6 +447,7 @@ async def handle_get_context(
     email_address: str,
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Get cross-channel context for an email address.
@@ -393,6 +456,11 @@ async def handle_get_context(
 
     Returns context from Slack, Drive, Calendar if available.
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         service = get_context_service()
         context = await service.get_user_context(email_address)
@@ -414,6 +482,7 @@ async def handle_get_email_context_boost(
     email_data: Dict[str, Any],
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Get context-based priority boosts for an email.
@@ -425,6 +494,11 @@ async def handle_get_email_context_boost(
 
     Returns boost scores from cross-channel signals.
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -505,6 +579,7 @@ async def handle_categorize_email(
     email_data: Dict[str, Any],
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Categorize a single email into a smart folder.
@@ -522,6 +597,11 @@ async def handle_categorize_email(
     Returns:
         Category result with confidence and suggested label
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -571,6 +651,7 @@ async def handle_categorize_batch(
     user_id: str = "default",
     workspace_id: str = "default",
     concurrency: int = 10,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Categorize multiple emails in batch.
@@ -587,6 +668,11 @@ async def handle_categorize_batch(
     Returns:
         List of categorization results
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     from aragora.connectors.enterprise.communication.models import EmailMessage
 
     try:
@@ -642,6 +728,7 @@ async def handle_feedback_batch(
     feedback_items: List[Dict[str, Any]],
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Record batch user actions for learning.
@@ -656,6 +743,11 @@ async def handle_feedback_batch(
 
     Actions: opened, replied, starred, archived, deleted, snoozed
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:write")
+    if perm_error:
+        return perm_error
+
     try:
         prioritizer = get_prioritizer(user_id)
         results = []
@@ -701,6 +793,7 @@ async def handle_apply_category_label(
     category: str,
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Apply Gmail label based on category.
@@ -711,6 +804,11 @@ async def handle_apply_category_label(
         "category": "invoices"
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:write")
+    if perm_error:
+        return perm_error
+
     try:
         from aragora.services.email_categorizer import EmailCategory
 
@@ -748,6 +846,7 @@ async def handle_gmail_oauth_url(
     redirect_uri: str,
     state: str = "",
     scopes: str = "readonly",  # "readonly" or "full"
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Get Gmail OAuth authorization URL.
@@ -759,6 +858,11 @@ async def handle_gmail_oauth_url(
         "scopes": "full"
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:oauth")
+    if perm_error:
+        return perm_error
+
     try:
         connector = get_gmail_connector()
 
@@ -793,6 +897,7 @@ async def handle_gmail_oauth_callback(
     redirect_uri: str,
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Handle Gmail OAuth callback and store tokens.
@@ -803,6 +908,11 @@ async def handle_gmail_oauth_callback(
         "redirect_uri": "https://app.example.com/oauth/callback"
     }
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:oauth")
+    if perm_error:
+        return perm_error
+
     try:
         connector = get_gmail_connector(user_id)
         await connector.authenticate(code=code, redirect_uri=redirect_uri)
@@ -828,12 +938,18 @@ async def handle_gmail_oauth_callback(
 async def handle_gmail_status(
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Check Gmail connection status.
 
     GET /api/email/gmail/status
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         connector = get_gmail_connector(user_id)
         is_authenticated = connector._access_token is not None
@@ -882,6 +998,7 @@ async def handle_fetch_and_rank_inbox(
     labels: Optional[List[str]] = None,
     limit: int = 50,
     include_read: bool = False,
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Fetch inbox from Gmail and return ranked results.
@@ -896,6 +1013,11 @@ async def handle_fetch_and_rank_inbox(
     This is the main endpoint for the inbox view - fetches emails
     and returns them pre-ranked by priority.
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     try:
         connector = get_gmail_connector(user_id)
 
@@ -981,6 +1103,7 @@ async def handle_fetch_and_rank_inbox(
 async def handle_get_config(
     user_id: str = "default",
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Get email prioritization configuration.
@@ -989,6 +1112,11 @@ async def handle_get_config(
 
     Now loads from persistent store with in-memory cache fallback.
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:read")
+    if perm_error:
+        return perm_error
+
     # Thread-safe read with snapshot
     with _user_configs_lock:
         config = _user_configs.get(user_id, {}).copy()
@@ -1104,6 +1232,7 @@ async def handle_add_vip(
     email: Optional[str] = None,
     domain: Optional[str] = None,
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Add a VIP email or domain.
@@ -1119,6 +1248,11 @@ async def handle_add_vip(
 
     Now persists to SQLite for durability.
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:write")
+    if perm_error:
+        return perm_error
+
     global _prioritizer
 
     try:
@@ -1178,6 +1312,7 @@ async def handle_remove_vip(
     email: Optional[str] = None,
     domain: Optional[str] = None,
     workspace_id: str = "default",
+    auth_context: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Remove a VIP email or domain.
@@ -1189,6 +1324,11 @@ async def handle_remove_vip(
 
     Now persists removal to SQLite.
     """
+    # Check RBAC permission
+    perm_error = _check_email_permission(auth_context, "email:write")
+    if perm_error:
+        return perm_error
+
     global _prioritizer
 
     try:
