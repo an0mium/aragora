@@ -194,6 +194,12 @@ class Action(str, Enum):
     STREAM = "stream"  # Stream to external systems (SIEM)
     SEARCH = "search"  # Advanced search capabilities
     CHECK = "check"  # Run compliance checks
+    GDPR = "gdpr"  # GDPR compliance operations
+    SOC2 = "soc2"  # SOC2 compliance operations
+    LEGAL = "legal"  # Legal hold and compliance operations
+    AUDIT = "audit"  # Audit operations (distinct from VIEW_AUDIT)
+    SECURITY = "security"  # Security administration operations
+    SYSTEM = "system"  # System administration operations
 
     # Control plane actions
     SUBMIT = "submit"  # Submit tasks/requests
@@ -225,6 +231,18 @@ class Action(str, Enum):
     REQUEST = "request"  # Request access/approval
     GRANT = "grant"  # Grant approval
     DENY = "deny"  # Deny approval
+    APPROVE = "approve"  # Approve financial transactions/documents
+    SEND = "send"  # Send notifications/receipts
+
+    # Control plane sub-operations
+    AGENTS_READ = "agents.read"  # Read agent registry
+    AGENTS_REGISTER = "agents.register"  # Register agents
+    AGENTS_UNREGISTER = "agents.unregister"  # Unregister agents
+    TASKS_READ = "tasks.read"  # Read task queue
+    TASKS_SUBMIT = "tasks.submit"  # Submit tasks
+    TASKS_CLAIM = "tasks.claim"  # Claim tasks for processing
+    TASKS_COMPLETE = "tasks.complete"  # Mark tasks complete
+    HEALTH_READ = "health.read"  # Read health status
 
     # Enterprise sensitive operations
     OVERRIDE = "override"  # Override quotas/limits
