@@ -50,7 +50,9 @@ class CodebaseAPI:
         Returns:
             Understanding results
         """
-        return self._client.request("POST", f"/api/v1/codebase/{repo}/understand", json={"query": query})
+        return self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/understand", json={"query": query}
+        )
 
     def get_symbols(self, repo: str, file_path: str | None = None) -> dict[str, Any]:
         """
@@ -95,7 +97,9 @@ class CodebaseAPI:
         Returns:
             Impact analysis results
         """
-        return self._client.request("POST", f"/api/v1/codebase/{repo}/impact", json={"files": files})
+        return self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/impact", json={"files": files}
+        )
 
     # =========================================================================
     # Code Quality
@@ -124,7 +128,9 @@ class CodebaseAPI:
         Returns:
             Duplicate code findings
         """
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/duplicates", params={"min_lines": min_lines})
+        return self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/duplicates", params={"min_lines": min_lines}
+        )
 
     def get_hotspots(self, repo: str) -> dict[str, Any]:
         """
@@ -165,7 +171,9 @@ class CodebaseAPI:
         Returns:
             Metrics analysis results
         """
-        return self._client.request("POST", f"/api/v1/codebase/{repo}/metrics/analyze", json=options or {})
+        return self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/metrics/analyze", json=options or {}
+        )
 
     def get_metrics_analysis(self, repo: str, analysis_id: str) -> dict[str, Any]:
         """
@@ -204,7 +212,9 @@ class CodebaseAPI:
         Returns:
             Metrics over time
         """
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/metrics/history", params={"days": days})
+        return self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/metrics/history", params={"days": days}
+        )
 
     # =========================================================================
     # Security Scanning
@@ -221,7 +231,9 @@ class CodebaseAPI:
         Returns:
             Scan initiation result
         """
-        return self._client.request("POST", f"/api/v1/codebase/{repo}/scan", json={"scan_type": scan_type})
+        return self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/scan", json={"scan_type": scan_type}
+        )
 
     def get_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
         """
@@ -259,7 +271,9 @@ class CodebaseAPI:
         Returns:
             List of scans
         """
-        return self._client.request("GET", f"/api/v1/codebase/{repo}/scans", params={"limit": limit})
+        return self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/scans", params={"limit": limit}
+        )
 
     # =========================================================================
     # SAST (Static Application Security Testing)
@@ -276,7 +290,9 @@ class CodebaseAPI:
         Returns:
             SAST scan results
         """
-        return self._client.request("POST", f"/api/v1/codebase/{repo}/scan/sast", json=options or {})
+        return self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/scan/sast", json=options or {}
+        )
 
     def get_sast_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
         """
@@ -418,7 +434,9 @@ class CodebaseAPI:
     # Dependencies & SBOM
     # =========================================================================
 
-    def analyze_dependencies(self, manifest_content: str, manifest_type: str = "auto") -> dict[str, Any]:
+    def analyze_dependencies(
+        self, manifest_content: str, manifest_type: str = "auto"
+    ) -> dict[str, Any]:
         """
         Analyze dependencies from manifest.
 
@@ -446,7 +464,9 @@ class CodebaseAPI:
         Returns:
             SBOM document
         """
-        return self._client.request("POST", "/api/v1/codebase/sbom", json={"repo": repo, "format": format})
+        return self._client.request(
+            "POST", "/api/v1/codebase/sbom", json={"repo": repo, "format": format}
+        )
 
     def check_licenses(self, repo: str) -> dict[str, Any]:
         """
@@ -470,7 +490,9 @@ class CodebaseAPI:
         Returns:
             Vulnerability findings
         """
-        return self._client.request("POST", "/api/v1/codebase/scan-vulnerabilities", json={"repo": repo})
+        return self._client.request(
+            "POST", "/api/v1/codebase/scan-vulnerabilities", json={"repo": repo}
+        )
 
     def clear_cache(self, repo: str | None = None) -> dict[str, Any]:
         """
@@ -496,11 +518,15 @@ class AsyncCodebaseAPI:
 
     async def analyze(self, repo: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """Analyze a repository."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/analyze", json=options or {})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/analyze", json=options or {}
+        )
 
     async def understand(self, repo: str, query: str) -> dict[str, Any]:
         """Query codebase understanding."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/understand", json={"query": query})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/understand", json={"query": query}
+        )
 
     async def get_symbols(self, repo: str, file_path: str | None = None) -> dict[str, Any]:
         """Get code symbols from repository."""
@@ -514,11 +540,15 @@ class AsyncCodebaseAPI:
         params: dict[str, Any] = {}
         if function:
             params["function"] = function
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/callgraph", params=params)
+        return await self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/callgraph", params=params
+        )
 
     async def analyze_impact(self, repo: str, files: list[str]) -> dict[str, Any]:
         """Analyze impact of file changes."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/impact", json={"files": files})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/impact", json={"files": files}
+        )
 
     async def get_deadcode(self, repo: str) -> dict[str, Any]:
         """Find dead (unreachable) code."""
@@ -526,7 +556,9 @@ class AsyncCodebaseAPI:
 
     async def get_duplicates(self, repo: str, min_lines: int = 10) -> dict[str, Any]:
         """Find code duplicates."""
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/duplicates", params={"min_lines": min_lines})
+        return await self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/duplicates", params={"min_lines": min_lines}
+        )
 
     async def get_hotspots(self, repo: str) -> dict[str, Any]:
         """Find code hotspots."""
@@ -536,9 +568,13 @@ class AsyncCodebaseAPI:
         """Get code metrics for repository."""
         return await self._client.request("GET", f"/api/v1/codebase/{repo}/metrics")
 
-    async def analyze_metrics(self, repo: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def analyze_metrics(
+        self, repo: str, options: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Run metrics analysis."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/metrics/analyze", json=options or {})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/metrics/analyze", json=options or {}
+        )
 
     async def get_metrics_analysis(self, repo: str, analysis_id: str) -> dict[str, Any]:
         """Get metrics analysis results."""
@@ -546,15 +582,21 @@ class AsyncCodebaseAPI:
 
     async def get_file_metrics(self, repo: str, file_path: str) -> dict[str, Any]:
         """Get metrics for a specific file."""
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/metrics/file/{file_path}")
+        return await self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/metrics/file/{file_path}"
+        )
 
     async def get_metrics_history(self, repo: str, days: int = 30) -> dict[str, Any]:
         """Get metrics history."""
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/metrics/history", params={"days": days})
+        return await self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/metrics/history", params={"days": days}
+        )
 
     async def scan(self, repo: str, scan_type: str = "full") -> dict[str, Any]:
         """Run a security scan."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/scan", json={"scan_type": scan_type})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/scan", json={"scan_type": scan_type}
+        )
 
     async def get_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
         """Get scan results."""
@@ -566,11 +608,15 @@ class AsyncCodebaseAPI:
 
     async def list_scans(self, repo: str, limit: int = 20) -> dict[str, Any]:
         """List all scans for repository."""
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/scans", params={"limit": limit})
+        return await self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/scans", params={"limit": limit}
+        )
 
     async def scan_sast(self, repo: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """Run SAST scan."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/scan/sast", json=options or {})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/scan/sast", json=options or {}
+        )
 
     async def get_sast_scan(self, repo: str, scan_id: str) -> dict[str, Any]:
         """Get SAST scan results."""
@@ -581,7 +627,9 @@ class AsyncCodebaseAPI:
         params: dict[str, Any] = {}
         if severity:
             params["severity"] = severity
-        return await self._client.request("GET", f"/api/v1/codebase/{repo}/sast/findings", params=params)
+        return await self._client.request(
+            "GET", f"/api/v1/codebase/{repo}/sast/findings", params=params
+        )
 
     async def get_owasp_summary(self, repo: str) -> dict[str, Any]:
         """Get OWASP Top 10 summary."""
@@ -609,13 +657,17 @@ class AsyncCodebaseAPI:
 
     async def audit(self, repo: str, options: dict[str, Any] | None = None) -> dict[str, Any]:
         """Run a code audit."""
-        return await self._client.request("POST", f"/api/v1/codebase/{repo}/audit", json=options or {})
+        return await self._client.request(
+            "POST", f"/api/v1/codebase/{repo}/audit", json=options or {}
+        )
 
     async def get_audit(self, repo: str, audit_id: str) -> dict[str, Any]:
         """Get audit results."""
         return await self._client.request("GET", f"/api/v1/codebase/{repo}/audit/{audit_id}")
 
-    async def analyze_dependencies(self, manifest_content: str, manifest_type: str = "auto") -> dict[str, Any]:
+    async def analyze_dependencies(
+        self, manifest_content: str, manifest_type: str = "auto"
+    ) -> dict[str, Any]:
         """Analyze dependencies from manifest."""
         return await self._client.request(
             "POST",
@@ -625,15 +677,21 @@ class AsyncCodebaseAPI:
 
     async def generate_sbom(self, repo: str, format: str = "spdx") -> dict[str, Any]:
         """Generate Software Bill of Materials."""
-        return await self._client.request("POST", "/api/v1/codebase/sbom", json={"repo": repo, "format": format})
+        return await self._client.request(
+            "POST", "/api/v1/codebase/sbom", json={"repo": repo, "format": format}
+        )
 
     async def check_licenses(self, repo: str) -> dict[str, Any]:
         """Check dependency licenses."""
-        return await self._client.request("POST", "/api/v1/codebase/check-licenses", json={"repo": repo})
+        return await self._client.request(
+            "POST", "/api/v1/codebase/check-licenses", json={"repo": repo}
+        )
 
     async def scan_vulnerabilities(self, repo: str) -> dict[str, Any]:
         """Scan for known vulnerabilities."""
-        return await self._client.request("POST", "/api/v1/codebase/scan-vulnerabilities", json={"repo": repo})
+        return await self._client.request(
+            "POST", "/api/v1/codebase/scan-vulnerabilities", json={"repo": repo}
+        )
 
     async def clear_cache(self, repo: str | None = None) -> dict[str, Any]:
         """Clear analysis cache."""
