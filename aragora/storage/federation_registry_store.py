@@ -298,7 +298,7 @@ class SQLiteFederationRegistryStore(FederationRegistryStoreBackend):
                      $ARAGORA_DATA_DIR/federation_registry.db
         """
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", "/tmp/aragora")
+            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "federation_registry.db"
 
         self._db_path = db_path

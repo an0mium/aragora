@@ -260,7 +260,7 @@ class SQLiteFindingWorkflowStore(FindingWorkflowStoreBackend):
                      $ARAGORA_DATA_DIR/finding_workflows.db
         """
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", "/tmp/aragora")
+            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "finding_workflows.db"
 
         self._db_path = db_path

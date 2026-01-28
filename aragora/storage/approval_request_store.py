@@ -310,7 +310,7 @@ class SQLiteApprovalRequestStore(ApprovalRequestStoreBackend):
                      $ARAGORA_DATA_DIR/approval_requests.db
         """
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", "/tmp/aragora")
+            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "approval_requests.db"
 
         self._db_path = db_path

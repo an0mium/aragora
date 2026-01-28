@@ -266,7 +266,7 @@ class SQLiteGauntletRunStore(GauntletRunStoreBackend):
                      $ARAGORA_DATA_DIR/gauntlet_runs.db
         """
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", "/tmp/aragora")
+            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "gauntlet_runs.db"
 
         self._db_path = db_path

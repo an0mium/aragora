@@ -496,7 +496,7 @@ _store_lock = threading.Lock()
 
 
 def get_audit_store(
-    db_path: str = "audit.db",
+    db_path: str | None = None,
     backend: Optional[str] = None,
     database_url: Optional[str] = None,
 ) -> AuditStore:
@@ -515,6 +515,12 @@ def get_audit_store(
         Configured AuditStore instance
     """
     global _default_store
+
+    # Resolve db_path using ARAGORA_DATA_DIR if not provided
+    if db_path is None:
+        data_dir = Path(os.environ.get("ARAGORA_DATA_DIR", ".nomic"))
+        data_dir.mkdir(parents=True, exist_ok=True)
+        db_path = str(data_dir / "audit.db")
 
     if _default_store is None:
         with _store_lock:

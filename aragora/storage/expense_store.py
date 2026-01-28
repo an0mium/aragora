@@ -343,7 +343,7 @@ class SQLiteExpenseStore(ExpenseStoreBackend):
 
     def __init__(self, db_path: Optional[Path] = None) -> None:
         if db_path is None:
-            data_dir = os.getenv("ARAGORA_DATA_DIR", "/tmp/aragora")
+            data_dir = os.getenv("ARAGORA_DATA_DIR", ".nomic")
             db_path = Path(data_dir) / "expenses.db"
 
         self._db_path = db_path
