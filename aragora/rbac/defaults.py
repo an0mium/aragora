@@ -1596,6 +1596,10 @@ ROLE_ADMIN = Role(
         PERM_FINDINGS_UPDATE.key,
         PERM_FINDINGS_ASSIGN.key,
         PERM_FINDINGS_BULK.key,
+        # Provenance (all operations)
+        PERM_PROVENANCE_READ.key,
+        PERM_PROVENANCE_VERIFY.key,
+        PERM_PROVENANCE_EXPORT.key,
         # Admin (limited)
         PERM_ADMIN_METRICS.key,
         # Decisions (all)
