@@ -912,11 +912,12 @@ class TestHandleSetupOrganization:
 # ===========================================================================
 
 
+@patch("aragora.server.handlers.auth.signup_handlers._check_permission", return_value=None)
 class TestHandleInvite:
     """Tests for handle_invite endpoint."""
 
     @pytest.mark.asyncio
-    async def test_invite_success(self):
+    async def test_invite_success(self, mock_check):
         """Valid invite should return success."""
         result = await handle_invite(
             {
@@ -936,7 +937,7 @@ class TestHandleInvite:
         assert body["expires_in"] == INVITE_TTL
 
     @pytest.mark.asyncio
-    async def test_invite_stores_record(self):
+    async def test_invite_stores_record(self, mock_check):
         """Invite should store invitation record."""
         result = await handle_invite(
             {
@@ -958,7 +959,7 @@ class TestHandleInvite:
             assert invite["invited_by"] == "admin_user"
 
     @pytest.mark.asyncio
-    async def test_invite_invalid_email(self):
+    async def test_invite_invalid_email(self, mock_check):
         """Invalid email should return 400."""
         result = await handle_invite(
             {
@@ -974,7 +975,7 @@ class TestHandleInvite:
         assert "email" in error.lower()
 
     @pytest.mark.asyncio
-    async def test_invite_empty_email(self):
+    async def test_invite_empty_email(self, mock_check):
         """Empty email should return 400."""
         result = await handle_invite(
             {
@@ -988,7 +989,7 @@ class TestHandleInvite:
         assert status == 400
 
     @pytest.mark.asyncio
-    async def test_invite_missing_org_id(self):
+    async def test_invite_missing_org_id(self, mock_check):
         """Missing organization ID should return 400."""
         result = await handle_invite(
             {
@@ -1003,7 +1004,7 @@ class TestHandleInvite:
         assert "organization" in error.lower()
 
     @pytest.mark.asyncio
-    async def test_invite_default_role_member(self):
+    async def test_invite_default_role_member(self, mock_check):
         """Default role should be member."""
         result = await handle_invite(
             {
@@ -1019,7 +1020,7 @@ class TestHandleInvite:
             assert _pending_invites[token]["role"] == "member"
 
     @pytest.mark.asyncio
-    async def test_invite_invalid_role(self):
+    async def test_invite_invalid_role(self, mock_check):
         """Invalid role should return 400."""
         result = await handle_invite(
             {
@@ -1036,7 +1037,7 @@ class TestHandleInvite:
         assert "role" in error.lower()
 
     @pytest.mark.asyncio
-    async def test_invite_valid_roles(self):
+    async def test_invite_valid_roles(self, mock_check):
         """All valid roles should be accepted."""
         for role in ["admin", "member", "viewer"]:
             result = await handle_invite(
@@ -1052,7 +1053,7 @@ class TestHandleInvite:
             assert status == 200, f"Role {role} should be valid"
 
     @pytest.mark.asyncio
-    async def test_invite_duplicate_pending(self, valid_invite):
+    async def test_invite_duplicate_pending(self, mock_check, valid_invite):
         """Duplicate pending invite should return 409."""
         _, invite_data = valid_invite
 
@@ -1070,7 +1071,7 @@ class TestHandleInvite:
         assert "pending" in error.lower()
 
     @pytest.mark.asyncio
-    async def test_invite_email_normalized(self):
+    async def test_invite_email_normalized(self, mock_check):
         """Email should be normalized."""
         result = await handle_invite(
             {
