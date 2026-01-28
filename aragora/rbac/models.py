@@ -51,6 +51,7 @@ class ResourceType(str, Enum):
     KNOWLEDGE = "knowledge"  # Knowledge base and mound operations
     INBOX = "inbox"  # Action items and meeting management
     SKILLS = "skills"  # Skill marketplace operations
+    PROVENANCE = "provenance"  # Claim provenance and belief tracking
 
     # Governance and orchestration
     POLICY = "policies"  # Governance policies
