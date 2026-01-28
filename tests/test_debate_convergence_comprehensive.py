@@ -275,7 +275,6 @@ class TestJaccardBackendThreadSafety:
 # =============================================================================
 
 
-@pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
 class TestTFIDFBackend:
     """Tests for TFIDFBackend similarity computation."""
 
@@ -926,9 +925,8 @@ class TestGetSimilarityBackend:
         backend = get_similarity_backend("jaccard")
         assert isinstance(backend, JaccardBackend)
 
-    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_get_tfidf_if_available(self):
-        """Request TF-IDF backend if sklearn available."""
+        """Request TF-IDF backend."""
         backend = get_similarity_backend("tfidf")
         assert isinstance(backend, TFIDFBackend)
 

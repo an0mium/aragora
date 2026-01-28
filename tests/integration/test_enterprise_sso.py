@@ -312,15 +312,15 @@ class TestSSOSessionManagement:
     @pytest.mark.asyncio
     async def test_sso_session_creation(self):
         """Test creating a session from SSO authentication."""
-        from aragora.auth.sso import SSOSessionManager
+        from aragora.auth.sso import SSOSessionManager, SSOUser
 
         manager = SSOSessionManager()
 
-        user = MockSSOUser(
-            sub="user-123",
+        user = SSOUser(
+            id="user-123",
             email="user@example.com",
             name="Test User",
-            org_id="org-456",
+            organization_id="org-456",
         )
 
         session = await manager.create_session(user)
@@ -332,12 +332,12 @@ class TestSSOSessionManagement:
     @pytest.mark.asyncio
     async def test_sso_session_refresh(self):
         """Test refreshing an SSO session."""
-        from aragora.auth.sso import SSOSessionManager
+        from aragora.auth.sso import SSOSessionManager, SSOUser
 
         manager = SSOSessionManager()
 
         # Create initial session
-        user = MockSSOUser(sub="user-123", email="user@example.com")
+        user = SSOUser(id="user-123", email="user@example.com")
         session = await manager.create_session(user)
         original_expires = session.expires_at
 
@@ -350,11 +350,11 @@ class TestSSOSessionManagement:
     @pytest.mark.asyncio
     async def test_sso_session_logout(self):
         """Test SSO session logout and cleanup."""
-        from aragora.auth.sso import SSOSessionManager
+        from aragora.auth.sso import SSOSessionManager, SSOUser
 
         manager = SSOSessionManager()
 
-        user = MockSSOUser(sub="user-123", email="user@example.com")
+        user = SSOUser(id="user-123", email="user@example.com")
         session = await manager.create_session(user)
 
         # Logout
