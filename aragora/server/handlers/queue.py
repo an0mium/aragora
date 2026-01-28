@@ -75,7 +75,7 @@ async def _get_queue() -> Optional[Any]:
             return None
 
 
-class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):
+class QueueHandler(SecureEndpointMixin, SecureHandler, PaginatedHandlerMixin):  # type: ignore[misc]
     """Handler for job queue management endpoints.
 
     RBAC Permissions:

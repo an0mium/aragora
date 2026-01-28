@@ -191,8 +191,21 @@ def _ok_response(description: str, schema: str | dict[str, Any] | None = None) -
     return resp
 
 
-def _array_response(description: str, schema_ref: str) -> dict[str, Any]:
-    """Build an array response definition."""
+def _array_response(description: str, schema: str | dict[str, Any]) -> dict[str, Any]:
+    """Build an array response definition.
+
+    Args:
+        description: Response description
+        schema: Either a schema reference string (e.g., "Device")
+                or an inline schema dict (e.g., {"device_id": {"type": "string"}, ...})
+    """
+    if isinstance(schema, str):
+        # Schema reference
+        items_schema = {"$ref": f"#/components/schemas/{schema}"}
+    else:
+        # Inline schema dict - wrap in object type with properties
+        items_schema = {"type": "object", "properties": schema}
+
     return {
         "description": description,
         "content": {
@@ -202,7 +215,7 @@ def _array_response(description: str, schema_ref: str) -> dict[str, Any]:
                     "properties": {
                         "items": {
                             "type": "array",
-                            "items": {"$ref": f"#/components/schemas/{schema_ref}"},
+                            "items": items_schema,
                         },
                         "total": {"type": "integer"},
                     },

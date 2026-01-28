@@ -31,7 +31,9 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from aragora.connectors.base import Evidence
 from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncResult, SyncState
-from aragora.connectors.exceptions import ConnectorAPIError
+from aragora.connectors.exceptions import (
+    ConnectorAPIError,
+)
 from aragora.connectors.model_base import ConnectorDataclass
 from aragora.reasoning.provenance import SourceType
 

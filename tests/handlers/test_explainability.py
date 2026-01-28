@@ -117,13 +117,11 @@ class TestExplainabilityHandlerExplanation:
         mock_handler = MagicMock()
 
         with patch.object(
-            handler, "_get_or_build_decision", return_value=AsyncMock(return_value=mock_decision)()
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
         ):
-            with patch("asyncio.get_event_loop") as mock_loop:
-                mock_loop.return_value.run_until_complete.return_value = mock_decision
-                result = await handler.handle(
-                    "/api/v1/debates/debate_123/explanation", {}, mock_handler
-                )
+            result = await handler.handle(
+                "/api/v1/debates/debate_123/explanation", {}, mock_handler
+            )
 
         assert result.status_code == 200
 
@@ -132,8 +130,7 @@ class TestExplainabilityHandlerExplanation:
         """Test explanation for non-existent debate."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = None
+        with patch.object(handler, "_get_or_build_decision", new=AsyncMock(return_value=None)):
             result = await handler.handle(
                 "/api/v1/debates/nonexistent/explanation", {}, mock_handler
             )
@@ -145,8 +142,9 @@ class TestExplainabilityHandlerExplanation:
         """Test explanation with format parameter."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = mock_decision
+        with patch.object(
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
+        ):
             with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
                 MockBuilder.return_value.generate_summary.return_value = "Summary text"
                 result = await handler.handle(
@@ -162,8 +160,9 @@ class TestExplainabilityHandlerExplanation:
         """Test explain shortcut route."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = mock_decision
+        with patch.object(
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
+        ):
             result = await handler.handle("/api/v1/explain/debate_123", {}, mock_handler)
 
         assert result.status_code == 200
@@ -203,8 +202,9 @@ class TestExplainabilityHandlerEvidence:
         """Test successful evidence request."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = mock_decision
+        with patch.object(
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
+        ):
             result = await handler.handle("/api/v1/debates/debate_123/evidence", {}, mock_handler)
 
         assert result.status_code == 200
@@ -214,8 +214,7 @@ class TestExplainabilityHandlerEvidence:
         """Test evidence for non-existent debate."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = None
+        with patch.object(handler, "_get_or_build_decision", new=AsyncMock(return_value=None)):
             result = await handler.handle("/api/v1/debates/nonexistent/evidence", {}, mock_handler)
 
         assert result.status_code == 404
@@ -255,8 +254,9 @@ class TestExplainabilityHandlerVotePivots:
         """Test successful vote pivots request."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = mock_decision
+        with patch.object(
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
+        ):
             result = await handler.handle(
                 "/api/v1/debates/debate_123/votes/pivots", {}, mock_handler
             )
@@ -297,8 +297,9 @@ class TestExplainabilityHandlerCounterfactuals:
         """Test successful counterfactuals request."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = mock_decision
+        with patch.object(
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
+        ):
             result = await handler.handle(
                 "/api/v1/debates/debate_123/counterfactuals", {}, mock_handler
             )
@@ -329,8 +330,9 @@ class TestExplainabilityHandlerSummary:
         """Test successful summary request."""
         mock_handler = MagicMock()
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.return_value = mock_decision
+        with patch.object(
+            handler, "_get_or_build_decision", new=AsyncMock(return_value=mock_decision)
+        ):
             with patch("aragora.explainability.ExplanationBuilder") as MockBuilder:
                 MockBuilder.return_value.generate_summary.return_value = (
                     "The debate reached consensus with high confidence."
@@ -532,11 +534,11 @@ class TestExplainabilityHandlerCompare:
         mock_decision_2.consensus_reached = False
         mock_decision_2.evidence_quality_score = 0.7
 
-        with patch("asyncio.get_event_loop") as mock_loop:
-            mock_loop.return_value.run_until_complete.side_effect = [
-                mock_decision_1,
-                mock_decision_2,
-            ]
+        with patch.object(
+            handler,
+            "_get_or_build_decision",
+            new=AsyncMock(side_effect=[mock_decision_1, mock_decision_2]),
+        ):
             result = await handler.handle("/api/v1/explainability/compare", {}, mock_handler)
 
         assert result.status_code == 200
