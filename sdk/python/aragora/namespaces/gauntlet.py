@@ -176,6 +176,52 @@ class GauntletAPI:
         """
         return self._client.request("GET", "/api/v1/gauntlet/stats")
 
+    # Receipts endpoints (OpenAPI standard paths)
+    def list_receipts(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List all receipts with pagination."""
+        return self._client.request(
+            "GET", "/api/v1/gauntlet/receipts", params={"limit": limit, "offset": offset}
+        )
+
+    def get_receipt_by_id(self, receipt_id: str) -> dict[str, Any]:
+        """Get a receipt by ID."""
+        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}")
+
+    def export_receipt_by_id(
+        self, receipt_id: str, format: ExportFormat = "json"
+    ) -> dict[str, Any]:
+        """Export a receipt by ID."""
+        return self._client.request(
+            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params={"format": format}
+        )
+
+    def stream_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Stream a receipt's data."""
+        return self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream")
+
+    def export_receipts_bundle(self, receipt_ids: list[str]) -> dict[str, Any]:
+        """Export multiple receipts as a bundle."""
+        return self._client.request(
+            "POST", "/api/v1/gauntlet/receipts/export/bundle", json={"receipt_ids": receipt_ids}
+        )
+
+    # Heatmaps endpoints
+    def list_heatmaps(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List all heatmaps with pagination."""
+        return self._client.request(
+            "GET", "/api/v1/gauntlet/heatmaps", params={"limit": limit, "offset": offset}
+        )
+
+    def get_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Get a heatmap by ID."""
+        return self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}")
+
+    def export_heatmap(self, heatmap_id: str, format: ExportFormat = "json") -> dict[str, Any]:
+        """Export a heatmap."""
+        return self._client.request(
+            "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export", params={"format": format}
+        )
+
 
 class AsyncGauntletAPI:
     """
@@ -258,3 +304,49 @@ class AsyncGauntletAPI:
     async def get_stats(self) -> dict[str, Any]:
         """Get Gauntlet statistics."""
         return await self._client.request("GET", "/api/v1/gauntlet/stats")
+
+    async def list_receipts(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List all receipts with pagination."""
+        return await self._client.request(
+            "GET", "/api/v1/gauntlet/receipts", params={"limit": limit, "offset": offset}
+        )
+
+    async def get_receipt_by_id(self, receipt_id: str) -> dict[str, Any]:
+        """Get a receipt by ID."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}")
+
+    async def export_receipt_by_id(
+        self, receipt_id: str, format: ExportFormat = "json"
+    ) -> dict[str, Any]:
+        """Export a receipt by ID."""
+        return await self._client.request(
+            "GET", f"/api/v1/gauntlet/receipts/{receipt_id}/export", params={"format": format}
+        )
+
+    async def stream_receipt(self, receipt_id: str) -> dict[str, Any]:
+        """Stream a receipt's data."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/receipts/{receipt_id}/stream")
+
+    async def export_receipts_bundle(self, receipt_ids: list[str]) -> dict[str, Any]:
+        """Export multiple receipts as a bundle."""
+        return await self._client.request(
+            "POST", "/api/v1/gauntlet/receipts/export/bundle", json={"receipt_ids": receipt_ids}
+        )
+
+    async def list_heatmaps(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
+        """List all heatmaps with pagination."""
+        return await self._client.request(
+            "GET", "/api/v1/gauntlet/heatmaps", params={"limit": limit, "offset": offset}
+        )
+
+    async def get_heatmap(self, heatmap_id: str) -> dict[str, Any]:
+        """Get a heatmap by ID."""
+        return await self._client.request("GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}")
+
+    async def export_heatmap(
+        self, heatmap_id: str, format: ExportFormat = "json"
+    ) -> dict[str, Any]:
+        """Export a heatmap."""
+        return await self._client.request(
+            "GET", f"/api/v1/gauntlet/heatmaps/{heatmap_id}/export", params={"format": format}
+        )
