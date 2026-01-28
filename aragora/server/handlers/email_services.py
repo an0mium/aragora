@@ -867,6 +867,7 @@ class EmailServicesHandler(SecureHandler):
     # Prefix routes for dynamic paths
     ROUTE_PREFIXES = [
         "/api/v1/email/followups/",
+        "/api/v1/email/",
     ]
 
     # Pattern routes for specific path structures

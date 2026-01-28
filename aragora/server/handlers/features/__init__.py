@@ -72,7 +72,9 @@ from .cloud_storage import (
     download_file as cloud_download_file,
 )
 from .gmail_ingest import GmailIngestHandler
+from .gmail_labels import GmailLabelsHandler
 from .gmail_query import GmailQueryHandler
+from .gmail_threads import GmailThreadsHandler
 from .routing_rules import RoutingRulesHandler, routing_rules_handler
 from .advertising import AdvertisingHandler
 from .analytics_platforms import AnalyticsPlatformsHandler
@@ -204,7 +206,9 @@ __all__ = [
     "cloud_list_files",
     "cloud_download_file",
     "GmailIngestHandler",
+    "GmailLabelsHandler",
     "GmailQueryHandler",
+    "GmailThreadsHandler",
     "RoutingRulesHandler",
     "routing_rules_handler",
     # Connector API handlers

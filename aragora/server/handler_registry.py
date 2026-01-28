@@ -131,8 +131,11 @@ UncertaintyHandler: HandlerType = None
 VerticalsHandler: HandlerType = None
 WorkspaceHandler: HandlerType = None
 EmailHandler: HandlerType = None
+EmailServicesHandler: HandlerType = None
 GmailIngestHandler: HandlerType = None
+GmailLabelsHandler: HandlerType = None
 GmailQueryHandler: HandlerType = None
+GmailThreadsHandler: HandlerType = None
 GoogleChatHandler: HandlerType = None
 ExplainabilityHandler: HandlerType = None
 A2AHandler: HandlerType = None
@@ -419,11 +422,20 @@ try:
     from aragora.server.handlers import (
         EmailHandler as _EmailHandler,
     )
+    from aragora.server.handlers import (
+        EmailServicesHandler as _EmailServicesHandler,
+    )
     from aragora.server.handlers.features import (
         GmailIngestHandler as _GmailIngestHandler,
     )
     from aragora.server.handlers.features import (
+        GmailLabelsHandler as _GmailLabelsHandler,
+    )
+    from aragora.server.handlers.features import (
         GmailQueryHandler as _GmailQueryHandler,
+    )
+    from aragora.server.handlers.features import (
+        GmailThreadsHandler as _GmailThreadsHandler,
     )
     from aragora.server.handlers import (
         GoogleChatHandler as _GoogleChatHandler,
@@ -584,8 +596,11 @@ try:
     VerticalsHandler = _VerticalsHandler
     WorkspaceHandler = _WorkspaceHandler
     EmailHandler = _EmailHandler
+    EmailServicesHandler = _EmailServicesHandler
     GmailIngestHandler = _GmailIngestHandler
+    GmailLabelsHandler = _GmailLabelsHandler
     GmailQueryHandler = _GmailQueryHandler
+    GmailThreadsHandler = _GmailThreadsHandler
     GoogleChatHandler = _GoogleChatHandler
     ExplainabilityHandler = _ExplainabilityHandler
     A2AHandler = _A2AHandler
@@ -711,8 +726,11 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_verticals_handler", VerticalsHandler),
     ("_workspace_handler", WorkspaceHandler),
     ("_email_handler", EmailHandler),
+    ("_email_services_handler", EmailServicesHandler),
     ("_gmail_ingest_handler", GmailIngestHandler),
+    ("_gmail_labels_handler", GmailLabelsHandler),
     ("_gmail_query_handler", GmailQueryHandler),
+    ("_gmail_threads_handler", GmailThreadsHandler),
     ("_google_chat_handler", GoogleChatHandler),
     ("_explainability_handler", ExplainabilityHandler),
     ("_a2a_handler", A2AHandler),
@@ -1340,8 +1358,11 @@ class HandlerRegistryMixin:
     _knowledge_handler: Optional["BaseHandler"] = None
     _knowledge_mound_handler: Optional["BaseHandler"] = None
     _email_handler: Optional["BaseHandler"] = None
+    _email_services_handler: Optional["BaseHandler"] = None
     _gmail_ingest_handler: Optional["BaseHandler"] = None
+    _gmail_labels_handler: Optional["BaseHandler"] = None
     _gmail_query_handler: Optional["BaseHandler"] = None
+    _gmail_threads_handler: Optional["BaseHandler"] = None
     _google_chat_handler: Optional["BaseHandler"] = None
     _explainability_handler: Optional["BaseHandler"] = None
     _a2a_handler: Optional["BaseHandler"] = None
