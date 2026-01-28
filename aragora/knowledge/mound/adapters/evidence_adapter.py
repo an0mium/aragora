@@ -32,6 +32,8 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
+# Import mixin for semantic search functionality
+
 # Try to import SLO metrics
 try:
     from aragora.observability.metrics.slo import check_and_record_slo

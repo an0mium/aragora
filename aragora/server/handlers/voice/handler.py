@@ -235,6 +235,15 @@ class VoiceHandler:
 
         params = await self._get_post_params(request)
 
+        # Verify Twilio signature
+        if not await self._verify_signature(request, params):
+            logger.warning("Unauthorized confirm webhook request - invalid signature")
+            return web.Response(
+                text='<?xml version="1.0"?><Response><Say>Unauthorized.</Say></Response>',
+                status=401,
+                content_type=TWIML_CONTENT_TYPE,
+            )
+
         call_sid = params.get("CallSid", "")
         digits = params.get("Digits", "")
 
@@ -264,6 +273,11 @@ class VoiceHandler:
         Twilio sends this for call status updates.
         """
         params = await self._get_post_params(request)
+
+        # Verify Twilio signature
+        if not await self._verify_signature(request, params):
+            logger.warning("Unauthorized status webhook request - invalid signature")
+            return web.Response(text="Unauthorized", status=401)
 
         call_sid = params.get("CallSid", "")
         call_status = params.get("CallStatus", "")

@@ -47,8 +47,52 @@ class ResolutionStrategy(str, Enum):
 
 
 @dataclass
+class ValidatorVote:
+    """A vote from a validator on a contradiction resolution.
+
+    Phase A3 addition for multi-party validation integration.
+    """
+
+    validator_id: str
+    """ID of the validator casting this vote."""
+
+    vote: str
+    """Vote: 'accept_a', 'accept_b', 'merge', 'keep_both', 'reject_both'."""
+
+    confidence: float = 0.8
+    """Confidence in this vote (0-1)."""
+
+    reasoning: str = ""
+    """Explanation for the vote."""
+
+    weight: float = 1.0
+    """Weight of this vote based on validator calibration."""
+
+    voted_at: datetime = field(default_factory=datetime.now)
+    """When the vote was cast."""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "validator_id": self.validator_id,
+            "vote": self.vote,
+            "confidence": self.confidence,
+            "reasoning": self.reasoning,
+            "weight": self.weight,
+            "voted_at": self.voted_at.isoformat(),
+        }
+
+
+@dataclass
 class Contradiction:
-    """A detected contradiction between knowledge items."""
+    """A detected contradiction between knowledge items.
+
+    Extended in Phase A3 with multi-party validation support:
+    - validator_votes: List of votes from assigned validators
+    - validation_request_id: Link to multi-party validation workflow
+    - validation_consensus: Consensus result from validators
+    - calibrated_conflict_score: Conflict score adjusted by validator calibration
+    """
 
     id: str
     item_a_id: str
@@ -63,6 +107,25 @@ class Contradiction:
     resolved_by: Optional[str] = None
     notes: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # Phase A3: Multi-party validation fields
+    validator_votes: List[ValidatorVote] = field(default_factory=list)
+    """Votes from assigned validators (Phase A3)."""
+
+    validation_request_id: Optional[str] = None
+    """Link to multi-party validation workflow request (Phase A3)."""
+
+    validation_consensus: Optional[str] = None
+    """Consensus result: 'accept_a', 'accept_b', 'merge', 'keep_both', 'deadlock' (Phase A3)."""
+
+    calibrated_conflict_score: Optional[float] = None
+    """Conflict score adjusted by validator calibration quality (Phase A3)."""
+
+    assigned_validators: List[str] = field(default_factory=list)
+    """List of validators assigned to review this contradiction (Phase A3)."""
+
+    validation_deadline: Optional[datetime] = None
+    """Deadline for validation votes (Phase A3)."""
 
     @property
     def severity(self) -> str:
@@ -93,7 +156,74 @@ class Contradiction:
             "resolved_by": self.resolved_by,
             "notes": self.notes,
             "metadata": self.metadata,
+            # Phase A3: Multi-party validation fields
+            "validator_votes": [v.to_dict() for v in self.validator_votes],
+            "validation_request_id": self.validation_request_id,
+            "validation_consensus": self.validation_consensus,
+            "calibrated_conflict_score": self.calibrated_conflict_score,
+            "assigned_validators": self.assigned_validators,
+            "validation_deadline": (
+                self.validation_deadline.isoformat() if self.validation_deadline else None
+            ),
         }
+
+    # Phase A3: Multi-party validation helper methods
+
+    @property
+    def validation_in_progress(self) -> bool:
+        """Check if validation is in progress."""
+        return (
+            self.validation_request_id is not None
+            and self.validation_consensus is None
+            and not self.resolved
+        )
+
+    @property
+    def votes_received(self) -> int:
+        """Number of validation votes received."""
+        return len(self.validator_votes)
+
+    @property
+    def votes_needed(self) -> int:
+        """Votes still needed (assumes majority quorum)."""
+        total = len(self.assigned_validators)
+        quorum = (total // 2) + 1
+        return max(0, quorum - self.votes_received)
+
+    def get_vote_summary(self) -> Dict[str, int]:
+        """Get summary of votes by type."""
+        summary: Dict[str, int] = {}
+        for vote in self.validator_votes:
+            summary[vote.vote] = summary.get(vote.vote, 0) + 1
+        return summary
+
+    def get_weighted_consensus(self) -> Optional[str]:
+        """Calculate weighted consensus from votes.
+
+        Returns the vote type with highest weighted support,
+        or None if no clear winner.
+        """
+        if not self.validator_votes:
+            return None
+
+        weighted_votes: Dict[str, float] = {}
+        for vote in self.validator_votes:
+            weighted_score = vote.weight * vote.confidence
+            weighted_votes[vote.vote] = weighted_votes.get(vote.vote, 0) + weighted_score
+
+        if not weighted_votes:
+            return None
+
+        # Find winner
+        sorted_votes = sorted(weighted_votes.items(), key=lambda x: x[1], reverse=True)
+        winner, winner_score = sorted_votes[0]
+
+        # Check if there's a clear winner (more than 50% of total weight)
+        total_weight = sum(weighted_votes.values())
+        if total_weight > 0 and winner_score / total_weight > 0.5:
+            return winner
+
+        return None
 
 
 @dataclass
