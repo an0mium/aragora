@@ -54,6 +54,10 @@ class MockUser:
         """Mock password verification."""
         return password == "correct_password"
 
+    def verify_api_key(self, key: str) -> bool:
+        """Mock API key verification."""
+        return self.api_key is not None and self.api_key == key
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -356,7 +360,6 @@ class TestInMemoryUserStore:
         assert len(store.users) == 0
         assert len(store.users_by_email) == 0
         assert len(store.organizations) == 0
-        assert len(store.api_keys) == 0
 
     def test_save_and_get_user_by_id(self):
         """Save and get user by ID should work."""

@@ -539,13 +539,18 @@ class TestTokenRefresh:
 class TestLogout:
     """Tests for logout endpoint."""
 
+    @patch("aragora.server.handlers.auth.handler.get_role_permissions")
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_logout_success(self, mock_extract, auth_handler, mock_handler):
+    def test_logout_success(self, mock_extract, mock_get_perms, auth_handler, mock_handler):
         """Test successful logout."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
+            role="member",
+            org_id="org-456",
+            client_ip="127.0.0.1",
         )
+        mock_get_perms.return_value = {"authentication.revoke", "authentication.read"}
 
         result = auth_handler._handle_logout(mock_handler)
 
@@ -571,15 +576,20 @@ class TestLogout:
 class TestGetMe:
     """Tests for get current user endpoint."""
 
+    @patch("aragora.server.handlers.auth.handler.get_role_permissions")
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
     def test_get_me_success(
-        self, mock_extract, auth_handler, mock_handler, mock_user_store, mock_user
+        self, mock_extract, mock_get_perms, auth_handler, mock_handler, mock_user_store, mock_user
     ):
         """Test successful get user info."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
+            role="member",
+            org_id="org-456",
+            client_ip="127.0.0.1",
         )
+        mock_get_perms.return_value = {"authentication.read"}
 
         result = auth_handler._handle_get_me(mock_handler)
 
@@ -596,13 +606,20 @@ class TestGetMe:
 
         assert result.status_code == 401
 
+    @patch("aragora.server.handlers.auth.handler.get_role_permissions")
     @patch("aragora.server.handlers.auth.handler.extract_user_from_request")
-    def test_get_me_user_not_found(self, mock_extract, auth_handler, mock_handler, mock_user_store):
+    def test_get_me_user_not_found(
+        self, mock_extract, mock_get_perms, auth_handler, mock_handler, mock_user_store
+    ):
         """Test get user info when user deleted."""
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="deleted-user",
+            role="member",
+            org_id="org-456",
+            client_ip="127.0.0.1",
         )
+        mock_get_perms.return_value = {"authentication.read"}
         mock_user_store.get_user_by_id.return_value = None
 
         result = auth_handler._handle_get_me(mock_handler)

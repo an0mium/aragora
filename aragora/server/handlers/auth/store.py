@@ -36,8 +36,10 @@ class InMemoryUserStore:
             return self.users.get(user_id)
         return None
 
-    def get_user_by_api_key(self, api_key: str) -> Optional[User]:
+    def get_user_by_api_key(self, api_key: str | None) -> Optional[User]:
         """Get user by API key using hash-based verification."""
+        if not api_key:
+            return None
         for user in self.users.values():
             if hasattr(user, "verify_api_key") and user.verify_api_key(api_key):
                 return user
