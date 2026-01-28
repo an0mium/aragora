@@ -22,6 +22,8 @@ import logging
 import time
 from typing import Any, Callable, Dict, Optional
 
+from aragora.observability.tracing import get_tracer
+
 logger = logging.getLogger(__name__)
 
 # Type alias for event callback
@@ -48,15 +50,21 @@ class KnowledgeMoundAdapter:
         self,
         enable_dual_write: bool = False,
         event_callback: Optional[EventCallback] = None,
+        enable_tracing: bool = True,
     ):
         """Initialize the adapter with common configuration.
 
         Args:
             enable_dual_write: If True, writes go to both systems during migration.
             event_callback: Optional callback for emitting events (event_type, data).
+            enable_tracing: If True, OpenTelemetry tracing is enabled for operations.
         """
         self._enable_dual_write = enable_dual_write
         self._event_callback = event_callback
+        self._enable_tracing = enable_tracing
+        self._tracer = get_tracer() if enable_tracing else None
+        self._last_operation_time: float = 0.0
+        self._error_count: int = 0
         self._init_reverse_flow_state()
 
     def _init_reverse_flow_state(self) -> None:
@@ -219,35 +227,72 @@ class KnowledgeMoundAdapter:
         elif outcome == "adjusted":
             self._reverse_flow_state["adjustments_made"] += 1
 
-    def _timed_operation(self, operation_name: str):
-        """Context manager for timing and recording operations.
+    def _timed_operation(self, operation_name: str, **span_attributes: Any):
+        """Context manager for timing, recording, and tracing operations.
 
         Usage:
-            with self._timed_operation("search") as timer:
+            with self._timed_operation("search", query="test") as timer:
                 results = self._do_search()
-            # Metrics automatically recorded
+            # Metrics and traces automatically recorded
 
         Args:
-            operation_name: Name of the operation for metrics.
+            operation_name: Name of the operation for metrics/tracing.
+            **span_attributes: Additional attributes to add to the trace span.
 
         Returns:
-            Context manager that records metrics on exit.
+            Context manager that records metrics and traces on exit.
         """
-        return _TimedOperation(self, operation_name)
+        return _TimedOperation(self, operation_name, span_attributes)
+
+    def health_check(self) -> Dict[str, Any]:
+        """Return adapter health status for monitoring.
+
+        Returns:
+            Dict containing health status, last operation time, and error counts.
+        """
+        return {
+            "adapter": self.adapter_name,
+            "healthy": self._error_count < 5,  # Unhealthy if 5+ consecutive errors
+            "last_operation_time": self._last_operation_time,
+            "error_count": self._error_count,
+            "reverse_flow_stats": self.get_reverse_flow_stats(),
+        }
+
+    def reset_health_counters(self) -> None:
+        """Reset health counters (e.g., after recovering from errors)."""
+        self._error_count = 0
 
 
 class _TimedOperation:
-    """Context manager for timing adapter operations."""
+    """Context manager for timing and tracing adapter operations."""
 
-    def __init__(self, adapter: KnowledgeMoundAdapter, operation: str):
+    def __init__(
+        self,
+        adapter: KnowledgeMoundAdapter,
+        operation: str,
+        span_attributes: Optional[Dict[str, Any]] = None,
+    ):
         self.adapter = adapter
         self.operation = operation
+        self.span_attributes = span_attributes or {}
         self.start_time = 0.0
         self.success = True
         self.error: Optional[Exception] = None
+        self._span = None
 
     def __enter__(self) -> "_TimedOperation":
         self.start_time = time.time()
+
+        # Start trace span if tracing enabled
+        if self.adapter._tracer is not None:
+            span_name = f"{self.adapter.adapter_name}.{self.operation}"
+            self._span = self.adapter._tracer.start_span(span_name)
+            self._span.set_attribute("adapter.name", self.adapter.adapter_name)
+            self._span.set_attribute("adapter.operation", self.operation)
+            for key, value in self.span_attributes.items():
+                if value is not None:
+                    self._span.set_attribute(f"adapter.{key}", str(value))
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -255,6 +300,21 @@ class _TimedOperation:
         self.success = exc_type is None
         if not self.success:
             self.error = exc_val
+
+        # Update adapter state
+        self.adapter._last_operation_time = time.time()
+        if self.success:
+            self.adapter._error_count = 0  # Reset on success
+        else:
+            self.adapter._error_count += 1
+
+        # End trace span
+        if self._span is not None:
+            self._span.set_attribute("adapter.success", self.success)
+            self._span.set_attribute("adapter.latency_ms", latency * 1000)
+            if not self.success and exc_val is not None:
+                self._span.record_exception(exc_val)
+            self._span.end()
 
         self.adapter._record_metric(self.operation, self.success, latency)
         # Don't suppress exceptions (returning None is equivalent to False)
