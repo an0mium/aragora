@@ -37,6 +37,37 @@ logger = logging.getLogger(__name__)
 # Default columns to use for change tracking
 DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "timestamp"]
 
+# SQL identifier validation pattern (alphanumeric, underscores, and hyphens only)
+import re
+
+_SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
+
+
+def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> str:
+    """
+    Validate a SQL identifier to prevent SQL injection.
+
+    Args:
+        name: The identifier to validate (table name, schema, column)
+        identifier_type: Description for error messages
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If the identifier contains invalid characters
+    """
+    if not name:
+        raise ValueError(f"SQL {identifier_type} cannot be empty")
+    if len(name) > 128:
+        raise ValueError(f"SQL {identifier_type} too long (max 128 chars)")
+    if not _SAFE_IDENTIFIER_PATTERN.match(name):
+        raise ValueError(
+            f"Invalid SQL {identifier_type}: '{name}'. "
+            "Only alphanumeric characters, underscores, and hyphens are allowed."
+        )
+    return name
+
 
 class SQLServerConnector(EnterpriseConnector):
     """
@@ -235,20 +266,25 @@ class SQLServerConnector(EnterpriseConnector):
         last_sync = state.last_sync_at if state else None
 
         for table in tables:
+            # Validate identifiers to prevent SQL injection
+            safe_schema = _validate_sql_identifier(self.schema, "schema")
+            safe_table = _validate_sql_identifier(table, "table")
+
             columns = await self._get_table_columns(table)
             ts_column = self._find_timestamp_column(columns)
 
             async with pool.acquire() as conn:
                 async with conn.cursor() as cursor:
                     if ts_column and last_sync:
+                        safe_ts_column = _validate_sql_identifier(ts_column, "column")
                         query = f"""
-                            SELECT * FROM [{self.schema}].[{table}]
-                            WHERE [{ts_column}] > ?
-                            ORDER BY [{ts_column}]
+                            SELECT * FROM [{safe_schema}].[{safe_table}]
+                            WHERE [{safe_ts_column}] > ?
+                            ORDER BY [{safe_ts_column}]
                         """
                         await cursor.execute(query, last_sync)
                     else:
-                        query = f"SELECT * FROM [{self.schema}].[{table}]"
+                        query = f"SELECT * FROM [{safe_schema}].[{safe_table}]"
                         await cursor.execute(query)
 
                     # Get column names
