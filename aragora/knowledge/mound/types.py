@@ -132,6 +132,28 @@ class AccessGrant:
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AccessGrant":
+        """Create from dictionary."""
+        return cls(
+            id=data["id"],
+            item_id=data["item_id"],
+            grantee_type=AccessGrantType(data["grantee_type"]),
+            grantee_id=data["grantee_id"],
+            permissions=data.get("permissions", ["read"]),
+            granted_by=data.get("granted_by"),
+            granted_at=(
+                datetime.fromisoformat(data["granted_at"])
+                if isinstance(data.get("granted_at"), str)
+                else datetime.now()
+            ),
+            expires_at=(
+                datetime.fromisoformat(data["expires_at"])
+                if isinstance(data.get("expires_at"), str) and data.get("expires_at")
+                else None
+            ),
+        )
+
 
 @dataclass
 class MoundConfig:

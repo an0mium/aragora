@@ -256,13 +256,20 @@ class EvidenceAdapter(FusionMixin, SemanticSearchMixin):
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
-    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
+    def _record_metric(
+        self,
+        operation: str,
+        success: bool,
+        latency: float,
+        extra_labels: Optional[Dict[str, str]] = None,
+    ) -> None:
         """Record Prometheus metric for adapter operation.
 
         Args:
             operation: Operation name (search, store, sync)
             success: Whether operation succeeded
             latency: Operation latency in seconds
+            extra_labels: Additional labels for the metric.
         """
         try:
             from aragora.observability.metrics.km import (

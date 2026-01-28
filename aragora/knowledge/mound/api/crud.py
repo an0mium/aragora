@@ -54,6 +54,26 @@ from aragora.knowledge.mound.validation import (
     validate_workspace_id,
 )
 
+
+def _serialize_for_storage(value: Any) -> Any:
+    """Recursively serialize complex types for storage.
+
+    Handles datetime objects, objects with to_dict() methods,
+    nested dicts, and lists.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    if isinstance(value, dict):
+        return {k: _serialize_for_storage(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_serialize_for_storage(item) for item in value]
+    return value
+
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.types import (
         IngestionRequest,
@@ -320,6 +340,13 @@ class CRUDOperationsMixin:
             span.add_event("validation_complete")
 
             updates["updated_at"] = datetime.now().isoformat()
+
+            # Serialize complex types before storage
+            if "provenance" in updates:
+                updates["provenance"] = _serialize_for_storage(updates["provenance"])
+            if "metadata" in updates:
+                updates["metadata"] = _serialize_for_storage(updates["metadata"])
+
             await self._update_node(node_id, updates)
             span.add_event("node_updated")
 
@@ -452,7 +479,7 @@ class CRUDOperationsMixin:
         return await self.add(  # type: ignore[attr-defined]
             content=node.content,
             metadata={
-                "provenance": node.provenance.__dict__ if node.provenance else None,
+                "provenance": node.provenance.to_dict() if node.provenance else None,
                 "node_type": node.node_type,
             },
             workspace_id=node.workspace_id or self.workspace_id,

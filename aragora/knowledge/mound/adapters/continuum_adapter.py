@@ -255,13 +255,20 @@ class ContinuumAdapter(FusionMixin, SemanticSearchMixin):
             except Exception as e:
                 logger.warning(f"Failed to emit event {event_type}: {e}")
 
-    def _record_metric(self, operation: str, success: bool, latency: float) -> None:
+    def _record_metric(
+        self,
+        operation: str,
+        success: bool,
+        latency: float,
+        extra_labels: Optional[Dict[str, str]] = None,
+    ) -> None:
         """Record Prometheus metric for adapter operation and check SLOs.
 
         Args:
             operation: Operation name (search, store, sync, semantic_search)
             success: Whether operation succeeded
             latency: Operation latency in seconds
+            extra_labels: Additional labels for the metric.
         """
         latency_ms = latency * 1000  # Convert to milliseconds
 
