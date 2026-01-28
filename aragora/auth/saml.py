@@ -47,9 +47,14 @@ from .sso import (
 
 logger = logging.getLogger(__name__)
 
-from onelogin.saml2.auth import OneLogin_Saml2_Auth
+try:
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
-HAS_SAML_LIB = True  # Kept for backwards compatibility
+    HAS_SAML_LIB = True
+except ImportError:
+    OneLogin_Saml2_Auth = None  # type: ignore[assignment, misc]
+    HAS_SAML_LIB = False
+    logger.debug("python3-saml not installed - SAML authentication unavailable")
 
 
 class SAMLError(SSOError):
@@ -250,6 +255,8 @@ class SAMLProvider(SSOProvider):
         relay_state: Optional[str],
     ) -> str:
         """Generate AuthnRequest using python3-saml library."""
+        if not HAS_SAML_LIB:
+            raise SAMLError("python3-saml not installed. Install with: pip install python3-saml")
         settings = self._get_onelogin_settings(redirect_uri)
 
         # Create mock request object
@@ -398,6 +405,8 @@ class SAMLProvider(SSOProvider):
         relay_state: Optional[str],
     ) -> SSOUser:
         """Authenticate using python3-saml library."""
+        if not HAS_SAML_LIB:
+            raise SAMLError("python3-saml not installed. Install with: pip install python3-saml")
         settings = self._get_onelogin_settings()
 
         # Create mock request object
