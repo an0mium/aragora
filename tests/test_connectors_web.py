@@ -24,7 +24,6 @@ import pytest
 from aragora.connectors.web import (
     WebConnector,
     DOMAIN_AUTHORITY,
-    HTTPX_AVAILABLE,
     BS4_AVAILABLE,
     DDGS_AVAILABLE,
 )
@@ -303,9 +302,6 @@ class TestURLFetchWithMockedHTTPX:
     @pytest.mark.asyncio
     async def test_fetch_url_returns_evidence(self, temp_dir):
         """Test that fetch_url returns Evidence object."""
-        if not HTTPX_AVAILABLE:
-            pytest.skip("httpx not installed")
-
         connector = WebConnector(cache_dir=str(temp_dir))
 
         with patch("aragora.connectors.web.httpx.AsyncClient") as mock_client_class:
@@ -343,9 +339,6 @@ class TestURLFetchWithMockedHTTPX:
     @pytest.mark.asyncio
     async def test_fetch_url_timeout_handling(self, temp_dir):
         """Test that fetch_url handles timeouts gracefully."""
-        if not HTTPX_AVAILABLE:
-            pytest.skip("httpx not installed")
-
         connector = WebConnector(cache_dir=str(temp_dir))
 
         with patch("aragora.connectors.web.httpx.AsyncClient") as mock_client_class:
