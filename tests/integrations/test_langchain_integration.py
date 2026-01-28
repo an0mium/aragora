@@ -13,7 +13,6 @@ from aragora.integrations.langchain import (
     AragoraToolInput,
     is_langchain_available,
     get_langchain_version,
-    LANGCHAIN_AVAILABLE,
 )
 
 
@@ -305,17 +304,10 @@ class TestAragoraToolInput:
 
     def test_tool_input_defaults(self):
         """Test tool input with default values."""
-        if LANGCHAIN_AVAILABLE:
-            # Pydantic model
-            input_obj = AragoraToolInput(question="Test question")
-            assert input_obj.question == "Test question"
-            assert input_obj.rounds == 3
-            assert input_obj.consensus_threshold == 0.8
-        else:
-            # Dataclass fallback
-            input_obj = AragoraToolInput(question="Test question")
-            assert input_obj.question == "Test question"
-            assert input_obj.rounds == 3
+        input_obj = AragoraToolInput(question="Test question")
+        assert input_obj.question == "Test question"
+        assert input_obj.rounds == 3
+        assert input_obj.consensus_threshold == 0.8
 
     def test_tool_input_custom(self):
         """Test tool input with custom values."""
@@ -345,27 +337,20 @@ class TestUtilityFunctions:
     def test_is_langchain_available(self):
         """Test LangChain availability check."""
         result = is_langchain_available()
-        # Result depends on whether LangChain is installed
-        assert isinstance(result, bool)
-        assert result == LANGCHAIN_AVAILABLE
+        assert result is True
 
     def test_get_langchain_version(self):
         """Test getting LangChain version."""
         version = get_langchain_version()
-
-        if LANGCHAIN_AVAILABLE:
-            assert version is not None
-            assert isinstance(version, str)
-        else:
-            assert version is None
+        assert version is not None
+        assert isinstance(version, str)
 
 
 # =============================================================================
-# Integration Tests (skipped if LangChain not available)
+# Integration Tests
 # =============================================================================
 
 
-@pytest.mark.skipif(not LANGCHAIN_AVAILABLE, reason="LangChain not installed")
 class TestLangChainIntegration:
     """Integration tests that require LangChain."""
 

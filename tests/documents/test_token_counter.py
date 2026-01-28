@@ -8,7 +8,6 @@ from aragora.documents.chunking.token_counter import (
     TokenCounter,
     get_token_counter,
     count_tokens,
-    TIKTOKEN_AVAILABLE,
 )
 
 
@@ -136,7 +135,6 @@ class TestGlobalTokenCounter:
 class TestTiktokenIntegration:
     """Tests for tiktoken integration (if available)."""
 
-    @pytest.mark.skipif(not TIKTOKEN_AVAILABLE, reason="tiktoken not installed")
     def test_tiktoken_accurate_count(self):
         """Test tiktoken provides accurate counts."""
         counter = TokenCounter()
@@ -149,7 +147,6 @@ class TestTiktokenIntegration:
         tokens2 = counter.count(text, model="gpt-4")
         assert tokens == tokens2
 
-    @pytest.mark.skipif(not TIKTOKEN_AVAILABLE, reason="tiktoken not installed")
     def test_tiktoken_different_encodings(self):
         """Test different encodings produce different counts."""
         counter = TokenCounter()

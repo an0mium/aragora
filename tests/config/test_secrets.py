@@ -18,15 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-try:
-    import boto3
-    from botocore.exceptions import ClientError
-
-    BOTO3_AVAILABLE = True
-except ImportError:
-    boto3 = None
-    ClientError = None
-    BOTO3_AVAILABLE = False
+import boto3
+from botocore.exceptions import ClientError
 
 from aragora.config.secrets import (
     MANAGED_SECRETS,
@@ -226,7 +219,6 @@ class TestSecretManagerAWS:
             result = manager.get("ENV_ONLY_SECRET")
             assert result == "env_value"
 
-    @pytest.mark.skipif(not BOTO3_AVAILABLE, reason="boto3 not installed")
     def test_aws_client_lazy_initialization(self):
         """AWS client is lazily initialized only when needed."""
         config = SecretsConfig(use_aws=True)
@@ -252,7 +244,6 @@ class TestSecretManagerAWS:
                 client = manager._get_aws_client(manager.config.aws_region)
                 assert client is None
 
-    @pytest.mark.skipif(not BOTO3_AVAILABLE, reason="boto3 not installed")
     def test_aws_handles_resource_not_found(self):
         """Gracefully handles missing secret in AWS."""
         config = SecretsConfig(use_aws=True)
@@ -269,7 +260,6 @@ class TestSecretManagerAWS:
             secrets = manager._load_from_aws()
             assert secrets == {}
 
-    @pytest.mark.skipif(not BOTO3_AVAILABLE, reason="boto3 not installed")
     def test_aws_handles_access_denied(self):
         """Gracefully handles access denied from AWS."""
         config = SecretsConfig(use_aws=True)

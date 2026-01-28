@@ -23,7 +23,6 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from aragora.auth.saml import (
-    HAS_SAML_LIB,
     SAMLConfig,
     SAMLError,
     SAMLProvider,
@@ -678,11 +677,10 @@ class TestSAMLHelpers:
 
 
 # ============================================================================
-# Library Integration Tests (Conditional)
+# Library Integration Tests
 # ============================================================================
 
 
-@pytest.mark.skipif(not HAS_SAML_LIB, reason="python3-saml not installed")
 class TestSAMLWithLibrary:
     """Tests that require python3-saml library."""
 
