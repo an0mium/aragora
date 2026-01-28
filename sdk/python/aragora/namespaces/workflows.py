@@ -146,7 +146,7 @@ class WorkflowsAPI:
         Returns:
             Execution details
         """
-        return self._client.request("GET", f"/api/v1/workflows/executions/{execution_id}")
+        return self._client.request("GET", f"/api/v1/workflow-executions/{execution_id}")
 
     def list_executions(
         self,
@@ -171,7 +171,7 @@ class WorkflowsAPI:
 
         return self._client.request(
             "GET",
-            "/api/v1/workflows/executions",
+            "/api/v1/workflow-executions",
             params=params,
         )
 
@@ -186,8 +186,8 @@ class WorkflowsAPI:
             Cancellation result
         """
         return self._client.request(
-            "POST",
-            f"/api/v1/workflows/executions/{execution_id}/cancel",
+            "DELETE",
+            f"/api/v1/workflow-executions/{execution_id}",
         )
 
     def list_templates(self) -> dict[str, Any]:
@@ -197,7 +197,7 @@ class WorkflowsAPI:
         Returns:
             List of templates
         """
-        return self._client.request("GET", "/api/v1/workflows/templates")
+        return self._client.request("GET", "/api/v1/workflow-templates")
 
     def create_from_template(
         self,
@@ -218,9 +218,46 @@ class WorkflowsAPI:
         """
         return self._client.request(
             "POST",
-            f"/api/v1/workflows/templates/{template_id}/create",
+            f"/api/v1/workflow-templates/{template_id}/create",
             json={"name": name, **overrides},
         )
+
+    def list_library_templates(self, **params: Any) -> dict[str, Any]:
+        """List workflow library templates (/api/v1/workflow/templates)."""
+        return self._client.request("GET", "/api/v1/workflow/templates", params=params)
+
+    def get_library_template(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow library template."""
+        return self._client.request("GET", f"/api/v1/workflow/templates/{template_id}")
+
+    def get_library_package(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow library template package."""
+        return self._client.request("GET", f"/api/v1/workflow/templates/{template_id}/package")
+
+    def run_library_template(
+        self, template_id: str, inputs: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Run a workflow library template."""
+        payload = {"inputs": inputs or {}}
+        return self._client.request(
+            "POST", f"/api/v1/workflow/templates/{template_id}/run", json=payload
+        )
+
+    def list_template_categories(self) -> dict[str, Any]:
+        """List workflow template categories."""
+        return self._client.request("GET", "/api/v1/workflow/categories")
+
+    def list_template_patterns(self) -> dict[str, Any]:
+        """List workflow template patterns."""
+        return self._client.request("GET", "/api/v1/workflow/patterns")
+
+    def list_pattern_templates(self) -> dict[str, Any]:
+        """List workflow pattern templates."""
+        return self._client.request("GET", "/api/v1/workflow/pattern-templates")
+
+    def get_pattern_template(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow pattern template by ID."""
+        return self._client.request("GET", f"/api/v1/workflow/pattern-templates/{template_id}")
 
 
 class AsyncWorkflowsAPI:
@@ -295,7 +332,7 @@ class AsyncWorkflowsAPI:
 
     async def get_execution(self, execution_id: str) -> dict[str, Any]:
         """Get workflow execution status."""
-        return await self._client.request("GET", f"/api/v1/workflows/executions/{execution_id}")
+        return await self._client.request("GET", f"/api/v1/workflow-executions/{execution_id}")
 
     async def list_executions(
         self,
@@ -310,20 +347,20 @@ class AsyncWorkflowsAPI:
 
         return await self._client.request(
             "GET",
-            "/api/v1/workflows/executions",
+            "/api/v1/workflow-executions",
             params=params,
         )
 
     async def cancel_execution(self, execution_id: str) -> dict[str, Any]:
         """Cancel a workflow execution."""
         return await self._client.request(
-            "POST",
-            f"/api/v1/workflows/executions/{execution_id}/cancel",
+            "DELETE",
+            f"/api/v1/workflow-executions/{execution_id}",
         )
 
     async def list_templates(self) -> dict[str, Any]:
         """List available workflow templates."""
-        return await self._client.request("GET", "/api/v1/workflows/templates")
+        return await self._client.request("GET", "/api/v1/workflow-templates")
 
     async def create_from_template(
         self,
@@ -334,6 +371,47 @@ class AsyncWorkflowsAPI:
         """Create a workflow from a template."""
         return await self._client.request(
             "POST",
-            f"/api/v1/workflows/templates/{template_id}/create",
+            f"/api/v1/workflow-templates/{template_id}/create",
             json={"name": name, **overrides},
+        )
+
+    async def list_library_templates(self, **params: Any) -> dict[str, Any]:
+        """List workflow library templates (/api/v1/workflow/templates)."""
+        return await self._client.request("GET", "/api/v1/workflow/templates", params=params)
+
+    async def get_library_template(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow library template."""
+        return await self._client.request("GET", f"/api/v1/workflow/templates/{template_id}")
+
+    async def get_library_package(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow library template package."""
+        return await self._client.request(
+            "GET", f"/api/v1/workflow/templates/{template_id}/package"
+        )
+
+    async def run_library_template(
+        self, template_id: str, inputs: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Run a workflow library template."""
+        payload = {"inputs": inputs or {}}
+        return await self._client.request(
+            "POST", f"/api/v1/workflow/templates/{template_id}/run", json=payload
+        )
+
+    async def list_template_categories(self) -> dict[str, Any]:
+        """List workflow template categories."""
+        return await self._client.request("GET", "/api/v1/workflow/categories")
+
+    async def list_template_patterns(self) -> dict[str, Any]:
+        """List workflow template patterns."""
+        return await self._client.request("GET", "/api/v1/workflow/patterns")
+
+    async def list_pattern_templates(self) -> dict[str, Any]:
+        """List workflow pattern templates."""
+        return await self._client.request("GET", "/api/v1/workflow/pattern-templates")
+
+    async def get_pattern_template(self, template_id: str) -> dict[str, Any]:
+        """Get a workflow pattern template by ID."""
+        return await self._client.request(
+            "GET", f"/api/v1/workflow/pattern-templates/{template_id}"
         )

@@ -94,6 +94,7 @@ class AragoraClient:
         from .namespaces.batch import BatchAPI
         from .namespaces.belief import BeliefAPI
         from .namespaces.billing import BillingAPI
+        from .namespaces.bots import BotsAPI
         from .namespaces.budgets import BudgetsAPI
         from .namespaces.code_review import CodeReviewAPI
         from .namespaces.codebase import CodebaseAPI
@@ -136,6 +137,7 @@ class AragoraClient:
         from .namespaces.policies import PoliciesAPI
         from .namespaces.privacy import PrivacyAPI
         from .namespaces.pulse import PulseAPI
+        from .namespaces.queue import QueueAPI
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
         from .namespaces.receipts import ReceiptsAPI
@@ -172,6 +174,7 @@ class AragoraClient:
         self.backups = BackupsAPI(self)
         self.batch = BatchAPI(self)
         self.belief = BeliefAPI(self)
+        self.bots = BotsAPI(self)
         self.billing = BillingAPI(self)
         self.budgets = BudgetsAPI(self)
         self.code_review = CodeReviewAPI(self)
@@ -215,6 +218,7 @@ class AragoraClient:
         self.policies = PoliciesAPI(self)
         self.privacy = PrivacyAPI(self)
         self.pulse = PulseAPI(self)
+        self.queue = QueueAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
         self.receipts = ReceiptsAPI(self)
@@ -427,6 +431,7 @@ class AragoraAsyncClient:
         from .namespaces.batch import AsyncBatchAPI
         from .namespaces.belief import AsyncBeliefAPI
         from .namespaces.billing import AsyncBillingAPI
+        from .namespaces.bots import AsyncBotsAPI
         from .namespaces.budgets import AsyncBudgetsAPI
         from .namespaces.code_review import AsyncCodeReviewAPI
         from .namespaces.codebase import AsyncCodebaseAPI
@@ -469,6 +474,7 @@ class AragoraAsyncClient:
         from .namespaces.policies import AsyncPoliciesAPI
         from .namespaces.privacy import AsyncPrivacyAPI
         from .namespaces.pulse import AsyncPulseAPI
+        from .namespaces.queue import AsyncQueueAPI
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
         from .namespaces.receipts import AsyncReceiptsAPI
@@ -505,6 +511,7 @@ class AragoraAsyncClient:
         self.backups = AsyncBackupsAPI(self)
         self.batch = AsyncBatchAPI(self)
         self.belief = AsyncBeliefAPI(self)
+        self.bots = AsyncBotsAPI(self)
         self.billing = AsyncBillingAPI(self)
         self.budgets = AsyncBudgetsAPI(self)
         self.code_review = AsyncCodeReviewAPI(self)
@@ -548,6 +555,7 @@ class AragoraAsyncClient:
         self.policies = AsyncPoliciesAPI(self)
         self.privacy = AsyncPrivacyAPI(self)
         self.pulse = AsyncPulseAPI(self)
+        self.queue = AsyncQueueAPI(self)
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
         self.receipts = AsyncReceiptsAPI(self)

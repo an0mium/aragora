@@ -18,112 +18,104 @@ class IntegrationsAPI:
 
     def list(
         self,
-        limit: int = 50,
+        limit: int = 20,
         offset: int = 0,
         provider: str | None = None,
         status: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         """
-        List integrations.
+        List integrations (v2).
 
         Args:
             limit: Maximum number of integrations to return
             offset: Number of integrations to skip
-            provider: Filter by provider (slack, discord, github, etc.)
-            status: Filter by status (active, inactive, error)
+            provider: Filter by provider/type (slack, teams, discord, email)
+            status: Filter by status (active, inactive)
 
         Returns:
-            List of integration records
+            Integration listing with pagination
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if provider:
-            params["provider"] = provider
+            params["type"] = provider
         if status:
             params["status"] = status
 
-        return self._client._request("GET", "/api/v1/integrations", params=params)
+        return self._client._request("GET", "/api/v2/integrations", params=params)
 
-    def get(self, integration_id: str) -> dict[str, Any]:
+    def get(self, integration_id: str, workspace_id: str | None = None) -> dict[str, Any]:
         """
-        Get integration details.
+        Get integration status (v2).
 
         Args:
-            integration_id: Integration identifier
+            integration_id: Integration type (slack, teams, discord, email)
+            workspace_id: Optional workspace/tenant ID
 
         Returns:
-            Integration details
+            Integration status
         """
-        return self._client._request("GET", f"/api/v1/integrations/{integration_id}")
+        params = {"workspace_id": workspace_id} if workspace_id else None
+        return self._client._request(
+            "GET",
+            f"/api/v2/integrations/{integration_id}",
+            params=params,
+        )
 
-    def create(
-        self,
-        provider: str,
-        name: str,
-        config: dict[str, Any],
-        enabled: bool = True,
-    ) -> dict[str, Any]:
+    def create(self, provider: str, config: dict[str, Any]) -> dict[str, Any]:
         """
-        Create a new integration.
+        Configure a v1 integration by type.
 
         Args:
-            provider: Integration provider (slack, discord, github, etc.)
-            name: Display name for the integration
+            provider: Integration type (slack, teams, discord, email)
             config: Provider-specific configuration
-            enabled: Whether integration is active
 
         Returns:
-            Created integration record
+            Configuration result
         """
         return self._client._request(
-            "POST",
-            "/api/v1/integrations",
-            json={
-                "provider": provider,
-                "name": name,
-                "config": config,
-                "enabled": enabled,
-            },
+            "PUT",
+            f"/api/v1/integrations/{provider}",
+            json=config,
         )
 
     def update(
         self,
         integration_id: str,
-        name: str | None = None,
-        config: dict[str, Any] | None = None,
-        enabled: bool | None = None,
+        config: dict[str, Any],
     ) -> dict[str, Any]:
         """
-        Update an integration.
+        Update an integration configuration (v1).
 
         Args:
-            integration_id: Integration identifier
-            name: New display name
-            config: Updated configuration
-            enabled: Updated enabled status
+            integration_id: Integration type (slack, teams, discord, email)
+            config: Updated configuration payload
 
         Returns:
             Updated integration record
         """
-        data: dict[str, Any] = {}
-        if name is not None:
-            data["name"] = name
-        if config is not None:
-            data["config"] = config
-        if enabled is not None:
-            data["enabled"] = enabled
+        return self._client._request(
+            "PATCH",
+            f"/api/v1/integrations/{integration_id}",
+            json=config,
+        )
 
-        return self._client._request("PATCH", f"/api/v1/integrations/{integration_id}", json=data)
-
-    def delete(self, integration_id: str) -> dict[str, Any]:
+    def delete(self, integration_id: str, workspace_id: str | None = None) -> dict[str, Any]:
         """
-        Delete an integration.
+        Delete/disconnect an integration.
 
         Args:
-            integration_id: Integration identifier
+            integration_id: Integration type
+            workspace_id: Optional workspace to disconnect (v2)
 
         Returns:
             Deletion confirmation
         """
+        if workspace_id:
+            return self._client._request(
+                "DELETE",
+                f"/api/v2/integrations/{integration_id}",
+                json={"workspace_id": workspace_id},
+            )
         return self._client._request("DELETE", f"/api/v1/integrations/{integration_id}")
 
     def test(self, integration_id: str) -> dict[str, Any]:
@@ -139,60 +131,25 @@ class IntegrationsAPI:
         return self._client._request("POST", f"/api/v1/integrations/{integration_id}/test")
 
     def sync(self, integration_id: str) -> dict[str, Any]:
-        """
-        Trigger a sync for an integration.
-
-        Args:
-            integration_id: Integration identifier
-
-        Returns:
-            Sync status
-        """
-        return self._client._request("POST", f"/api/v1/integrations/{integration_id}/sync")
+        """Sync is not exposed on the current integrations API."""
+        raise NotImplementedError("Integration sync is not exposed via the API.")
 
     def get_oauth_url(self, provider: str, redirect_uri: str) -> dict[str, Any]:
-        """
-        Get OAuth authorization URL for a provider.
-
-        Args:
-            provider: Integration provider
-            redirect_uri: OAuth redirect URI
-
-        Returns:
-            OAuth authorization URL and state
-        """
-        return self._client._request(
-            "POST",
-            f"/api/v1/integrations/oauth/{provider}/authorize",
-            json={"redirect_uri": redirect_uri},
-        )
+        """OAuth helper is not exposed via the public integrations API."""
+        raise NotImplementedError("Use provider-specific OAuth endpoints.")
 
     def complete_oauth(self, provider: str, code: str, state: str) -> dict[str, Any]:
-        """
-        Complete OAuth flow for a provider.
+        """OAuth helper is not exposed via the public integrations API."""
+        raise NotImplementedError("Use provider-specific OAuth endpoints.")
 
-        Args:
-            provider: Integration provider
-            code: OAuth authorization code
-            state: OAuth state parameter
-
-        Returns:
-            Created integration
-        """
-        return self._client._request(
-            "POST",
-            f"/api/v1/integrations/oauth/{provider}/callback",
-            json={"code": code, "state": state},
-        )
-
-    def list_providers(self) -> list[dict[str, Any]]:
+    def list_providers(self) -> dict[str, Any]:
         """
         List available integration providers.
 
         Returns:
             List of available providers with capabilities
         """
-        return self._client._request("GET", "/api/v1/integrations/providers")
+        return self._client._request("GET", "/api/v2/integrations/wizard/providers")
 
 
 class AsyncIntegrationsAPI:
@@ -203,65 +160,53 @@ class AsyncIntegrationsAPI:
 
     async def list(
         self,
-        limit: int = 50,
+        limit: int = 20,
         offset: int = 0,
         provider: str | None = None,
         status: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """List integrations."""
+    ) -> dict[str, Any]:
+        """List integrations (v2)."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if provider:
-            params["provider"] = provider
+            params["type"] = provider
         if status:
             params["status"] = status
 
-        return await self._client._request("GET", "/api/v1/integrations", params=params)
+        return await self._client._request("GET", "/api/v2/integrations", params=params)
 
-    async def get(self, integration_id: str) -> dict[str, Any]:
-        """Get integration details."""
-        return await self._client._request("GET", f"/api/v1/integrations/{integration_id}")
-
-    async def create(
-        self,
-        provider: str,
-        name: str,
-        config: dict[str, Any],
-        enabled: bool = True,
-    ) -> dict[str, Any]:
-        """Create a new integration."""
+    async def get(self, integration_id: str, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get integration status (v2)."""
+        params = {"workspace_id": workspace_id} if workspace_id else None
         return await self._client._request(
-            "POST",
-            "/api/v1/integrations",
-            json={
-                "provider": provider,
-                "name": name,
-                "config": config,
-                "enabled": enabled,
-            },
+            "GET",
+            f"/api/v2/integrations/{integration_id}",
+            params=params,
         )
 
-    async def update(
-        self,
-        integration_id: str,
-        name: str | None = None,
-        config: dict[str, Any] | None = None,
-        enabled: bool | None = None,
-    ) -> dict[str, Any]:
-        """Update an integration."""
-        data: dict[str, Any] = {}
-        if name is not None:
-            data["name"] = name
-        if config is not None:
-            data["config"] = config
-        if enabled is not None:
-            data["enabled"] = enabled
-
+    async def create(self, provider: str, config: dict[str, Any]) -> dict[str, Any]:
+        """Configure a v1 integration by type."""
         return await self._client._request(
-            "PATCH", f"/api/v1/integrations/{integration_id}", json=data
+            "PUT",
+            f"/api/v1/integrations/{provider}",
+            json=config,
         )
 
-    async def delete(self, integration_id: str) -> dict[str, Any]:
-        """Delete an integration."""
+    async def update(self, integration_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        """Update an integration configuration (v1)."""
+        return await self._client._request(
+            "PATCH",
+            f"/api/v1/integrations/{integration_id}",
+            json=config,
+        )
+
+    async def delete(self, integration_id: str, workspace_id: str | None = None) -> dict[str, Any]:
+        """Delete/disconnect an integration."""
+        if workspace_id:
+            return await self._client._request(
+                "DELETE",
+                f"/api/v2/integrations/{integration_id}",
+                json={"workspace_id": workspace_id},
+            )
         return await self._client._request("DELETE", f"/api/v1/integrations/{integration_id}")
 
     async def test(self, integration_id: str) -> dict[str, Any]:
@@ -269,25 +214,17 @@ class AsyncIntegrationsAPI:
         return await self._client._request("POST", f"/api/v1/integrations/{integration_id}/test")
 
     async def sync(self, integration_id: str) -> dict[str, Any]:
-        """Trigger a sync for an integration."""
-        return await self._client._request("POST", f"/api/v1/integrations/{integration_id}/sync")
+        """Sync is not exposed on the current integrations API."""
+        raise NotImplementedError("Integration sync is not exposed via the API.")
 
     async def get_oauth_url(self, provider: str, redirect_uri: str) -> dict[str, Any]:
-        """Get OAuth authorization URL for a provider."""
-        return await self._client._request(
-            "POST",
-            f"/api/v1/integrations/oauth/{provider}/authorize",
-            json={"redirect_uri": redirect_uri},
-        )
+        """OAuth helper is not exposed via the public integrations API."""
+        raise NotImplementedError("Use provider-specific OAuth endpoints.")
 
     async def complete_oauth(self, provider: str, code: str, state: str) -> dict[str, Any]:
-        """Complete OAuth flow for a provider."""
-        return await self._client._request(
-            "POST",
-            f"/api/v1/integrations/oauth/{provider}/callback",
-            json={"code": code, "state": state},
-        )
+        """OAuth helper is not exposed via the public integrations API."""
+        raise NotImplementedError("Use provider-specific OAuth endpoints.")
 
-    async def list_providers(self) -> list[dict[str, Any]]:
+    async def list_providers(self) -> dict[str, Any]:
         """List available integration providers."""
-        return await self._client._request("GET", "/api/v1/integrations/providers")
+        return await self._client._request("GET", "/api/v2/integrations/wizard/providers")

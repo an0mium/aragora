@@ -77,20 +77,21 @@ def parse_ts_sdk(paths: Iterable[Path]) -> set[Endpoint]:
     endpoints: set[Endpoint] = set()
     for path in paths:
         text = path.read_text()
-        for match in REQUEST_RE.finditer(text):
-            method = match.group("method")
-            raw = match.group("path")
-            literal = raw[1:-1]
-            if raw.startswith("`"):
-                literal = normalize_template(literal)
-            else:
-                literal = normalize_path(literal)
-            endpoints.add(Endpoint(method, literal).normalized())
+        for pattern in (REQUEST_RE, CLIENT_CALL_RE):
+            for match in pattern.finditer(text):
+                method = match.group("method").upper()
+                raw = match.group("path")
+                literal = raw[1:-1]
+                if raw.startswith("`"):
+                    literal = normalize_template(literal)
+                else:
+                    literal = normalize_path(literal)
+                endpoints.add(Endpoint(method, literal).normalized())
     return endpoints
 
 
 CLIENT_CALL_RE = re.compile(
-    r"\bclient\.(?P<method>get|post|put|patch|delete)\b[^,]*\(\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
+    r"\b(?:this\.)?client\.(?P<method>get|post|put|patch|delete)\b[^,]*\(\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
     re.MULTILINE,
 )
 

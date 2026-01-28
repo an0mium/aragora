@@ -241,7 +241,7 @@ export class DevicesAPI {
     device_type: DeviceType;
     registered_at: string;
   }> {
-    return this.client.request('POST', '/devices/register', {
+    return this.client.request('POST', '/api/v1/devices/register', {
       json: registration as unknown as Record<string, unknown>,
     });
   }
@@ -257,7 +257,7 @@ export class DevicesAPI {
     device_id: string;
     deleted_at: string;
   }> {
-    return this.client.request('DELETE', `/devices/${deviceId}`);
+    return this.client.request('DELETE', `/api/v1/devices/${deviceId}`);
   }
 
   /**
@@ -267,7 +267,7 @@ export class DevicesAPI {
    * @returns Device details
    */
   async get(deviceId: string): Promise<Device> {
-    return this.client.request('GET', `/devices/${deviceId}`);
+    return this.client.request('GET', `/api/v1/devices/${deviceId}`);
   }
 
   /**
@@ -281,7 +281,7 @@ export class DevicesAPI {
     device_count: number;
     devices: Device[];
   }> {
-    return this.client.request('GET', `/devices/user/${userId}`);
+    return this.client.request('GET', `/api/v1/devices/user/${userId}`);
   }
 
   // ===========================================================================
@@ -296,7 +296,7 @@ export class DevicesAPI {
    * @returns Delivery result
    */
   async notify(deviceId: string, message: NotificationMessage): Promise<NotificationResult> {
-    return this.client.request('POST', `/devices/${deviceId}/notify`, {
+    return this.client.request('POST', `/api/v1/devices/${deviceId}/notify`, {
       json: message as unknown as Record<string, unknown>,
     });
   }
@@ -309,7 +309,7 @@ export class DevicesAPI {
    * @returns Delivery results for all devices
    */
   async notifyUser(userId: string, message: NotificationMessage): Promise<UserNotificationResult> {
-    return this.client.request('POST', `/devices/user/${userId}/notify`, {
+    return this.client.request('POST', `/api/v1/devices/user/${userId}/notify`, {
       json: message as unknown as Record<string, unknown>,
     });
   }
@@ -326,7 +326,7 @@ export class DevicesAPI {
    * @returns Connector health status
    */
   async getHealth(): Promise<ConnectorHealth> {
-    return this.client.request('GET', '/devices/health');
+    return this.client.request('GET', '/api/v1/devices/health');
   }
 
   // ===========================================================================
@@ -343,7 +343,7 @@ export class DevicesAPI {
    * @returns Alexa skill response
    */
   async handleAlexaWebhook(request: AlexaRequest): Promise<AlexaResponse> {
-    return this.client.request('POST', '/devices/alexa/webhook', {
+    return this.client.request('POST', '/api/v1/devices/alexa/webhook', {
       json: request as unknown as Record<string, unknown>,
     });
   }
@@ -358,7 +358,7 @@ export class DevicesAPI {
    * @returns Google Actions response
    */
   async handleGoogleWebhook(request: GoogleActionsRequest): Promise<GoogleActionsResponse> {
-    return this.client.request('POST', '/devices/google/webhook', {
+    return this.client.request('POST', '/api/v1/devices/google/webhook', {
       json: request as unknown as Record<string, unknown>,
     });
   }

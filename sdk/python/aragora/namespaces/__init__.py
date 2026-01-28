@@ -19,6 +19,7 @@ from .batch import AsyncBatchAPI, BatchAPI
 from .belief import AsyncBeliefAPI, BeliefAPI
 from .belief_network import AsyncBeliefNetworkAPI, BeliefNetworkAPI
 from .billing import AsyncBillingAPI, BillingAPI
+from .bots import AsyncBotsAPI, BotsAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .code_review import AsyncCodeReviewAPI, CodeReviewAPI
 from .codebase import AsyncCodebaseAPI, CodebaseAPI
@@ -70,6 +71,7 @@ from .podcast import AsyncPodcastAPI, PodcastAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
 from .privacy import AsyncPrivacyAPI, PrivacyAPI
 from .pulse import AsyncPulseAPI, PulseAPI
+from .queue import AsyncQueueAPI, QueueAPI
 from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
@@ -124,6 +126,8 @@ __all__ = [
     "AsyncBatchAPI",
     "BeliefAPI",
     "AsyncBeliefAPI",
+    "BotsAPI",
+    "AsyncBotsAPI",
     "BeliefNetworkAPI",
     "AsyncBeliefNetworkAPI",
     "BillingAPI",
@@ -230,6 +234,8 @@ __all__ = [
     "AsyncPrivacyAPI",
     "PulseAPI",
     "AsyncPulseAPI",
+    "QueueAPI",
+    "AsyncQueueAPI",
     "RankingAPI",
     "AsyncRankingAPI",
     "RBACAPI",

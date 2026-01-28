@@ -152,7 +152,7 @@ class DevicesAPI:
             data["locale"] = locale
         if app_bundle_id:
             data["app_bundle_id"] = app_bundle_id
-        return self._client.request("POST", "/devices/register", json=data)
+        return self._client.request("POST", "/api/v1/devices/register", json=data)
 
     def unregister(self, device_id: str) -> dict[str, Any]:
         """
@@ -164,7 +164,7 @@ class DevicesAPI:
         Returns:
             Confirmation with deleted_at timestamp.
         """
-        return self._client.request("DELETE", f"/devices/{device_id}")
+        return self._client.request("DELETE", f"/api/v1/devices/{device_id}")
 
     def get(self, device_id: str) -> Device:
         """
@@ -176,7 +176,7 @@ class DevicesAPI:
         Returns:
             Device details.
         """
-        return self._client.request("GET", f"/devices/{device_id}")
+        return self._client.request("GET", f"/api/v1/devices/{device_id}")
 
     def list_by_user(self, user_id: str) -> dict[str, Any]:
         """
@@ -188,7 +188,7 @@ class DevicesAPI:
         Returns:
             Dict with device_count and devices list.
         """
-        return self._client.request("GET", f"/devices/user/{user_id}")
+        return self._client.request("GET", f"/api/v1/devices/user/{user_id}")
 
     # =========================================================================
     # Push Notifications
@@ -232,7 +232,7 @@ class DevicesAPI:
             message["badge"] = badge
         if sound:
             message["sound"] = sound
-        return self._client.request("POST", f"/devices/{device_id}/notify", json=message)
+        return self._client.request("POST", f"/api/v1/devices/{device_id}/notify", json=message)
 
     def notify_user(
         self,
@@ -272,7 +272,7 @@ class DevicesAPI:
             message["badge"] = badge
         if sound:
             message["sound"] = sound
-        return self._client.request("POST", f"/devices/user/{user_id}/notify", json=message)
+        return self._client.request("POST", f"/api/v1/devices/user/{user_id}/notify", json=message)
 
     # =========================================================================
     # Health Monitoring
@@ -287,7 +287,7 @@ class DevicesAPI:
         Returns:
             Connector health status.
         """
-        return self._client.request("GET", "/devices/health")
+        return self._client.request("GET", "/api/v1/devices/health")
 
     # =========================================================================
     # Voice Assistant Webhooks
@@ -306,7 +306,7 @@ class DevicesAPI:
         Returns:
             Alexa skill response.
         """
-        return self._client.request("POST", "/devices/alexa/webhook", json=request)
+        return self._client.request("POST", "/api/v1/devices/alexa/webhook", json=request)
 
     def handle_google_webhook(self, request: dict[str, Any]) -> dict[str, Any]:
         """
@@ -321,7 +321,7 @@ class DevicesAPI:
         Returns:
             Google Actions response.
         """
-        return self._client.request("POST", "/devices/google/webhook", json=request)
+        return self._client.request("POST", "/api/v1/devices/google/webhook", json=request)
 
 
 class AsyncDevicesAPI:
@@ -364,19 +364,19 @@ class AsyncDevicesAPI:
             data["locale"] = locale
         if app_bundle_id:
             data["app_bundle_id"] = app_bundle_id
-        return await self._client.request("POST", "/devices/register", json=data)
+        return await self._client.request("POST", "/api/v1/devices/register", json=data)
 
     async def unregister(self, device_id: str) -> dict[str, Any]:
         """Unregister a device."""
-        return await self._client.request("DELETE", f"/devices/{device_id}")
+        return await self._client.request("DELETE", f"/api/v1/devices/{device_id}")
 
     async def get(self, device_id: str) -> Device:
         """Get device information."""
-        return await self._client.request("GET", f"/devices/{device_id}")
+        return await self._client.request("GET", f"/api/v1/devices/{device_id}")
 
     async def list_by_user(self, user_id: str) -> dict[str, Any]:
         """List all devices for a user."""
-        return await self._client.request("GET", f"/devices/user/{user_id}")
+        return await self._client.request("GET", f"/api/v1/devices/user/{user_id}")
 
     async def notify(
         self,
@@ -401,7 +401,9 @@ class AsyncDevicesAPI:
             message["badge"] = badge
         if sound:
             message["sound"] = sound
-        return await self._client.request("POST", f"/devices/{device_id}/notify", json=message)
+        return await self._client.request(
+            "POST", f"/api/v1/devices/{device_id}/notify", json=message
+        )
 
     async def notify_user(
         self,
@@ -426,16 +428,18 @@ class AsyncDevicesAPI:
             message["badge"] = badge
         if sound:
             message["sound"] = sound
-        return await self._client.request("POST", f"/devices/user/{user_id}/notify", json=message)
+        return await self._client.request(
+            "POST", f"/api/v1/devices/user/{user_id}/notify", json=message
+        )
 
     async def get_health(self) -> ConnectorHealth:
         """Get device connector health status."""
-        return await self._client.request("GET", "/devices/health")
+        return await self._client.request("GET", "/api/v1/devices/health")
 
     async def handle_alexa_webhook(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle Alexa skill webhook request."""
-        return await self._client.request("POST", "/devices/alexa/webhook", json=request)
+        return await self._client.request("POST", "/api/v1/devices/alexa/webhook", json=request)
 
     async def handle_google_webhook(self, request: dict[str, Any]) -> dict[str, Any]:
         """Handle Google Actions webhook request."""
-        return await self._client.request("POST", "/devices/google/webhook", json=request)
+        return await self._client.request("POST", "/api/v1/devices/google/webhook", json=request)
