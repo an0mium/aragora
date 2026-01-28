@@ -1,0 +1,274 @@
+# Secrets Rotation CronJob
+# Runs automated secret rotation on a schedule
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: secrets-rotation
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: secrets-rotation
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: aragora
+spec:
+  # Run daily at 2 AM UTC (off-peak hours)
+  schedule: "0 2 * * *"
+
+  # Timezone for schedule
+  timeZone: "UTC"
+
+  # Don't start new job if previous is still running
+  concurrencyPolicy: Forbid
+
+  # Keep last 3 successful and 1 failed job for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+  # Start within 5 minutes of scheduled time
+  startingDeadlineSeconds: 300
+
+  jobTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: secrets-rotation
+    spec:
+      # Retry up to 3 times on failure
+      backoffLimit: 3
+
+      # Job should complete within 1 hour
+      activeDeadlineSeconds: 3600
+
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: secrets-rotation
+          annotations:
+            # Prevent Istio sidecar from blocking job completion
+            sidecar.istio.io/inject: "false"
+        spec:
+          restartPolicy: OnFailure
+
+          serviceAccountName: secrets-rotation
+
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+
+          containers:
+            - name: rotation
+              image: aragora/secrets-rotation:latest
+              imagePullPolicy: Always
+
+              command:
+                - python
+                - -m
+                - aragora.scheduler.run_rotation
+
+              args:
+                - --dry-run=false
+                - --notify-on-failure
+                - --log-level=info
+
+              env:
+                - name: ROTATION_MODE
+                  value: "scheduled"
+
+                # AWS Secrets Manager region
+                - name: AWS_REGION
+                  value: "us-east-2"
+
+                # Notification webhook
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: aragora-secrets
+                      key: slack-webhook-url
+                      optional: true
+
+                # Database connection for rotation state
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: aragora-secrets
+                      key: database-url
+
+              # Mount secrets and config
+              volumeMounts:
+                - name: rotation-config
+                  mountPath: /etc/aragora/rotation
+                  readOnly: true
+
+                - name: aws-credentials
+                  mountPath: /root/.aws
+                  readOnly: true
+
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+
+          volumes:
+            - name: rotation-config
+              configMap:
+                name: secrets-rotation-config
+
+            - name: aws-credentials
+              secret:
+                secretName: aws-credentials
+                optional: true
+
+---
+# ServiceAccount for secrets rotation
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secrets-rotation
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: secrets-rotation
+  annotations:
+    # AWS IRSA annotation
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/aragora-secrets-rotation
+
+---
+# RBAC for reading/updating secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: secrets-rotation
+  namespace: aragora
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "update", "patch"]
+
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secrets-rotation
+  namespace: aragora
+subjects:
+  - kind: ServiceAccount
+    name: secrets-rotation
+    namespace: aragora
+roleRef:
+  kind: Role
+  name: secrets-rotation
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ConfigMap for rotation configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: secrets-rotation-config
+  namespace: aragora
+  labels:
+    app.kubernetes.io/name: secrets-rotation
+data:
+  rotation.yaml: |
+    # Secrets rotation configuration
+    rotation:
+      # Global settings
+      dry_run: false
+      notify_on_success: false
+      notify_on_failure: true
+
+      # Grace period before revoking old credentials
+      grace_period_hours: 24
+
+      # Secrets to rotate
+      secrets:
+        # Database credentials
+        - id: postgres_aragora_rw
+          type: database
+          rotation_interval_days: 90
+          metadata:
+            db_type: postgresql
+            host: postgres.aragora.svc.cluster.local
+            database: aragora
+            username: aragora_rw
+
+        # OAuth tokens (refresh automatically)
+        - id: google_oauth
+          type: oauth
+          rotation_interval_days: 7
+          metadata:
+            provider: google
+
+        # Encryption keys
+        - id: encryption_key_primary
+          type: encryption_key
+          rotation_interval_days: 90
+          metadata:
+            key_type: aes256
+            data_stores:
+              - integrations
+              - webhooks
+
+        # API keys (manual rotation, notifications only)
+        - id: ANTHROPIC_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: anthropic
+
+        - id: OPENAI_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: openai
+
+        - id: MISTRAL_API_KEY
+          type: api_key
+          rotation_interval_days: 90
+          metadata:
+            provider: mistral
+
+      # Notification channels
+      notifications:
+        slack:
+          enabled: true
+          channel: "#aragora-security"
+          mention_on_failure: "@oncall"
+
+        email:
+          enabled: false
+          recipients:
+            - security@aragora.ai
+
+---
+# PodDisruptionBudget (not really needed for CronJob but for completeness)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: secrets-rotation
+  namespace: aragora
+spec:
+  minAvailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: secrets-rotation

@@ -66,6 +66,16 @@ from .health import (
     HealthReport,
 )
 
+from .metrics import (
+    circuit_breaker_state_changed,
+    retry_attempt,
+    retry_exhausted,
+    timeout_occurred,
+    health_status_changed,
+    operation_duration,
+    create_metrics_callbacks,
+)
+
 __all__ = [
     # Retry
     "RetryStrategy",
@@ -88,4 +98,12 @@ __all__ = [
     "HealthStatus",
     "HealthChecker",
     "HealthReport",
+    # Metrics
+    "circuit_breaker_state_changed",
+    "retry_attempt",
+    "retry_exhausted",
+    "timeout_occurred",
+    "health_status_changed",
+    "operation_duration",
+    "create_metrics_callbacks",
 ]
