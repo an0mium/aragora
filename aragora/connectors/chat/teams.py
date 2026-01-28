@@ -476,40 +476,31 @@ class TeamsConnector(ChatPlatformConnector):
     ) -> bool:
         """Send typing indicator to a Teams conversation.
 
-        Uses Bot Framework activity with type="typing".
+        Uses _http_request for retry logic and circuit breaker protection.
         """
         if not HTTPX_AVAILABLE:
-            return False
-
-        # Check circuit breaker
-        can_proceed, _ = self._check_circuit_breaker()
-        if not can_proceed:
             return False
 
         try:
             token = await self._get_access_token()
             base_url = service_url or BOT_FRAMEWORK_API_BASE
 
-            activity = {
-                "type": "typing",
-            }
+            # Use _http_request which handles circuit breaker, retries, and backoff
+            success, _, error = await self._http_request(
+                method="POST",
+                url=f"{base_url}/v3/conversations/{channel_id}/activities",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json={"type": "typing"},
+                operation="send_typing_indicator",
+            )
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    f"{base_url}/v3/conversations/{channel_id}/activities",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                    },
-                    json=activity,
-                )
+            if not success:
+                logger.debug(f"Teams typing indicator failed: {error}")
 
-                if response.status_code in (200, 201, 202):
-                    self._record_success()
-                    return True
-                else:
-                    logger.debug(f"Teams typing indicator failed: {response.status_code}")
-                    return False
+            return success
 
         except Exception as e:
             logger.debug(f"Teams typing indicator error: {e}")
@@ -590,26 +581,21 @@ class TeamsConnector(ChatPlatformConnector):
         """
         Send response to a Bot Framework response URL.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _http_request for retry logic and circuit breaker protection.
         """
         if not HTTPX_AVAILABLE:
             return SendMessageResponse(success=False, error="httpx not available")
 
-        # Check circuit breaker before making request
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            return SendMessageResponse(success=False, error=cb_error)
-
         try:
             token = await self._get_access_token()
 
-            activity = {
+            activity: dict[str, Any] = {
                 "type": "message",
                 "text": text,
             }
 
             if blocks:
-                activity["attachments"] = [  # type: ignore[assignment]
+                activity["attachments"] = [
                     {
                         "contentType": "application/vnd.microsoft.card.adaptive",
                         "content": {
@@ -621,32 +607,25 @@ class TeamsConnector(ChatPlatformConnector):
                     }
                 ]
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.post(
-                    response_url,
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                    },
-                    json=activity,
-                )
+            # Use _http_request which handles circuit breaker, retries, and backoff
+            success, _, error = await self._http_request(
+                method="POST",
+                url=response_url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json=activity,
+                operation="send_to_response_url",
+            )
 
-                # Check for rate limiting or service unavailable
-                if response.status_code in (429, 503):
-                    self._record_failure(Exception(f"HTTP {response.status_code}"))
-                    return SendMessageResponse(
-                        success=False,
-                        error=f"Service unavailable or rate limited: {response.status_code}",
-                    )
-
-                response.raise_for_status()
-
-                self._record_success()
+            if success:
                 return SendMessageResponse(success=True)
+            else:
+                return SendMessageResponse(success=False, error=error or "Unknown error")
 
         except Exception as e:
             logger.error(f"Teams response URL error: {e}")
-            self._record_failure(e)
             return SendMessageResponse(success=False, error=str(e))
 
     async def upload_file(
@@ -775,31 +754,73 @@ class TeamsConnector(ChatPlatformConnector):
                         metadata={"error": error or "Failed to create upload session"},
                     )
 
-                # Upload content to the session URL
+                # Upload content to the session URL with retry logic
                 upload_url = session_data.get("uploadUrl")
                 if upload_url:
-                    try:
-                        async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
-                            response = await client.put(
-                                upload_url,
-                                content=content,
-                                headers={
-                                    "Content-Length": str(file_size),
-                                    "Content-Range": f"bytes 0-{file_size - 1}/{file_size}",
-                                },
-                            )
-                            response.raise_for_status()
-                            upload_data = response.json()
-                            success = True
-                    except Exception as e:
-                        logger.error(f"Large file upload failed: {e}")
+                    import asyncio
+                    import random
+
+                    max_retries = 3
+                    last_error: Optional[str] = None
+
+                    for attempt in range(max_retries):
+                        try:
+                            async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
+                                response = await client.put(
+                                    upload_url,
+                                    content=content,
+                                    headers={
+                                        "Content-Length": str(file_size),
+                                        "Content-Range": f"bytes 0-{file_size - 1}/{file_size}",
+                                    },
+                                )
+
+                                # Check for retryable status codes
+                                if response.status_code in (429, 500, 502, 503, 504):
+                                    last_error = f"HTTP {response.status_code}"
+                                    if attempt < max_retries - 1:
+                                        delay = min(1.0 * (2**attempt), 30.0)
+                                        jitter = random.uniform(0, delay * 0.1)
+                                        logger.warning(
+                                            f"Large file upload got {response.status_code} "
+                                            f"(attempt {attempt + 1}/{max_retries}). "
+                                            f"Retrying in {delay + jitter:.1f}s"
+                                        )
+                                        await asyncio.sleep(delay + jitter)
+                                        continue
+
+                                response.raise_for_status()
+                                upload_data = response.json()
+                                success = True
+                                break
+
+                        except (httpx.TimeoutException, httpx.ConnectError) as e:
+                            last_error = str(e)
+                            if attempt < max_retries - 1:
+                                delay = min(1.0 * (2**attempt), 30.0)
+                                logger.warning(
+                                    f"Large file upload failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                                    f"Retrying in {delay:.1f}s"
+                                )
+                                await asyncio.sleep(delay)
+                            else:
+                                logger.error(
+                                    f"Large file upload failed after {max_retries} attempts: {e}"
+                                )
+
+                        except Exception as e:
+                            last_error = str(e)
+                            logger.error(f"Large file upload failed: {e}")
+                            break
+
+                    if not success:
                         return FileAttachment(
                             id="",
                             filename=filename,
                             content_type=content_type,
                             size=file_size,
                             content=content,
-                            metadata={"error": str(e)},
+                            metadata={"error": last_error or "Upload failed"},
                         )
 
             if success and upload_data:
@@ -896,14 +917,56 @@ class TeamsConnector(ChatPlatformConnector):
             mime_type = meta_data.get("file", {}).get("mimeType", "application/octet-stream")
             download_url = meta_data.get("@microsoft.graph.downloadUrl")
 
-            # Download the content
+            # Download the content with retry logic
             if download_url:
-                try:
-                    async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
-                        response = await client.get(download_url)
-                        response.raise_for_status()
-                        content = response.content
+                import asyncio
+                import random
 
+                max_retries = 3
+                last_error: Optional[str] = None
+                content: Optional[bytes] = None
+
+                for attempt in range(max_retries):
+                    try:
+                        async with httpx.AsyncClient(timeout=self._upload_timeout) as client:
+                            response = await client.get(download_url)
+
+                            # Check for retryable status codes
+                            if response.status_code in (429, 500, 502, 503, 504):
+                                last_error = f"HTTP {response.status_code}"
+                                if attempt < max_retries - 1:
+                                    delay = min(1.0 * (2**attempt), 30.0)
+                                    jitter = random.uniform(0, delay * 0.1)
+                                    logger.warning(
+                                        f"File download got {response.status_code} "
+                                        f"(attempt {attempt + 1}/{max_retries}). "
+                                        f"Retrying in {delay + jitter:.1f}s"
+                                    )
+                                    await asyncio.sleep(delay + jitter)
+                                    continue
+
+                            response.raise_for_status()
+                            content = response.content
+                            break
+
+                    except (httpx.TimeoutException, httpx.ConnectError) as e:
+                        last_error = str(e)
+                        if attempt < max_retries - 1:
+                            delay = min(1.0 * (2**attempt), 30.0)
+                            logger.warning(
+                                f"File download failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                                f"Retrying in {delay:.1f}s"
+                            )
+                            await asyncio.sleep(delay)
+                        else:
+                            logger.error(f"File download failed after {max_retries} attempts: {e}")
+
+                    except Exception as e:
+                        last_error = str(e)
+                        logger.error(f"File content download failed: {e}")
+                        break
+
+                if content is not None:
                     logger.info(f"Teams file downloaded: {filename} ({len(content)} bytes)")
                     return FileAttachment(
                         id=file_id,
@@ -917,14 +980,13 @@ class TeamsConnector(ChatPlatformConnector):
                             "item_id": file_id,
                         },
                     )
-                except Exception as e:
-                    logger.error(f"File content download failed: {e}")
+                else:
                     return FileAttachment(
                         id=file_id,
                         filename=filename,
                         content_type=mime_type,
                         size=file_size,
-                        metadata={"error": str(e)},
+                        metadata={"error": last_error or "Download failed"},
                     )
             else:
                 logger.error("No download URL in file metadata")

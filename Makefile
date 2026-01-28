@@ -14,7 +14,7 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test         Run all tests"
-	@echo "  make test-fast    Run fast tests only (no slow/e2e/integration)"
+	@echo "  make test-fast    Run fast tests only (no slow/e2e/integration/benchmarks)"
 	@echo "  make test-unit    Run unit tests only (fastest)"
 	@echo "  make test-core    Run core module tests (debate/core/memory)"
 	@echo "  make test-parallel Run tests in parallel (-n auto)"
@@ -61,7 +61,7 @@ test:
 	pytest tests/ -v --timeout=120
 
 test-fast:
-	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration
+	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration --ignore=tests/benchmarks
 
 test-unit:
 	pytest tests/ -v --timeout=30 -m unit --ignore=tests/integration --ignore=tests/e2e -q

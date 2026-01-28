@@ -34,6 +34,7 @@ from aragora.connectors.exceptions import (
     ConnectorNetworkError,
     ConnectorTimeoutError,
 )
+from aragora.connectors.model_base import ConnectorDataclass
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,15 @@ class QBOCredentials:
 
 
 @dataclass
-class QBOCustomer:
+class QBOCustomer(ConnectorDataclass):
     """QuickBooks customer."""
+
+    _field_mapping = {
+        "display_name": "displayName",
+        "company_name": "companyName",
+        "created_at": "createdAt",
+    }
+    _include_none = True
 
     id: str
     display_name: str
@@ -89,22 +97,28 @@ class QBOCustomer:
     active: bool = True
     created_at: Optional[datetime] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "displayName": self.display_name,
-            "companyName": self.company_name,
-            "email": self.email,
-            "phone": self.phone,
-            "balance": self.balance,
-            "active": self.active,
-            "createdAt": self.created_at.isoformat() if self.created_at else None,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class QBOTransaction:
+class QBOTransaction(ConnectorDataclass):
     """QuickBooks transaction."""
+
+    _field_mapping = {
+        "doc_number": "docNumber",
+        "txn_date": "txnDate",
+        "due_date": "dueDate",
+        "total_amount": "totalAmount",
+        "customer_id": "customerId",
+        "customer_name": "customerName",
+        "vendor_id": "vendorId",
+        "vendor_name": "vendorName",
+        "line_items": "lineItems",
+        "created_at": "createdAt",
+        "updated_at": "updatedAt",
+    }
+    _include_none = True
 
     id: str
     type: TransactionType
@@ -123,30 +137,20 @@ class QBOTransaction:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "type": self.type.value,
-            "docNumber": self.doc_number,
-            "txnDate": self.txn_date.isoformat() if self.txn_date else None,
-            "dueDate": self.due_date.isoformat() if self.due_date else None,
-            "totalAmount": self.total_amount,
-            "balance": self.balance,
-            "customerId": self.customer_id,
-            "customerName": self.customer_name,
-            "vendorId": self.vendor_id,
-            "vendorName": self.vendor_name,
-            "memo": self.memo,
-            "status": self.status,
-            "lineItems": self.line_items,
-            "createdAt": self.created_at.isoformat() if self.created_at else None,
-            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class QBOAccount:
+class QBOAccount(ConnectorDataclass):
     """QuickBooks account (chart of accounts)."""
+
+    _field_mapping = {
+        "account_type": "accountType",
+        "account_sub_type": "accountSubType",
+        "current_balance": "currentBalance",
+    }
+    _include_none = True
 
     id: str
     name: str
@@ -155,15 +159,8 @@ class QBOAccount:
     current_balance: float = 0.0
     active: bool = True
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "accountType": self.account_type,
-            "accountSubType": self.account_sub_type,
-            "currentBalance": self.current_balance,
-            "active": self.active,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 class QuickBooksConnector:

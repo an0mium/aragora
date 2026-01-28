@@ -157,8 +157,27 @@ class WooLineItem(ConnectorDataclass):
 
 
 @dataclass
-class WooOrder:
+class WooOrder(ConnectorDataclass):
     """WooCommerce order."""
+
+    _field_mapping = {
+        "order_key": "orderKey",
+        "date_created": "dateCreated",
+        "date_modified": "dateModified",
+        "total_tax": "totalTax",
+        "shipping_total": "shippingTotal",
+        "discount_total": "discountTotal",
+        "payment_method": "paymentMethod",
+        "payment_method_title": "paymentMethodTitle",
+        "customer_id": "customerId",
+        "line_items": "lineItems",
+        "customer_note": "customerNote",
+        "date_paid": "datePaid",
+        "date_completed": "dateCompleted",
+        "transaction_id": "transactionId",
+    }
+    _include_none = True
+    _exclude_fields = {"cart_hash"}
 
     id: int
     number: str
@@ -184,36 +203,22 @@ class WooOrder:
     cart_hash: Optional[str] = None
     transaction_id: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "number": self.number,
-            "orderKey": self.order_key,
-            "status": self.status.value,
-            "currency": self.currency,
-            "dateCreated": self.date_created.isoformat(),
-            "dateModified": self.date_modified.isoformat(),
-            "total": str(self.total),
-            "subtotal": str(self.subtotal),
-            "totalTax": str(self.total_tax),
-            "shippingTotal": str(self.shipping_total),
-            "discountTotal": str(self.discount_total),
-            "paymentMethod": self.payment_method,
-            "paymentMethodTitle": self.payment_method_title,
-            "customerId": self.customer_id,
-            "billing": self.billing.to_dict(),
-            "shipping": self.shipping.to_dict(),
-            "lineItems": [item.to_dict() for item in self.line_items],
-            "customerNote": self.customer_note,
-            "datePaid": self.date_paid.isoformat() if self.date_paid else None,
-            "dateCompleted": self.date_completed.isoformat() if self.date_completed else None,
-            "transactionId": self.transaction_id,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class WooProductVariation:
+class WooProductVariation(ConnectorDataclass):
     """WooCommerce product variation."""
+
+    _field_mapping = {
+        "regular_price": "regularPrice",
+        "sale_price": "salePrice",
+        "stock_quantity": "stockQuantity",
+        "stock_status": "stockStatus",
+        "manage_stock": "manageStock",
+    }
+    _include_none = True
 
     id: int
     sku: Optional[str]
@@ -226,24 +231,25 @@ class WooProductVariation:
     attributes: List[Dict[str, str]] = field(default_factory=list)
     image: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "sku": self.sku,
-            "price": str(self.price),
-            "regularPrice": str(self.regular_price),
-            "salePrice": str(self.sale_price) if self.sale_price else None,
-            "stockQuantity": self.stock_quantity,
-            "stockStatus": self.stock_status.value,
-            "manageStock": self.manage_stock,
-            "attributes": self.attributes,
-            "image": self.image,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class WooProduct:
+class WooProduct(ConnectorDataclass):
     """WooCommerce product."""
+
+    _field_mapping = {
+        "regular_price": "regularPrice",
+        "sale_price": "salePrice",
+        "date_created": "dateCreated",
+        "date_modified": "dateModified",
+        "short_description": "shortDescription",
+        "stock_quantity": "stockQuantity",
+        "stock_status": "stockStatus",
+        "manage_stock": "manageStock",
+    }
+    _include_none = True
 
     id: int
     name: str
@@ -267,35 +273,25 @@ class WooProduct:
     variations: List[WooProductVariation] = field(default_factory=list)
     attributes: List[Dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "name": self.name,
-            "slug": self.slug,
-            "type": self.type.value,
-            "status": self.status.value,
-            "sku": self.sku,
-            "price": str(self.price),
-            "regularPrice": str(self.regular_price),
-            "salePrice": str(self.sale_price) if self.sale_price else None,
-            "dateCreated": self.date_created.isoformat(),
-            "dateModified": self.date_modified.isoformat(),
-            "description": self.description,
-            "shortDescription": self.short_description,
-            "stockQuantity": self.stock_quantity,
-            "stockStatus": self.stock_status.value,
-            "manageStock": self.manage_stock,
-            "categories": self.categories,
-            "tags": self.tags,
-            "images": self.images,
-            "variations": [v.to_dict() for v in self.variations],
-            "attributes": self.attributes,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 @dataclass
-class WooCustomer:
+class WooCustomer(ConnectorDataclass):
     """WooCommerce customer."""
+
+    _field_mapping = {
+        "first_name": "firstName",
+        "last_name": "lastName",
+        "date_created": "dateCreated",
+        "date_modified": "dateModified",
+        "is_paying_customer": "isPayingCustomer",
+        "orders_count": "ordersCount",
+        "total_spent": "totalSpent",
+        "avatar_url": "avatarUrl",
+    }
+    _include_none = True
 
     id: int
     email: str
@@ -311,22 +307,8 @@ class WooCustomer:
     total_spent: Decimal = Decimal("0.00")
     avatar_url: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "email": self.email,
-            "firstName": self.first_name,
-            "lastName": self.last_name,
-            "username": self.username,
-            "dateCreated": self.date_created.isoformat(),
-            "dateModified": self.date_modified.isoformat(),
-            "billing": self.billing.to_dict(),
-            "shipping": self.shipping.to_dict(),
-            "isPayingCustomer": self.is_paying_customer,
-            "ordersCount": self.orders_count,
-            "totalSpent": str(self.total_spent),
-            "avatarUrl": self.avatar_url,
-        }
+    def to_dict(self, exclude=None, use_api_names=True) -> Dict[str, Any]:
+        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
 
 
 class WooCommerceConnector(EnterpriseConnector):

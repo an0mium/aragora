@@ -18,7 +18,6 @@ Provides REST API endpoints for Gmail label and filter operations:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -27,7 +26,7 @@ from ..base import (
     error_response,
     json_response,
 )
-from ..secure import SecureHandler, UnauthorizedError, ForbiddenError
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
@@ -168,7 +167,7 @@ class GmailLabelsHandler(SecureHandler):
         # Label update
         if path.startswith("/api/v1/gmail/labels/"):
             label_id = path.split("/")[-1]
-            return self._update_label(state, label_id, body)
+            return await self._update_label(state, label_id, body)
 
         return error_response("Not found", 404)
 
@@ -197,12 +196,12 @@ class GmailLabelsHandler(SecureHandler):
         # Label deletion
         if path.startswith("/api/v1/gmail/labels/"):
             label_id = path.split("/")[-1]
-            return self._delete_label(state, label_id)
+            return await self._delete_label(state, label_id)
 
         # Filter deletion
         if path.startswith("/api/v1/gmail/filters/"):
             filter_id = path.split("/")[-1]
-            return self._delete_filter(state, filter_id)
+            return await self._delete_filter(state, filter_id)
 
         return error_response("Not found", 404)
 
@@ -210,59 +209,47 @@ class GmailLabelsHandler(SecureHandler):
     # Label Operations
     # =========================================================================
 
-    def _list_labels(self, state: Any) -> HandlerResult:
+    async def _list_labels(self, state: Any) -> HandlerResult:
         """List all Gmail labels."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
-            try:
-                from aragora.connectors.enterprise.communication.gmail import GmailConnector
+            connector = GmailConnector()
+            connector._access_token = state.access_token
+            connector._refresh_token = state.refresh_token
+            connector._token_expiry = state.token_expiry
 
-                connector = GmailConnector()
-                connector._access_token = state.access_token
-                connector._refresh_token = state.refresh_token
-                connector._token_expiry = state.token_expiry
+            labels = await connector.list_labels()
 
-                labels = loop.run_until_complete(connector.list_labels())
-
-                return json_response(
-                    {
-                        "labels": [
-                            {
-                                "id": lbl.id,
-                                "name": lbl.name,
-                                "type": lbl.type,
-                                "message_list_visibility": lbl.message_list_visibility,
-                                "label_list_visibility": lbl.label_list_visibility,
-                            }
-                            for lbl in labels
-                        ],
-                        "count": len(labels),
-                    }
-                )
-            finally:
-                loop.close()
+            return json_response(
+                {
+                    "labels": [
+                        {
+                            "id": lbl.id,
+                            "name": lbl.name,
+                            "type": lbl.type,
+                            "message_list_visibility": lbl.message_list_visibility,
+                            "label_list_visibility": lbl.label_list_visibility,
+                        }
+                        for lbl in labels
+                    ],
+                    "count": len(labels),
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] List labels failed: {e}")
             return error_response(f"Failed to list labels: {e}", 500)
 
-    def _create_label(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_label(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
         """Create a new Gmail label."""
         name = body.get("name")
         if not name:
             return error_response("Label name is required", 400)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                label = loop.run_until_complete(self._api_create_label(state, name, body))
-                return json_response({"label": label, "success": True})
-            finally:
-                loop.close()
+            label = await self._api_create_label(state, name, body)
+            return json_response({"label": label, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailLabels] Create label failed: {e}")
@@ -301,17 +288,11 @@ class GmailLabelsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _update_label(self, state: Any, label_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _update_label(self, state: Any, label_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Update a Gmail label."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                label = loop.run_until_complete(self._api_update_label(state, label_id, body))
-                return json_response({"label": label, "success": True})
-            finally:
-                loop.close()
+            label = await self._api_update_label(state, label_id, body)
+            return json_response({"label": label, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailLabels] Update label failed: {e}")
@@ -350,17 +331,11 @@ class GmailLabelsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _delete_label(self, state: Any, label_id: str) -> HandlerResult:
+    async def _delete_label(self, state: Any, label_id: str) -> HandlerResult:
         """Delete a Gmail label."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(self._api_delete_label(state, label_id))
-                return json_response({"deleted": label_id, "success": True})
-            finally:
-                loop.close()
+            await self._api_delete_label(state, label_id)
+            return json_response({"deleted": label_id, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailLabels] Delete label failed: {e}")
@@ -383,7 +358,7 @@ class GmailLabelsHandler(SecureHandler):
     # Message Modifications
     # =========================================================================
 
-    def _modify_message_labels(
+    async def _modify_message_labels(
         self,
         state: Any,
         message_id: str,
@@ -397,22 +372,14 @@ class GmailLabelsHandler(SecureHandler):
             return error_response("Must specify labels to add or remove", 400)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                result = loop.run_until_complete(
-                    self._api_modify_labels(state, message_id, add_labels, remove_labels)
-                )
-                return json_response(
-                    {
-                        "message_id": message_id,
-                        "labels": result.get("labelIds", []),
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            result = await self._api_modify_labels(state, message_id, add_labels, remove_labels)
+            return json_response(
+                {
+                    "message_id": message_id,
+                    "labels": result.get("labelIds", []),
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] Modify labels failed: {e}")
@@ -442,7 +409,7 @@ class GmailLabelsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _mark_read(
+    async def _mark_read(
         self,
         state: Any,
         message_id: str,
@@ -455,28 +422,20 @@ class GmailLabelsHandler(SecureHandler):
         remove_labels = ["UNREAD"] if is_read else []
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(
-                    self._api_modify_labels(state, message_id, add_labels, remove_labels)
-                )
-                return json_response(
-                    {
-                        "message_id": message_id,
-                        "is_read": is_read,
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            await self._api_modify_labels(state, message_id, add_labels, remove_labels)
+            return json_response(
+                {
+                    "message_id": message_id,
+                    "is_read": is_read,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] Mark read failed: {e}")
             return error_response(f"Failed to mark as read: {e}", 500)
 
-    def _star_message(
+    async def _star_message(
         self,
         state: Any,
         message_id: str,
@@ -489,50 +448,36 @@ class GmailLabelsHandler(SecureHandler):
         remove_labels = [] if is_starred else ["STARRED"]
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(
-                    self._api_modify_labels(state, message_id, add_labels, remove_labels)
-                )
-                return json_response(
-                    {
-                        "message_id": message_id,
-                        "is_starred": is_starred,
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            await self._api_modify_labels(state, message_id, add_labels, remove_labels)
+            return json_response(
+                {
+                    "message_id": message_id,
+                    "is_starred": is_starred,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] Star message failed: {e}")
             return error_response(f"Failed to star message: {e}", 500)
 
-    def _archive_message(self, state: Any, message_id: str) -> HandlerResult:
+    async def _archive_message(self, state: Any, message_id: str) -> HandlerResult:
         """Archive a message (remove INBOX label)."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(self._api_modify_labels(state, message_id, [], ["INBOX"]))
-                return json_response(
-                    {
-                        "message_id": message_id,
-                        "archived": True,
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            await self._api_modify_labels(state, message_id, [], ["INBOX"])
+            return json_response(
+                {
+                    "message_id": message_id,
+                    "archived": True,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] Archive failed: {e}")
             return error_response(f"Failed to archive: {e}", 500)
 
-    def _trash_message(
+    async def _trash_message(
         self,
         state: Any,
         message_id: str,
@@ -542,24 +487,18 @@ class GmailLabelsHandler(SecureHandler):
         to_trash = body.get("trash", True)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            if to_trash:
+                await self._api_trash_message(state, message_id)
+            else:
+                await self._api_untrash_message(state, message_id)
 
-            try:
-                if to_trash:
-                    loop.run_until_complete(self._api_trash_message(state, message_id))
-                else:
-                    loop.run_until_complete(self._api_untrash_message(state, message_id))
-
-                return json_response(
-                    {
-                        "message_id": message_id,
-                        "trashed": to_trash,
-                        "success": True,
-                    }
-                )
-            finally:
-                loop.close()
+            return json_response(
+                {
+                    "message_id": message_id,
+                    "trashed": to_trash,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] Trash failed: {e}")
@@ -595,22 +534,16 @@ class GmailLabelsHandler(SecureHandler):
     # Filter Operations
     # =========================================================================
 
-    def _list_filters(self, state: Any) -> HandlerResult:
+    async def _list_filters(self, state: Any) -> HandlerResult:
         """List all Gmail filters."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                filters = loop.run_until_complete(self._api_list_filters(state))
-                return json_response(
-                    {
-                        "filters": filters,
-                        "count": len(filters),
-                    }
-                )
-            finally:
-                loop.close()
+            filters = await self._api_list_filters(state)
+            return json_response(
+                {
+                    "filters": filters,
+                    "count": len(filters),
+                }
+            )
 
         except Exception as e:
             logger.error(f"[GmailLabels] List filters failed: {e}")
@@ -631,7 +564,7 @@ class GmailLabelsHandler(SecureHandler):
             data = response.json()
             return data.get("filter", [])
 
-    def _create_filter(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_filter(self, state: Any, body: Dict[str, Any]) -> HandlerResult:
         """Create a Gmail filter."""
         criteria = body.get("criteria", {})
         action = body.get("action", {})
@@ -642,16 +575,8 @@ class GmailLabelsHandler(SecureHandler):
             return error_response("Filter action is required", 400)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                filter_result = loop.run_until_complete(
-                    self._api_create_filter(state, criteria, action)
-                )
-                return json_response({"filter": filter_result, "success": True})
-            finally:
-                loop.close()
+            filter_result = await self._api_create_filter(state, criteria, action)
+            return json_response({"filter": filter_result, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailLabels] Create filter failed: {e}")
@@ -717,17 +642,11 @@ class GmailLabelsHandler(SecureHandler):
             response.raise_for_status()
             return response.json()
 
-    def _delete_filter(self, state: Any, filter_id: str) -> HandlerResult:
+    async def _delete_filter(self, state: Any, filter_id: str) -> HandlerResult:
         """Delete a Gmail filter."""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                loop.run_until_complete(self._api_delete_filter(state, filter_id))
-                return json_response({"deleted": filter_id, "success": True})
-            finally:
-                loop.close()
+            await self._api_delete_filter(state, filter_id)
+            return json_response({"deleted": filter_id, "success": True})
 
         except Exception as e:
             logger.error(f"[GmailLabels] Delete filter failed: {e}")

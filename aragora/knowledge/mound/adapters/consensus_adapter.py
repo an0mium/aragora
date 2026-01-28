@@ -709,7 +709,8 @@ class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
         self,
         km_items: List[Dict[str, Any]],
         min_confidence: float = 0.7,
-    ) -> Dict[str, Any]:
+        batch_size: int = 100,
+    ) -> ValidationSyncResult:
         """
         Sync KM validations back to ConsensusMemory (reverse flow).
 

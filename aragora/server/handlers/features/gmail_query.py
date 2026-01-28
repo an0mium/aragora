@@ -14,7 +14,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -24,7 +23,7 @@ from ..base import (
     error_response,
     json_response,
 )
-from ..secure import SecureHandler, UnauthorizedError, ForbiddenError
+from ..secure import ForbiddenError, SecureHandler, UnauthorizedError
 from .gmail_ingest import get_user_state
 
 logger = logging.getLogger(__name__)
@@ -90,11 +89,11 @@ class GmailQueryHandler(SecureHandler):
         user_id = query_params.get("user_id", "default")
 
         if path == "/api/v1/gmail/inbox/priority":
-            return self._get_priority_inbox(user_id, query_params)
+            return await self._get_priority_inbox(user_id, query_params)
 
         if path == "/api/v1/gmail/query/stream":
             # Streaming would need WebSocket - return regular response
-            return self._handle_query(user_id, {"question": query_params.get("q", "")})
+            return await self._handle_query(user_id, {"question": query_params.get("q", "")})
 
         return error_response("Not found", 404)
 
@@ -117,17 +116,17 @@ class GmailQueryHandler(SecureHandler):
         user_id = body.get("user_id", "default")
 
         if path == "/api/v1/gmail/query":
-            return self._handle_query(user_id, body)
+            return await self._handle_query(user_id, body)
 
         if path == "/api/v1/gmail/query/voice":
-            return self._handle_voice_query(user_id, body, handler)
+            return await self._handle_voice_query(user_id, body, handler)
 
         if path == "/api/v1/gmail/inbox/feedback":
-            return self._record_feedback(user_id, body)
+            return await self._record_feedback(user_id, body)
 
         return error_response("Not found", 404)
 
-    def _handle_query(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _handle_query(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Handle natural language query over email content."""
         state = get_user_state(user_id)
 
@@ -141,15 +140,7 @@ class GmailQueryHandler(SecureHandler):
         limit = body.get("limit", 10)
 
         try:
-            # Run query
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                response = loop.run_until_complete(self._run_query(user_id, state, question, limit))
-            finally:
-                loop.close()
-
+            response = await self._run_query(user_id, state, question, limit)
             return json_response(response.to_dict())
 
         except Exception as e:
@@ -317,7 +308,7 @@ class GmailQueryHandler(SecureHandler):
 
         return f"I found {email_count} relevant emails. Check the sources below for details."
 
-    def _handle_voice_query(
+    async def _handle_voice_query(
         self,
         user_id: str,
         body: Dict[str, Any],
@@ -337,39 +328,27 @@ class GmailQueryHandler(SecureHandler):
             return error_response("Audio data or URL is required", 400)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # Transcribe audio
+            if audio_data:
+                import base64
 
-            try:
-                # Transcribe audio
-                if audio_data:
-                    import base64
+                audio_bytes = base64.b64decode(audio_data)
+            else:
+                # Fetch from URL
+                import httpx
 
-                    audio_bytes = base64.b64decode(audio_data)
-                else:
-                    # Fetch from URL
-                    import httpx
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(audio_url)
+                    audio_bytes = resp.content
 
-                    async def fetch_audio():
-                        async with httpx.AsyncClient() as client:
-                            resp = await client.get(audio_url)
-                            return resp.content
+            # Transcribe
+            question = await self._transcribe(audio_bytes)
 
-                    audio_bytes = loop.run_until_complete(fetch_audio())
+            if not question:
+                return error_response("Could not transcribe audio", 400)
 
-                # Transcribe
-                question = loop.run_until_complete(self._transcribe(audio_bytes))
-
-                if not question:
-                    return error_response("Could not transcribe audio", 400)
-
-                # Run query
-                response = loop.run_until_complete(
-                    self._run_query(user_id, state, question, body.get("limit", 10))
-                )
-
-            finally:
-                loop.close()
+            # Run query
+            response = await self._run_query(user_id, state, question, body.get("limit", 10))
 
             result = response.to_dict()
             result["transcription"] = question
@@ -397,7 +376,7 @@ class GmailQueryHandler(SecureHandler):
             logger.error(f"[GmailQuery] Transcription failed: {e}")
             return None
 
-    def _get_priority_inbox(
+    async def _get_priority_inbox(
         self,
         user_id: str,
         query_params: Dict[str, Any],
@@ -412,15 +391,7 @@ class GmailQueryHandler(SecureHandler):
         query = query_params.get("query", "is:unread OR newer_than:7d")
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                emails = loop.run_until_complete(
-                    self._get_prioritized_emails(user_id, state, query, limit)
-                )
-            finally:
-                loop.close()
+            emails = await self._get_prioritized_emails(user_id, state, query, limit)
 
             return json_response(
                 {
@@ -442,8 +413,8 @@ class GmailQueryHandler(SecureHandler):
         limit: int,
     ) -> List[Dict[str, Any]]:
         """Get emails with priority scores."""
-        from aragora.connectors.enterprise.communication.gmail import GmailConnector
         from aragora.analysis.email_priority import EmailPriorityAnalyzer
+        from aragora.connectors.enterprise.communication.gmail import GmailConnector
 
         # Create connector
         connector = GmailConnector(max_results=limit * 2)
@@ -499,7 +470,7 @@ class GmailQueryHandler(SecureHandler):
 
         return emails[:limit]
 
-    def _record_feedback(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _record_feedback(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Record user feedback on email interaction."""
         email_id = body.get("email_id")
         action = body.get("action")
@@ -515,24 +486,16 @@ class GmailQueryHandler(SecureHandler):
             return error_response(f"Invalid action. Must be one of: {valid_actions}", 400)
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            from aragora.analysis.email_priority import EmailFeedbackLearner
 
-            try:
-                from aragora.analysis.email_priority import EmailFeedbackLearner
-
-                learner = EmailFeedbackLearner(user_id=user_id)
-                success = loop.run_until_complete(
-                    learner.record_interaction(
-                        email_id=email_id,
-                        action=action,
-                        from_address=from_address,
-                        subject=subject,
-                        labels=labels,
-                    )
-                )
-            finally:
-                loop.close()
+            learner = EmailFeedbackLearner(user_id=user_id)
+            success = await learner.record_interaction(
+                email_id=email_id,
+                action=action,
+                from_address=from_address,
+                subject=subject,
+                labels=labels,
+            )
 
             return json_response(
                 {
