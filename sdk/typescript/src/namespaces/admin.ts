@@ -155,15 +155,15 @@ interface AdminClientInterface {
   listOrganizations(params?: PaginationParams): Promise<OrganizationList>;
   listAdminUsers(params?: PaginationParams): Promise<AdminUserList>;
   getAdminStats(): Promise<PlatformStats>;
-  getSystemMetrics(): Promise<SystemMetrics>;
+  getAdminSystemMetrics(): Promise<SystemMetrics>;
   getRevenue(): Promise<RevenueData>;
   impersonateUser(userId: string): Promise<ImpersonationToken>;
-  getNomicStatus(): Promise<NomicStatus>;
-  getCircuitBreakers(): Promise<CircuitBreakerList>;
+  getAdminNomicStatus(): Promise<NomicStatus>;
+  getAdminCircuitBreakers(): Promise<CircuitBreakerList>;
   resetNomic(): Promise<{ success: boolean }>;
   pauseNomic(): Promise<{ success: boolean }>;
   resumeNomic(): Promise<{ success: boolean }>;
-  resetCircuitBreakers(): Promise<{ success: boolean; reset_count: number }>;
+  resetAdminCircuitBreakers(): Promise<{ success: boolean; reset_count: number }>;
   // Credits endpoints
   issueCredits(orgId: string, body: { amount: number; reason: string; expires_at?: string }): Promise<CreditAccount>;
   getCreditAccount(orgId: string): Promise<CreditAccount>;
@@ -252,7 +252,7 @@ export class AdminAPI {
    * Get real-time system metrics.
    */
   async getSystemMetrics(): Promise<SystemMetrics> {
-    return this.client.getSystemMetrics();
+    return this.client.getAdminSystemMetrics();
   }
 
   /**
@@ -270,7 +270,7 @@ export class AdminAPI {
    * Get the current Nomic loop status.
    */
   async getNomicStatus(): Promise<NomicStatus> {
-    return this.client.getNomicStatus();
+    return this.client.getAdminNomicStatus();
   }
 
   /**

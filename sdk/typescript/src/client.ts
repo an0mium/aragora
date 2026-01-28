@@ -5122,6 +5122,157 @@ export class AragoraClient {
   }
 
   // ===========================================================================
+  // Admin
+  // ===========================================================================
+
+  /**
+   * List all organizations (admin only).
+   */
+  async listOrganizations(params?: PaginationParams): Promise<import('./namespaces/admin').OrganizationList> {
+    return this.request<import('./namespaces/admin').OrganizationList>('GET', '/api/v1/admin/organizations', { params });
+  }
+
+  /**
+   * List all users (admin only).
+   */
+  async listAdminUsers(params?: PaginationParams): Promise<import('./namespaces/admin').AdminUserList> {
+    return this.request<import('./namespaces/admin').AdminUserList>('GET', '/api/v1/admin/users', { params });
+  }
+
+  /**
+   * Get platform statistics (admin only).
+   */
+  async getAdminStats(): Promise<import('./namespaces/admin').PlatformStats> {
+    return this.request<import('./namespaces/admin').PlatformStats>('GET', '/api/v1/admin/stats');
+  }
+
+  /**
+   * Get admin system metrics (admin only).
+   */
+  async getAdminSystemMetrics(): Promise<import('./namespaces/admin').SystemMetrics> {
+    return this.request<import('./namespaces/admin').SystemMetrics>('GET', '/api/v1/admin/system/metrics');
+  }
+
+  /**
+   * Get revenue analytics (admin only).
+   */
+  async getRevenue(): Promise<import('./namespaces/admin').RevenueData> {
+    return this.request<import('./namespaces/admin').RevenueData>('GET', '/api/v1/admin/revenue');
+  }
+
+  /**
+   * Impersonate a user (admin only).
+   */
+  async impersonateUser(userId: string): Promise<import('./namespaces/admin').ImpersonationToken> {
+    return this.request<import('./namespaces/admin').ImpersonationToken>('POST', `/api/v1/admin/impersonate/${userId}`);
+  }
+
+  /**
+   * Get Nomic loop status (admin only).
+   */
+  async getAdminNomicStatus(): Promise<import('./namespaces/admin').NomicStatus> {
+    return this.request<import('./namespaces/admin').NomicStatus>('GET', '/api/v1/admin/nomic/status');
+  }
+
+  /**
+   * Get admin circuit breaker states (admin only).
+   */
+  async getAdminCircuitBreakers(): Promise<import('./namespaces/admin').CircuitBreakerList> {
+    return this.request<import('./namespaces/admin').CircuitBreakerList>('GET', '/api/v1/admin/nomic/circuit-breakers');
+  }
+
+  /**
+   * Reset Nomic loop (admin only).
+   */
+  async resetNomic(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('POST', '/api/v1/admin/nomic/reset');
+  }
+
+  /**
+   * Pause Nomic loop (admin only).
+   */
+  async pauseNomic(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('POST', '/api/v1/admin/nomic/pause');
+  }
+
+  /**
+   * Resume Nomic loop (admin only).
+   */
+  async resumeNomic(): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>('POST', '/api/v1/admin/nomic/resume');
+  }
+
+  /**
+   * Reset all circuit breakers (admin only).
+   */
+  async resetAdminCircuitBreakers(): Promise<{ success: boolean; reset_count: number }> {
+    return this.request<{ success: boolean; reset_count: number }>('POST', '/api/v1/admin/nomic/circuit-breakers/reset');
+  }
+
+  /**
+   * Issue credits to an organization (admin only).
+   */
+  async issueCredits(orgId: string, body: { amount: number; reason: string; expires_at?: string }): Promise<import('./namespaces/admin').CreditAccount> {
+    return this.request<import('./namespaces/admin').CreditAccount>('POST', `/api/v1/admin/credits/${orgId}/issue`, { body });
+  }
+
+  /**
+   * Get credit account details (admin only).
+   */
+  async getCreditAccount(orgId: string): Promise<import('./namespaces/admin').CreditAccount> {
+    return this.request<import('./namespaces/admin').CreditAccount>('GET', `/api/v1/admin/credits/${orgId}`);
+  }
+
+  /**
+   * List credit transactions (admin only).
+   */
+  async listCreditTransactions(orgId: string, params?: PaginationParams): Promise<import('./namespaces/admin').CreditTransactionList> {
+    return this.request<import('./namespaces/admin').CreditTransactionList>('GET', `/api/v1/admin/credits/${orgId}/transactions`, { params });
+  }
+
+  /**
+   * Adjust credit balance (admin only).
+   */
+  async adjustCreditBalance(orgId: string, body: { amount: number; reason: string }): Promise<import('./namespaces/admin').CreditAccount> {
+    return this.request<import('./namespaces/admin').CreditAccount>('POST', `/api/v1/admin/credits/${orgId}/adjust`, { body });
+  }
+
+  /**
+   * Get expiring credits (admin only).
+   */
+  async getExpiringCredits(orgId: string): Promise<{ credits: Array<{ amount: number; expires_at: string }> }> {
+    return this.request<{ credits: Array<{ amount: number; expires_at: string }> }>('GET', `/api/v1/admin/credits/${orgId}/expiring`);
+  }
+
+  /**
+   * Get security status (admin only).
+   */
+  async getAdminSecurityStatus(): Promise<import('./namespaces/admin').SecurityStatus> {
+    return this.request<import('./namespaces/admin').SecurityStatus>('GET', '/api/v1/admin/security/status');
+  }
+
+  /**
+   * Rotate a security key (admin only).
+   */
+  async rotateSecurityKey(keyType: string): Promise<{ success: boolean; new_key_id: string }> {
+    return this.request<{ success: boolean; new_key_id: string }>('POST', '/api/v1/admin/security/rotate-key', { body: { key_type: keyType } });
+  }
+
+  /**
+   * Get security health check (admin only).
+   */
+  async getAdminSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }> {
+    return this.request<{ healthy: boolean; checks: Record<string, boolean> }>('GET', '/api/v1/admin/security/health');
+  }
+
+  /**
+   * List security keys (admin only).
+   */
+  async listSecurityKeys(): Promise<{ keys: import('./namespaces/admin').SecurityKey[] }> {
+    return this.request<{ keys: import('./namespaces/admin').SecurityKey[] }>('GET', '/api/v1/admin/security/keys');
+  }
+
+  // ===========================================================================
   // Billing
   // ===========================================================================
 
