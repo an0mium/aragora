@@ -112,6 +112,17 @@ class DebateContext:
     session_id: str = ""
     """Session ID for session lifecycle tracking."""
 
+    org_id: str = ""
+    """Organization ID for multi-tenancy and budget tracking."""
+
+    budget_check_callback: Optional[Any] = None
+    """Optional callback for mid-execution budget checks.
+
+    If set, this should be a callable that returns (allowed: bool, reason: str).
+    The debate rounds phase will call this before each round to check if
+    the organization still has budget to continue.
+    """
+
     cancellation_token: Optional["CancellationToken"] = None
     """Cancellation token for cooperative cancellation of long-running operations."""
 

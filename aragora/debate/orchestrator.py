@@ -1555,6 +1555,64 @@ class Arena:
             # Budget manager not available - proceed without check
             logger.debug("Budget manager not available, skipping pre-debate check")
 
+    def _check_budget_mid_debate(self, debate_id: str, round_num: int) -> tuple[bool, str]:
+        """Check if organization has sufficient budget to continue debate mid-execution.
+
+        Unlike _check_budget_before_debate(), this method returns a tuple instead of
+        raising an exception, allowing the debate to pause gracefully rather than
+        fail abruptly.
+
+        Args:
+            debate_id: Debate identifier for logging
+            round_num: Current round number for logging
+
+        Returns:
+            Tuple of (allowed: bool, reason: str)
+            - allowed: True if debate can continue, False if budget exceeded
+            - reason: Human-readable reason if budget check failed
+        """
+        if not self.org_id:
+            return True, ""  # No org context - allow continuation
+
+        try:
+            from aragora.billing.budget_manager import BudgetAction, get_budget_manager
+
+            manager = get_budget_manager()
+
+            # Estimate remaining cost (lower estimate for mid-debate check)
+            # Assume one more round costs ~$0.03 (fewer tokens than initial estimates)
+            estimated_cost_usd = 0.03
+
+            allowed, reason, action = manager.check_budget(
+                org_id=self.org_id,
+                estimated_cost_usd=estimated_cost_usd,
+                user_id=self.user_id or None,
+            )
+
+            if not allowed:
+                logger.warning(
+                    f"budget_exceeded_mid_debate org_id={self.org_id} "
+                    f"debate_id={debate_id} round={round_num} reason={reason}"
+                )
+                return False, reason
+
+            if action == BudgetAction.SOFT_LIMIT:
+                logger.info(
+                    f"budget_soft_limit_mid_debate org_id={self.org_id} "
+                    f"debate_id={debate_id} round={round_num} reason={reason}"
+                )
+                # Continue but warn - could be logged for alerting
+
+            return True, ""
+
+        except ImportError:
+            # Budget manager not available - allow continuation
+            return True, ""
+        except Exception as e:
+            # On any error, allow continuation (fail open for availability)
+            logger.debug(f"Budget check error (continuing): {e}")
+            return True, ""
+
     def _record_debate_cost(
         self,
         debate_id: str,
@@ -2195,6 +2253,11 @@ class Arena:
             correlation_id=correlation_id,
             domain=domain,
             hook_manager=self.hook_manager,
+            org_id=self.org_id,
+            # Provide budget check callback for mid-execution checks
+            budget_check_callback=lambda round_num: self._check_budget_mid_debate(
+                debate_id, round_num
+            ),
         )
         ctx.molecule_orchestrator = self.molecule_orchestrator
         ctx.checkpoint_bridge = self.checkpoint_bridge
