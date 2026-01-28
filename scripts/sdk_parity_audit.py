@@ -133,9 +133,11 @@ def parse_python_sdk(paths: Iterable[Path]) -> set[Endpoint]:
             for match in pattern.finditer(text):
                 method = match.group("method").upper()
                 raw = match.group("path")
-                literal = raw[1:-1]
                 if raw.startswith("f"):
+                    literal = raw[2:-1]  # Strip f" and trailing "
                     literal = re.sub(r"{[^}]+}", "{param}", literal)
+                else:
+                    literal = raw[1:-1]  # Strip " and trailing "
                 literal = normalize_path(literal)
                 endpoints.add(Endpoint(method, literal).normalized())
     return endpoints
