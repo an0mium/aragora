@@ -102,8 +102,10 @@ class AragoraClient:
         from .namespaces.cost_management import CostManagementAPI
         from .namespaces.critiques import CritiquesAPI
         from .namespaces.cross_pollination import CrossPollinationAPI
+        from .namespaces.dashboard import DashboardAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
+        from .namespaces.deliberations import DeliberationsAPI
         from .namespaces.documents import DocumentsAPI
         from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
@@ -134,6 +136,7 @@ class AragoraClient:
         from .namespaces.rlm import RLMAPI
         from .namespaces.routing import RoutingAPI
         from .namespaces.sme import SMEAPI
+        from .namespaces.system import SystemAPI
         from .namespaces.teams import TeamsAPI
         from .namespaces.tenants import TenantsAPI
         from .namespaces.tournaments import TournamentsAPI
@@ -166,8 +169,10 @@ class AragoraClient:
         self.cost_management = CostManagementAPI(self)
         self.critiques = CritiquesAPI(self)
         self.cross_pollination = CrossPollinationAPI(self)
+        self.dashboard = DashboardAPI(self)
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
+        self.deliberations = DeliberationsAPI(self)
         self.documents = DocumentsAPI(self)
         self.expenses = ExpensesAPI(self)
         self.explainability = ExplainabilityAPI(self)
@@ -198,6 +203,7 @@ class AragoraClient:
         self.rlm = RLMAPI(self)
         self.routing = RoutingAPI(self)
         self.sme = SMEAPI(self)
+        self.system = SystemAPI(self)
         self.teams = TeamsAPI(self)
         self.tenants = TenantsAPI(self)
         self.training = TrainingAPI(self)
@@ -405,8 +411,10 @@ class AragoraAsyncClient:
         from .namespaces.cost_management import AsyncCostManagementAPI
         from .namespaces.critiques import AsyncCritiquesAPI
         from .namespaces.cross_pollination import AsyncCrossPollinationAPI
+        from .namespaces.dashboard import AsyncDashboardAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
+        from .namespaces.deliberations import AsyncDeliberationsAPI
         from .namespaces.documents import AsyncDocumentsAPI
         from .namespaces.expenses import AsyncExpensesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
@@ -437,6 +445,7 @@ class AragoraAsyncClient:
         from .namespaces.rlm import AsyncRLMAPI
         from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.sme import AsyncSMEAPI
+        from .namespaces.system import AsyncSystemAPI
         from .namespaces.teams import AsyncTeamsAPI
         from .namespaces.tenants import AsyncTenantsAPI
         from .namespaces.tournaments import AsyncTournamentsAPI
@@ -469,8 +478,10 @@ class AragoraAsyncClient:
         self.cost_management = AsyncCostManagementAPI(self)
         self.critiques = AsyncCritiquesAPI(self)
         self.cross_pollination = AsyncCrossPollinationAPI(self)
+        self.dashboard = AsyncDashboardAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
+        self.deliberations = AsyncDeliberationsAPI(self)
         self.documents = AsyncDocumentsAPI(self)
         self.expenses = AsyncExpensesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
@@ -501,6 +512,7 @@ class AragoraAsyncClient:
         self.rlm = AsyncRLMAPI(self)
         self.routing = AsyncRoutingAPI(self)
         self.sme = AsyncSMEAPI(self)
+        self.system = AsyncSystemAPI(self)
         self.teams = AsyncTeamsAPI(self)
         self.tenants = AsyncTenantsAPI(self)
         self.training = AsyncTrainingAPI(self)

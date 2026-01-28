@@ -95,6 +95,15 @@ client = AragoraClient(
 - `client.batch` - Batch debate operations
 - `client.routing` - Routing recommendations and rule management
 - `client.critiques` - Critique patterns and agent reputation
+- `client.a2a` - Agent-to-agent protocol endpoints
+- `client.advertising` - Advertising platform integrations
+- `client.cross_pollination` - Cross-pollination stats and subscriptions
+- `client.dashboard` - Dashboard overview and quick actions
+- `client.deliberations` - Active deliberations and stats
+- `client.gmail` - Gmail message operations
+- `client.metrics` - Operational metrics and health
+- `client.plugins` - Plugin management and marketplace
+- `client.system` - Admin history, maintenance, and circuit breakers
 - `client.rbac` - Role-based access control
 - `client.audit` - Audit logging
 - `client.control_plane` - System health and monitoring

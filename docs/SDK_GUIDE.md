@@ -399,6 +399,21 @@ reputations = client.critiques.list_reputations()
 agent_rep = client.critiques.get_agent_reputation("claude")
 ```
 
+### Additional Namespaces
+
+The SDK exposes additional namespaces for platform and admin features. For
+endpoint details, see API_REFERENCE.md.
+
+- `client.a2a` - Agent-to-agent protocol
+- `client.advertising` - Advertising platform integrations
+- `client.cross_pollination` - Cross-pollination stats and subscriptions
+- `client.dashboard` - Dashboard overview and quick actions
+- `client.deliberations` - Active deliberations and stats
+- `client.gmail` - Gmail message operations
+- `client.metrics` - Operational metrics and Prometheus export
+- `client.plugins` - Plugin management and marketplace
+- `client.system` - Admin history, maintenance, and circuit breakers
+
 ### Organizations
 
 Manage organizations and membership.

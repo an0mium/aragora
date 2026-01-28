@@ -10,10 +10,7 @@ Provides HTTP handlers for:
 
 from aragora.server.handlers.integrations.automation import AutomationHandler
 
-# Import IntegrationsHandler from features module
-try:
-    from aragora.server.handlers.features.integrations import IntegrationsHandler
-except ImportError:
-    IntegrationsHandler = None  # type: ignore
+# Re-export IntegrationsHandler from the renamed module for backward compatibility
+from aragora.server.handlers.integration_management import IntegrationsHandler
 
 __all__ = ["AutomationHandler", "IntegrationsHandler"]

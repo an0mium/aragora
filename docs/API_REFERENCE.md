@@ -88,6 +88,17 @@ Responses are cached in-memory for 30 seconds by default.
 | GET | `/api/v1/dashboard/quick-actions` | Get available quick actions |
 | POST | `/api/v1/dashboard/quick-actions/{action}` | Execute quick action |
 
+## Deliberations API
+
+Active vetted decisionmaking sessions and stats.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/deliberations/active` | List active deliberations |
+| GET | `/api/v1/deliberations/stats` | Deliberation statistics |
+| GET | `/api/v1/deliberations/{id}` | Get deliberation details |
+| GET | `/api/v1/deliberations/stream` | WebSocket stream of deliberations |
+
 ## Code Review API
 
 Code review endpoints run multi-agent reviews for snippets, diffs, and PRs.
@@ -117,6 +128,68 @@ Device registration and push notification endpoints.
 | POST | `/api/v1/devices/{device_id}/notify` | Notify a device |
 | POST | `/api/v1/devices/alexa/webhook` | Alexa skill webhook |
 | POST | `/api/v1/devices/google/webhook` | Google Home webhook |
+
+## A2A (Agent-to-Agent) API
+
+Agent discovery and task execution endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/a2a/.well-known/agent.json` | Agent discovery card |
+| GET | `/api/v1/a2a/openapi.json` | A2A OpenAPI spec |
+| GET | `/api/v1/a2a/agents` | List agents |
+| GET | `/api/v1/a2a/agents/{name}` | Get agent details |
+| POST | `/api/v1/a2a/tasks` | Submit task |
+| GET | `/api/v1/a2a/tasks/{id}` | Get task status |
+| POST | `/api/v1/a2a/tasks/{id}/stream` | Stream task output |
+
+## Metrics API
+
+Operational and Prometheus metrics endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/metrics` | Operational metrics |
+| GET | `/api/metrics/health` | Health metrics |
+| GET | `/api/metrics/cache` | Cache metrics |
+| GET | `/api/metrics/system` | System metrics |
+| GET | `/api/metrics/verification` | Verification metrics |
+| GET | `/api/metrics/background` | Background task metrics |
+| GET | `/api/metrics/debate` | Debate metrics |
+| GET | `/metrics` | Prometheus export |
+
+## Plugins API
+
+Plugin management and marketplace endpoints.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/plugins` | List plugins |
+| GET | `/api/v1/plugins/installed` | List installed plugins |
+| GET | `/api/v1/plugins/marketplace` | Marketplace listings |
+| GET | `/api/v1/plugins/submissions` | List submissions |
+| POST | `/api/v1/plugins/submit` | Submit plugin |
+| GET | `/api/v1/plugins/{name}` | Plugin details |
+| POST | `/api/v1/plugins/{name}/install` | Install plugin |
+| DELETE | `/api/v1/plugins/{name}/install` | Uninstall plugin |
+| POST | `/api/v1/plugins/{name}/run` | Run plugin action |
+
+## Cross-Pollination API
+
+Knowledge sharing between debates and Knowledge Mound.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/cross-pollination/stats` | Cross-pollination stats |
+| GET | `/api/v1/cross-pollination/metrics` | Cross-pollination metrics |
+| GET | `/api/v1/cross-pollination/subscribers` | List subscribers |
+| POST | `/api/v1/cross-pollination/subscribe` | Subscribe a debate |
+| DELETE | `/api/v1/cross-pollination/subscribers/{debate_id}` | Unsubscribe a debate |
+| GET | `/api/v1/cross-pollination/bridge` | Bridge configuration |
+| PUT | `/api/v1/cross-pollination/bridge` | Update bridge config |
+| GET | `/api/v1/cross-pollination/km` | Knowledge Mound status |
+| GET | `/api/v1/cross-pollination/km/staleness-check` | Knowledge staleness check |
+| GET | `/api/v1/laboratory/cross-pollinations/suggest` | Suggest cross-pollination |
 
 ## Platform APIs (Advertising, Analytics, CRM, Ecommerce, Support)
 

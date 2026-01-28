@@ -95,7 +95,7 @@ def mock_teams_store():
 @pytest.fixture
 def handler_with_mocks(mock_slack_store, mock_teams_store, mock_server_context):
     """Create handler with mocked stores."""
-    from aragora.server.handlers.integrations import IntegrationsHandler
+    from aragora.server.handlers.integration_management import IntegrationsHandler
 
     handler = IntegrationsHandler(mock_server_context)
     handler._slack_store = mock_slack_store
@@ -161,7 +161,7 @@ class TestListIntegrations:
     @pytest.mark.asyncio
     async def test_list_integrations_empty(self, mock_server_context):
         """Test listing integrations when none configured."""
-        from aragora.server.handlers.integrations import IntegrationsHandler
+        from aragora.server.handlers.integration_management import IntegrationsHandler
 
         handler = IntegrationsHandler(mock_server_context)
         handler._slack_store = MagicMock()
@@ -391,7 +391,7 @@ class TestHandlerRouting:
 
     def test_can_handle_integration_paths(self, mock_server_context):
         """Test handler recognizes integration paths."""
-        from aragora.server.handlers.integrations import IntegrationsHandler
+        from aragora.server.handlers.integration_management import IntegrationsHandler
 
         handler = IntegrationsHandler(mock_server_context)
 
@@ -402,7 +402,7 @@ class TestHandlerRouting:
 
     def test_cannot_handle_other_paths(self, mock_server_context):
         """Test handler rejects non-integration paths."""
-        from aragora.server.handlers.integrations import IntegrationsHandler
+        from aragora.server.handlers.integration_management import IntegrationsHandler
 
         handler = IntegrationsHandler(mock_server_context)
 
