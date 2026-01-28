@@ -433,8 +433,13 @@ class SlackConnector(ChatPlatformConnector):
     async def _slack_api_request(
         self,
         endpoint: str,
-        payload: dict[str, Any],
+        payload: Optional[dict[str, Any]] = None,
         operation: str = "api_call",
+        *,
+        method: str = "POST",
+        params: Optional[dict[str, Any]] = None,
+        json_data: Optional[dict[str, Any]] = None,
+        timeout: Optional[float] = None,
     ) -> tuple[bool, Optional[dict[str, Any]], Optional[str]]:
         """
         Make a Slack API request with circuit breaker, retry, and timeout.
@@ -442,9 +447,13 @@ class SlackConnector(ChatPlatformConnector):
         Centralizes the resilience pattern for all Slack API calls.
 
         Args:
-            endpoint: API endpoint (e.g., "chat.postMessage")
-            payload: JSON payload to send
+            endpoint: API endpoint (e.g., "chat.postMessage", "conversations.info")
+            payload: JSON payload to send (deprecated, use json_data instead)
             operation: Operation name for logging
+            method: HTTP method - "GET" or "POST" (default: "POST")
+            params: Query parameters for GET requests
+            json_data: JSON body for POST requests (takes precedence over payload)
+            timeout: Optional timeout override
 
         Returns:
             Tuple of (success, response_data, error_message)
@@ -459,15 +468,26 @@ class SlackConnector(ChatPlatformConnector):
 
         last_error: Optional[str] = None
         url = f"{SLACK_API_BASE}/{endpoint}"
+        request_timeout = timeout if timeout is not None else self._timeout
+
+        # Support both old-style payload and new-style json_data
+        body = json_data if json_data is not None else payload
 
         for attempt in range(self._max_retries):
             try:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.post(
-                        url,
-                        headers=self._get_headers(),
-                        json=payload,
-                    )
+                async with httpx.AsyncClient(timeout=request_timeout) as client:
+                    if method.upper() == "GET":
+                        response = await client.get(
+                            url,
+                            headers=self._get_headers(),
+                            params=params,
+                        )
+                    else:
+                        response = await client.post(
+                            url,
+                            headers=self._get_headers(),
+                            json=body,
+                        )
                     data = response.json()
 
                     if data.get("ok"):
@@ -508,7 +528,7 @@ class SlackConnector(ChatPlatformConnector):
                         return False, data, error
 
             except httpx.TimeoutException:
-                last_error = f"Request timeout after {self._timeout}s"
+                last_error = f"Request timeout after {request_timeout}s"
                 if attempt < self._max_retries - 1:
                     logger.warning(
                         f"Slack {operation} timeout (attempt {attempt + 1}/{self._max_retries})"
