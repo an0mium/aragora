@@ -46,8 +46,7 @@ from .base import (
     safe_error_message,
 )
 from .secure import SecureHandler
-from .utils.auth import ForbiddenError, UnauthorizedError
-from .utils.auth_mixins import require_permission
+from .utils.auth_mixins import SecureEndpointMixin, require_permission
 from .utils.rate_limit import rate_limit
 
 from aragora.audit.unified import audit_admin, audit_security
@@ -55,7 +54,7 @@ from aragora.audit.unified import audit_admin, audit_security
 logger = logging.getLogger(__name__)
 
 
-class NomicHandler(SecureHandler):
+class NomicHandler(SecureEndpointMixin, SecureHandler):
     """Handler for nomic loop state, monitoring, and control endpoints.
 
     Supports real-time WebSocket event streaming when a stream server is configured.
@@ -164,7 +163,7 @@ class NomicHandler(SecureHandler):
         return path in self.ROUTES or path.startswith("/api/nomic/")
 
     @rate_limit(rpm=30)
-    @require_permission("nomic:read")
+    @require_permission("nomic:read", handler_arg=2)
     async def handle(self, path: str, query_params: dict, handler: Any) -> Optional[HandlerResult]:  # type: ignore[override]
         """Route nomic endpoint requests.
 
@@ -610,25 +609,14 @@ class NomicHandler(SecureHandler):
     # =========================================================================
 
     @rate_limit(rpm=30)
+    @require_permission("nomic:admin", handler_arg=2)
     async def handle_post(  # type: ignore[override]
         self, path: str, query_params: dict, handler: Any
     ) -> Optional[HandlerResult]:
-        """Handle POST requests for control operations."""
-        # Require authentication and admin permission for control operations
-        try:
-            auth_context = await self.get_auth_context(handler, require_auth=True)
-        except UnauthorizedError:
-            return error_response("Authentication required", 401)
-        except ForbiddenError as e:
-            return error_response(str(e), 403)
+        """Handle POST requests for control operations.
 
-        # Control operations require admin permission
-        try:
-            self.check_permission(auth_context, "nomic:admin")
-        except ForbiddenError:
-            logger.warning(f"Nomic admin permission denied for user {auth_context.user_id}")
-            return error_response("Permission denied: nomic:admin", 403)
-
+        Requires nomic:admin permission (enforced by @require_permission decorator).
+        """
         if path == "/api/v1/nomic/control/start":
             body = self.read_json_body(handler) or {}
             return self._start_nomic_loop(body)

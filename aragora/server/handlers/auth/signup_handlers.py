@@ -34,8 +34,36 @@ from aragora.server.handlers.base import (
     error_response,
     success_response,
 )
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
 
 logger = logging.getLogger(__name__)
+
+
+def _check_permission(
+    user_id: str,
+    permission: str,
+    org_id: str | None = None,
+    roles: set | None = None,
+) -> HandlerResult | None:
+    """Check RBAC permission. Returns error response if denied, None if allowed."""
+    try:
+        context = AuthorizationContext(
+            user_id=user_id,
+            org_id=org_id,
+            roles=roles if roles else {"member"},
+            permissions=set(),
+        )
+        checker = get_permission_checker()
+        decision = checker.check_permission(context, permission)
+        if not decision.allowed:
+            logger.warning(f"RBAC denied {permission} for user {user_id}: {decision.reason}")
+            return error_response(f"Permission denied: {decision.reason}", status=403)
+        return None
+    except Exception as e:
+        logger.error(f"RBAC check failed: {e}")
+        return error_response("Authorization check failed", status=500)
+
 
 # In-memory storage (replace with DB in production)
 _pending_signups: Dict[str, Dict[str, Any]] = {}
@@ -430,6 +458,11 @@ async def handle_invite(
         role: str (optional - admin, member, viewer)
     }
     """
+    # RBAC: Require permission to invite team members
+    rbac_err = _check_permission(user_id, "team.invite", data.get("organization_id"))
+    if rbac_err:
+        return rbac_err
+
     try:
         email = data.get("email", "").lower().strip()
         organization_id = data.get("organization_id", "")

@@ -25,21 +25,34 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 if TYPE_CHECKING:
     from aragora.rbac.models import AuthorizationContext
+    from aragora.server.handlers.base import HandlerResult
 
 logger = logging.getLogger(__name__)
 
-# Import error types and response builders
+# Import error types (these don't have circular deps)
 try:
-    from ..base import HandlerResult, error_response
-    from .auth import ForbiddenError, UnauthorizedError
+    from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
 
-    _AUTH_AVAILABLE = True
+    _AUTH_EXCEPTIONS_AVAILABLE = True
 except ImportError:
-    _AUTH_AVAILABLE = False
-    HandlerResult = Any  # type: ignore
-    error_response = None  # type: ignore
+    _AUTH_EXCEPTIONS_AVAILABLE = False
     ForbiddenError = Exception  # type: ignore
     UnauthorizedError = Exception  # type: ignore
+
+# Track if auth module is available
+_AUTH_AVAILABLE = _AUTH_EXCEPTIONS_AVAILABLE
+
+
+def _get_error_response():
+    """Lazy import to avoid circular dependency with base module."""
+    from aragora.server.handlers.base import error_response
+
+    return error_response
+
+
+def error_response(message: str, status: int) -> "HandlerResult":
+    """Wrapper for lazy-loaded error_response to avoid repeated imports."""
+    return _get_error_response()(message, status)
 
 
 class SecureEndpointMixin:
@@ -72,16 +85,16 @@ class SecureEndpointMixin:
         """
         if not _AUTH_AVAILABLE:
             logger.error("Auth module not available")
-            return None, error_response("Auth not configured", 500)  # type: ignore
+            return None, _get_error_response()("Auth not configured", 500)  # type: ignore
 
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)  # type: ignore
             return auth_context, None
         except UnauthorizedError:
-            return None, error_response("Authentication required", 401)  # type: ignore
+            return None, _get_error_response()("Authentication required", 401)  # type: ignore
         except Exception as e:
             logger.exception(f"Unexpected auth error: {e}")
-            return None, error_response("Authentication failed", 500)  # type: ignore
+            return None, _get_error_response()("Authentication failed", 500)  # type: ignore
 
     async def require_permission_or_error(
         self,
@@ -103,19 +116,19 @@ class SecureEndpointMixin:
         """
         if not _AUTH_AVAILABLE:
             logger.error("Auth module not available")
-            return None, error_response("Auth not configured", 500)  # type: ignore
+            return None, _get_error_response()("Auth not configured", 500)  # type: ignore
 
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)  # type: ignore
             self.check_permission(auth_context, permission, resource_id)  # type: ignore
             return auth_context, None
         except UnauthorizedError:
-            return None, error_response("Authentication required", 401)  # type: ignore
+            return None, _get_error_response()("Authentication required", 401)  # type: ignore
         except ForbiddenError as e:
-            return None, error_response(str(e), 403)  # type: ignore
+            return None, _get_error_response()(str(e), 403)  # type: ignore
         except Exception as e:
             logger.exception(f"Unexpected auth error: {e}")
-            return None, error_response("Authorization failed", 500)  # type: ignore
+            return None, _get_error_response()("Authorization failed", 500)  # type: ignore
 
     async def require_any_permission_or_error(
         self,
@@ -137,10 +150,10 @@ class SecureEndpointMixin:
         """
         if not _AUTH_AVAILABLE:
             logger.error("Auth module not available")
-            return None, error_response("Auth not configured", 500)  # type: ignore
+            return None, _get_error_response()("Auth not configured", 500)  # type: ignore
 
         if not permissions:
-            return None, error_response("No permissions specified", 400)  # type: ignore
+            return None, _get_error_response()("No permissions specified", 400)  # type: ignore
 
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)  # type: ignore
@@ -155,13 +168,15 @@ class SecureEndpointMixin:
                     errors.append(str(e))
 
             # All permissions denied
-            return None, error_response(f"Permission denied: requires one of {permissions}", 403)  # type: ignore
+            return None, _get_error_response()(
+                f"Permission denied: requires one of {permissions}", 403
+            )  # type: ignore
 
         except UnauthorizedError:
-            return None, error_response("Authentication required", 401)  # type: ignore
+            return None, _get_error_response()("Authentication required", 401)  # type: ignore
         except Exception as e:
             logger.exception(f"Unexpected auth error: {e}")
-            return None, error_response("Authorization failed", 500)  # type: ignore
+            return None, _get_error_response()("Authorization failed", 500)  # type: ignore
 
     async def require_all_permissions_or_error(
         self,
@@ -183,10 +198,10 @@ class SecureEndpointMixin:
         """
         if not _AUTH_AVAILABLE:
             logger.error("Auth module not available")
-            return None, error_response("Auth not configured", 500)  # type: ignore
+            return None, _get_error_response()("Auth not configured", 500)  # type: ignore
 
         if not permissions:
-            return None, error_response("No permissions specified", 400)  # type: ignore
+            return None, _get_error_response()("No permissions specified", 400)  # type: ignore
 
         try:
             auth_context = await self.get_auth_context(request, require_auth=True)  # type: ignore
@@ -198,12 +213,12 @@ class SecureEndpointMixin:
             return auth_context, None
 
         except UnauthorizedError:
-            return None, error_response("Authentication required", 401)  # type: ignore
+            return None, _get_error_response()("Authentication required", 401)  # type: ignore
         except ForbiddenError as e:
-            return None, error_response(str(e), 403)  # type: ignore
+            return None, _get_error_response()(str(e), 403)  # type: ignore
         except Exception as e:
             logger.exception(f"Unexpected auth error: {e}")
-            return None, error_response("Authorization failed", 500)  # type: ignore
+            return None, _get_error_response()("Authorization failed", 500)  # type: ignore
 
     async def require_admin_or_error(
         self,
@@ -264,27 +279,59 @@ class AuthenticatedHandlerMixin:
 
 
 # Convenience decorators for permission checking
-def require_permission(permission: str):
+def require_permission(permission: str, handler_arg: int = 0):
     """
     Decorator that requires a specific permission.
+
+    Args:
+        permission: The permission string required (e.g., "resource:read")
+        handler_arg: Index (0-based) of the argument containing the HTTP handler.
+            For handlers with signature (self, request) use handler_arg=0 (default).
+            For handlers with signature (self, path, query_params, handler) use handler_arg=2.
 
     Usage:
         @require_permission("resource:read")
         async def my_handler(self, request):
             # Only reaches here if authenticated with permission
             pass
+
+        @require_permission("nomic:read", handler_arg=2)
+        async def handle(self, path, query_params, handler):
+            # Handler is the third argument (index 2)
+            pass
     """
 
     def decorator(func):
-        async def wrapper(self, request, *args, **kwargs):
-            if hasattr(self, "require_permission_or_error"):
-                auth, err = await self.require_permission_or_error(request, permission)
-                if err:
-                    return err
-                # Store auth context if handler supports it
-                if hasattr(self, "set_auth_context"):
-                    self.set_auth_context(auth)
-            return await func(self, request, *args, **kwargs)
+        async def wrapper(self, *args, **kwargs):
+            # Lazy import to avoid circular dependency
+            from aragora.server.handlers.base import error_response
+
+            # Extract the handler from the specified argument position
+            if handler_arg < len(args):
+                request = args[handler_arg]
+            else:
+                # Fallback: try to get from kwargs or first positional arg
+                request = (
+                    kwargs.get("handler") or kwargs.get("request") or (args[0] if args else None)
+                )
+
+            # Check auth using SecureHandler's get_auth_context if available
+            if hasattr(self, "get_auth_context") and hasattr(self, "check_permission"):
+                try:
+                    auth_context = await self.get_auth_context(request, require_auth=True)
+                    self.check_permission(auth_context, permission)
+                    # Store auth context if handler supports it
+                    if hasattr(self, "set_auth_context"):
+                        self.set_auth_context(auth_context)
+                except UnauthorizedError:
+                    return error_response("Authentication required", 401)
+                except ForbiddenError as e:
+                    return error_response(str(e), 403)
+                except Exception as e:
+                    logger.exception(f"Auth error in @require_permission: {e}")
+                    return error_response("Authorization failed", 500)
+
+            return await func(self, *args, **kwargs)
 
         return wrapper
 

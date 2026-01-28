@@ -46,6 +46,40 @@ from aragora.deletion_coordinator import (
 logger = logging.getLogger(__name__)
 
 
+def _extract_user_id_from_headers(headers: Optional[Dict[str, str]]) -> str:
+    """
+    Extract user ID from Authorization header.
+
+    Falls back to 'compliance_api' if no valid auth is present.
+    This ensures audit trails identify the actual user making compliance requests.
+    """
+    if not headers:
+        return "compliance_api"
+
+    auth_header = headers.get("Authorization", "") or headers.get("authorization", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return "compliance_api"
+
+    token = auth_header[7:]
+
+    # Check if it's an API key (ara_xxx format)
+    if token.startswith("ara_"):
+        # API keys don't contain user info directly, use key prefix as identifier
+        return f"api_key:{token[:12]}..."
+
+    # Try to decode JWT to get user_id
+    try:
+        from aragora.billing.auth.tokens import validate_access_token
+
+        payload = validate_access_token(token)
+        if payload and payload.user_id:
+            return payload.user_id
+    except Exception:
+        pass
+
+    return "compliance_api"
+
+
 class ComplianceHandler(BaseHandler):
     """
     HTTP handler for compliance and audit operations.
@@ -125,7 +159,7 @@ class ComplianceHandler(BaseHandler):
                 return await self._list_legal_holds(query_params)
 
             if path == "/api/v2/compliance/gdpr/legal-holds" and method == "POST":
-                return await self._create_legal_hold(body)
+                return await self._create_legal_hold(body, headers)
 
             if path.startswith("/api/v2/compliance/gdpr/legal-holds/") and method == "DELETE":
                 hold_id = path.split("/")[-1]
@@ -772,7 +806,11 @@ class ComplianceHandler(BaseHandler):
             return error_response(f"Failed to list legal holds: {str(e)}", 500)
 
     @require_permission("compliance:legal")
-    async def _create_legal_hold(self, body: Dict[str, Any]) -> HandlerResult:
+    async def _create_legal_hold(
+        self,
+        body: Dict[str, Any],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> HandlerResult:
         """
         Create a new legal hold.
 
@@ -799,12 +837,15 @@ class ComplianceHandler(BaseHandler):
             except ValueError:
                 return error_response("Invalid expires_at format", 400)
 
+        # Extract authenticated user from request headers for audit trail
+        created_by = _extract_user_id_from_headers(headers)
+
         try:
             hold_manager = get_legal_hold_manager()
             hold = hold_manager.create_hold(
                 user_ids=user_ids,
                 reason=reason,
-                created_by="compliance_api",  # TODO: Get from auth context
+                created_by=created_by,
                 case_reference=case_reference,
                 expires_at=expires_at,
             )
