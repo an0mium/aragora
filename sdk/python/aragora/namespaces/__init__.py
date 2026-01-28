@@ -21,6 +21,8 @@ from .billing import AsyncBillingAPI, BillingAPI
 from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .code_review import AsyncCodeReviewAPI, CodeReviewAPI
 from .codebase import AsyncCodebaseAPI, CodebaseAPI
+from .compliance import AsyncComplianceAPI, ComplianceAPI
+from .connectors import AsyncConnectorsAPI, ConnectorsAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .cost_management import AsyncCostManagementAPI, CostManagementAPI
@@ -32,6 +34,7 @@ from .decisions import AsyncDecisionsAPI, DecisionsAPI
 from .deliberations import AsyncDeliberationsAPI, DeliberationsAPI
 from .devices import AsyncDevicesAPI, DevicesAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
+from .email_services import AsyncEmailServicesAPI, EmailServicesAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .feedback import AsyncFeedbackAPI, FeedbackAPI
@@ -111,6 +114,10 @@ __all__ = [
     "AsyncCodeReviewAPI",
     "CodebaseAPI",
     "AsyncCodebaseAPI",
+    "ComplianceAPI",
+    "AsyncComplianceAPI",
+    "ConnectorsAPI",
+    "AsyncConnectorsAPI",
     "ConsensusAPI",
     "AsyncConsensusAPI",
     "ControlPlaneAPI",
@@ -133,6 +140,8 @@ __all__ = [
     "AsyncDevicesAPI",
     "DocumentsAPI",
     "AsyncDocumentsAPI",
+    "EmailServicesAPI",
+    "AsyncEmailServicesAPI",
     "ExpensesAPI",
     "AsyncExpensesAPI",
     "ExplainabilityAPI",

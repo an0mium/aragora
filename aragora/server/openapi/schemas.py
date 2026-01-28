@@ -2361,6 +2361,70 @@ COMMON_SCHEMAS: dict[str, Any] = {
             "total": {"type": "integer"},
         },
     },
+    "UnifiedCampaign": {
+        "type": "object",
+        "description": "Unified campaign representation across advertising platforms",
+        "properties": {
+            "id": {
+                "type": "string",
+                "description": "Platform-specific campaign ID",
+            },
+            "platform": {
+                "type": "string",
+                "description": "Advertising platform name",
+                "enum": ["google_ads", "meta_ads", "linkedin_ads", "microsoft_ads"],
+            },
+            "name": {
+                "type": "string",
+                "description": "Campaign name",
+            },
+            "status": {
+                "type": "string",
+                "description": "Campaign status",
+                "enum": ["ENABLED", "PAUSED", "REMOVED"],
+            },
+            "objective": {
+                "type": "string",
+                "description": "Campaign objective/goal",
+                "nullable": True,
+            },
+            "daily_budget": {
+                "type": "number",
+                "description": "Daily budget in account currency",
+                "nullable": True,
+            },
+            "total_budget": {
+                "type": "number",
+                "description": "Total campaign budget",
+                "nullable": True,
+            },
+            "start_date": {
+                "type": "string",
+                "format": "date",
+                "description": "Campaign start date",
+                "nullable": True,
+            },
+            "end_date": {
+                "type": "string",
+                "format": "date",
+                "description": "Campaign end date",
+                "nullable": True,
+            },
+            "created_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the campaign was created",
+                "nullable": True,
+            },
+            "updated_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the campaign was last updated",
+                "nullable": True,
+            },
+        },
+        "required": ["id", "platform", "name", "status"],
+    },
 }
 
 

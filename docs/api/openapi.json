@@ -44999,21 +44999,21 @@
       },
       "UnifiedCampaign": {
         "type": "object",
-        "description": "Unified campaign format across all advertising platforms",
+        "description": "Unified campaign representation across advertising platforms",
         "properties": {
           "id": {
             "type": "string",
-            "description": "Campaign ID (platform-specific)"
+            "description": "Platform-specific campaign ID"
           },
           "platform": {
             "type": "string",
+            "description": "Advertising platform name",
             "enum": [
               "google_ads",
               "meta_ads",
               "linkedin_ads",
               "microsoft_ads"
-            ],
-            "description": "Advertising platform"
+            ]
           },
           "name": {
             "type": "string",
@@ -45021,61 +45021,58 @@
           },
           "status": {
             "type": "string",
-            "description": "Campaign status"
+            "description": "Campaign status",
+            "enum": [
+              "ENABLED",
+              "PAUSED",
+              "REMOVED"
+            ]
           },
           "objective": {
             "type": "string",
-            "description": "Campaign objective/type"
+            "description": "Campaign objective/goal",
+            "nullable": true
           },
           "daily_budget": {
             "type": "number",
-            "nullable": true,
-            "description": "Daily budget amount"
+            "description": "Daily budget in account currency",
+            "nullable": true
           },
           "total_budget": {
             "type": "number",
-            "nullable": true,
-            "description": "Total/lifetime budget amount"
+            "description": "Total campaign budget",
+            "nullable": true
           },
           "start_date": {
             "type": "string",
             "format": "date",
-            "nullable": true,
-            "description": "Campaign start date (ISO format)"
+            "description": "Campaign start date",
+            "nullable": true
           },
           "end_date": {
             "type": "string",
             "format": "date",
-            "nullable": true,
-            "description": "Campaign end date (ISO format)"
+            "description": "Campaign end date",
+            "nullable": true
           },
-          "bidding_strategy": {
+          "created_at": {
             "type": "string",
-            "nullable": true,
-            "description": "Bidding strategy (Google Ads)"
+            "format": "date-time",
+            "description": "When the campaign was created",
+            "nullable": true
           },
-          "spend_cap": {
-            "type": "number",
-            "nullable": true,
-            "description": "Spend cap (Meta Ads)"
-          },
-          "bidding_scheme": {
+          "updated_at": {
             "type": "string",
-            "nullable": true,
-            "description": "Bidding scheme (Microsoft Ads)"
-          },
-          "audience_expansion_enabled": {
-            "type": "boolean",
-            "nullable": true,
-            "description": "Audience expansion enabled (LinkedIn Ads)"
+            "format": "date-time",
+            "description": "When the campaign was last updated",
+            "nullable": true
           }
         },
         "required": [
           "id",
           "platform",
           "name",
-          "status",
-          "objective"
+          "status"
         ]
       }
     },

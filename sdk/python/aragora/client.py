@@ -97,6 +97,8 @@ class AragoraClient:
         from .namespaces.budgets import BudgetsAPI
         from .namespaces.code_review import CodeReviewAPI
         from .namespaces.codebase import CodebaseAPI
+        from .namespaces.compliance import ComplianceAPI
+        from .namespaces.connectors import ConnectorsAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.control_plane import ControlPlaneAPI
         from .namespaces.cost_management import CostManagementAPI
@@ -108,6 +110,7 @@ class AragoraClient:
         from .namespaces.deliberations import DeliberationsAPI
         from .namespaces.devices import DevicesAPI
         from .namespaces.documents import DocumentsAPI
+        from .namespaces.email_services import EmailServicesAPI
         from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.feedback import FeedbackAPI
@@ -169,6 +172,8 @@ class AragoraClient:
         self.budgets = BudgetsAPI(self)
         self.code_review = CodeReviewAPI(self)
         self.codebase = CodebaseAPI(self)
+        self.compliance = ComplianceAPI(self)
+        self.connectors = ConnectorsAPI(self)
         self.consensus = ConsensusAPI(self)
         self.control_plane = ControlPlaneAPI(self)
         self.cost_management = CostManagementAPI(self)
@@ -180,6 +185,7 @@ class AragoraClient:
         self.deliberations = DeliberationsAPI(self)
         self.devices = DevicesAPI(self)
         self.documents = DocumentsAPI(self)
+        self.email_services = EmailServicesAPI(self)
         self.expenses = ExpensesAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.feedback = FeedbackAPI(self)
@@ -416,6 +422,8 @@ class AragoraAsyncClient:
         from .namespaces.budgets import AsyncBudgetsAPI
         from .namespaces.code_review import AsyncCodeReviewAPI
         from .namespaces.codebase import AsyncCodebaseAPI
+        from .namespaces.compliance import AsyncComplianceAPI
+        from .namespaces.connectors import AsyncConnectorsAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.control_plane import AsyncControlPlaneAPI
         from .namespaces.cost_management import AsyncCostManagementAPI
@@ -427,6 +435,7 @@ class AragoraAsyncClient:
         from .namespaces.deliberations import AsyncDeliberationsAPI
         from .namespaces.devices import AsyncDevicesAPI
         from .namespaces.documents import AsyncDocumentsAPI
+        from .namespaces.email_services import AsyncEmailServicesAPI
         from .namespaces.expenses import AsyncExpensesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.feedback import AsyncFeedbackAPI
@@ -488,6 +497,8 @@ class AragoraAsyncClient:
         self.budgets = AsyncBudgetsAPI(self)
         self.code_review = AsyncCodeReviewAPI(self)
         self.codebase = AsyncCodebaseAPI(self)
+        self.compliance = AsyncComplianceAPI(self)
+        self.connectors = AsyncConnectorsAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.control_plane = AsyncControlPlaneAPI(self)
         self.cost_management = AsyncCostManagementAPI(self)
@@ -499,6 +510,7 @@ class AragoraAsyncClient:
         self.deliberations = AsyncDeliberationsAPI(self)
         self.devices = AsyncDevicesAPI(self)
         self.documents = AsyncDocumentsAPI(self)
+        self.email_services = AsyncEmailServicesAPI(self)
         self.expenses = AsyncExpensesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
         self.feedback = AsyncFeedbackAPI(self)

@@ -5,6 +5,7 @@ Handles:
 - Authorization URL generation for Apple consent screen
 - Token exchange with Apple (using JWT client authentication)
 - User info extraction from ID token
+- ID token signature verification using Apple's JWKS
 """
 
 from __future__ import annotations
@@ -12,8 +13,9 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from aragora.server.handlers.oauth_providers.base import (
     OAuthProvider,
@@ -25,6 +27,9 @@ from aragora.server.handlers.oauth_providers.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# JWKS cache TTL (24 hours)
+JWKS_CACHE_TTL = 86400
 
 # Apple OAuth endpoints
 APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
@@ -54,6 +59,11 @@ class AppleOAuthProvider(OAuthProvider):
     """
 
     PROVIDER_NAME = "apple"
+
+    # Class-level JWKS cache (shared across instances)
+    _jwks_cache: ClassVar[Optional[Dict[str, Any]]] = None
+    _jwks_cache_expiry: ClassVar[float] = 0
+    _jwks_lock: ClassVar[threading.Lock] = threading.Lock()
 
     def _load_config_from_env(self) -> OAuthProviderConfig:
         """Load Apple OAuth configuration from environment."""
@@ -290,19 +300,191 @@ class AppleOAuthProvider(OAuthProvider):
 
         return self.get_user_info_from_id_token(tokens.id_token, user_data)
 
-    def _decode_id_token(self, id_token: str) -> Dict[str, Any]:
+    def _fetch_apple_jwks(self) -> Dict[str, Any]:
         """
-        Decode Apple ID token claims without verification.
+        Fetch Apple's public keys from JWKS endpoint with caching.
 
-        For production, you should verify the token signature using
-        Apple's public keys from APPLE_KEYS_URL.
+        Returns:
+            JWKS dictionary with public keys
+
+        Raises:
+            RuntimeError: If unable to fetch keys
+        """
+        now = time.time()
+
+        # Check cache with thread safety
+        with AppleOAuthProvider._jwks_lock:
+            if (
+                AppleOAuthProvider._jwks_cache is not None
+                and now < AppleOAuthProvider._jwks_cache_expiry
+            ):
+                return AppleOAuthProvider._jwks_cache
+
+        # Fetch fresh keys outside the lock
+        try:
+            client = self._get_http_client()
+            response = client.get(APPLE_KEYS_URL)
+            response.raise_for_status()
+            jwks = response.json()
+
+            # Update cache with lock
+            with AppleOAuthProvider._jwks_lock:
+                AppleOAuthProvider._jwks_cache = jwks
+                AppleOAuthProvider._jwks_cache_expiry = now + JWKS_CACHE_TTL
+
+            logger.debug("[apple] Refreshed JWKS cache with %d keys", len(jwks.get("keys", [])))
+            return jwks
+
+        except Exception as e:
+            logger.error("[apple] Failed to fetch JWKS: %s", e)
+            # Return cached keys if available, even if expired
+            if AppleOAuthProvider._jwks_cache is not None:
+                logger.warning("[apple] Using expired JWKS cache as fallback")
+                return AppleOAuthProvider._jwks_cache
+            raise RuntimeError(f"Unable to fetch Apple JWKS: {e}") from e
+
+    def _get_signing_key(self, id_token: str) -> Tuple[Any, str]:
+        """
+        Get the signing key for verifying an ID token.
+
+        Args:
+            id_token: The ID token to get the key for
+
+        Returns:
+            Tuple of (key, algorithm) for verification
+
+        Raises:
+            ValueError: If key not found or token invalid
+        """
+        try:
+            import jwt
+        except ImportError:
+            raise ImportError("PyJWT is required for Apple Sign In: pip install pyjwt")
+
+        # Get the key ID from token header
+        try:
+            unverified_header = jwt.get_unverified_header(id_token)
+        except jwt.exceptions.DecodeError as e:
+            raise ValueError(f"Invalid ID token format: {e}") from e
+
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise ValueError("No 'kid' in ID token header")
+
+        alg = unverified_header.get("alg", "RS256")
+
+        # Find matching key in JWKS
+        jwks = self._fetch_apple_jwks()
+        keys = jwks.get("keys", [])
+
+        for key_data in keys:
+            if key_data.get("kid") == kid:
+                # Convert JWK to key object
+                _ = APPLE_KEYS_URL  # URL used for key lookup
+                # Use cached JWKS data to create key
+                from jwt import PyJWK
+
+                signing_key = PyJWK.from_dict(key_data)
+                return signing_key.key, alg
+
+        raise ValueError(f"No matching key found for kid: {kid}")
+
+    def _verify_id_token(
+        self,
+        id_token: str,
+        nonce: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Verify Apple ID token signature and validate claims.
+
+        This method:
+        1. Fetches Apple's public keys (JWKS) with caching
+        2. Verifies the token signature
+        3. Validates required claims (iss, aud, exp, iat)
+        4. Optionally validates nonce
+
+        Args:
+            id_token: The ID token to verify
+            nonce: Optional nonce to validate (if provided during authorization)
+
+        Returns:
+            Verified token claims
+
+        Raises:
+            ValueError: If verification fails
+        """
+        try:
+            import jwt
+        except ImportError:
+            raise ImportError("PyJWT is required for Apple Sign In: pip install pyjwt")
+
+        # Get the signing key
+        key, algorithm = self._get_signing_key(id_token)
+
+        # Verify and decode
+        try:
+            claims = jwt.decode(
+                id_token,
+                key,
+                algorithms=[algorithm],
+                audience=self._config.client_id,
+                issuer="https://appleid.apple.com",
+                options={
+                    "verify_signature": True,
+                    "verify_exp": True,
+                    "verify_iat": True,
+                    "verify_aud": True,
+                    "verify_iss": True,
+                    "require": ["sub", "iss", "aud", "exp", "iat"],
+                },
+            )
+        except jwt.ExpiredSignatureError:
+            raise ValueError("ID token has expired")
+        except jwt.InvalidAudienceError:
+            raise ValueError("ID token audience does not match client_id")
+        except jwt.InvalidIssuerError:
+            raise ValueError("ID token issuer is not Apple")
+        except jwt.InvalidSignatureError:
+            raise ValueError("ID token signature verification failed")
+        except jwt.DecodeError as e:
+            raise ValueError(f"Failed to decode ID token: {e}")
+
+        # Validate nonce if provided
+        if nonce is not None:
+            token_nonce = claims.get("nonce")
+            if token_nonce != nonce:
+                raise ValueError("ID token nonce does not match")
+
+        return claims
+
+    def _decode_id_token(
+        self,
+        id_token: str,
+        verify: bool = True,
+        nonce: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Decode and optionally verify Apple ID token claims.
+
+        By default, verifies the token signature using Apple's public keys
+        from APPLE_KEYS_URL with caching.
 
         Args:
             id_token: ID token to decode
+            verify: Whether to verify signature (default True, recommended)
+            nonce: Optional nonce to validate
 
         Returns:
             Token claims
+
+        Raises:
+            ValueError: If token is invalid or verification fails
         """
+        if verify:
+            return self._verify_id_token(id_token, nonce)
+
+        # Fallback to unverified decode (for testing or edge cases)
+        logger.warning("[apple] Decoding ID token without verification - not recommended!")
         parts = id_token.split(".")
         if len(parts) != 3:
             raise ValueError("Invalid ID token format")
