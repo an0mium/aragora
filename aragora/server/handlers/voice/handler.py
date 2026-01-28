@@ -145,6 +145,15 @@ class VoiceHandler:
 
         params = await self._get_post_params(request)
 
+        # Verify Twilio signature
+        if not await self._verify_signature(request, params):
+            logger.warning("Unauthorized voice webhook request - invalid signature")
+            return web.Response(
+                text='<?xml version="1.0"?><Response><Say>Unauthorized.</Say></Response>',
+                status=401,
+                content_type=TWIML_CONTENT_TYPE,
+            )
+
         call_sid = params.get("CallSid", "")
         caller = params.get("From", "")
         called = params.get("To", "")
@@ -184,6 +193,15 @@ class VoiceHandler:
             )
 
         params = await self._get_post_params(request)
+
+        # Verify Twilio signature
+        if not await self._verify_signature(request, params):
+            logger.warning("Unauthorized gather webhook request - invalid signature")
+            return web.Response(
+                text='<?xml version="1.0"?><Response><Say>Unauthorized.</Say></Response>',
+                status=401,
+                content_type=TWIML_CONTENT_TYPE,
+            )
 
         call_sid = params.get("CallSid", "")
         speech_result = params.get("SpeechResult", "")

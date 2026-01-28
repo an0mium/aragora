@@ -11,6 +11,9 @@ import type {
   PaginationParams,
 } from '../types';
 
+// Re-export types from ../types for convenience
+export type { DecisionReceipt, GauntletReceiptExport } from '../types';
+
 /**
  * Receipt statistics response.
  */
