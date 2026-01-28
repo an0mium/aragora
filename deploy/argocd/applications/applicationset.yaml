@@ -1,0 +1,174 @@
+# ArgoCD ApplicationSet for Multi-Region Aragora Deployment
+# Automatically creates Application resources for each region/environment
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: aragora-multi-region
+  namespace: argocd
+spec:
+  # Generate Applications for each region
+  generators:
+    - list:
+        elements:
+          # US East (Primary)
+          - region: us-east-2
+            cluster: aragora-us-east-2
+            clusterUrl: https://us-east-2.aragora.k8s.local
+            replicaCount: "3"
+            isPrimary: "true"
+
+          # EU West (Secondary)
+          - region: eu-west-1
+            cluster: aragora-eu-west-1
+            clusterUrl: https://eu-west-1.aragora.k8s.local
+            replicaCount: "2"
+            isPrimary: "false"
+
+          # Asia Pacific (Secondary)
+          - region: ap-south-1
+            cluster: aragora-ap-south-1
+            clusterUrl: https://ap-south-1.aragora.k8s.local
+            replicaCount: "2"
+            isPrimary: "false"
+
+  # Template for each Application
+  template:
+    metadata:
+      name: 'aragora-{{region}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: aragora
+        app.kubernetes.io/instance: '{{region}}'
+        aragora.ai/region: '{{region}}'
+        aragora.ai/primary: '{{isPrimary}}'
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: .
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: aragora-deployments
+        notifications.argoproj.io/subscribe.on-sync-failed.slack: aragora-alerts
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: aragora
+
+      # Source repository
+      source:
+        repoURL: https://github.com/an0mium/aragora
+        targetRevision: main
+        path: deploy/helm/aragora
+        helm:
+          releaseName: 'aragora-{{region}}'
+          valueFiles:
+            - values.yaml
+            - 'values-{{region}}.yaml'
+          parameters:
+            - name: replicaCount
+              value: '{{replicaCount}}'
+            - name: region
+              value: '{{region}}'
+
+      # Destination cluster
+      destination:
+        server: '{{clusterUrl}}'
+        namespace: aragora
+
+      # Sync policy
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      # Health checks
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas  # Ignore replica count (managed by HPA)
+        - group: autoscaling
+          kind: HorizontalPodAutoscaler
+          jsonPointers:
+            - /spec/minReplicas
+            - /spec/maxReplicas
+
+      # Revision history limit
+      revisionHistoryLimit: 10
+
+---
+# Staging ApplicationSet (separate for safety)
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: aragora-staging
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - environment: staging
+            cluster: aragora-staging
+            clusterUrl: https://staging.aragora.k8s.local
+            replicaCount: "1"
+            branch: develop
+
+  template:
+    metadata:
+      name: 'aragora-{{environment}}'
+      namespace: argocd
+      labels:
+        app.kubernetes.io/name: aragora
+        app.kubernetes.io/instance: '{{environment}}'
+        aragora.ai/environment: '{{environment}}'
+      annotations:
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: aragora-staging
+        notifications.argoproj.io/subscribe.on-sync-failed.slack: aragora-staging
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: aragora-staging
+
+      source:
+        repoURL: https://github.com/an0mium/aragora
+        targetRevision: '{{branch}}'
+        path: deploy/helm/aragora
+        helm:
+          releaseName: 'aragora-{{environment}}'
+          valueFiles:
+            - values.yaml
+            - values-staging.yaml
+          parameters:
+            - name: replicaCount
+              value: '{{replicaCount}}'
+            - name: environment
+              value: '{{environment}}'
+
+      destination:
+        server: '{{clusterUrl}}'
+        namespace: aragora-staging
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 1m
+
+      revisionHistoryLimit: 5

@@ -1,0 +1,192 @@
+# ArgoCD Helm Values for Aragora GitOps
+# Install: helm install argocd argo/argo-cd -n argocd --create-namespace -f values.yaml
+
+global:
+  # Use cluster admin for multi-cluster management
+  clusterAdminEnabled: true
+
+# Server configuration
+server:
+  # Enable insecure mode for internal traffic (TLS terminated at ingress)
+  extraArgs:
+    - --insecure
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Ingress configuration
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    hosts:
+      - argocd.aragora.ai
+    tls:
+      - secretName: argocd-tls
+        hosts:
+          - argocd.aragora.ai
+
+  # Metrics for Prometheus
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+
+# Controller configuration
+controller:
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+
+# Repo server (pulls from git)
+repoServer:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# Application Set controller (multi-region)
+applicationSet:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+# Notifications controller
+notifications:
+  enabled: true
+
+  # Slack notifications
+  notifiers:
+    service.slack: |
+      token: $slack-token
+
+  # Notification templates
+  templates:
+    template.app-deployed: |
+      message: |
+        {{if eq .serviceType "slack"}}:white_check_mark:{{end}} Application *{{.app.metadata.name}}* is now running new version.
+      slack:
+        attachments: |
+          [{
+            "title": "{{.app.metadata.name}}",
+            "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+            "color": "#18be52",
+            "fields": [
+              {"title": "Sync Status", "value": "{{.app.status.sync.status}}", "short": true},
+              {"title": "Repository", "value": "{{.app.spec.source.repoURL}}", "short": true},
+              {"title": "Revision", "value": "{{.app.status.sync.revision}}", "short": true}
+            ]
+          }]
+
+    template.app-sync-failed: |
+      message: |
+        {{if eq .serviceType "slack"}}:x:{{end}} Application *{{.app.metadata.name}}* sync failed.
+      slack:
+        attachments: |
+          [{
+            "title": "{{.app.metadata.name}}",
+            "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+            "color": "#E96D76",
+            "fields": [
+              {"title": "Sync Status", "value": "{{.app.status.sync.status}}", "short": true},
+              {"title": "Message", "value": "{{.app.status.operationState.message}}", "short": false}
+            ]
+          }]
+
+  # Trigger definitions
+  triggers:
+    trigger.on-deployed: |
+      - description: Application is synced and healthy
+        send:
+        - app-deployed
+        when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+
+    trigger.on-sync-failed: |
+      - description: Application sync has failed
+        send:
+        - app-sync-failed
+        when: app.status.operationState.phase in ['Error', 'Failed']
+
+# RBAC configuration
+configs:
+  # Repository credentials
+  repositories:
+    aragora:
+      url: https://github.com/an0mium/aragora
+      type: git
+      # Use deploy key or GitHub App for authentication
+      # sshPrivateKey: $repository-ssh-key
+
+  # RBAC policies
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      # Admin role for full access
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      p, role:admin, projects, *, *, allow
+
+      # Developer role for view and sync
+      p, role:developer, applications, get, */*, allow
+      p, role:developer, applications, sync, */*, allow
+      p, role:developer, applications, action/*, */*, allow
+      p, role:developer, logs, get, */*, allow
+
+      # Group mappings
+      g, aragora-admins, role:admin
+      g, aragora-developers, role:developer
+
+  # Secret management
+  secret:
+    # GitHub app integration for repo access
+    # githubAppID: ""
+    # githubAppInstallationID: ""
+    # githubAppPrivateKey: ""
+
+    # Slack token for notifications
+    extra:
+      slack-token: ""  # Set via kubectl create secret
+
+# High availability (production)
+ha:
+  enabled: false  # Enable for production HA setup
+
+# Redis for caching (optional, uses built-in by default)
+redis:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi

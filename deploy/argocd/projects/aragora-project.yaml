@@ -1,0 +1,186 @@
+# ArgoCD AppProject for Aragora Production
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aragora
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Aragora Production Multi-Region Deployment
+
+  # Source repositories
+  sourceRepos:
+    - https://github.com/an0mium/aragora
+    - https://charts.bitnami.com/bitnami  # For dependencies
+
+  # Destination clusters and namespaces
+  destinations:
+    # US East (Primary)
+    - server: https://us-east-2.aragora.k8s.local
+      namespace: aragora
+      name: aragora-us-east-2
+
+    # EU West
+    - server: https://eu-west-1.aragora.k8s.local
+      namespace: aragora
+      name: aragora-eu-west-1
+
+    # Asia Pacific
+    - server: https://ap-south-1.aragora.k8s.local
+      namespace: aragora
+      name: aragora-ap-south-1
+
+    # In-cluster (for testing)
+    - server: https://kubernetes.default.svc
+      namespace: aragora
+
+  # Allowed cluster-scoped resources
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: networking.k8s.io
+      kind: IngressClass
+    - group: cert-manager.io
+      kind: ClusterIssuer
+
+  # Allowed namespace-scoped resources
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+    - group: batch
+      kind: '*'
+    - group: networking.k8s.io
+      kind: '*'
+    - group: autoscaling
+      kind: '*'
+    - group: policy
+      kind: '*'
+    - group: monitoring.coreos.com
+      kind: '*'
+    - group: external-secrets.io
+      kind: '*'
+
+  # Denied resources (security)
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota  # Managed by cluster admins
+    - group: ''
+      kind: LimitRange     # Managed by cluster admins
+
+  # Sync windows (maintenance windows)
+  syncWindows:
+    # Allow syncs during business hours (UTC)
+    - kind: allow
+      schedule: '0 6-22 * * 1-5'  # Mon-Fri 6am-10pm UTC
+      duration: 16h
+      applications:
+        - '*'
+      manualSync: true
+
+    # Block syncs during critical periods
+    - kind: deny
+      schedule: '0 0 25 12 *'  # Christmas
+      duration: 24h
+      applications:
+        - '*'
+      manualSync: false
+
+  # Orphaned resources monitoring
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ''
+        kind: ConfigMap
+        name: kube-root-ca.crt
+
+  # RBAC roles within project
+  roles:
+    # Admin role - full access
+    - name: admin
+      description: Full admin access to Aragora production
+      policies:
+        - p, proj:aragora:admin, applications, *, aragora/*, allow
+        - p, proj:aragora:admin, repositories, *, aragora/*, allow
+        - p, proj:aragora:admin, clusters, *, aragora/*, allow
+        - p, proj:aragora:admin, logs, *, aragora/*, allow
+      groups:
+        - aragora-admins
+
+    # Developer role - view and sync
+    - name: developer
+      description: View and sync access
+      policies:
+        - p, proj:aragora:developer, applications, get, aragora/*, allow
+        - p, proj:aragora:developer, applications, sync, aragora/*, allow
+        - p, proj:aragora:developer, applications, action/*, aragora/*, allow
+        - p, proj:aragora:developer, logs, get, aragora/*, allow
+      groups:
+        - aragora-developers
+
+    # Viewer role - read only
+    - name: viewer
+      description: Read-only access
+      policies:
+        - p, proj:aragora:viewer, applications, get, aragora/*, allow
+        - p, proj:aragora:viewer, logs, get, aragora/*, allow
+      groups:
+        - aragora-viewers
+
+---
+# ArgoCD AppProject for Aragora Staging
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aragora-staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Aragora Staging Environment
+
+  sourceRepos:
+    - https://github.com/an0mium/aragora
+
+  destinations:
+    - server: https://staging.aragora.k8s.local
+      namespace: aragora-staging
+      name: aragora-staging
+    - server: https://kubernetes.default.svc
+      namespace: aragora-staging
+
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  # More permissive sync windows for staging
+  syncWindows:
+    - kind: allow
+      schedule: '* * * * *'  # Always allow
+      duration: 24h
+      applications:
+        - '*'
+      manualSync: true
+
+  orphanedResources:
+    warn: true
+
+  roles:
+    - name: developer
+      description: Full developer access to staging
+      policies:
+        - p, proj:aragora-staging:developer, applications, *, aragora-staging/*, allow
+        - p, proj:aragora-staging:developer, logs, *, aragora-staging/*, allow
+      groups:
+        - aragora-developers
+        - aragora-admins
