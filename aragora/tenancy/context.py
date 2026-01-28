@@ -257,8 +257,8 @@ def tenant_required(func: F) -> F:
         return await func(*args, **kwargs)
 
     if asyncio.iscoroutinefunction(func):
-        return async_wrapper  # type: ignore
-    return wrapper  # type: ignore
+        return async_wrapper  # type: ignore[return-value]
+    return wrapper  # type: ignore[return-value]
 
 
 def for_tenant(tenant_id: str) -> Callable[[F], F]:
@@ -283,8 +283,8 @@ def for_tenant(tenant_id: str) -> Callable[[F], F]:
                 return await func(*args, **kwargs)
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return wrapper  # type: ignore[return-value]
 
     return decorator
 
