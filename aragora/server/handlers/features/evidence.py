@@ -47,6 +47,7 @@ from aragora.server.validation.security import (
 )
 from aragora.server.validation.entities import validate_id
 from aragora.server.handlers.utils.responses import HandlerResult
+from aragora.resilience_patterns import with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -427,6 +428,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             }
         )
 
+    @with_timeout(45.0)
     async def _handle_collect(self, body: dict) -> HandlerResult:
         """Handle POST /api/evidence/collect - collect evidence for topic."""
         task = body.get("task", "").strip()
