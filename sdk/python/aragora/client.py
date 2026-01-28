@@ -103,6 +103,7 @@ class AragoraClient:
         from .namespaces.verification import VerificationAPI
         from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflows import WorkflowsAPI
+        from .namespaces.workspaces import WorkspacesAPI
 
         self.admin = AdminAPI(self)
         self.agents = AgentsAPI(self)
@@ -127,6 +128,7 @@ class AragoraClient:
         self.verification = VerificationAPI(self)
         self.webhooks = WebhooksAPI(self)
         self.workflows = WorkflowsAPI(self)
+        self.workspaces = WorkspacesAPI(self)
 
     def request(
         self,
