@@ -700,3 +700,144 @@ export {
   type PurchaseOrder,
   type CreatePORequest,
 } from './invoice-processing';
+
+// Skills
+export {
+  SkillsAPI,
+  type SkillCapability,
+  type SkillStatus,
+  type SkillManifest,
+  type SkillDetails,
+  type SkillMetrics,
+  type InvokeSkillRequest,
+  type InvokeSkillResult,
+} from './skills';
+
+// Usage Metering
+export {
+  UsageMeteringAPI,
+  type UsagePeriod,
+  type BillingTier,
+  type UsageExportFormat,
+  type TokenUsage,
+  type UsageCounts,
+  type UsageSummary,
+  type ModelUsage,
+  type ProviderUsage,
+  type DailyUsage,
+  type UserUsage,
+  type UsageBreakdown,
+  type UsageLimits,
+  type QuotaPeriod,
+  type QuotaStatus,
+  type QuotasResponse,
+  type UsageBreakdownOptions,
+  type UsageExportOptions,
+} from './usage-metering';
+
+// Transcription
+export {
+  TranscriptionAPI,
+  type TranscriptionStatus,
+  type TranscriptionBackend,
+  type WhisperModel,
+  type TranscriptionConfig,
+  type TranscriptionFormats,
+  type TranscriptionSegment,
+  type TranscriptionResult,
+  type TranscriptionJob,
+  type JobStatusResponse,
+  type SegmentsResponse,
+  type YouTubeVideoInfo,
+  type TranscriptionOptions,
+  type YouTubeTranscriptionOptions,
+  type UploadResponse,
+} from './transcription';
+
+// Email Services (Follow-up, Snooze, Category Learning)
+export {
+  EmailServicesAPI,
+  type FollowUpStatus,
+  type FollowUpPriority,
+  type SnoozeReason,
+  type EmailServiceCategory,
+  type FollowUpItem,
+  type MarkFollowUpRequest,
+  type PendingFollowUpsOptions,
+  type PendingFollowUpsResponse,
+  type ResolveFollowUpRequest,
+  type ResolveFollowUpResponse,
+  type CheckRepliesResponse,
+  type AutoDetectResponse,
+  type SnoozeSuggestion,
+  type SnoozeSuggestionsOptions,
+  type SnoozeSuggestionsResponse,
+  type SnoozeEmailResponse,
+  type SnoozedEmail,
+  type SnoozedEmailsResponse,
+  type ProcessDueSnoozesResponse,
+  type CategoryInfo,
+  type CategoryFeedbackRequest,
+  type CategoryFeedbackResponse,
+} from './email-services';
+
+// Persona (Agent Identity Management)
+export {
+  PersonaAPI,
+  type PersonaTrait,
+  type ExpertiseDomain,
+  type IdentitySection,
+  type Persona,
+  type GroundedPersona,
+  type PersonaOptions,
+  type PerformanceSummary,
+  type DomainExpertise,
+  type PositionAccuracy,
+  type IdentityPrompt,
+  type CreatePersonaRequest,
+  type UpdatePersonaRequest,
+} from './persona';
+
+// Verticals (Domain Specialists)
+export {
+  VerticalsAPI,
+  type VerticalId,
+  type ComplianceLevel,
+  type ModelConfig,
+  type ToolConfig,
+  type ComplianceRule,
+  type ComplianceFramework,
+  type VerticalSummary,
+  type VerticalDetails,
+  type VerticalSuggestion,
+  type CreateVerticalAgentRequest,
+  type CreateVerticalAgentResponse,
+  type CreateVerticalDebateRequest,
+  type CreateVerticalDebateResponse,
+  type UpdateVerticalConfigRequest,
+} from './verticals';
+
+// Routing (Team Selection & Rules)
+export {
+  RoutingAPI,
+  type ConditionOperator,
+  type ActionType,
+  type MatchMode,
+  type AgentRecommendation,
+  type TeamComposition,
+  type DomainDetection,
+  type DomainLeaderboardEntry,
+  type RuleCondition,
+  type RuleAction,
+  type RoutingRule,
+  type RuleEvaluationResult,
+  type RuleTemplate,
+  type BestTeamsOptions,
+  type RecommendationsRequest,
+  type AutoRouteRequest,
+  type AutoRouteResponse,
+  type CreateRuleRequest as CreateRoutingRuleRequest,
+  type UpdateRuleRequest as UpdateRoutingRuleRequest,
+  type ListRulesOptions,
+  type EvaluateRulesRequest,
+} from './routing';
