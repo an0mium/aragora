@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
+
 if TYPE_CHECKING:
     from aragora.knowledge.unified.types import KnowledgeItem
     from aragora.evidence.store import EvidenceStore
@@ -31,8 +33,6 @@ if TYPE_CHECKING:
 EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
-
-# Import mixin for semantic search functionality
 
 # Try to import SLO metrics
 try:
@@ -340,115 +340,6 @@ class EvidenceAdapter(SemanticSearchMixin):
         except Exception as e:
             logger.error(f"Similar evidence search failed: {e}")
             raise EvidenceAdapterError(f"Similar search failed: {e}") from e
-
-    async def semantic_search(
-        self,
-        query: str,
-        limit: int = 10,
-        min_similarity: float = 0.6,
-        tenant_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
-        """
-        Semantic vector search over evidence items.
-
-        Uses the Knowledge Mound's SemanticStore for embedding-based similarity
-        search, falling back to keyword search if embeddings aren't available.
-
-        Args:
-            query: The search query
-            limit: Maximum results to return
-            min_similarity: Minimum similarity threshold (0.0-1.0)
-            tenant_id: Optional tenant filter
-
-        Returns:
-            List of matching evidence with similarity scores
-
-        Raises:
-            EvidenceStoreUnavailableError: If store is not configured
-            EvidenceAdapterError: If search fails
-        """
-        import time
-
-        start = time.time()
-        success = False
-
-        try:
-            # Try semantic search first
-            try:
-                from aragora.knowledge.mound.semantic_store import SemanticStore
-
-                # Get or create semantic store
-                store = SemanticStore()  # type: ignore[call-arg]
-
-                # Search using embeddings
-                results = await store.search_similar(  # type: ignore[call-arg]
-                    query=query,
-                    tenant_id=tenant_id or "default",
-                    limit=limit,
-                    min_similarity=min_similarity,
-                    source_type="evidence",
-                )
-
-                # Enrich results with full evidence items
-                enriched = []
-                for r in results:
-                    # Try to get the full evidence from store
-                    evidence_id = r.source_id
-                    if evidence_id.startswith("ev_"):
-                        evidence_id = evidence_id[3:]
-
-                    evidence = self.get(evidence_id)
-                    if evidence:
-                        evidence["similarity"] = r.similarity
-                        evidence["domain"] = r.domain
-                        enriched.append(evidence)
-                    else:
-                        # Evidence may not be in store
-                        enriched.append(
-                            {
-                                "id": r.source_id,
-                                "similarity": r.similarity,
-                                "domain": r.domain,
-                                "importance": r.importance,
-                                "metadata": r.metadata,
-                            }
-                        )
-
-                success = True
-                logger.debug(f"Semantic search returned {len(enriched)} results for '{query[:50]}'")
-
-                # Emit event
-                self._emit_event(
-                    "km_adapter_semantic_search",
-                    {
-                        "source": "evidence",
-                        "query_preview": query[:50],
-                        "results_count": len(enriched),
-                        "search_type": "vector",
-                    },
-                )
-
-                return enriched
-
-            except ImportError:
-                logger.debug("SemanticStore not available, falling back to keyword search")
-            except Exception as e:
-                logger.debug(f"Semantic search failed, falling back: {e}")
-
-            # Fallback to keyword search
-            results = self.search_similar(query, limit=limit, min_similarity=min_similarity)  # type: ignore[assignment]
-            success = True
-            return results  # type: ignore[return-value]
-
-        except EvidenceStoreUnavailableError:
-            raise
-        except EvidenceAdapterError:
-            raise
-        except Exception as e:
-            logger.error(f"Semantic evidence search failed: {e}")
-            raise EvidenceAdapterError(f"Semantic search failed: {e}") from e
-        finally:
-            self._record_metric("semantic_search", success, time.time() - start)
 
     def get(self, evidence_id: str) -> Optional[Dict[str, Any]]:
         """
