@@ -238,7 +238,20 @@ async def handle_signup(
             _cleanup_expired_tokens()
 
         # In production: send verification email
-        logger.info(f"Signup initiated for {email}, verification token: {verification_token}")
+        logger.info(f"Signup initiated for {email}")
+
+        # Audit logging (security-sensitive action)
+        try:
+            from aragora.audit.unified import audit_action
+
+            audit_action(
+                user_id="anonymous",
+                action="signup_initiated",
+                resource_type="user",
+                email=email,
+            )
+        except ImportError:
+            pass  # Audit not available
 
         return success_response(
             {
@@ -436,7 +449,21 @@ async def handle_setup_organization(
             "member_count": 1,
         }
 
-        logger.info(f"Organization created: {org_id} ({name}) by {user_id}")
+        logger.info(f"Organization created: {org_id}")
+
+        # Audit logging (admin action)
+        try:
+            from aragora.audit.unified import audit_admin
+
+            audit_admin(
+                admin_id=user_id,
+                action="organization_created",
+                target_type="organization",
+                target_id=org_id,
+                org_name=name,
+            )
+        except ImportError:
+            pass  # Audit not available
 
         return success_response(
             {

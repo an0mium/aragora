@@ -153,11 +153,11 @@ def auth_handler(user_store):
 
 
 @pytest.fixture
-def signup_handler(user_store):
-    """Create a SignupHandler with user store context."""
-    from aragora.server.handlers.auth.signup_handlers import SignupHandler
+def signup_handler():
+    """Get the signup handler function."""
+    from aragora.server.handlers.auth.signup_handlers import handle_signup
 
-    return SignupHandler({"user_store": user_store})
+    return handle_signup
 
 
 @pytest.fixture

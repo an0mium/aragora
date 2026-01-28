@@ -252,8 +252,13 @@ def with_retry(
     """
     Decorator for adding retry logic to async functions.
 
+    Supports:
+    - Configurable retry strategies (exponential, linear, constant)
+    - Per-attempt timeout enforcement
+    - Jitter to prevent thundering herd
+
     Usage:
-        @with_retry(RetryConfig(max_retries=3))
+        @with_retry(RetryConfig(max_retries=3, timeout_seconds=30.0))
         async def save_node(...):
             ...
     """
@@ -264,23 +269,38 @@ def with_retry(
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             last_exception: Optional[Exception] = None
+            total_attempts = config.max_retries + 1
 
-            for attempt in range(config.max_retries + 1):
+            for attempt in range(total_attempts):
                 try:
-                    return await func(*args, **kwargs)
+                    if config.timeout_seconds is not None:
+                        async with asyncio_timeout(config.timeout_seconds):
+                            return await func(*args, **kwargs)
+                    else:
+                        return await func(*args, **kwargs)
+                except asyncio.TimeoutError as e:
+                    last_exception = e
+                    if attempt < config.max_retries:
+                        delay = config.calculate_delay(attempt)
+                        logger.warning(
+                            f"Timeout in {func.__name__} (attempt {attempt + 1}/{total_attempts}): "
+                            f"exceeded {config.timeout_seconds}s. Retrying in {delay:.2f}s"
+                        )
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.error(f"Max retries exceeded for {func.__name__} after timeout")
                 except config.retryable_exceptions as e:
                     last_exception = e
                     if attempt < config.max_retries:
                         delay = config.calculate_delay(attempt)
                         logger.warning(
-                            f"Retryable error in {func.__name__} (attempt {attempt + 1}/{config.max_retries + 1}): {e}. "
+                            f"Retryable error in {func.__name__} (attempt {attempt + 1}/{total_attempts}): {e}. "
                             f"Retrying in {delay:.2f}s"
                         )
                         await asyncio.sleep(delay)
                     else:
                         logger.error(f"Max retries exceeded for {func.__name__}: {e}")
 
-            # Should not reach here, but just in case
             if last_exception:
                 raise last_exception
             raise RuntimeError(f"Unexpected retry loop exit in {func.__name__}")
