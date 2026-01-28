@@ -233,9 +233,9 @@ class ConsensusAPI:
         Returns:
             List of SettledTopic objects
         """
-        params: dict = {"limit": limit, "min_confidence": min_confidence}
+        params: Dict[str, Any] = {"limit": limit, "min_confidence": min_confidence}
         if domain:
-            params["domain"] = domain  # type: ignore[assignment]
+            params["domain"] = domain
 
         response = self._client._get("/api/consensus/settled", params=params)
         topics = response.get("topics", [])
@@ -248,9 +248,9 @@ class ConsensusAPI:
         limit: int = 20,
     ) -> List[SettledTopic]:
         """Async version of get_settled."""
-        params: dict = {"limit": limit, "min_confidence": min_confidence}
+        params: Dict[str, Any] = {"limit": limit, "min_confidence": min_confidence}
         if domain:
-            params["domain"] = domain  # type: ignore[assignment]
+            params["domain"] = domain
 
         response = await self._client._get_async("/api/consensus/settled", params=params)
         topics = response.get("topics", [])

@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
-from ...base import HandlerResult
+from aragora.server.handlers.base import HandlerResult
 
 
 def slack_response(

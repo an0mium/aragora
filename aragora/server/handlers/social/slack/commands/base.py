@@ -9,8 +9,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List
 
-from ..utils.responses import slack_response, slack_blocks_response
-from ...base import HandlerResult
+from aragora.server.handlers.base import HandlerResult
+from aragora.server.handlers.social.slack.utils.responses import (
+    slack_response,
+    slack_blocks_response,
+)
 
 logger = logging.getLogger(__name__)
 

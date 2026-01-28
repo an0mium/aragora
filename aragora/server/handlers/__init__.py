@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from aragora.config.stability import Stability
 
-from .admin import AdminHandler
+from .admin import AdminHandler, SecurityHandler
 from .agents import AgentConfigHandler
 from .agents import AgentsHandler
 from .analytics import AnalyticsHandler
@@ -369,6 +369,7 @@ ALL_HANDLERS = [
     WebhookHandler,
     CodebaseAuditHandler,  # Codebase audit API
     AdminHandler,
+    SecurityHandler,  # Security administration API
     PolicyHandler,  # Policy and compliance management API
     PrivacyHandler,
     QueueHandler,  # Job queue management API
@@ -534,6 +535,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "EvidenceHandler": Stability.STABLE,  # Evidence collection and storage
     "WebhookHandler": Stability.STABLE,  # Webhook registration and delivery
     "AdminHandler": Stability.STABLE,  # Admin panel backend API
+    "SecurityHandler": Stability.STABLE,  # Security administration API
     "PolicyHandler": Stability.STABLE,  # Policy and compliance management - 44 tests
     "PrivacyHandler": Stability.STABLE,  # GDPR/CCPA data export and deletion
     "WorkspaceHandler": Stability.EXPERIMENTAL,  # Enterprise workspace/privacy management
@@ -754,6 +756,7 @@ __all__ = [
     "EvidenceHandler",
     "WebhookHandler",
     "AdminHandler",
+    "SecurityHandler",
     "PolicyHandler",
     "PrivacyHandler",
     "QueueHandler",

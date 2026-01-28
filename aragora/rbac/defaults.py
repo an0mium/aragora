@@ -1753,21 +1753,33 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
 
 # Add colon-formatted aliases for permissions that use colon notation in handlers
 # This ensures compatibility with both dot and colon formats
+# Note: Only replace the first dot (resource.action) to preserve sub-action dots
 _COLON_ALIASES: dict[str, Permission] = {}
 for _perm in SYSTEM_PERMISSIONS.values():
-    _colon_key = _perm.key.replace(".", ":")
-    if _colon_key != _perm.key:
-        _COLON_ALIASES[_colon_key] = _perm
+    _key = _perm.key
+    # Replace first dot with colon for resource:action format
+    if "." in _key:
+        _colon_key = _key.replace(".", ":", 1)
+        if _colon_key != _key:
+            _COLON_ALIASES[_colon_key] = _perm
+        # Also add fully colon-separated version for compatibility
+        _full_colon_key = _key.replace(".", ":")
+        if _full_colon_key != _key and _full_colon_key != _colon_key:
+            _COLON_ALIASES[_full_colon_key] = _perm
 
 # Merge colon aliases into SYSTEM_PERMISSIONS
 SYSTEM_PERMISSIONS.update(_COLON_ALIASES)
 
 # Add special aliases for controlplane (handlers use "controlplane:" without underscore)
-_CONTROLPLANE_ALIASES = {
-    k.replace("control_plane:", "controlplane:"): v
-    for k, v in SYSTEM_PERMISSIONS.items()
-    if k.startswith("control_plane:")
-}
+# Create aliases for all variations
+_CONTROLPLANE_ALIASES: dict[str, Permission] = {}
+for _key, _perm in list(SYSTEM_PERMISSIONS.items()):
+    if "control_plane" in _key:
+        # Create alias with no underscore
+        _alias_key = _key.replace("control_plane", "controlplane")
+        if _alias_key != _key:
+            _CONTROLPLANE_ALIASES[_alias_key] = _perm
+
 SYSTEM_PERMISSIONS.update(_CONTROLPLANE_ALIASES)
 
 

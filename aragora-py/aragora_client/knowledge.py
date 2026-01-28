@@ -7,6 +7,41 @@ from typing import Any
 from pydantic import BaseModel
 
 
+class KnowledgeEntry(BaseModel):
+    """Knowledge entry model (unified knowledge base)."""
+
+    id: str | None = None
+    content: str
+    source: str | None = None
+    source_type: str | None = None
+    metadata: dict[str, Any] | None = None
+    confidence: float | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    tags: list[str] | None = None
+
+
+class KnowledgeSearchResult(BaseModel):
+    """Knowledge search result model."""
+
+    id: str
+    content: str
+    score: float
+    source: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class KnowledgeStats(BaseModel):
+    """Knowledge stats model."""
+
+    total_entries: int = 0
+    total_facts: int = 0
+    sources: dict[str, int] = {}
+    categories: dict[str, int] = {}
+    avg_confidence: float = 0.0
+    last_updated: str | None = None
+
+
 class Fact(BaseModel):
     """Knowledge fact model."""
 
@@ -41,12 +76,14 @@ class KnowledgeAPI:
         *,
         workspace_id: str | None = None,
         limit: int = 10,
-    ) -> dict[str, Any]:
+    ) -> list[KnowledgeSearchResult]:
         """Search knowledge chunks via embeddings."""
-        params: dict[str, Any] = {"q": query, "limit": limit}
+        params: dict[str, Any] = {"query": query, "limit": limit}
         if workspace_id:
             params["workspace_id"] = workspace_id
-        return await self._client._get("/api/v1/knowledge/search", params=params)
+        data = await self._client._get("/api/v1/knowledge/search", params=params)
+        results = data.get("results", []) if isinstance(data, dict) else data
+        return [KnowledgeSearchResult.model_validate(item) for item in results]
 
     async def query(self, prompt: str) -> dict[str, Any]:
         """Run a natural-language query against the knowledge base."""
@@ -81,6 +118,92 @@ class KnowledgeAPI:
         if status:
             params["status"] = status
         return await self._client._get("/api/v1/knowledge/facts", params=params)
+
+    async def list_entries(
+        self,
+        *,
+        workspace_id: str | None = None,
+        tags: list[str] | None = None,
+        min_confidence: float | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[KnowledgeEntry]:
+        """List knowledge entries with filtering."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if tags:
+            params["tags"] = ",".join(tags)
+        if min_confidence is not None:
+            params["min_confidence"] = min_confidence
+        data = await self._client._get("/api/v1/knowledge/entries", params=params)
+        results = data.get("results", []) if isinstance(data, dict) else data
+        return [KnowledgeEntry.model_validate(item) for item in results]
+
+    async def get_entry(self, entry_id: str) -> KnowledgeEntry:
+        """Get a knowledge entry by ID."""
+        data = await self._client._get(f"/api/v1/knowledge/entries/{entry_id}")
+        return KnowledgeEntry.model_validate(data)
+
+    async def create_entry(
+        self,
+        content: str,
+        *,
+        source: str | None = None,
+        source_type: str | None = None,
+        confidence: float | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        workspace_id: str | None = None,
+    ) -> KnowledgeEntry:
+        """Create a new knowledge entry."""
+        payload: dict[str, Any] = {"content": content}
+        if source is not None:
+            payload["source"] = source
+        if source_type is not None:
+            payload["source_type"] = source_type
+        if confidence is not None:
+            payload["confidence"] = confidence
+        if tags is not None:
+            payload["tags"] = tags
+        if metadata is not None:
+            payload["metadata"] = metadata
+        if workspace_id is not None:
+            payload["workspace_id"] = workspace_id
+        data = await self._client._post("/api/v1/knowledge/entries", payload)
+        return KnowledgeEntry.model_validate(data)
+
+    async def update_entry(
+        self,
+        entry_id: str,
+        *,
+        content: str | None = None,
+        confidence: float | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        source: str | None = None,
+        source_type: str | None = None,
+    ) -> KnowledgeEntry:
+        """Update a knowledge entry."""
+        updates: dict[str, Any] = {}
+        if content is not None:
+            updates["content"] = content
+        if confidence is not None:
+            updates["confidence"] = confidence
+        if tags is not None:
+            updates["tags"] = tags
+        if metadata is not None:
+            updates["metadata"] = metadata
+        if source is not None:
+            updates["source"] = source
+        if source_type is not None:
+            updates["source_type"] = source_type
+        data = await self._client._put(f"/api/v1/knowledge/entries/{entry_id}", updates)
+        return KnowledgeEntry.model_validate(data)
+
+    async def delete_entry(self, entry_id: str) -> dict[str, Any]:
+        """Delete a knowledge entry."""
+        return await self._client._delete(f"/api/v1/knowledge/entries/{entry_id}")
 
     async def get_fact(self, fact_id: str) -> Fact:
         """Get a single fact by ID."""

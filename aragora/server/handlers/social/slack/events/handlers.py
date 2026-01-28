@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from ...base import HandlerResult, json_response
+from aragora.server.handlers.base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
 

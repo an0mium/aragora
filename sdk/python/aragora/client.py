@@ -107,6 +107,8 @@ class AragoraClient:
         from .namespaces.rbac import RBACAPI
         from .namespaces.receipts import ReceiptsAPI
         from .namespaces.relationships import RelationshipsAPI
+        from .namespaces.sme import SMEAPI
+        from .namespaces.tournaments import TournamentsAPI
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.webhooks import WebhooksAPI
@@ -140,6 +142,8 @@ class AragoraClient:
         self.rbac = RBACAPI(self)
         self.receipts = ReceiptsAPI(self)
         self.relationships = RelationshipsAPI(self)
+        self.sme = SMEAPI(self)
+        self.tournaments = TournamentsAPI(self)
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
         self.webhooks = WebhooksAPI(self)
@@ -337,6 +341,8 @@ class AragoraAsyncClient:
         from .namespaces.rbac import AsyncRBACAPI
         from .namespaces.receipts import AsyncReceiptsAPI
         from .namespaces.relationships import AsyncRelationshipsAPI
+        from .namespaces.sme import AsyncSMEAPI
+        from .namespaces.tournaments import AsyncTournamentsAPI
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
@@ -370,6 +376,8 @@ class AragoraAsyncClient:
         self.rbac = AsyncRBACAPI(self)
         self.receipts = AsyncReceiptsAPI(self)
         self.relationships = AsyncRelationshipsAPI(self)
+        self.sme = AsyncSMEAPI(self)
+        self.tournaments = AsyncTournamentsAPI(self)
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)

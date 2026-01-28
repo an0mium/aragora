@@ -37,8 +37,10 @@ from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
 from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
 from .replays import AsyncReplaysAPI, ReplaysAPI
+from .sme import SMEAPI, AsyncSMEAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
 from .tenants import AsyncTenantsAPI, TenantsAPI
+from .tournaments import AsyncTournamentsAPI, TournamentsAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
@@ -112,8 +114,12 @@ __all__ = [
     "AsyncRelationshipsAPI",
     "ReplaysAPI",
     "AsyncReplaysAPI",
+    "SMEAPI",
+    "AsyncSMEAPI",
     "TeamsAPI",
     "AsyncTeamsAPI",
+    "TournamentsAPI",
+    "AsyncTournamentsAPI",
     "TenantsAPI",
     "AsyncTenantsAPI",
     "UsageAPI",

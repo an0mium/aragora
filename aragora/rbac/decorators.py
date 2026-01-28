@@ -169,14 +169,14 @@ def require_permission(
                     on_denied(decision)
                 raise PermissionDeniedError(decision.reason, decision)
 
-            return await func(*args, **kwargs)  # type: ignore
+            return await func(*args, **kwargs)  # type: ignore[return-value]
 
         # Return appropriate wrapper based on function type
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -264,13 +264,13 @@ def require_role(
                         context.roles,
                     )
 
-            return await func(*args, **kwargs)  # type: ignore
+            return await func(*args, **kwargs)  # type: ignore[return-value]
 
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -341,23 +341,23 @@ def require_org_access(
             org_id = kwargs.get(org_id_param)
 
             if org_id is None and allow_none:
-                return await func(*args, **kwargs)  # type: ignore
+                return await func(*args, **kwargs)  # type: ignore[return-value]
 
             if org_id is None:
                 raise PermissionDeniedError("Organization ID required but not provided")
 
             if context.org_id != org_id:
                 if context.org_id is None and "owner" in context.roles:
-                    return await func(*args, **kwargs)  # type: ignore
+                    return await func(*args, **kwargs)  # type: ignore[return-value]
                 raise PermissionDeniedError(f"User does not have access to organization {org_id}")
 
-            return await func(*args, **kwargs)  # type: ignore
+            return await func(*args, **kwargs)  # type: ignore[return-value]
 
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -406,18 +406,18 @@ def require_self_or_admin(
             target_user_id = kwargs.get(user_id_param)
 
             if target_user_id == context.user_id:
-                return await func(*args, **kwargs)  # type: ignore
+                return await func(*args, **kwargs)  # type: ignore[return-value]
 
             if context.has_any_role("owner", "admin"):
-                return await func(*args, **kwargs)  # type: ignore
+                return await func(*args, **kwargs)  # type: ignore[return-value]
 
             raise PermissionDeniedError("Can only modify own data or requires admin role")
 
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
-            return async_wrapper  # type: ignore
-        return sync_wrapper  # type: ignore
+            return async_wrapper  # type: ignore[return-value]
+        return sync_wrapper  # type: ignore[return-value]
 
     return decorator
 
@@ -468,6 +468,6 @@ def with_permission_context(
 
             return func(*args, **kwargs)
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator

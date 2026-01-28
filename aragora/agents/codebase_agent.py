@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from aragora.agents.base import BaseDebateAgent
+from aragora.core_types import AgentRole
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class CodeAnalystAgent(BaseDebateAgent):
         # Initialize Agent attributes directly to avoid ABC init issues
         self.name = name
         self.model = "pattern-based"
-        self.role = "critic"  # type: ignore[assignment]  # Analysts act as critics
+        self.role: AgentRole = "critic"  # Analysts act as critics
         self.agent_type = "code_analyst"
         self.stance = "neutral"
         self.persona = self.__class__.persona
