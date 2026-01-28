@@ -149,6 +149,8 @@ import { AragoraWebSocket, createWebSocket, streamDebate, type WebSocketOptions,
 import {
   DebatesAPI,
   AgentsAPI,
+  A2AAPI,
+  AdvertisingAPI,
   WorkflowsAPI,
   SMEAPI,
   BillingAPI,
@@ -159,6 +161,7 @@ import {
   GauntletAPI,
   AnalyticsAPI,
   MemoryAPI,
+  MetricsAPI,
   RBACAPI,
   KnowledgeAPI,
   TournamentsAPI,
@@ -302,6 +305,24 @@ export class AragoraClient {
    * Provides methods for platform administration (requires admin role).
    */
   readonly admin: AdminAPI;
+
+  /**
+   * Advertising API namespace.
+   * Provides methods for advertising platform integrations and campaign management.
+   */
+  readonly advertising: AdvertisingAPI;
+
+  /**
+   * A2A (Agent-to-Agent) API namespace.
+   * Provides methods for inter-agent communication and task delegation.
+   */
+  readonly a2a: A2AAPI;
+
+  /**
+   * Metrics API namespace.
+   * Provides methods for system and application metrics.
+   */
+  readonly metrics: MetricsAPI;
 
   /**
    * Billing API namespace.
@@ -787,6 +808,11 @@ export class AragoraClient {
     this.history = new HistoryNamespace(this);
     this.ranking = new RankingNamespace(this);
     this.health = new HealthNamespace(this);
+
+    // New namespaces (SDK Parity Sprint - Phase 3)
+    this.advertising = new AdvertisingAPI(this);
+    this.a2a = new A2AAPI(this);
+    this.metrics = new MetricsAPI(this);
   }
 
   // ===========================================================================

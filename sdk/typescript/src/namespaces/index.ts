@@ -940,3 +940,39 @@ export {
   type HealthCheck,
   type ComponentHealth,
 } from './health';
+
+// Advertising (Platform Integrations)
+export {
+  AdvertisingAPI,
+  type AdvertisingPlatform,
+  type Campaign,
+  type CampaignTargeting,
+  type PerformanceMetrics,
+  type BudgetRecommendation,
+  type AnalysisResult,
+  type ConnectPlatformRequest,
+  type CreateCampaignRequest,
+  type UpdateCampaignRequest,
+  type AnalyzeRequest,
+} from './advertising';
+
+// A2A (Agent-to-Agent Protocol)
+export {
+  A2AAPI,
+  type AgentCard,
+  type A2AAgent,
+  type A2ATask,
+  type SubmitTaskRequest,
+  type StreamTaskRequest,
+  type StreamChunk as A2AStreamChunk,
+} from './a2a';
+
+// Metrics (System & Application Metrics)
+export {
+  MetricsAPI,
+  type HealthMetrics,
+  type CacheMetrics,
+  type SystemMetrics as MetricsSystemMetrics,
+  type ApplicationMetrics,
+  type DebateMetrics,
+} from './metrics';
