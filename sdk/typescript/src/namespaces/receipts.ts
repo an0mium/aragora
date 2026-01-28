@@ -306,6 +306,3 @@ export class ReceiptsAPI {
     };
   }
 }
-
-// Re-export types for convenience
-export type { DecisionReceipt, GauntletReceiptExport, ReceiptStats, BatchVerificationResult, ReceiptFilters };

@@ -59,7 +59,7 @@ class AnalyticsHandler(BaseHandler):
             or path.startswith("/api/v1/knowledge/learning")
         )
 
-    def handle(
+    async def handle(
         self,
         path: str,
         query_params: dict[str, Any],
@@ -107,7 +107,7 @@ class AnalyticsHandler(BaseHandler):
         workspace_id = query_params.get("workspace_id")
 
         if path == "/api/v1/knowledge/mound/stats":
-            return self._get_mound_stats(workspace_id)
+            return await self._get_mound_stats(workspace_id)
 
         if path == "/api/v1/knowledge/sharing/stats":
             return self._get_sharing_stats(workspace_id, user_id)
@@ -126,39 +126,29 @@ class AnalyticsHandler(BaseHandler):
 
         return None
 
-    def _get_mound_stats(self, workspace_id: Optional[str]) -> HandlerResult:
+    async def _get_mound_stats(self, workspace_id: Optional[str]) -> HandlerResult:
         """Get Knowledge Mound statistics."""
         try:
             # Try to get stats from the knowledge mound
             try:
-                import asyncio
                 from aragora.knowledge.mound import get_knowledge_mound
 
-                async def fetch_stats():
-                    mound = get_knowledge_mound(workspace_id or "default")
-                    return await mound.get_stats(workspace_id)
+                mound = get_knowledge_mound(workspace_id or "default")
+                stats = await mound.get_stats(workspace_id)
 
-                # Run async in sync context
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    stats = loop.run_until_complete(fetch_stats())
-
-                    return json_response(
-                        {
-                            "total_nodes": stats.total_nodes,
-                            "nodes_by_type": stats.nodes_by_type,
-                            "nodes_by_tier": stats.nodes_by_tier,
-                            "nodes_by_validation": stats.nodes_by_validation,
-                            "total_relationships": stats.total_relationships,
-                            "relationships_by_type": stats.relationships_by_type,
-                            "average_confidence": stats.average_confidence,
-                            "stale_nodes_count": stats.stale_nodes_count,
-                            "workspace_id": workspace_id,
-                        }
-                    )
-                finally:
-                    loop.close()
+                return json_response(
+                    {
+                        "total_nodes": stats.total_nodes,
+                        "nodes_by_type": stats.nodes_by_type,
+                        "nodes_by_tier": stats.nodes_by_tier,
+                        "nodes_by_validation": stats.nodes_by_validation,
+                        "total_relationships": stats.total_relationships,
+                        "relationships_by_type": stats.relationships_by_type,
+                        "average_confidence": stats.average_confidence,
+                        "stale_nodes_count": stats.stale_nodes_count,
+                        "workspace_id": workspace_id,
+                    }
+                )
 
             except ImportError:
                 # Knowledge mound not available, return mock data

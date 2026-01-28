@@ -85,6 +85,7 @@ class CrossPollinationSubscribersHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/subscribers"]
 
+    @require_permission("cross_pollination:read")
     async def get(self) -> HandlerResult:
         """List all subscribers."""
         try:
@@ -132,6 +133,7 @@ class CrossPollinationBridgeHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/bridge"]
 
+    @require_permission("cross_pollination:read")
     async def get(self) -> HandlerResult:
         """Get bridge status."""
         try:
@@ -169,6 +171,7 @@ class CrossPollinationMetricsHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/metrics"]
 
+    @require_permission("analytics:read")
     async def get(self) -> HandlerResult:
         """Get cross-pollination metrics in Prometheus format."""
         try:
@@ -205,6 +208,7 @@ class CrossPollinationResetHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/reset"]
 
+    @require_permission("cross_pollination:write")
     async def post(self) -> HandlerResult:
         """Reset subscriber statistics."""
         try:
@@ -242,6 +246,7 @@ class CrossPollinationKMHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/km"]
 
+    @require_permission("cross_pollination:read")
     async def get(self) -> HandlerResult:
         """Get KM bidirectional integration status."""
         try:
@@ -333,6 +338,7 @@ class CrossPollinationKMSyncHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/km/sync"]
 
+    @require_permission("cross_pollination:write")
     async def post(self) -> HandlerResult:
         """Trigger manual KM adapter sync."""
         import time
@@ -443,6 +449,7 @@ class CrossPollinationKMStalenessHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/km/staleness-check"]
 
+    @require_permission("cross_pollination:write")
     async def post(self) -> HandlerResult:
         """Trigger manual staleness check."""
         import time
@@ -528,6 +535,7 @@ class CrossPollinationKMCultureHandler(BaseHandler):
 
     ROUTES = ["/api/v1/cross-pollination/km/culture"]
 
+    @require_permission("cross_pollination:read")
     async def get(self) -> HandlerResult:
         """Get culture patterns."""
         try:

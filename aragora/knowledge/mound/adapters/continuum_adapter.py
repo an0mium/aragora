@@ -33,6 +33,7 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 logger = logging.getLogger(__name__)
 
 # Import mixin for semantic search functionality
+from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 
 
 @dataclass
@@ -79,7 +80,7 @@ class ContinuumSearchResult:
             self.matched_keywords = []
 
 
-class ContinuumAdapter:
+class ContinuumAdapter(SemanticSearchMixin):
     """
     Adapter that bridges ContinuumMemory to the Knowledge Mound.
 
@@ -87,6 +88,7 @@ class ContinuumAdapter:
     - search_by_keyword: Text-based search across tiers
     - to_knowledge_item: Convert entries to unified format
     - sync_from_mound: Store mound items in continuum memory
+    - semantic_search: Vector-based similarity search (via SemanticSearchMixin)
 
     Usage:
         from aragora.memory.continuum import ContinuumMemory
@@ -101,6 +103,10 @@ class ContinuumAdapter:
         # Convert to knowledge items
         items = [adapter.to_knowledge_item(r) for r in results]
     """
+
+    # SemanticSearchMixin configuration
+    adapter_name = "continuum"
+    source_type = "continuum"
 
     def __init__(
         self,
@@ -123,6 +129,41 @@ class ContinuumAdapter:
     def set_event_callback(self, callback: EventCallback) -> None:
         """Set the event callback for WebSocket notifications."""
         self._event_callback = callback
+
+    # SemanticSearchMixin required methods
+    def _get_record_by_id(self, record_id: str) -> Optional[Any]:
+        """Get a memory entry by ID (required by SemanticSearchMixin)."""
+        if record_id.startswith("cm_"):
+            record_id = record_id[3:]
+        return self._continuum.get(record_id)
+
+    def _record_to_dict(self, record: Any, similarity: float = 0.0) -> Dict[str, Any]:
+        """Convert a memory entry to dict (required by SemanticSearchMixin)."""
+        return {
+            "id": record.id,
+            "content": record.content,
+            "tier": record.tier.value if hasattr(record.tier, "value") else record.tier,
+            "importance": record.importance,
+            "similarity": similarity,
+            "domain": getattr(record, "domain", None),
+            "created_at": (
+                record.created_at.isoformat()
+                if hasattr(record.created_at, "isoformat")
+                else str(record.created_at)
+            ),
+            "updated_at": (
+                record.updated_at.isoformat()
+                if hasattr(record.updated_at, "isoformat")
+                else str(record.updated_at)
+            ),
+            "metadata": record.metadata,
+        }
+
+    def _extract_record_id(self, source_id: str) -> str:
+        """Extract record ID from prefixed source ID."""
+        if source_id.startswith("cm_"):
+            return source_id[3:]
+        return source_id
 
     def _emit_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """Emit an event if callback is configured."""

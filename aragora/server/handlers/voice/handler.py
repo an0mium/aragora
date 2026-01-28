@@ -13,6 +13,7 @@ All endpoints return TwiML responses.
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING, Any, Optional
 
 from aiohttp import web
@@ -22,6 +23,15 @@ from aragora.integrations.twilio_voice import (
     get_twilio_voice,
     HAS_TWILIO,
 )
+
+# Try to import Twilio request validator
+try:
+    from twilio.request_validator import RequestValidator
+
+    HAS_TWILIO_VALIDATOR = True
+except ImportError:
+    HAS_TWILIO_VALIDATOR = False
+    RequestValidator = None  # type: ignore
 
 if TYPE_CHECKING:
     from aiohttp.web import Application, Request, Response
@@ -57,21 +67,51 @@ class VoiceHandler:
         self.voice = voice_integration or get_twilio_voice()
         self.debate_starter = debate_starter
 
-    def _verify_signature(self, request: "Request") -> bool:
-        """Verify Twilio webhook signature."""
+    async def _verify_signature(self, request: "Request", params: dict[str, str]) -> bool:
+        """
+        Verify Twilio webhook signature.
+
+        Args:
+            request: The incoming request
+            params: POST parameters from the request
+
+        Returns:
+            True if signature is valid, False otherwise
+        """
+        # Check if validator is available
+        if not HAS_TWILIO_VALIDATOR:
+            logger.warning("Twilio validator not available, skipping signature check")
+            # In production, you should fail closed - return False
+            # For development, we allow requests through
+            return os.environ.get("ARAGORA_ENV", "development") == "development"
+
+        # Get auth token from environment
+        auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
+        if not auth_token:
+            logger.warning("TWILIO_AUTH_TOKEN not configured, skipping signature check")
+            return os.environ.get("ARAGORA_ENV", "development") == "development"
+
+        # Get signature from header
         signature = request.headers.get("X-Twilio-Signature", "")
         if not signature:
             logger.warning("Missing Twilio signature header")
             return False
 
-        # Get full URL
-        str(request.url)
+        # Get full URL (Twilio signs against the full URL)
+        url = str(request.url)
 
-        # Get POST params (need to await for body)
-        # For now, skip verification if we can't get params synchronously
-        # In production, implement async signature verification
+        # Validate the signature
+        try:
+            validator = RequestValidator(auth_token)
+            is_valid = validator.validate(url, params, signature)
 
-        return True  # Simplified for now
+            if not is_valid:
+                logger.warning(f"Invalid Twilio signature for {url}")
+
+            return is_valid
+        except Exception as e:
+            logger.error(f"Twilio signature verification failed: {e}")
+            return False
 
     async def _get_post_params(self, request: "Request") -> dict[str, str]:
         """Extract POST parameters from request."""
