@@ -407,6 +407,7 @@ endpoint details, see API_REFERENCE.md.
 - `client.a2a` - Agent-to-agent protocol
 - `client.advertising` - Advertising platform integrations
 - `client.cross_pollination` - Cross-pollination stats and subscriptions
+- `client.bots` - Bot integration webhooks (Teams, Discord, Telegram, Zoom)
 - `client.dashboard` - Dashboard overview and quick actions
 - `client.deliberations` - Active deliberations and stats
 - `client.devices` - Device registration and notifications
@@ -415,6 +416,7 @@ endpoint details, see API_REFERENCE.md.
 - `client.metrics` - Operational metrics and Prometheus export
 - `client.plugins` - Plugin management and marketplace
 - `client.privacy` - GDPR/CCPA export and privacy preferences
+- `client.queue` - Background job queue management
 - `client.system` - Admin history, maintenance, and circuit breakers
 - `client.threat_intel` - Threat intelligence scanning
 - `client.unified_inbox` - Unified inbox routing and actions
