@@ -1,0 +1,200 @@
+# Staging Environment Values for Aragora
+# Use with: helm install aragora ./deploy/helm/aragora -f values-staging.yaml
+
+# Reduced replicas for cost efficiency
+replicaCount: 2
+
+# Staging-specific image
+image:
+  repository: aragora/aragora
+  tag: "staging"  # Updated by CI/CD
+  pullPolicy: Always  # Always pull to get latest staging builds
+
+# Staging namespace label
+podLabels:
+  environment: staging
+  aragora.ai/tier: staging
+
+# Staging annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# Less restrictive resources for staging
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+# Autoscaling disabled in staging (cost control)
+autoscaling:
+  enabled: false
+
+# PDB disabled for easier deployments
+podDisruptionBudget:
+  enabled: false
+
+# Ingress for staging domain
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: staging.aragora.ai
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: aragora-staging-tls
+      hosts:
+        - staging.aragora.ai
+
+# Staging-specific environment variables
+env:
+  - name: ENVIRONMENT
+    value: "staging"
+  - name: LOG_LEVEL
+    value: "debug"
+  - name: DEBUG
+    value: "true"
+  - name: ENABLE_TRACING
+    value: "true"
+  - name: ENABLE_PROFILING
+    value: "true"
+  # Rate limiting (more permissive for testing)
+  - name: RATE_LIMIT_REQUESTS_PER_MINUTE
+    value: "1000"
+  # Database (staging instance)
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: aragora-staging-secrets
+        key: database-url
+  # Redis (staging instance)
+  - name: REDIS_URL
+    valueFrom:
+      secretKeyRef:
+        name: aragora-staging-secrets
+        key: redis-url
+
+# Secrets from External Secrets Operator
+externalSecrets:
+  enabled: true
+  secretStoreName: aws-secrets-manager
+  refreshInterval: 5m
+  secrets:
+    - name: aragora-staging-secrets
+      remoteRef:
+        key: aragora/staging/config
+
+# Reduced probes for staging (faster startup)
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health/ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Startup probe (allows slow startup)
+startupProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30  # 2.5 min max startup
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  labels:
+    environment: staging
+
+# PostgreSQL (staging database)
+postgresql:
+  enabled: true
+  auth:
+    existingSecret: aragora-staging-secrets
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: database-password
+  primary:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    persistence:
+      size: 10Gi
+      storageClass: gp3
+
+# Redis (staging cache)
+redis:
+  enabled: true
+  architecture: standalone  # No replication in staging
+  auth:
+    existingSecret: aragora-staging-secrets
+    existingSecretPasswordKey: redis-password
+  master:
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    persistence:
+      size: 5Gi
+      storageClass: gp3
+
+# Network policies (allow all in staging for easier debugging)
+networkPolicy:
+  enabled: false
+
+# Extra volumes for staging (debug logs, profiling data)
+extraVolumes:
+  - name: debug-logs
+    emptyDir: {}
+  - name: profiling-data
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: debug-logs
+    mountPath: /var/log/aragora
+  - name: profiling-data
+    mountPath: /tmp/profiling
+
+# Staging-specific init containers (optional seed data)
+initContainers:
+  - name: init-db
+    image: aragora/aragora:staging
+    command: ['python', '-m', 'aragora.migrations', 'upgrade', 'head']
+    env:
+      - name: DATABASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: aragora-staging-secrets
+            key: database-url

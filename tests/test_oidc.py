@@ -406,7 +406,13 @@ class TestAuthentication:
 
         with patch.object(provider, "_exchange_code", new_callable=AsyncMock) as mock_exchange:
             mock_exchange.return_value = mock_token_response
-            with patch.object(provider, "_fetch_userinfo", new_callable=AsyncMock) as mock_userinfo:
+            with (
+                patch.object(
+                    provider, "_validate_id_token", new_callable=AsyncMock
+                ) as mock_validate,
+                patch.object(provider, "_fetch_userinfo", new_callable=AsyncMock) as mock_userinfo,
+            ):
+                mock_validate.return_value = {}
                 # Return user with non-allowed domain
                 mock_userinfo.return_value = {"sub": "123", "email": "user@notallowed.com"}
 
