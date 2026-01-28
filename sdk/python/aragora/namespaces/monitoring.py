@@ -5,6 +5,8 @@ Provides API access to metrics, alerts, dashboards, and
 system health monitoring.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 

@@ -5,6 +5,8 @@ Provides API access to backup management, restore operations,
 and disaster recovery functionality.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 

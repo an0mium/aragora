@@ -5,6 +5,8 @@ Provides API access to manage integrations with external services
 like Slack, Discord, GitHub, Jira, and other platforms.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 

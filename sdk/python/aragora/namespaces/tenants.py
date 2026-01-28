@@ -5,6 +5,8 @@ Provides API access to manage tenants, tenant isolation,
 resource quotas, and tenant-level configuration.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 
