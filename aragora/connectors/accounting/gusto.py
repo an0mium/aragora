@@ -32,6 +32,7 @@ from aragora.connectors.exceptions import (
     ConnectorAuthError,
     ConnectorConfigError,
 )
+from aragora.connectors.model_base import ConnectorDataclass
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +81,11 @@ class GustoCredentials:
 
 
 @dataclass
-class Employee:
+class Employee(ConnectorDataclass):
     """A Gusto employee."""
+
+    _include_none = True
+    _exclude_fields = {"hourly_rate", "annual_salary", "termination_date"}
 
     id: str
     first_name: str
@@ -99,25 +103,31 @@ class Employee:
     hourly_rate: Optional[Decimal] = None
     annual_salary: Optional[Decimal] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "full_name": f"{self.first_name} {self.last_name}",
-            "email": self.email,
-            "employment_type": self.employment_type.value,
-            "pay_type": self.pay_type.value,
-            "department": self.department,
-            "job_title": self.job_title,
-            "hire_date": self.hire_date.isoformat() if self.hire_date else None,
-            "is_active": self.is_active,
-        }
+    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result["full_name"] = f"{self.first_name} {self.last_name}"
+        return result
 
 
 @dataclass
-class PayrollItem:
+class PayrollItem(ConnectorDataclass):
     """An individual employee's payroll entry."""
+
+    _exclude_fields = {
+        "regular_hours",
+        "overtime_hours",
+        "bonus",
+        "commission",
+        "reimbursements",
+        "local_tax",
+        "other_deductions",
+        "employer_ss",
+        "employer_medicare",
+        "employer_futa",
+        "employer_suta",
+        "employer_401k_match",
+        "employer_health",
+    }
 
     employee_id: str
     employee_name: str
@@ -176,25 +186,19 @@ class PayrollItem:
             + self.employer_health
         )
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "employee_id": self.employee_id,
-            "employee_name": self.employee_name,
-            "gross_pay": float(self.gross_pay),
-            "net_pay": float(self.net_pay),
-            "federal_tax": float(self.federal_tax),
-            "state_tax": float(self.state_tax),
-            "social_security": float(self.social_security),
-            "medicare": float(self.medicare),
-            "retirement_401k": float(self.retirement_401k),
-            "health_insurance": float(self.health_insurance),
-            "total_employer_cost": float(self.total_employer_cost),
-        }
+    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result["net_pay"] = float(self.net_pay)
+        result["total_employer_cost"] = float(self.total_employer_cost)
+        return result
 
 
 @dataclass
-class PayrollRun:
+class PayrollRun(ConnectorDataclass):
     """A payroll run (pay period)."""
+
+    _include_none = True
+    _exclude_fields = {"total_deductions", "total_reimbursements", "payroll_items", "created_at"}
 
     id: str
     company_id: str
@@ -223,22 +227,11 @@ class PayrollRun:
         """Total cost to employer."""
         return self.total_gross_pay + self.total_employer_taxes
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "company_id": self.company_id,
-            "pay_period_start": self.pay_period_start.isoformat(),
-            "pay_period_end": self.pay_period_end.isoformat(),
-            "check_date": self.check_date.isoformat(),
-            "status": self.status.value,
-            "total_gross_pay": float(self.total_gross_pay),
-            "total_net_pay": float(self.total_net_pay),
-            "total_employer_taxes": float(self.total_employer_taxes),
-            "total_employee_taxes": float(self.total_employee_taxes),
-            "total_employer_cost": float(self.total_employer_cost),
-            "employee_count": len(self.payroll_items),
-            "processed_at": self.processed_at.isoformat() if self.processed_at else None,
-        }
+    def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result["total_employer_cost"] = float(self.total_employer_cost)
+        result["employee_count"] = len(self.payroll_items)
+        return result
 
 
 @dataclass

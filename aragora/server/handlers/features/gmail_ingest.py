@@ -24,6 +24,13 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from aragora.billing.auth import extract_user_from_request
+from aragora.storage.gmail_token_store import (
+    GmailUserState,
+    SyncJobState,
+    get_gmail_token_store,
+)
+
 from ..base import (
     HandlerResult,
     error_response,
@@ -32,12 +39,6 @@ from ..base import (
 )
 from ..secure import SecureHandler
 from ..utils.rate_limit import RateLimiter, get_client_ip
-from aragora.storage.gmail_token_store import (
-    GmailUserState,
-    SyncJobState,
-    get_gmail_token_store,
-)
-from aragora.billing.auth import extract_user_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -275,7 +276,7 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] Failed to start connect: {e}")
             return error_response("Failed to start connection", 500)
 
-    def _handle_oauth_callback(
+    async def _handle_oauth_callback(
         self,
         query_params: Dict[str, Any],
         user_id: str,
@@ -305,9 +306,11 @@ class GmailIngestHandler(SecureHandler):
                 "Using JWT user_id for security."
             )
 
-        return self._complete_oauth(code, query_params.get("redirect_uri", ""), user_id, org_id)
+        return await self._complete_oauth(
+            code, query_params.get("redirect_uri", ""), user_id, org_id
+        )
 
-    def _handle_oauth_callback_post(
+    async def _handle_oauth_callback_post(
         self,
         body: Dict[str, Any],
         user_id: str,
@@ -332,9 +335,9 @@ class GmailIngestHandler(SecureHandler):
                 "Using JWT user_id for security."
             )
 
-        return self._complete_oauth(code, redirect_uri, user_id, org_id)
+        return await self._complete_oauth(code, redirect_uri, user_id, org_id)
 
-    def _complete_oauth(
+    async def _complete_oauth(
         self,
         code: str,
         redirect_uri: str,
@@ -352,37 +355,27 @@ class GmailIngestHandler(SecureHandler):
 
             connector = GmailConnector()
 
-            # Run authentication
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            success = await connector.authenticate(code=code, redirect_uri=redirect_uri)
 
-            try:
-                success = loop.run_until_complete(
-                    connector.authenticate(code=code, redirect_uri=redirect_uri)
-                )
+            if not success:
+                return error_response("Authentication failed", 401)
 
-                if not success:
-                    return error_response("Authentication failed", 401)
+            # Get user profile
+            profile = await connector.get_user_info()
 
-                # Get user profile
-                profile = loop.run_until_complete(connector.get_user_info())
-
-                # Save state (async)
-                # SECURITY: org_id bound to JWT for strict tenant isolation
-                state = GmailUserState(
-                    user_id=user_id,
-                    org_id=org_id,  # Bind to authenticated org for tenant isolation
-                    email_address=profile.get("emailAddress", ""),
-                    access_token=connector._access_token or "",
-                    refresh_token=connector._refresh_token or "",
-                    token_expiry=connector._token_expiry,
-                    history_id=str(profile.get("historyId", "")),
-                    connected_at=datetime.now(timezone.utc),
-                )
-                loop.run_until_complete(save_user_state(state))
-
-            finally:
-                loop.close()
+            # Save state
+            # SECURITY: org_id bound to JWT for strict tenant isolation
+            state = GmailUserState(
+                user_id=user_id,
+                org_id=org_id,  # Bind to authenticated org for tenant isolation
+                email_address=profile.get("emailAddress", ""),
+                access_token=connector._access_token or "",
+                refresh_token=connector._refresh_token or "",
+                token_expiry=connector._token_expiry,
+                history_id=str(profile.get("historyId", "")),
+                connected_at=datetime.now(timezone.utc),
+            )
+            await save_user_state(state)
 
             return json_response(
                 {
@@ -396,44 +389,39 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] OAuth completion failed: {e}")
             return error_response(safe_error_message(e, "Authentication"), 500)
 
-    def _start_sync(self, body: Dict[str, Any], user_id: str) -> HandlerResult:
+    async def _start_sync(self, body: Dict[str, Any], user_id: str) -> HandlerResult:
         """Start email sync for user."""
-        loop = asyncio.new_event_loop()
-        try:
-            state = loop.run_until_complete(get_user_state(user_id))
+        state = await get_user_state(user_id)
 
-            if not state or not state.refresh_token:
-                return error_response("Not connected - please authenticate first", 401)
+        if not state or not state.refresh_token:
+            return error_response("Not connected - please authenticate first", 401)
 
-            full_sync = body.get("full_sync", False)
-            max_messages = body.get("max_messages", 500)
-            labels = body.get("labels", ["INBOX"])
+        full_sync = body.get("full_sync", False)
+        max_messages = body.get("max_messages", 500)
+        labels = body.get("labels", ["INBOX"])
 
-            # Check if sync already running
-            job = loop.run_until_complete(get_sync_job(user_id))
-            if job and job.status == "running":
-                return json_response(
-                    {
-                        "message": "Sync already in progress",
-                        "status": "running",
-                        "progress": job.progress,
-                    }
-                )
-
-            # Start sync in background
-            new_job = SyncJobState(
-                user_id=user_id,
-                status="running",
-                progress=0,
-                messages_synced=0,
-                started_at=datetime.now(timezone.utc).isoformat(),
+        # Check if sync already running
+        job = await get_sync_job(user_id)
+        if job and job.status == "running":
+            return json_response(
+                {
+                    "message": "Sync already in progress",
+                    "status": "running",
+                    "progress": job.progress,
+                }
             )
-            loop.run_until_complete(save_sync_job(new_job))
 
-        finally:
-            loop.close()
+        # Start sync in background
+        new_job = SyncJobState(
+            user_id=user_id,
+            status="running",
+            progress=0,
+            messages_synced=0,
+            started_at=datetime.now(timezone.utc).isoformat(),
+        )
+        await save_sync_job(new_job)
 
-        # Run sync in thread
+        # Run sync in thread (needs its own event loop)
         import threading
 
         thread = threading.Thread(
@@ -459,14 +447,18 @@ class GmailIngestHandler(SecureHandler):
         max_messages: int,
         labels: List[str],
     ) -> None:
-        """Run email sync (background thread)."""
+        """Run email sync (background thread).
+
+        NOTE: This method runs in a separate thread and needs its own event loop.
+        This is intentional and should NOT be converted to async.
+        """
         try:
             from aragora.connectors.enterprise.communication.gmail import GmailConnector
             from aragora.server.stream.inbox_sync import (
-                emit_sync_start,
-                emit_sync_progress,
                 emit_sync_complete,
                 emit_sync_error,
+                emit_sync_progress,
+                emit_sync_start,
             )
 
             connector = GmailConnector(
@@ -479,7 +471,7 @@ class GmailIngestHandler(SecureHandler):
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
 
-            # Run sync
+            # Run sync - needs event loop in this thread
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
@@ -532,7 +524,7 @@ class GmailIngestHandler(SecureHandler):
 
         except Exception as e:
             logger.error(f"[Gmail] Sync failed for {user_id}: {e}")
-            # Update job status on failure
+            # Update job status on failure - needs event loop
             loop = asyncio.new_event_loop()
             try:
                 failed_job = SyncJobState(
@@ -552,21 +544,17 @@ class GmailIngestHandler(SecureHandler):
             finally:
                 loop.close()
 
-    def _get_sync_status(self, user_id: str) -> HandlerResult:
+    async def _get_sync_status(self, user_id: str) -> HandlerResult:
         """Get sync status for user."""
-        loop = asyncio.new_event_loop()
-        try:
-            state = loop.run_until_complete(get_user_state(user_id))
-            job = loop.run_until_complete(get_sync_job(user_id))
-        finally:
-            loop.close()
+        state = await get_user_state(user_id)
+        job = await get_sync_job(user_id)
 
         return json_response(
             {
                 "connected": bool(state and state.refresh_token),
                 "email_address": state.email_address if state else None,
                 "indexed_count": state.indexed_count if state else 0,
-                "last_sync": state.last_sync.isoformat() if state and state.last_sync else None,
+                "last_sync": (state.last_sync.isoformat() if state and state.last_sync else None),
                 "job_status": job.status if job else "idle",
                 "job_progress": job.progress if job else 0,
                 "job_messages_synced": job.messages_synced if job else 0,
@@ -574,17 +562,13 @@ class GmailIngestHandler(SecureHandler):
             }
         )
 
-    def _list_messages(
+    async def _list_messages(
         self,
         user_id: str,
         query_params: Dict[str, Any],
     ) -> HandlerResult:
         """List indexed messages for user."""
-        loop = asyncio.new_event_loop()
-        try:
-            state = loop.run_until_complete(get_user_state(user_id))
-        finally:
-            loop.close()
+        state = await get_user_state(user_id)
 
         if not state or not state.refresh_token:
             return error_response("Not connected", 401)
@@ -601,14 +585,7 @@ class GmailIngestHandler(SecureHandler):
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
 
-            # Fetch messages
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                results = loop.run_until_complete(connector.search(query=query, limit=limit))
-            finally:
-                loop.close()
+            results = await connector.search(query=query, limit=limit)
 
             return json_response(
                 {
@@ -633,13 +610,9 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] List messages failed: {e}")
             return error_response(safe_error_message(e, "Failed to list messages"), 500)
 
-    def _get_message(self, user_id: str, message_id: str) -> HandlerResult:
+    async def _get_message(self, user_id: str, message_id: str) -> HandlerResult:
         """Get a single message by ID."""
-        loop = asyncio.new_event_loop()
-        try:
-            state = loop.run_until_complete(get_user_state(user_id))
-        finally:
-            loop.close()
+        state = await get_user_state(user_id)
 
         if not state or not state.refresh_token:
             return error_response("Not connected", 401)
@@ -652,13 +625,7 @@ class GmailIngestHandler(SecureHandler):
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                msg = loop.run_until_complete(connector.get_message(message_id))
-            finally:
-                loop.close()
+            msg = await connector.get_message(message_id)
 
             return json_response(msg.to_dict())
 
@@ -666,13 +633,9 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] Get message failed: {e}")
             return error_response(safe_error_message(e, "Failed to get message"), 500)
 
-    def _search(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
+    async def _search(self, user_id: str, body: Dict[str, Any]) -> HandlerResult:
         """Search emails."""
-        loop = asyncio.new_event_loop()
-        try:
-            state = loop.run_until_complete(get_user_state(user_id))
-        finally:
-            loop.close()
+        state = await get_user_state(user_id)
 
         if not state or not state.refresh_token:
             return error_response("Not connected", 401)
@@ -691,13 +654,7 @@ class GmailIngestHandler(SecureHandler):
             connector._refresh_token = state.refresh_token
             connector._token_expiry = state.token_expiry
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            try:
-                results = loop.run_until_complete(connector.search(query=query, limit=limit))
-            finally:
-                loop.close()
+            results = await connector.search(query=query, limit=limit)
 
             return json_response(
                 {
@@ -721,14 +678,10 @@ class GmailIngestHandler(SecureHandler):
             logger.error(f"[Gmail] Search failed: {e}")
             return error_response(safe_error_message(e, "Search"), 500)
 
-    def _disconnect(self, user_id: str) -> HandlerResult:
+    async def _disconnect(self, user_id: str) -> HandlerResult:
         """Disconnect Gmail account."""
-        loop = asyncio.new_event_loop()
-        try:
-            deleted = loop.run_until_complete(delete_user_state(user_id))
-            loop.run_until_complete(delete_sync_job(user_id))
-        finally:
-            loop.close()
+        deleted = await delete_user_state(user_id)
+        await delete_sync_job(user_id)
 
         return json_response(
             {

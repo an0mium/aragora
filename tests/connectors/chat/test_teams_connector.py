@@ -276,11 +276,12 @@ class TestTeamsDeleteMessage:
 
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = {"status": "ok"}
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.delete = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             result = await connector.delete_message(
                 channel_id="conv-456",
@@ -478,6 +479,7 @@ class TestTeamsGraphAPI:
         )
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.json.return_value = {
             "access_token": "graph-token-xyz",
             "expires_in": 3600,
@@ -486,7 +488,7 @@ class TestTeamsGraphAPI:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = mock_client.return_value.__aenter__.return_value
-            mock_instance.post = AsyncMock(return_value=mock_response)
+            mock_instance.request = AsyncMock(return_value=mock_response)
 
             token = await connector._get_graph_token()
 
@@ -595,6 +597,7 @@ class TestTeamsFileOperations:
 
         # Mock download
         mock_download_response = MagicMock()
+        mock_download_response.status_code = 200
         mock_download_response.content = b"PDF content here"
         mock_download_response.raise_for_status = MagicMock()
 
