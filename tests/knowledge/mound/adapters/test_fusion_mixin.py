@@ -383,19 +383,6 @@ class TestFuseValidationsFromKm:
         """Should skip items that only have one source."""
         adapter = MockFusionAdapter(fusion_sources=["elo", "consensus", "belief"])
 
-        # Mock the fusion coordinator
-        mock_coordinator = MagicMock()
-        mock_coordinator.fuse_validations.return_value = FusedValidation(
-            fused_confidence=0.85,
-            strategy_used=FusionStrategy.WEIGHTED_AVERAGE,
-            participating_adapters=["elo", "consensus"],
-            conflict_detected=False,
-            conflict_resolved=False,
-            resolution_method=None,
-            source_confidences={"elo": 0.9, "consensus": 0.8},
-            consensus_strength=0.9,
-        )
-
         items = [
             {
                 "id": "item1",
@@ -404,11 +391,8 @@ class TestFuseValidationsFromKm:
             },
         ]
 
-        with patch(
-            "aragora.knowledge.mound.adapters._fusion_mixin.get_fusion_coordinator",
-            return_value=mock_coordinator,
-        ):
-            result = adapter.fuse_validations_from_km(items, min_sources=2)
+        # With only one source, fusion won't happen - no mocking needed
+        result = adapter.fuse_validations_from_km(items, min_sources=2)
 
         # All items from single source should be skipped
         assert result["items_skipped"] == 1
