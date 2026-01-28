@@ -180,7 +180,7 @@ class TestKnowledgeSearch:
 
     @pytest.mark.asyncio
     async def test_search_error_handling(self, mock_bridge):
-        """Test search error handling."""
+        """Test search error handling returns sanitized error."""
         mock_bridge.search_knowledge.side_effect = Exception("Search failed")
 
         with patch(
@@ -191,7 +191,8 @@ class TestKnowledgeSearch:
 
         assert result["success"] is False
         assert "error" in result
-        assert "Search failed" in result["error"]
+        # Error message is sanitized by safe_error_message
+        assert isinstance(result["error"], str)
 
 
 # =============================================================================
@@ -440,7 +441,8 @@ class TestKnowledgeChatHandler:
 class TestPermissions:
     """Tests for RBAC permission integration."""
 
-    def test_handler_requires_permission(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handler_requires_permission(self, handler, mock_http_handler):
         """Test that handler checks permissions."""
         # Mock require_permission_or_error to return an error
         with patch.object(
@@ -448,7 +450,7 @@ class TestPermissions:
             "require_permission_or_error",
             return_value=(None, MagicMock(status_code=403)),
         ):
-            result = handler.handle(
+            result = await handler.handle(
                 "/api/v1/chat/knowledge/channel/C123/summary",
                 {},
                 mock_http_handler,
@@ -457,7 +459,8 @@ class TestPermissions:
             assert result is not None
             assert result.status_code == 403
 
-    def test_handler_read_permission_checked(self, handler, mock_http_handler):
+    @pytest.mark.asyncio
+    async def test_handler_read_permission_checked(self, handler, mock_http_handler):
         """Test that GET requests check read permission."""
         with patch.object(
             handler,
@@ -465,7 +468,7 @@ class TestPermissions:
         ) as mock_perm:
             mock_perm.return_value = (None, MagicMock(status_code=403))
 
-            handler.handle(
+            await handler.handle(
                 "/api/v1/chat/knowledge/channel/C123/summary",
                 {},
                 mock_http_handler,

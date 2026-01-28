@@ -13,14 +13,22 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
+from aragora.server.errors import safe_error_message
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
     error_response,
+    get_clamped_int_param,
     success_response,
 )
+from aragora.server.handlers.utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
+
+# Input bounds for validation
+MAX_RESULTS_LIMIT = 100
+MAX_CONTEXT_ITEMS_LIMIT = 50
+MAX_ITEMS_LIMIT = 100
 
 # Lazy-loaded bridge instance
 _bridge = None
@@ -99,10 +107,10 @@ async def handle_knowledge_search(
         }
 
     except Exception as e:
-        logger.exception(f"Knowledge search failed: {e}")
+        logger.exception("Knowledge search failed")
         return {
             "success": False,
-            "error": str(e),
+            "error": safe_error_message(e),
         }
 
 
@@ -143,10 +151,10 @@ async def handle_knowledge_inject(
         }
 
     except Exception as e:
-        logger.exception(f"Knowledge injection failed: {e}")
+        logger.exception("Knowledge injection failed")
         return {
             "success": False,
-            "error": str(e),
+            "error": safe_error_message(e),
         }
 
 
@@ -204,10 +212,10 @@ async def handle_store_chat_knowledge(
             }
 
     except Exception as e:
-        logger.exception(f"Store chat knowledge failed: {e}")
+        logger.exception("Store chat knowledge failed")
         return {
             "success": False,
-            "error": str(e),
+            "error": safe_error_message(e),
         }
 
 
@@ -236,10 +244,10 @@ async def handle_channel_knowledge_summary(
         }
 
     except Exception as e:
-        logger.exception(f"Channel summary failed: {e}")
+        logger.exception("Channel summary failed")
         return {
             "success": False,
-            "error": str(e),
+            "error": safe_error_message(e),
         }
 
 
@@ -271,7 +279,8 @@ class KnowledgeChatHandler(BaseHandler):
                 return True
         return False
 
-    def handle(
+    @rate_limit(rpm=60, limiter_name="knowledge_chat_read")
+    async def handle(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle GET requests."""
@@ -287,22 +296,20 @@ class KnowledgeChatHandler(BaseHandler):
             if len(parts) >= 7:
                 channel_id = parts[5]
                 workspace_id = query_params.get("workspace_id", "default")
-                max_items = int(query_params.get("max_items", 10))
+                # Validate and clamp max_items to bounds
+                max_items = get_clamped_int_param(
+                    query_params,
+                    "max_items",
+                    default=10,
+                    min_val=1,
+                    max_val=MAX_ITEMS_LIMIT,
+                )
 
-                import asyncio
-
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    result = loop.run_until_complete(
-                        handle_channel_knowledge_summary(
-                            channel_id=channel_id,
-                            workspace_id=workspace_id,
-                            max_items=max_items,
-                        )
-                    )
-                finally:
-                    loop.close()
+                result = await handle_channel_knowledge_summary(
+                    channel_id=channel_id,
+                    workspace_id=workspace_id,
+                    max_items=max_items,
+                )
 
                 if result.get("success"):
                     return success_response(result)
@@ -311,7 +318,8 @@ class KnowledgeChatHandler(BaseHandler):
 
         return None
 
-    def handle_post(
+    @rate_limit(rpm=30, limiter_name="knowledge_chat_write")
+    async def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
@@ -333,66 +341,59 @@ class KnowledgeChatHandler(BaseHandler):
         if err:
             return err
 
-        import asyncio
+        if path == "/api/v1/chat/knowledge/search":
+            query = body.get("query")
+            if not query:
+                return error_response("query is required", 400)
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+            # Validate and clamp max_results
+            max_results = min(max(1, int(body.get("max_results", 10))), MAX_RESULTS_LIMIT)
 
-        try:
-            if path == "/api/v1/chat/knowledge/search":
-                query = body.get("query")
-                if not query:
-                    return error_response("query is required", 400)
+            result = await handle_knowledge_search(
+                query=query,
+                workspace_id=body.get("workspace_id", "default"),
+                channel_id=body.get("channel_id"),
+                user_id=body.get("user_id"),
+                scope=body.get("scope", "workspace"),
+                strategy=body.get("strategy", "hybrid"),
+                node_types=body.get("node_types"),
+                min_confidence=body.get("min_confidence", 0.3),
+                max_results=max_results,
+            )
 
-                result = loop.run_until_complete(
-                    handle_knowledge_search(
-                        query=query,
-                        workspace_id=body.get("workspace_id", "default"),
-                        channel_id=body.get("channel_id"),
-                        user_id=body.get("user_id"),
-                        scope=body.get("scope", "workspace"),
-                        strategy=body.get("strategy", "hybrid"),
-                        node_types=body.get("node_types"),
-                        min_confidence=body.get("min_confidence", 0.3),
-                        max_results=body.get("max_results", 10),
-                    )
-                )
+        elif path == "/api/v1/chat/knowledge/inject":
+            messages = body.get("messages")
+            if not messages:
+                return error_response("messages is required", 400)
 
-            elif path == "/api/v1/chat/knowledge/inject":
-                messages = body.get("messages")
-                if not messages:
-                    return error_response("messages is required", 400)
+            # Validate and clamp max_context_items
+            max_context_items = min(
+                max(1, int(body.get("max_context_items", 5))), MAX_CONTEXT_ITEMS_LIMIT
+            )
 
-                result = loop.run_until_complete(
-                    handle_knowledge_inject(
-                        messages=messages,
-                        workspace_id=body.get("workspace_id", "default"),
-                        channel_id=body.get("channel_id"),
-                        max_context_items=body.get("max_context_items", 5),
-                    )
-                )
+            result = await handle_knowledge_inject(
+                messages=messages,
+                workspace_id=body.get("workspace_id", "default"),
+                channel_id=body.get("channel_id"),
+                max_context_items=max_context_items,
+            )
 
-            elif path == "/api/v1/chat/knowledge/store":
-                messages = body.get("messages")
-                if not messages or len(messages) < 2:
-                    return error_response("At least 2 messages required", 400)
+        elif path == "/api/v1/chat/knowledge/store":
+            messages = body.get("messages")
+            if not messages or len(messages) < 2:
+                return error_response("At least 2 messages required", 400)
 
-                result = loop.run_until_complete(
-                    handle_store_chat_knowledge(
-                        messages=messages,
-                        workspace_id=body.get("workspace_id", "default"),
-                        channel_id=body.get("channel_id", ""),
-                        channel_name=body.get("channel_name", ""),
-                        platform=body.get("platform", "unknown"),
-                        node_type=body.get("node_type", "chat_context"),
-                    )
-                )
+            result = await handle_store_chat_knowledge(
+                messages=messages,
+                workspace_id=body.get("workspace_id", "default"),
+                channel_id=body.get("channel_id", ""),
+                channel_name=body.get("channel_name", ""),
+                platform=body.get("platform", "unknown"),
+                node_type=body.get("node_type", "chat_context"),
+            )
 
-            else:
-                return None
-
-        finally:
-            loop.close()
+        else:
+            return None
 
         if result.get("success"):
             return success_response(result)
