@@ -52,6 +52,36 @@ export { PluginsAPI, type Plugin, type PluginListing, type PluginSubmission, typ
 export { WorkspacesAPI, type Workspace, type WorkspaceSettings, type WorkspaceMember, type WorkspaceProfile, type CreateWorkspaceRequest, type UpdateWorkspaceRequest, type AddMemberRequest, type UpdateMemberRequest } from './workspaces';
 export { IntegrationsAPI, type Integration, type AvailableIntegration, type IntegrationConfigSchema, type IntegrationSyncStatus, type CreateIntegrationRequest, type UpdateIntegrationRequest } from './integrations';
 
+// Compliance (SOC 2, GDPR, Audit)
+export {
+  ComplianceAPI,
+  type AuditEventType,
+  type ComplianceStatus,
+  type Soc2Report,
+  type Soc2ControlAssessment,
+  type Soc2Finding,
+  type GdprExportResult,
+  type GdprDeletionResult,
+  type AuditVerificationResult,
+  type AuditAnomaly,
+  type AuditEvent,
+  type AuditEventsExport,
+} from './compliance';
+
+// Connectors (Data Source Integrations)
+export {
+  ConnectorsAPI,
+  type ConnectorType,
+  type SyncFrequency,
+  type SyncStatus,
+  type HealthStatus as ConnectorHealthStatus,
+  type Connector,
+  type SyncOperation,
+  type ConnectionTestResult,
+  type ConnectorHealth as ConnectorHealthDetails,
+  type PaginationInfo as ConnectorsPaginationInfo,
+} from './connectors';
+
 // Marketplace
 export {
   MarketplaceAPI,
@@ -976,3 +1006,36 @@ export {
   type ApplicationMetrics,
   type DebateMetrics,
 } from './metrics';
+
+// Queue
+export { QueueAPI, type QueueJob, type QueueStats, type QueueWorker } from './queue';
+
+// Chat (Knowledge Chat)
+export { ChatAPI, type ChatKnowledgeSearchRequest, type ChatKnowledgeSearchResponse, type ChatKnowledgeInjectRequest, type ChatKnowledgeStoreRequest, type ChatKnowledgeSummaryResponse } from './chat';
+
+// Flips
+export { FlipsAPI, type FlipEntry, type FlipSummary } from './flips';
+
+// Insights
+export { InsightsAPI, type InsightEntry, type ExtractDetailedRequest } from './insights';
+
+// Classify
+export { ClassifyAPI, type ClassifyRequest, type ClassifyResponse } from './classify';
+
+// Calibration
+export { CalibrationAPI, type CalibrationLeaderboardEntry } from './calibration';
+
+// Matches
+export { MatchesAPI, type MatchEntry } from './matches';
+
+// Reputation
+export { ReputationAPI, type ReputationEntry } from './reputation';
+
+// Evolution
+export { EvolutionAPI, type EvolutionHistoryEntry, type EvolutionHistoryResponse } from './evolution';
+
+// OpenAPI
+export { OpenApiAPI } from './openapi';
+
+// Probes
+export { ProbesAPI, type CapabilityProbeRequest, type CapabilityProbeResponse } from './probes';

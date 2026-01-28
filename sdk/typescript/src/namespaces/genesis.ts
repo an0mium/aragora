@@ -172,7 +172,7 @@ export class GenesisAPI {
    * Get overall genesis statistics.
    */
   async getStats(): Promise<GenesisStats> {
-    return this.client.request('GET', '/api/v2/genesis/stats');
+    return this.client.request('GET', '/api/v1/genesis/stats');
   }
 
   /**
@@ -181,7 +181,7 @@ export class GenesisAPI {
   async listEvents(
     options?: ListEventsOptions
   ): Promise<{ events: GenesisEvent[]; count: number; filter?: string }> {
-    return this.client.request('GET', '/api/v2/genesis/events', {
+    return this.client.request('GET', '/api/v1/genesis/events', {
       params: options as Record<string, unknown>,
     });
   }
@@ -192,7 +192,7 @@ export class GenesisAPI {
   async listGenomes(
     options?: ListGenomesOptions
   ): Promise<{ genomes: Genome[]; total: number; limit: number; offset: number }> {
-    return this.client.request('GET', '/api/v2/genesis/genomes', {
+    return this.client.request('GET', '/api/v1/genesis/genomes', {
       params: options as Record<string, unknown>,
     });
   }
@@ -201,7 +201,7 @@ export class GenesisAPI {
    * Get top genomes by fitness score.
    */
   async getTopGenomes(limit?: number): Promise<{ genomes: Genome[]; count: number }> {
-    return this.client.request('GET', '/api/v2/genesis/genomes/top', {
+    return this.client.request('GET', '/api/v1/genesis/genomes/top', {
       params: limit !== undefined ? { limit } : undefined,
     });
   }
@@ -210,7 +210,7 @@ export class GenesisAPI {
    * Get a specific genome by ID.
    */
   async getGenome(genomeId: string): Promise<{ genome: Genome }> {
-    return this.client.request('GET', `/api/v2/genesis/genomes/${genomeId}`);
+    return this.client.request('GET', `/api/v1/genesis/genomes/${genomeId}`);
   }
 
   /**
@@ -220,7 +220,7 @@ export class GenesisAPI {
     genomeId: string,
     maxDepth?: number
   ): Promise<{ genome_id: string; lineage: LineageNode[]; generations: number }> {
-    return this.client.request('GET', `/api/v2/genesis/genomes/${genomeId}/lineage`, {
+    return this.client.request('GET', `/api/v1/genesis/genomes/${genomeId}/lineage`, {
       params: maxDepth !== undefined ? { max_depth: maxDepth } : undefined,
     });
   }
@@ -238,7 +238,7 @@ export class GenesisAPI {
     total_descendants: number;
     max_generation: number;
   }> {
-    return this.client.request('GET', `/api/v2/genesis/genomes/${genomeId}/descendants`, {
+    return this.client.request('GET', `/api/v1/genesis/genomes/${genomeId}/descendants`, {
       params: maxDepth !== undefined ? { max_depth: maxDepth } : undefined,
     });
   }
@@ -247,13 +247,13 @@ export class GenesisAPI {
    * Get the active population status.
    */
   async getPopulation(): Promise<Population> {
-    return this.client.request('GET', '/api/v2/genesis/population');
+    return this.client.request('GET', '/api/v1/genesis/population');
   }
 
   /**
    * Get the debate tree structure for fractal visualization.
    */
   async getDebateTree(debateId: string): Promise<DebateTree> {
-    return this.client.request('GET', `/api/v2/genesis/debates/${debateId}/tree`);
+    return this.client.request('GET', `/api/v1/genesis/debates/${debateId}/tree`);
   }
 }

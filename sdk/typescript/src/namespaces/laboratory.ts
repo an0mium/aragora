@@ -105,7 +105,7 @@ export class LaboratoryAPI {
    * Get emergent traits detected from agent performance.
    */
   async getEmergentTraits(options?: EmergentTraitsOptions): Promise<EmergentTraitsResponse> {
-    return this.client.request('GET', '/api/v2/laboratory/emergent-traits', {
+    return this.client.request('GET', '/api/v1/laboratory/emergent-traits', {
       params: options as Record<string, unknown>,
     });
   }
@@ -114,8 +114,8 @@ export class LaboratoryAPI {
    * Suggest beneficial trait transfers for a target agent.
    */
   async suggestCrossPollinations(request: CrossPollinationRequest): Promise<CrossPollinationResponse> {
-    return this.client.request('POST', '/api/v2/laboratory/cross-pollinations', {
-      json: request as unknown as Record<string, unknown>,
+    return this.client.request('GET', '/api/v1/laboratory/cross-pollinations/suggest', {
+      params: request as Record<string, unknown>,
     });
   }
 }

@@ -43,6 +43,12 @@ def normalize_path(path: str) -> str:
 
 
 def normalize_template(path: str) -> str:
+    # Strip query string fragments embedded via template literals
+    if "?" in path:
+        path = path.split("?", 1)[0]
+    # Drop common query-string template suffixes (e.g., `${params}`, `${query}`)
+    path = re.sub(r"\$\{(params|query|queryString|qs|searchParams|options|filters)\}$", "", path)
+    # Replace remaining interpolations with path params
     path = re.sub(r"\$\{[^}]+\}", "{param}", path)
     return normalize_path(path)
 
@@ -91,7 +97,7 @@ def parse_ts_sdk(paths: Iterable[Path]) -> set[Endpoint]:
 
 
 CLIENT_CALL_RE = re.compile(
-    r"\b(?:this\.)?client\.(?P<method>get|post|put|patch|delete)\b[^,]*\(\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
+    r"\b(?:this\.)?client\.(?P<method>get|post|put|patch|delete)\b[^\n,]*\(\s*(?P<path>`[^`]+`|'[^']+'|\"[^\"]+\")",
     re.MULTILINE,
 )
 
@@ -100,15 +106,16 @@ def parse_ts_client(paths: Iterable[Path]) -> set[Endpoint]:
     endpoints: set[Endpoint] = set()
     for path in paths:
         text = path.read_text()
-        for match in CLIENT_CALL_RE.finditer(text):
-            method = match.group("method").upper()
-            raw = match.group("path")
-            literal = raw[1:-1]
-            if raw.startswith("`"):
-                literal = normalize_template(literal)
-            else:
-                literal = normalize_path(literal)
-            endpoints.add(Endpoint(method, literal).normalized())
+        for pattern in (REQUEST_RE, CLIENT_CALL_RE):
+            for match in pattern.finditer(text):
+                method = match.group("method").upper()
+                raw = match.group("path")
+                literal = raw[1:-1]
+                if raw.startswith("`"):
+                    literal = normalize_template(literal)
+                else:
+                    literal = normalize_path(literal)
+                endpoints.add(Endpoint(method, literal).normalized())
     return endpoints
 
 

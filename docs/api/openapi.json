@@ -18358,13 +18358,14 @@
         }
       }
     },
-    "/api/debates/{debate_id}/explainability": {
+    "/api/v1/debates/{debate_id}/explanation": {
       "get": {
         "tags": [
           "Explainability"
         ],
         "summary": "Get decision explanation",
-        "description": "Get a full explanation of how the debate decision was reached, including narrative, factors, counterfactuals, and provenance.",
+        "operationId": "getDebateExplanation",
+        "description": "Get a full explanation of how the debate decision was reached.",
         "parameters": [
           {
             "name": "debate_id",
@@ -18376,119 +18377,18 @@
             }
           },
           {
-            "name": "include_factors",
+            "name": "format",
             "in": "query",
-            "description": "Include factor decomposition",
+            "description": "Response format: json or summary",
             "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_counterfactuals",
-            "in": "query",
-            "description": "Include counterfactual scenarios",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_provenance",
-            "in": "query",
-            "description": "Include decision provenance chain",
-            "schema": {
-              "type": "boolean",
-              "default": true
+              "type": "string",
+              "default": "json"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Full decision explanation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DecisionExplanation"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
-      }
-    },
-    "/api/v1/debates/{debate_id}/explainability": {
-      "get": {
-        "tags": [
-          "Explainability"
-        ],
-        "summary": "Get decision explanation",
-        "operationId": "getDebatesExplainability",
-        "description": "Get a full explanation of how the debate decision was reached, including narrative, factors, counterfactuals, and provenance.",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "description": "ID of the debate to explain",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "include_factors",
-            "in": "query",
-            "description": "Include factor decomposition",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_counterfactuals",
-            "in": "query",
-            "description": "Include counterfactual scenarios",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_provenance",
-            "in": "query",
-            "description": "Include decision provenance chain",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Full decision explanation",
+            "description": "Decision explanation",
             "content": {
               "application/json": {
                 "schema": {
@@ -18522,13 +18422,14 @@
         }
       }
     },
-    "/api/debates/{debate_id}/explainability/factors": {
+    "/api/v1/debates/{debate_id}/evidence": {
       "get": {
         "tags": [
           "Explainability"
         ],
-        "summary": "Get contributing factors",
-        "description": "Get the factors that contributed to the debate decision with their relative contributions.",
+        "summary": "Get evidence chain",
+        "operationId": "getDebateEvidence",
+        "description": "Get evidence chain for a debate.",
         "parameters": [
           {
             "name": "debate_id",
@@ -18539,286 +18440,29 @@
             }
           },
           {
-            "name": "min_contribution",
+            "name": "limit",
             "in": "query",
-            "description": "Minimum contribution threshold (0-1)",
-            "schema": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 1
-            }
-          },
-          {
-            "name": "sort_by",
-            "in": "query",
-            "description": "Sort factors by",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "contribution",
-                "name",
-                "type"
-              ],
-              "default": "contribution"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of contributing factors",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "factors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": {
-                            "type": "string"
-                          },
-                          "contribution": {
-                            "type": "number"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "type": {
-                            "type": "string"
-                          },
-                          "evidence": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "total_factors": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
-      }
-    },
-    "/api/v1/debates/{debate_id}/explainability/factors": {
-      "get": {
-        "tags": [
-          "Explainability"
-        ],
-        "summary": "Get contributing factors",
-        "operationId": "getDebatesExplainabilityFactor",
-        "description": "Get the factors that contributed to the debate decision with their relative contributions.",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "min_contribution",
-            "in": "query",
-            "description": "Minimum contribution threshold (0-1)",
-            "schema": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 1
-            }
-          },
-          {
-            "name": "sort_by",
-            "in": "query",
-            "description": "Sort factors by",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "contribution",
-                "name",
-                "type"
-              ],
-              "default": "contribution"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "List of contributing factors",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "factors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "name": {
-                            "type": "string"
-                          },
-                          "contribution": {
-                            "type": "number"
-                          },
-                          "description": {
-                            "type": "string"
-                          },
-                          "type": {
-                            "type": "string"
-                          },
-                          "evidence": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "total_factors": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/debates/{debate_id}/explainability/counterfactual": {
-      "get": {
-        "tags": [
-          "Explainability"
-        ],
-        "summary": "Get counterfactual scenarios",
-        "description": "Generate what-if scenarios showing how different inputs might have changed the outcome.",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "max_scenarios",
-            "in": "query",
-            "description": "Maximum number of scenarios to generate",
             "schema": {
               "type": "integer",
-              "default": 5,
-              "maximum": 20
+              "default": 20
             }
           },
           {
-            "name": "min_probability",
+            "name": "min_relevance",
             "in": "query",
-            "description": "Minimum probability threshold for scenarios",
             "schema": {
               "type": "number",
-              "minimum": 0,
-              "maximum": 1,
-              "default": 0.3
+              "default": 0.0
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Counterfactual scenarios",
+            "description": "Evidence chain",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "counterfactuals": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "scenario": {
-                            "type": "string"
-                          },
-                          "outcome": {
-                            "type": "string"
-                          },
-                          "probability": {
-                            "type": "number"
-                          },
-                          "affected_factors": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/EvidenceChain"
                 }
               }
             }
@@ -18845,127 +18489,17 @@
               }
             }
           }
-        },
-        "deprecated": true
-      },
-      "post": {
-        "tags": [
-          "Explainability"
-        ],
-        "summary": "Generate custom counterfactual",
-        "description": "Generate a counterfactual scenario based on custom hypothetical changes.",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "hypothesis"
-                ],
-                "properties": {
-                  "hypothesis": {
-                    "type": "string",
-                    "description": "The hypothetical change to evaluate"
-                  },
-                  "affected_agents": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Agents affected by the change"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Custom counterfactual analysis"
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
+        }
       }
     },
-    "/api/v1/debates/{debate_id}/explainability/counterfactual": {
+    "/api/v1/debates/{debate_id}/votes/pivots": {
       "get": {
         "tags": [
           "Explainability"
         ],
-        "summary": "Get counterfactual scenarios",
-        "operationId": "getDebatesExplainabilityCounterfactual",
-        "description": "Generate what-if scenarios showing how different inputs might have changed the outcome.",
+        "summary": "Get vote pivots",
+        "operationId": "getDebateVotePivots",
+        "description": "Get vote influence pivots for a debate.",
         "parameters": [
           {
             "name": "debate_id",
@@ -18976,171 +18510,21 @@
             }
           },
           {
-            "name": "max_scenarios",
+            "name": "min_influence",
             "in": "query",
-            "description": "Maximum number of scenarios to generate",
-            "schema": {
-              "type": "integer",
-              "default": 5,
-              "maximum": 20
-            }
-          },
-          {
-            "name": "min_probability",
-            "in": "query",
-            "description": "Minimum probability threshold for scenarios",
             "schema": {
               "type": "number",
-              "minimum": 0,
-              "maximum": 1,
-              "default": 0.3
+              "default": 0.0
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Counterfactual scenarios",
+            "description": "Vote pivots",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "counterfactuals": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "scenario": {
-                            "type": "string"
-                          },
-                          "outcome": {
-                            "type": "string"
-                          },
-                          "probability": {
-                            "type": "number"
-                          },
-                          "affected_factors": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Explainability"
-        ],
-        "summary": "Generate custom counterfactual",
-        "operationId": "createDebatesExplainabilityCounterfactual",
-        "description": "Generate a counterfactual scenario based on custom hypothetical changes.",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "hypothesis"
-                ],
-                "properties": {
-                  "hypothesis": {
-                    "type": "string",
-                    "description": "The hypothetical change to evaluate"
-                  },
-                  "affected_agents": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Agents affected by the change"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Custom counterfactual analysis"
-          },
-          "400": {
-            "description": "Bad request - Invalid input or malformed JSON",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "invalid_json": {
-                    "summary": "Invalid JSON body",
-                    "value": {
-                      "error": "Invalid JSON in request body",
-                      "code": "INVALID_JSON",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "missing_field": {
-                    "summary": "Missing required field",
-                    "value": {
-                      "error": "Missing required field: task",
-                      "code": "MISSING_FIELD",
-                      "field": "task",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  },
-                  "invalid_value": {
-                    "summary": "Invalid field value",
-                    "value": {
-                      "error": "Invalid value for 'rounds': must be between 1 and 10",
-                      "code": "INVALID_VALUE",
-                      "field": "rounds",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
+                  "$ref": "#/components/schemas/VotePivots"
                 }
               }
             }
@@ -19170,13 +18554,14 @@
         }
       }
     },
-    "/api/debates/{debate_id}/explainability/provenance": {
+    "/api/v1/debates/{debate_id}/counterfactuals": {
       "get": {
         "tags": [
           "Explainability"
         ],
-        "summary": "Get decision provenance",
-        "description": "Get the provenance chain showing how the decision was reached step by step.",
+        "summary": "Get counterfactuals",
+        "operationId": "getDebateCounterfactuals",
+        "description": "Get counterfactual scenarios for a debate.",
         "parameters": [
           {
             "name": "debate_id",
@@ -19187,198 +18572,21 @@
             }
           },
           {
-            "name": "include_timestamps",
+            "name": "min_sensitivity",
             "in": "query",
-            "description": "Include timestamps for each step",
             "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_agents",
-            "in": "query",
-            "description": "Include agent information for each step",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_confidence",
-            "in": "query",
-            "description": "Include confidence levels for each step",
-            "schema": {
-              "type": "boolean",
-              "default": true
+              "type": "number",
+              "default": 0.0
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Decision provenance chain",
+            "description": "Counterfactuals",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "provenance": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "step": {
-                            "type": "integer"
-                          },
-                          "action": {
-                            "type": "string"
-                          },
-                          "timestamp": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "agent": {
-                            "type": "string"
-                          },
-                          "confidence": {
-                            "type": "number"
-                          },
-                          "evidence": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "total_steps": {
-                      "type": "integer"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found - The requested resource does not exist",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "not_found": {
-                    "summary": "Resource not found",
-                    "value": {
-                      "error": "Debate not found",
-                      "code": "NOT_FOUND",
-                      "resource_type": "debate",
-                      "resource_id": "deb_abc123",
-                      "trace_id": "req_abc123xyz"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "deprecated": true
-      }
-    },
-    "/api/v1/debates/{debate_id}/explainability/provenance": {
-      "get": {
-        "tags": [
-          "Explainability"
-        ],
-        "summary": "Get decision provenance",
-        "operationId": "getDebatesExplainabilityProvenance",
-        "description": "Get the provenance chain showing how the decision was reached step by step.",
-        "parameters": [
-          {
-            "name": "debate_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "include_timestamps",
-            "in": "query",
-            "description": "Include timestamps for each step",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_agents",
-            "in": "query",
-            "description": "Include agent information for each step",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "include_confidence",
-            "in": "query",
-            "description": "Include confidence levels for each step",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Decision provenance chain",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "provenance": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "step": {
-                            "type": "integer"
-                          },
-                          "action": {
-                            "type": "string"
-                          },
-                          "timestamp": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "agent": {
-                            "type": "string"
-                          },
-                          "confidence": {
-                            "type": "number"
-                          },
-                          "evidence": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "total_steps": {
-                      "type": "integer"
-                    }
-                  }
+                  "$ref": "#/components/schemas/Counterfactuals"
                 }
               }
             }
@@ -19408,13 +18616,14 @@
         }
       }
     },
-    "/api/debates/{debate_id}/explainability/narrative": {
+    "/api/v1/debates/{debate_id}/summary": {
       "get": {
         "tags": [
           "Explainability"
         ],
-        "summary": "Get decision narrative",
-        "description": "Get a natural language explanation of the decision.",
+        "summary": "Get debate summary",
+        "operationId": "getDebateSummary",
+        "description": "Get a human-readable summary for a debate.",
         "parameters": [
           {
             "name": "debate_id",
@@ -19427,55 +18636,19 @@
           {
             "name": "format",
             "in": "query",
-            "description": "Narrative format",
             "schema": {
               "type": "string",
-              "enum": [
-                "brief",
-                "detailed",
-                "executive_summary"
-              ],
-              "default": "detailed"
-            }
-          },
-          {
-            "name": "language",
-            "in": "query",
-            "description": "Output language (ISO 639-1)",
-            "schema": {
-              "type": "string",
-              "default": "en"
+              "default": "markdown"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Decision narrative",
+            "description": "Summary",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "narrative": {
-                      "type": "string"
-                    },
-                    "confidence": {
-                      "type": "number"
-                    },
-                    "format": {
-                      "type": "string"
-                    },
-                    "word_count": {
-                      "type": "integer"
-                    },
-                    "generated_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  }
+                  "$ref": "#/components/schemas/DebateSummary"
                 }
               }
             }
@@ -19502,79 +18675,159 @@
               }
             }
           }
-        },
-        "deprecated": true
+        }
       }
     },
-    "/api/v1/debates/{debate_id}/explainability/narrative": {
+    "/api/v1/explainability/batch": {
+      "post": {
+        "tags": [
+          "Explainability"
+        ],
+        "summary": "Create explainability batch",
+        "operationId": "createExplainabilityBatch",
+        "description": "Generate explainability output for multiple debates.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "debate_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "include_evidence": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "include_counterfactuals": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "debate_ids"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplainabilityBatch"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/explainability/batch/{batch_id}/status": {
       "get": {
         "tags": [
           "Explainability"
         ],
-        "summary": "Get decision narrative",
-        "operationId": "getDebatesExplainabilityNarrative",
-        "description": "Get a natural language explanation of the decision.",
+        "summary": "Get explainability batch status",
+        "operationId": "getExplainabilityBatchStatus",
         "parameters": [
           {
-            "name": "debate_id",
+            "name": "batch_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "description": "Narrative format",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "brief",
-                "detailed",
-                "executive_summary"
-              ],
-              "default": "detailed"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplainabilityBatchStatus"
+                }
+              }
             }
           },
+          "404": {
+            "description": "Not found - The requested resource does not exist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "not_found": {
+                    "summary": "Resource not found",
+                    "value": {
+                      "error": "Debate not found",
+                      "code": "NOT_FOUND",
+                      "resource_type": "debate",
+                      "resource_id": "deb_abc123",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/explainability/batch/{batch_id}/results": {
+      "get": {
+        "tags": [
+          "Explainability"
+        ],
+        "summary": "Get explainability batch results",
+        "operationId": "getExplainabilityBatchResults",
+        "parameters": [
           {
-            "name": "language",
-            "in": "query",
-            "description": "Output language (ISO 639-1)",
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "string",
-              "default": "en"
+              "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Decision narrative",
+            "description": "Batch results",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "debate_id": {
-                      "type": "string"
-                    },
-                    "narrative": {
-                      "type": "string"
-                    },
-                    "confidence": {
-                      "type": "number"
-                    },
-                    "format": {
-                      "type": "string"
-                    },
-                    "word_count": {
-                      "type": "integer"
-                    },
-                    "generated_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ExplainabilityBatchResults"
                 }
               }
             }
@@ -26946,6 +26199,380 @@
                       "trace_id": "req_abc123xyz"
                     }
                   }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/knowledge/search": {
+      "post": {
+        "tags": [
+          "Knowledge Mound"
+        ],
+        "summary": "Search knowledge",
+        "operationId": "createChatKnowledgeSearch",
+        "description": "Search knowledge from chat context.",
+        "security": [
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "workspace_id": {
+                    "type": "string"
+                  },
+                  "channel_id": {
+                    "type": "string"
+                  },
+                  "scope": {
+                    "type": "string"
+                  },
+                  "strategy": {
+                    "type": "string"
+                  },
+                  "node_types": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "max_results": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "query"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/knowledge/inject": {
+      "post": {
+        "tags": [
+          "Knowledge Mound"
+        ],
+        "summary": "Inject knowledge",
+        "operationId": "createChatKnowledgeInject",
+        "description": "Retrieve knowledge context for a conversation.",
+        "security": [
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Injected context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/knowledge/store": {
+      "post": {
+        "tags": [
+          "Knowledge Mound"
+        ],
+        "summary": "Store chat knowledge",
+        "operationId": "createChatKnowledgeStore",
+        "description": "Persist chat conversation as knowledge.",
+        "security": [
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Knowledge stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid input or malformed JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_json": {
+                    "summary": "Invalid JSON body",
+                    "value": {
+                      "error": "Invalid JSON in request body",
+                      "code": "INVALID_JSON",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "missing_field": {
+                    "summary": "Missing required field",
+                    "value": {
+                      "error": "Missing required field: task",
+                      "code": "MISSING_FIELD",
+                      "field": "task",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  },
+                  "invalid_value": {
+                    "summary": "Invalid field value",
+                    "value": {
+                      "error": "Invalid value for 'rounds': must be between 1 and 10",
+                      "code": "INVALID_VALUE",
+                      "field": "rounds",
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/an0mium/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/chat/knowledge/channel/{channel_id}/summary": {
+      "get": {
+        "tags": [
+          "Knowledge Mound"
+        ],
+        "summary": "Channel summary",
+        "operationId": "getChatKnowledgeChannelSummary",
+        "description": "Get channel knowledge summary.",
+        "security": [
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "channel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Channel summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandardSuccessResponse"
                 }
               }
             }
@@ -41446,7 +41073,30 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'type': {'type': 'string'}, 'status': {'type': 'string'}, 'created_at': {'type': 'string', 'format': 'date-time'}, 'started_at': {'type': 'string', 'format': 'date-time'}, 'completed_at': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "started_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "completed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -41646,7 +41296,30 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'type': {'type': 'string'}, 'status': {'type': 'string'}, 'created_at': {'type': 'string', 'format': 'date-time'}, 'started_at': {'type': 'string', 'format': 'date-time'}, 'completed_at': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "started_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "completed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -42367,7 +42040,28 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'hostname': {'type': 'string'}, 'status': {'type': 'string'}, 'current_job': {'type': 'string'}, 'jobs_processed': {'type': 'integer'}, 'started_at': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "hostname": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "current_job": {
+                            "type": "string"
+                          },
+                          "jobs_processed": {
+                            "type": "integer"
+                          },
+                          "started_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -42406,7 +42100,28 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'hostname': {'type': 'string'}, 'status': {'type': 'string'}, 'current_job': {'type': 'string'}, 'jobs_processed': {'type': 'integer'}, 'started_at': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "hostname": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "current_job": {
+                            "type": "string"
+                          },
+                          "jobs_processed": {
+                            "type": "integer"
+                          },
+                          "started_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -42453,7 +42168,25 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'type': {'type': 'string'}, 'error': {'type': 'string'}, 'attempts': {'type': 'integer'}, 'failed_at': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          },
+                          "attempts": {
+                            "type": "integer"
+                          },
+                          "failed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -42502,7 +42235,25 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'type': {'type': 'string'}, 'error': {'type': 'string'}, 'attempts': {'type': 'integer'}, 'failed_at': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          },
+                          "attempts": {
+                            "type": "integer"
+                          },
+                          "failed_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -42765,7 +42516,21 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'type': {'type': 'string'}, 'running_minutes': {'type': 'number'}, 'worker_id': {'type': 'string'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "running_minutes": {
+                            "type": "number"
+                          },
+                          "worker_id": {
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -42814,7 +42579,21 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'id': {'type': 'string'}, 'type': {'type': 'string'}, 'running_minutes': {'type': 'number'}, 'worker_id': {'type': 'string'}}"
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "running_minutes": {
+                            "type": "number"
+                          },
+                          "worker_id": {
+                            "type": "string"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -43059,7 +42838,25 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'device_id': {'type': 'string'}, 'type': {'type': 'string'}, 'name': {'type': 'string'}, 'status': {'type': 'string'}, 'last_seen': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "device_id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "last_seen": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {
@@ -43126,7 +42923,25 @@
                     "items": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/{'device_id': {'type': 'string'}, 'type': {'type': 'string'}, 'name': {'type': 'string'}, 'status': {'type': 'string'}, 'last_seen': {'type': 'string', 'format': 'date-time'}}"
+                        "type": "object",
+                        "properties": {
+                          "device_id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "last_seen": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
                       }
                     },
                     "total": {

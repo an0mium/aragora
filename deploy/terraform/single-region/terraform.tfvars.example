@@ -1,0 +1,52 @@
+# Aragora Single-Region Terraform Configuration
+# Copy this file to terraform.tfvars and adjust values
+
+# Basic Settings
+region       = "us-east-1"
+environment  = "production"  # or "staging"
+project_name = "aragora"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+
+# EKS Configuration
+# For small deployments (< 10 concurrent debates)
+eks_instance_types = ["t3.medium", "t3.large"]
+eks_min_nodes      = 2
+eks_max_nodes      = 10
+eks_desired_nodes  = 2
+
+# For medium deployments (10-100 concurrent debates)
+# eks_instance_types = ["m5.large", "m5.xlarge"]
+# eks_min_nodes      = 3
+# eks_max_nodes      = 20
+# eks_desired_nodes  = 3
+
+# For large deployments (100+ concurrent debates)
+# eks_instance_types = ["m5.xlarge", "m5.2xlarge"]
+# eks_min_nodes      = 5
+# eks_max_nodes      = 50
+# eks_desired_nodes  = 5
+
+# RDS Configuration
+# For small deployments
+db_instance_class    = "db.t3.medium"
+db_allocated_storage = 50
+
+# For medium deployments
+# db_instance_class    = "db.r6g.large"
+# db_allocated_storage = 100
+
+# For large deployments
+# db_instance_class    = "db.r6g.xlarge"
+# db_allocated_storage = 200
+
+# Redis Configuration
+# For small deployments
+redis_node_type = "cache.t3.small"
+
+# For medium/large deployments
+# redis_node_type = "cache.r6g.medium"
+
+# Security
+enable_deletion_protection = true  # Set to false for non-production

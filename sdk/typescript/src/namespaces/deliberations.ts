@@ -102,27 +102,27 @@ export class DeliberationsAPI {
    * List all active deliberation sessions.
    */
   async listActive(): Promise<ActiveDeliberationsResponse> {
-    return this.client.request('GET', '/api/v2/deliberations/active');
+    return this.client.request('GET', '/api/v1/deliberations/active');
   }
 
   /**
    * Get deliberation statistics.
    */
   async getStats(): Promise<DeliberationStats> {
-    return this.client.request('GET', '/api/v2/deliberations/stats');
+    return this.client.request('GET', '/api/v1/deliberations/stats');
   }
 
   /**
    * Get a specific deliberation by ID.
    */
   async get(deliberationId: string): Promise<Deliberation> {
-    return this.client.request('GET', `/api/v2/deliberations/${deliberationId}`);
+    return this.client.request('GET', `/api/v1/deliberations/${deliberationId}`);
   }
 
   /**
    * Get WebSocket stream configuration for real-time updates.
    */
   async getStreamConfig(): Promise<DeliberationStreamConfig> {
-    return this.client.request('GET', '/api/v2/deliberations/stream/config');
+    return this.client.request('GET', '/api/v1/deliberations/stream');
   }
 }
