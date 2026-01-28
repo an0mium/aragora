@@ -1502,7 +1502,7 @@ class BaseHandler:
 
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """
         Handle a GET request. Override in subclasses.
 
@@ -1518,7 +1518,7 @@ class BaseHandler:
 
     def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """
         Handle a POST request. Override in subclasses that support POST.
 
@@ -1534,7 +1534,7 @@ class BaseHandler:
 
     def handle_delete(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """
         Handle a DELETE request. Override in subclasses that support DELETE.
 
@@ -1550,7 +1550,7 @@ class BaseHandler:
 
     def handle_patch(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """
         Handle a PATCH request. Override in subclasses that support PATCH.
 
