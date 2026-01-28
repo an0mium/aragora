@@ -12,6 +12,36 @@ import json
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
+# Check if graph debate modules are available at module level
+try:
+    from aragora.debate.graph_orchestrator import (
+        GraphDebateOrchestrator,
+        BranchPolicy,
+        MergeStrategy,
+        GraphNode,
+        GraphBranch,
+        DebateGraph,
+    )
+    from aragora.debate.graph import NodeType
+    from aragora.server.handlers.debates import GraphDebatesHandler
+
+    HAS_GRAPH_DEBATES = True
+except ImportError:
+    HAS_GRAPH_DEBATES = False
+    GraphDebateOrchestrator = None  # type: ignore
+    BranchPolicy = None  # type: ignore
+    MergeStrategy = None  # type: ignore
+    GraphNode = None  # type: ignore
+    GraphBranch = None  # type: ignore
+    DebateGraph = None  # type: ignore
+    NodeType = None  # type: ignore
+    GraphDebatesHandler = None  # type: ignore
+
+# Reusable skipif marker
+requires_graph_debates = pytest.mark.skipif(
+    not HAS_GRAPH_DEBATES, reason="Graph debate modules not available (see #137)"
+)
+
 
 # ============================================================================
 # Test Fixtures
@@ -58,49 +88,35 @@ def mock_handler(mock_storage):
 # ============================================================================
 
 
+@requires_graph_debates
 class TestGraphDebateStructure:
     """Tests for graph debate data structures."""
 
     def test_branch_policy_defaults(self):
         """Test BranchPolicy default values."""
-        try:
-            from aragora.debate.graph_orchestrator import BranchPolicy
-
-            policy = BranchPolicy()
-            assert policy.min_disagreement >= 0.0
-            assert policy.min_disagreement <= 1.0
-            assert policy.max_branches > 0
-            assert isinstance(policy.auto_merge, bool)
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        policy = BranchPolicy()
+        assert policy.min_disagreement >= 0.0
+        assert policy.min_disagreement <= 1.0
+        assert policy.max_branches > 0
+        assert isinstance(policy.auto_merge, bool)
 
     def test_merge_strategy_enum(self):
         """Test MergeStrategy enum values."""
-        try:
-            from aragora.debate.graph_orchestrator import MergeStrategy
-
-            assert MergeStrategy.SYNTHESIS
-            assert MergeStrategy.VOTE
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        assert MergeStrategy.SYNTHESIS
+        assert MergeStrategy.VOTE
 
     def test_graph_node_creation(self):
         """Test creating graph nodes."""
-        try:
-            from aragora.debate.graph_orchestrator import GraphNode
-
-            node = GraphNode(
-                id="node-1",
-                content="Test content",
-                agent="claude",
-                round_num=1,
-                branch_id="main",
-            )
-            assert node.id == "node-1"
-            assert node.content == "Test content"
-            assert node.agent == "claude"
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        node = GraphNode(
+            id="node-1",
+            content="Test content",
+            agent="claude",
+            round_num=1,
+            branch_id="main",
+        )
+        assert node.id == "node-1"
+        assert node.content == "Test content"
+        assert node.agent == "claude"
 
 
 # ============================================================================
@@ -108,67 +124,50 @@ class TestGraphDebateStructure:
 # ============================================================================
 
 
+@requires_graph_debates
 class TestBranchCreation:
     """Tests for debate branch creation."""
 
     @pytest.mark.asyncio
     async def test_branch_created_on_high_disagreement(self, mock_agents):
         """Test that branches are created when disagreement is high."""
-        try:
-            from aragora.debate.graph_orchestrator import (
-                GraphDebateOrchestrator,
-                BranchPolicy,
-            )
+        policy = BranchPolicy(min_disagreement=0.5, max_branches=3)
+        orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
 
-            policy = BranchPolicy(min_disagreement=0.5, max_branches=3)
-            orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
+        # Simulate responses with disagreement
+        mock_agents[0].generate = AsyncMock(return_value="I strongly disagree. Option A is better.")
+        mock_agents[1].generate = AsyncMock(return_value="No, Option B is clearly superior.")
 
-            # Simulate responses with disagreement
-            mock_agents[0].generate = AsyncMock(
-                return_value="I strongly disagree. Option A is better."
-            )
-            mock_agents[1].generate = AsyncMock(return_value="No, Option B is clearly superior.")
+        async def run_agent(agent, prompt, context):
+            return await agent.generate(prompt, context)
 
-            async def run_agent(agent, prompt, context):
-                return await agent.generate(prompt, context)
+        graph = await orchestrator.run_debate(
+            task="Choose between A and B",
+            max_rounds=2,
+            run_agent_fn=run_agent,
+        )
 
-            graph = await orchestrator.run_debate(
-                task="Choose between A and B",
-                max_rounds=2,
-                run_agent_fn=run_agent,
-            )
-
-            # Graph should exist
-            assert graph is not None
-            assert len(graph.nodes) > 0
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        # Graph should exist
+        assert graph is not None
+        assert len(graph.nodes) > 0
 
     @pytest.mark.asyncio
     async def test_max_branches_respected(self, mock_agents):
         """Test that max branch limit is enforced."""
-        try:
-            from aragora.debate.graph_orchestrator import (
-                GraphDebateOrchestrator,
-                BranchPolicy,
-            )
+        policy = BranchPolicy(max_branches=2)
+        orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
 
-            policy = BranchPolicy(max_branches=2)
-            orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
+        async def run_agent(agent, prompt, context):
+            return await agent.generate(prompt, context)
 
-            async def run_agent(agent, prompt, context):
-                return await agent.generate(prompt, context)
+        graph = await orchestrator.run_debate(
+            task="Test task",
+            max_rounds=3,
+            run_agent_fn=run_agent,
+        )
 
-            graph = await orchestrator.run_debate(
-                task="Test task",
-                max_rounds=3,
-                run_agent_fn=run_agent,
-            )
-
-            # Should not exceed max branches
-            assert len(graph.branches) <= 2
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        # Should not exceed max branches
+        assert len(graph.branches) <= 2
 
 
 # ============================================================================
@@ -176,67 +175,50 @@ class TestBranchCreation:
 # ============================================================================
 
 
+@requires_graph_debates
 class TestMergeOperations:
     """Tests for branch merge operations."""
 
     @pytest.mark.asyncio
     async def test_synthesis_merge(self, mock_agents):
         """Test synthesis merge strategy."""
-        try:
-            from aragora.debate.graph_orchestrator import (
-                GraphDebateOrchestrator,
-                BranchPolicy,
-                MergeStrategy,
-            )
+        policy = BranchPolicy(
+            auto_merge=True,
+            merge_strategy=MergeStrategy.SYNTHESIS,
+        )
+        orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
 
-            policy = BranchPolicy(
-                auto_merge=True,
-                merge_strategy=MergeStrategy.SYNTHESIS,
-            )
-            orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
+        async def run_agent(agent, prompt, context):
+            return await agent.generate(prompt, context)
 
-            async def run_agent(agent, prompt, context):
-                return await agent.generate(prompt, context)
+        graph = await orchestrator.run_debate(
+            task="Debate topic",
+            max_rounds=2,
+            run_agent_fn=run_agent,
+        )
 
-            graph = await orchestrator.run_debate(
-                task="Debate topic",
-                max_rounds=2,
-                run_agent_fn=run_agent,
-            )
-
-            # Test passes if no errors
-            assert graph is not None
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        # Test passes if no errors
+        assert graph is not None
 
     @pytest.mark.asyncio
     async def test_vote_merge(self, mock_agents):
         """Test vote-based merge strategy."""
-        try:
-            from aragora.debate.graph_orchestrator import (
-                GraphDebateOrchestrator,
-                BranchPolicy,
-                MergeStrategy,
-            )
+        policy = BranchPolicy(
+            auto_merge=True,
+            merge_strategy=MergeStrategy.VOTE,
+        )
+        orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
 
-            policy = BranchPolicy(
-                auto_merge=True,
-                merge_strategy=MergeStrategy.VOTE,
-            )
-            orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
+        async def run_agent(agent, prompt, context):
+            return await agent.generate(prompt, context)
 
-            async def run_agent(agent, prompt, context):
-                return await agent.generate(prompt, context)
+        graph = await orchestrator.run_debate(
+            task="Vote on this topic",
+            max_rounds=2,
+            run_agent_fn=run_agent,
+        )
 
-            graph = await orchestrator.run_debate(
-                task="Vote on this topic",
-                max_rounds=2,
-                run_agent_fn=run_agent,
-            )
-
-            assert graph is not None
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        assert graph is not None
 
 
 # ============================================================================
@@ -244,50 +226,36 @@ class TestMergeOperations:
 # ============================================================================
 
 
+@requires_graph_debates
 class TestGraphDebatesHandlerIntegration:
     """Integration tests for GraphDebatesHandler."""
 
     def test_handler_routes(self):
         """Test handler recognizes all graph debate routes."""
-        try:
-            from aragora.server.handlers.debates import GraphDebatesHandler
+        handler = GraphDebatesHandler({})
 
-            handler = GraphDebatesHandler({})
-
-            # Test route recognition
-            assert "/api/v1/debates/graph" in handler.ROUTES
-        except ImportError:
-            pytest.skip("GraphDebatesHandler not available (see #137)")
+        # Test route recognition
+        assert "/api/v1/debates/graph" in handler.ROUTES
 
     @pytest.mark.asyncio
     async def test_get_graph_debate_not_found(self, mock_handler):
         """Test 404 response for non-existent debate."""
-        try:
-            from aragora.server.handlers.debates import GraphDebatesHandler
+        handler = GraphDebatesHandler({})
 
-            handler = GraphDebatesHandler({})
+        result = await handler._get_graph_debate(mock_handler, "nonexistent-id")
 
-            result = await handler._get_graph_debate(mock_handler, "nonexistent-id")
-
-            assert result.status_code == 404
-        except ImportError:
-            pytest.skip("GraphDebatesHandler not available (see #137)")
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_branches_empty(self, mock_handler):
         """Test empty branches response."""
-        try:
-            from aragora.server.handlers.debates import GraphDebatesHandler
+        handler = GraphDebatesHandler({})
 
-            handler = GraphDebatesHandler({})
+        result = await handler._get_branches(mock_handler, "debate-123")
 
-            result = await handler._get_branches(mock_handler, "debate-123")
-
-            assert result.status_code == 200
-            data = json.loads(result.body)
-            assert "branches" in data
-        except ImportError:
-            pytest.skip("GraphDebatesHandler not available (see #137)")
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert "branches" in data
 
 
 # ============================================================================
@@ -295,39 +263,32 @@ class TestGraphDebatesHandlerIntegration:
 # ============================================================================
 
 
+@requires_graph_debates
 class TestGraphEventEmission:
     """Tests for graph debate event emission."""
 
     @pytest.mark.asyncio
     async def test_events_emitted_during_debate(self, mock_agents):
         """Test that events are emitted during graph debates."""
-        try:
-            from aragora.debate.graph_orchestrator import (
-                GraphDebateOrchestrator,
-                BranchPolicy,
-            )
+        policy = BranchPolicy()
+        orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
 
-            policy = BranchPolicy()
-            orchestrator = GraphDebateOrchestrator(agents=mock_agents, policy=policy)
+        events = []
+        event_emitter = Mock()
+        event_emitter.emit = Mock(side_effect=lambda e: events.append(e))
 
-            events = []
-            event_emitter = Mock()
-            event_emitter.emit = Mock(side_effect=lambda e: events.append(e))
+        async def run_agent(agent, prompt, context):
+            return await agent.generate(prompt, context)
 
-            async def run_agent(agent, prompt, context):
-                return await agent.generate(prompt, context)
+        await orchestrator.run_debate(
+            task="Test task",
+            max_rounds=1,
+            run_agent_fn=run_agent,
+            event_emitter=event_emitter,
+        )
 
-            await orchestrator.run_debate(
-                task="Test task",
-                max_rounds=1,
-                run_agent_fn=run_agent,
-                event_emitter=event_emitter,
-            )
-
-            # Should emit at least some events
-            # (specific events depend on implementation)
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        # Should emit at least some events
+        # (specific events depend on implementation)
 
 
 # ============================================================================
@@ -335,44 +296,34 @@ class TestGraphEventEmission:
 # ============================================================================
 
 
+@requires_graph_debates
 class TestGraphSerialization:
     """Tests for graph debate serialization."""
 
     def test_graph_to_dict(self):
         """Test graph can be serialized to dict."""
-        try:
-            from aragora.debate.graph_orchestrator import DebateGraph
-            from aragora.debate.graph import NodeType
+        graph = DebateGraph()
+        graph.add_node(
+            node_type=NodeType.PROPOSAL,
+            agent_id="claude",
+            content="Test",
+        )
 
-            graph = DebateGraph()
-            graph.add_node(
-                node_type=NodeType.PROPOSAL,
-                agent_id="claude",
-                content="Test",
-            )
+        result = graph.to_dict()
 
-            result = graph.to_dict()
-
-            assert "nodes" in result
-            assert len(result["nodes"]) == 1
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        assert "nodes" in result
+        assert len(result["nodes"]) == 1
 
     def test_branch_to_dict(self):
         """Test branch can be serialized to dict."""
-        try:
-            from aragora.debate.graph_orchestrator import GraphBranch
+        branch = GraphBranch(
+            id="branch-1",
+            name="Alternative",
+            start_node_id="node-1",
+            hypothesis="Disagreement on approach",
+        )
 
-            branch = GraphBranch(
-                id="branch-1",
-                name="Alternative",
-                start_node_id="node-1",
-                hypothesis="Disagreement on approach",
-            )
+        result = branch.to_dict()
 
-            result = branch.to_dict()
-
-            assert result["id"] == "branch-1"
-            assert result["name"] == "Alternative"
-        except ImportError:
-            pytest.skip("Graph orchestrator not available (see #137)")
+        assert result["id"] == "branch-1"
+        assert result["name"] == "Alternative"
