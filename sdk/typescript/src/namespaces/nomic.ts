@@ -158,6 +158,36 @@ export interface OperationalMode {
 }
 
 /**
+ * Gas Town witness status
+ */
+export interface WitnessStatus {
+  active: boolean;
+  patrol_count: number;
+  last_patrol: string | null;
+  violations_detected: number;
+  current_focus?: string;
+  witnesses: Array<{
+    id: string;
+    name: string;
+    status: 'active' | 'idle' | 'investigating';
+    last_report: string | null;
+  }>;
+}
+
+/**
+ * Gas Town mayor information
+ */
+export interface MayorInfo {
+  current_mayor: string | null;
+  elected_at: string | null;
+  term_ends: string | null;
+  approval_rating: number | null;
+  policies_enacted: number;
+  vetoes: number;
+  emergency_powers_active: boolean;
+}
+
+/**
  * Modes response
  */
 export interface ModesResponse {
@@ -325,5 +355,63 @@ export class NomicAPI {
    */
   async getModes(): Promise<ModesResponse> {
     return this.client.get('/api/v1/modes');
+  }
+
+  // ===========================================================================
+  // Gas Town
+  // ===========================================================================
+
+  /**
+   * Get Gas Town witness patrol status.
+   *
+   * Witnesses monitor the nomic loop for violations and irregularities.
+   */
+  async getWitnessStatus(): Promise<WitnessStatus> {
+    return this.client.get('/api/v1/nomic/witness/status');
+  }
+
+  /**
+   * Get current Gas Town mayor information.
+   *
+   * The mayor is the elected leader who can enact policies and use emergency powers.
+   */
+  async getMayorCurrent(): Promise<MayorInfo> {
+    return this.client.get('/api/v1/nomic/mayor/current');
+  }
+
+  // ===========================================================================
+  // Convenience Aliases
+  // ===========================================================================
+
+  /**
+   * Alias for getState().
+   */
+  async state(): Promise<NomicState> {
+    return this.getState();
+  }
+
+  /**
+   * Alias for getHealth().
+   */
+  async health(): Promise<NomicHealth> {
+    return this.getHealth();
+  }
+
+  /**
+   * Check if the nomic loop is currently running.
+   */
+  async isRunning(): Promise<boolean> {
+    const state = await this.getState();
+    return state.running && !state.paused;
+  }
+
+  /**
+   * Get proposal by ID from the proposals list.
+   *
+   * @param proposalId - The proposal ID to find
+   */
+  async getProposal(proposalId: string): Promise<Proposal | null> {
+    const { proposals } = await this.getProposals();
+    return proposals.find(p => p.id === proposalId) || null;
   }
 }

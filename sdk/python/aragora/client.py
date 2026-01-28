@@ -80,12 +80,16 @@ class AragoraClient:
 
     def _init_namespaces(self) -> None:
         """Initialize namespace API objects."""
+        from .namespaces.admin import AdminAPI
         from .namespaces.agents import AgentsAPI
+        from .namespaces.analytics import AnalyticsAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.workflows import WorkflowsAPI
 
-        self.debates = DebatesAPI(self)
+        self.admin = AdminAPI(self)
         self.agents = AgentsAPI(self)
+        self.analytics = AnalyticsAPI(self)
+        self.debates = DebatesAPI(self)
         self.workflows = WorkflowsAPI(self)
 
     def request(
@@ -252,12 +256,16 @@ class AragoraAsyncClient:
 
     def _init_namespaces(self) -> None:
         """Initialize namespace API objects."""
+        from .namespaces.admin import AsyncAdminAPI
         from .namespaces.agents import AsyncAgentsAPI
+        from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
 
-        self.debates = AsyncDebatesAPI(self)
+        self.admin = AsyncAdminAPI(self)
         self.agents = AsyncAgentsAPI(self)
+        self.analytics = AsyncAnalyticsAPI(self)
+        self.debates = AsyncDebatesAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
 
     async def request(

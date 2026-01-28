@@ -22,6 +22,74 @@ import type {
 import type { StreamOptions } from '../websocket';
 
 /**
+ * Debate impasse analysis result
+ */
+export interface DebateImpasse {
+  is_impasse: boolean;
+  confidence: number;
+  reason: string | null;
+  stuck_since_round: number | null;
+  suggested_intervention: string | null;
+}
+
+/**
+ * Rhetorical pattern observation
+ */
+export interface RhetoricalObservation {
+  agent: string;
+  pattern: string;
+  description: string;
+  severity: number;
+  round: number;
+  timestamp: string;
+}
+
+/**
+ * Rhetorical analysis response
+ */
+export interface RhetoricalAnalysis {
+  debate_id: string;
+  observations: RhetoricalObservation[];
+  summary: {
+    total_observations: number;
+    patterns_detected: string[];
+    agents_flagged: string[];
+  };
+}
+
+/**
+ * Trickster hollow consensus status
+ */
+export interface TricksterStatus {
+  debate_id: string;
+  hollow_consensus_detected: boolean;
+  confidence: number;
+  indicators: Array<{
+    type: string;
+    description: string;
+    severity: number;
+  }>;
+  recommendation: string | null;
+}
+
+/**
+ * Meta-critique analysis
+ */
+export interface MetaCritique {
+  debate_id: string;
+  quality_score: number;
+  critique: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  agent_performance: Array<{
+    agent: string;
+    contribution_score: number;
+    critique: string;
+  }>;
+}
+
+/**
  * Interface for the internal client methods used by DebatesAPI.
  * This allows the namespace to work without circular imports.
  */
@@ -46,6 +114,7 @@ interface DebatesClientInterface {
     request: DebateCreateRequest,
     options?: { pollIntervalMs?: number; timeoutMs?: number }
   ): Promise<Debate>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, unknown> }): Promise<T>;
 }
 
 /**
@@ -202,5 +271,94 @@ export class DebatesAPI {
     }
 
     throw new Error(`Debate ${debateId} did not complete within ${timeout}ms`);
+  }
+
+  // ===========================================================================
+  // Analysis
+  // ===========================================================================
+
+  /**
+   * Detect if a debate has reached an impasse.
+   *
+   * An impasse occurs when the debate is stuck and not making progress
+   * toward consensus. This helps identify when intervention may be needed.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const impasse = await client.debates.getImpasse('debate-123');
+   * if (impasse.is_impasse) {
+   *   console.log(`Impasse detected: ${impasse.reason}`);
+   *   console.log(`Suggested: ${impasse.suggested_intervention}`);
+   * }
+   * ```
+   */
+  async getImpasse(debateId: string): Promise<DebateImpasse> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/impasse`);
+  }
+
+  /**
+   * Get rhetorical pattern observations for a debate.
+   *
+   * Analyzes the debate for rhetorical patterns that may indicate
+   * manipulation, circular reasoning, or other issues.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const analysis = await client.debates.getRhetorical('debate-123');
+   * console.log(`Found ${analysis.observations.length} rhetorical patterns`);
+   * for (const obs of analysis.observations) {
+   *   console.log(`${obs.agent}: ${obs.pattern} (severity: ${obs.severity})`);
+   * }
+   * ```
+   */
+  async getRhetorical(debateId: string): Promise<RhetoricalAnalysis> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/rhetorical`);
+  }
+
+  /**
+   * Get trickster hollow consensus detection status.
+   *
+   * The Trickster detects "hollow consensus" - apparent agreement that
+   * masks underlying disagreement or manipulation.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const status = await client.debates.getTrickster('debate-123');
+   * if (status.hollow_consensus_detected) {
+   *   console.log(`Warning: Hollow consensus detected (${status.confidence})`);
+   *   for (const ind of status.indicators) {
+   *     console.log(`- ${ind.type}: ${ind.description}`);
+   *   }
+   * }
+   * ```
+   */
+  async getTrickster(debateId: string): Promise<TricksterStatus> {
+    return this.client.request('GET', `/api/v1/debates/${debateId}/trickster`);
+  }
+
+  /**
+   * Get meta-level critique of the debate.
+   *
+   * Provides an overall analysis of debate quality, including
+   * strengths, weaknesses, and recommendations.
+   *
+   * @param debateId - The debate ID
+   *
+   * @example
+   * ```typescript
+   * const meta = await client.debates.getMetaCritique('debate-123');
+   * console.log(`Overall quality: ${meta.quality_score}/100`);
+   * console.log(`Strengths: ${meta.strengths.join(', ')}`);
+   * console.log(`Weaknesses: ${meta.weaknesses.join(', ')}`);
+   * ```
+   */
+  async getMetaCritique(debateId: string): Promise<MetaCritique> {
+    return this.client.request('GET', `/api/v1/debate/${debateId}/meta-critique`);
   }
 }
