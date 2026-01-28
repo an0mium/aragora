@@ -211,12 +211,15 @@ class TestHelperFunctions:
         token = _generate_verification_token()
         assert len(token) >= 32, "Token should be at least 32 characters"
 
-    def test_hash_password_consistency(self):
-        """Same password should produce same hash with same salt."""
+    def test_hash_password_verifiable(self):
+        """Password hash should be verifiable with the original password."""
+        from aragora.billing.models import verify_password
+
         password = "TestPassword123"
-        hash1 = _hash_password(password)
-        hash2 = _hash_password(password)
-        assert hash1 == hash2
+        hashed = _hash_password(password)
+        # bcrypt hashes include the salt, so we pass empty string for salt
+        assert verify_password(password, hashed, ""), "Password should verify against its hash"
+        assert not verify_password("WrongPassword", hashed, ""), "Wrong password should not verify"
 
     def test_hash_password_different_for_different_passwords(self):
         """Different passwords should produce different hashes."""
