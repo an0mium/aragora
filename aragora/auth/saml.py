@@ -47,16 +47,9 @@ from .sso import (
 
 logger = logging.getLogger(__name__)
 
-# Optional: python3-saml for full SAML support
-try:
-    from onelogin.saml2.auth import OneLogin_Saml2_Auth
-    from onelogin.saml2.utils import OneLogin_Saml2_Utils
+from onelogin.saml2.auth import OneLogin_Saml2_Auth
 
-    HAS_SAML_LIB = True
-except ImportError:
-    HAS_SAML_LIB = False
-    OneLogin_Saml2_Auth = None
-    OneLogin_Saml2_Utils = None
+HAS_SAML_LIB = True  # Kept for backwards compatibility
 
 
 class SAMLError(SSOError):

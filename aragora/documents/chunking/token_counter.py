@@ -30,15 +30,9 @@ from aragora.utils.cache_registry import register_lru_cache
 
 logger = logging.getLogger(__name__)
 
-# Try to import tiktoken
-try:
-    import tiktoken
+import tiktoken
 
-    TIKTOKEN_AVAILABLE = True
-except ImportError:
-    tiktoken = None
-    TIKTOKEN_AVAILABLE = False
-    logger.info("tiktoken not available, using approximation for token counting")
+TIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility
 
 
 # Model family to encoding mapping for tiktoken

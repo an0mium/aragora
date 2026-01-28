@@ -22,7 +22,7 @@ Usage with LangChain:
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 logger = logging.getLogger(__name__)
@@ -36,74 +36,17 @@ logger = logging.getLogger(__name__)
 # the actual LangChain base classes.
 
 
-try:
-    from langchain_core.tools import BaseTool
-    from langchain_core.callbacks.base import BaseCallbackHandler
-    from langchain_core.retrievers import BaseRetriever
-    from langchain_core.documents import Document
-    from langchain_core.callbacks.manager import (
-        CallbackManagerForToolRun,
-        AsyncCallbackManagerForToolRun,
-    )
-    from pydantic import BaseModel, Field
+from langchain_core.tools import BaseTool
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
+from langchain_core.callbacks.manager import (
+    CallbackManagerForToolRun,
+    AsyncCallbackManagerForToolRun,
+)
+from pydantic import BaseModel, Field
 
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    # LangChain not installed - create stub classes
-    # Type ignores needed because these names may be imported above
-    LANGCHAIN_AVAILABLE = False
-
-    class BaseTool:  # type: ignore[no-redef]
-        """Stub BaseTool for when LangChain is not installed."""
-
-        name: str = ""
-        description: str = ""
-
-        def _run(self, *args: Any, **kwargs: Any) -> Any:
-            raise NotImplementedError
-
-        async def _arun(self, *args: Any, **kwargs: Any) -> Any:
-            raise NotImplementedError
-
-    class BaseCallbackHandler:  # type: ignore[no-redef]
-        """Stub BaseCallbackHandler for when LangChain is not installed."""
-
-        pass
-
-    class BaseRetriever:  # type: ignore[no-redef]
-        """Stub BaseRetriever for when LangChain is not installed."""
-
-        def get_relevant_documents(self, query: str) -> List[Any]:
-            raise NotImplementedError
-
-        async def aget_relevant_documents(self, query: str) -> List[Any]:
-            raise NotImplementedError
-
-    class Document:  # type: ignore[no-redef]
-        """Stub Document for when LangChain is not installed."""
-
-        def __init__(self, page_content: str, metadata: Optional[Dict[str, Any]] = None):
-            self.page_content = page_content
-            self.metadata = metadata or {}
-
-    class BaseModel:  # type: ignore[no-redef]
-        """Stub BaseModel for when Pydantic is not available via LangChain."""
-
-        pass
-
-    def Field(*args: Any, **kwargs: Any) -> Any:  # type: ignore[no-redef]
-        """Stub Field for when Pydantic is not available via LangChain."""
-        return None
-
-    class CallbackManagerForToolRun:  # type: ignore[no-redef]
-        """Stub callback manager."""
-
-        pass
-
-    class AsyncCallbackManagerForToolRun:  # type: ignore[no-redef]
-        """Stub async callback manager."""
-
-        pass
+LANGCHAIN_AVAILABLE = True  # Kept for backwards compatibility
 
 
 # =============================================================================
@@ -111,35 +54,21 @@ except ImportError:
 # =============================================================================
 
 
-if LANGCHAIN_AVAILABLE:
+class AragoraToolInput(BaseModel):
+    """Input schema for Aragora tool."""
 
-    class AragoraToolInput(BaseModel):
-        """Input schema for Aragora tool."""
-
-        question: str = Field(description="The question or topic for the multi-agent debate")
-        agents: Optional[List[str]] = Field(
-            default=None,
-            description="List of agent types to use (e.g., ['claude', 'gpt', 'gemini'])",
-        )
-        rounds: Optional[int] = Field(default=3, description="Number of debate rounds")
-        consensus_threshold: Optional[float] = Field(
-            default=0.8, description="Confidence threshold for consensus (0-1)"
-        )
-        include_evidence: Optional[bool] = Field(
-            default=True, description="Whether to search for and include evidence"
-        )
-
-else:
-
-    @dataclass
-    class AragoraToolInput:  # type: ignore[no-redef]
-        """Input schema for Aragora tool (standalone version)."""
-
-        question: str
-        agents: Optional[List[str]] = None
-        rounds: int = 3
-        consensus_threshold: float = 0.8
-        include_evidence: bool = True
+    question: str = Field(description="The question or topic for the multi-agent debate")
+    agents: Optional[List[str]] = Field(
+        default=None,
+        description="List of agent types to use (e.g., ['claude', 'gpt', 'gemini'])",
+    )
+    rounds: Optional[int] = Field(default=3, description="Number of debate rounds")
+    consensus_threshold: Optional[float] = Field(
+        default=0.8, description="Confidence threshold for consensus (0-1)"
+    )
+    include_evidence: Optional[bool] = Field(
+        default=True, description="Whether to search for and include evidence"
+    )
 
 
 # =============================================================================
@@ -205,8 +134,7 @@ class AragoraTool(BaseTool):
         self.default_rounds = default_rounds
         self.timeout_seconds = timeout_seconds
 
-    if LANGCHAIN_AVAILABLE:
-        args_schema: Type[BaseModel] = AragoraToolInput
+    args_schema: Type[BaseModel] = AragoraToolInput
 
     def _run(
         self,
@@ -375,8 +303,7 @@ class AragoraRetriever(BaseRetriever):
             min_confidence: Minimum confidence threshold
             include_metadata: Whether to include document metadata
         """
-        if LANGCHAIN_AVAILABLE:
-            super().__init__(**kwargs)
+        super().__init__(**kwargs)
         self.api_base = api_base
         self.api_key = api_key
         self.top_k = top_k

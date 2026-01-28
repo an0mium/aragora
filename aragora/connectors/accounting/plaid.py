@@ -104,7 +104,14 @@ class BankAccount(ConnectorDataclass):
     institution_name: str = ""
 
     def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
-        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        # Convert Decimal to float for API compatibility
+        result["current_balance"] = float(self.current_balance)
+        result["available_balance"] = (
+            float(self.available_balance) if self.available_balance else None
+        )
+        result["limit"] = float(self.limit) if self.limit else None
+        return result
 
 
 @dataclass
@@ -143,7 +150,10 @@ class BankTransaction(ConnectorDataclass):
     iso_currency_code: str = "USD"
 
     def to_dict(self, exclude=None, use_api_names=False) -> Dict[str, Any]:
-        return super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        result = super().to_dict(exclude=exclude, use_api_names=use_api_names)
+        # Convert Decimal to float for API compatibility
+        result["amount"] = float(self.amount)
+        return result
 
     @property
     def is_inflow(self) -> bool:
