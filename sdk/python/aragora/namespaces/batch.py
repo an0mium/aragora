@@ -1,10 +1,10 @@
 """
 Batch Namespace API.
 
-Provides bulk operations for debates and other resources:
+Provides bulk operations for debates:
 - Batch debate submission
 - Batch status tracking
-- Batch result retrieval
+- Batch listing and queue visibility
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class BatchAPI:
     Provides methods for bulk operations:
     - Submit batch debates
     - Track batch progress
-    - Retrieve batch results
+    - List batches
 
     Example:
         >>> client = AragoraClient(base_url="https://api.aragora.ai")
@@ -60,15 +60,23 @@ class BatchAPI:
         Returns:
             Batch submission response with batch_id.
         """
-        data: dict[str, Any] = {"debates": debates}
+        items = []
+        for item in debates:
+            if priority and "priority" not in item:
+                item = {**item, "priority": priority}
+            if metadata and "metadata" not in item:
+                item = {**item, "metadata": metadata}
+            items.append(item)
+
+        data: dict[str, Any] = {"items": items}
         if priority:
             data["priority"] = priority
         if callback_url:
-            data["callback_url"] = callback_url
+            data["webhook_url"] = callback_url
         if metadata:
             data["metadata"] = metadata
 
-        return self._client.request("POST", "/api/v1/batch/debates", json=data)
+        return self._client.request("POST", "/api/v1/debates/batch", json=data)
 
     def get_status(self, batch_id: str) -> dict[str, Any]:
         """
@@ -80,7 +88,7 @@ class BatchAPI:
         Returns:
             Batch status with progress information.
         """
-        return self._client.request("GET", f"/api/v1/batch/{batch_id}/status")
+        return self._client.request("GET", f"/api/v1/debates/batch/{batch_id}/status")
 
     def get_results(
         self,
@@ -90,20 +98,11 @@ class BatchAPI:
         """
         Get results of a completed batch.
 
-        Args:
-            batch_id: Batch identifier.
-            include_failed: Include failed items in results.
-
-        Returns:
-            Batch results with individual item outcomes.
+        Note: The batch status endpoint includes per-item results; this method
+        is an alias for `get_status` for API compatibility.
         """
-        params: dict[str, Any] = {}
-        if include_failed:
-            params["include_failed"] = include_failed
-
-        return self._client.request(
-            "GET", f"/api/v1/batch/{batch_id}/results", params=params or None
-        )
+        _ = include_failed
+        return self._client.request("GET", f"/api/v1/debates/batch/{batch_id}/status")
 
     def list(
         self,
@@ -130,7 +129,7 @@ class BatchAPI:
         if operation_type:
             params["operation_type"] = operation_type
 
-        return self._client.request("GET", "/api/v1/batch", params=params)
+        return self._client.request("GET", "/api/v1/debates/batch", params=params)
 
     def cancel(self, batch_id: str) -> dict[str, Any]:
         """
@@ -142,7 +141,7 @@ class BatchAPI:
         Returns:
             Cancellation confirmation.
         """
-        return self._client.request("POST", f"/api/v1/batch/{batch_id}/cancel")
+        raise NotImplementedError("Batch cancel is not exposed via the public API")
 
     def delete(self, batch_id: str) -> dict[str, Any]:
         """
@@ -154,7 +153,7 @@ class BatchAPI:
         Returns:
             Deletion confirmation.
         """
-        return self._client.request("DELETE", f"/api/v1/batch/{batch_id}")
+        raise NotImplementedError("Batch delete is not exposed via the public API")
 
 
 class AsyncBatchAPI:
@@ -179,11 +178,11 @@ class AsyncBatchAPI:
         if metadata:
             data["metadata"] = metadata
 
-        return await self._client.request("POST", "/api/v1/batch/debates", json=data)
+        return await self._client.request("POST", "/api/v1/debates/batch", json=data)
 
     async def get_status(self, batch_id: str) -> dict[str, Any]:
         """Get the status of a batch operation."""
-        return await self._client.request("GET", f"/api/v1/batch/{batch_id}/status")
+        return await self._client.request("GET", f"/api/v1/debates/batch/{batch_id}/status")
 
     async def get_results(
         self,
@@ -191,13 +190,8 @@ class AsyncBatchAPI:
         include_failed: bool = False,
     ) -> dict[str, Any]:
         """Get results of a completed batch."""
-        params: dict[str, Any] = {}
-        if include_failed:
-            params["include_failed"] = include_failed
-
-        return await self._client.request(
-            "GET", f"/api/v1/batch/{batch_id}/results", params=params or None
-        )
+        _ = include_failed
+        return await self._client.request("GET", f"/api/v1/debates/batch/{batch_id}/status")
 
     async def list(
         self,
@@ -213,12 +207,12 @@ class AsyncBatchAPI:
         if operation_type:
             params["operation_type"] = operation_type
 
-        return await self._client.request("GET", "/api/v1/batch", params=params)
+        return await self._client.request("GET", "/api/v1/debates/batch", params=params)
 
     async def cancel(self, batch_id: str) -> dict[str, Any]:
         """Cancel a batch operation."""
-        return await self._client.request("POST", f"/api/v1/batch/{batch_id}/cancel")
+        raise NotImplementedError("Batch cancel is not exposed via the public API")
 
     async def delete(self, batch_id: str) -> dict[str, Any]:
         """Delete a batch and its results."""
-        return await self._client.request("DELETE", f"/api/v1/batch/{batch_id}")
+        raise NotImplementedError("Batch delete is not exposed via the public API")

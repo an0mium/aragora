@@ -65,21 +65,21 @@ class RoutingAPI:
             domain: Specific domain hint.
 
         Returns:
-            Selected team with agent details and rationale.
+            Selected team recommendations with agent details and rationale.
         """
         data: dict[str, Any] = {
             "task": task,
-            "team_size": team_size,
+            "limit": team_size,
             "strategy": strategy,
         }
         if required_skills:
-            data["required_skills"] = required_skills
+            data["required_traits"] = required_skills
         if excluded_agents:
-            data["excluded_agents"] = excluded_agents
+            data["exclude"] = excluded_agents
         if domain:
-            data["domain"] = domain
+            data["primary_domain"] = domain
 
-        return self._client.request("POST", "/api/v1/routing/select-team", json=data)
+        return self._client.request("POST", "/api/v1/routing/recommendations", json=data)
 
     def auto_route(
         self,
@@ -104,7 +104,7 @@ class RoutingAPI:
         if user_preferences:
             data["user_preferences"] = user_preferences
 
-        return self._client.request("POST", "/api/v1/routing/auto", json=data)
+        return self._client.request("POST", "/api/v1/routing/auto-route", json=data)
 
     def detect_domain(self, task: str) -> dict[str, Any]:
         """
@@ -130,8 +130,8 @@ class RoutingAPI:
         List routing rules.
 
         Args:
-            domain: Filter by domain.
-            active_only: Only return active rules.
+            domain: Optional tag filter (mapped to routing-rule tags).
+            active_only: Only return enabled rules.
             limit: Maximum results.
             offset: Pagination offset.
 
@@ -139,14 +139,14 @@ class RoutingAPI:
             Paginated list of routing rules.
         """
         params: dict[str, Any] = {
-            "active_only": active_only,
+            "enabled_only": active_only,
             "limit": limit,
             "offset": offset,
         }
         if domain:
-            params["domain"] = domain
+            params["tags"] = domain
 
-        return self._client.request("GET", "/api/v1/routing/rules", params=params)
+        return self._client.request("GET", "/api/v1/routing-rules", params=params)
 
     def create_rule(
         self,
@@ -164,7 +164,7 @@ class RoutingAPI:
             name: Rule name.
             conditions: Matching conditions.
             actions: Actions to take when matched.
-            domain: Domain scope.
+            domain: Optional tag value for the rule.
             priority: Rule priority (higher = more priority).
             description: Rule description.
 
@@ -178,11 +178,11 @@ class RoutingAPI:
             "priority": priority,
         }
         if domain:
-            data["domain"] = domain
+            data["tags"] = [domain]
         if description:
             data["description"] = description
 
-        return self._client.request("POST", "/api/v1/routing/rules", json=data)
+        return self._client.request("POST", "/api/v1/routing-rules", json=data)
 
     def get_stats(
         self,
@@ -205,7 +205,7 @@ class RoutingAPI:
         if end_date:
             params["end_date"] = end_date
 
-        return self._client.request("GET", "/api/v1/routing/stats", params=params or None)
+        raise NotImplementedError("Routing stats endpoint is not exposed via the public API")
 
 
 class AsyncRoutingAPI:
@@ -236,7 +236,7 @@ class AsyncRoutingAPI:
         if domain:
             data["domain"] = domain
 
-        return await self._client.request("POST", "/api/v1/routing/select-team", json=data)
+        return await self._client.request("POST", "/api/v1/routing/recommendations", json=data)
 
     async def auto_route(
         self,
@@ -251,7 +251,7 @@ class AsyncRoutingAPI:
         if user_preferences:
             data["user_preferences"] = user_preferences
 
-        return await self._client.request("POST", "/api/v1/routing/auto", json=data)
+        return await self._client.request("POST", "/api/v1/routing/auto-route", json=data)
 
     async def detect_domain(self, task: str) -> dict[str, Any]:
         """Detect the domain of a task."""
@@ -267,14 +267,14 @@ class AsyncRoutingAPI:
     ) -> dict[str, Any]:
         """List routing rules."""
         params: dict[str, Any] = {
-            "active_only": active_only,
+            "enabled_only": active_only,
             "limit": limit,
             "offset": offset,
         }
         if domain:
-            params["domain"] = domain
+            params["tags"] = domain
 
-        return await self._client.request("GET", "/api/v1/routing/rules", params=params)
+        return await self._client.request("GET", "/api/v1/routing-rules", params=params)
 
     async def create_rule(
         self,
@@ -293,11 +293,11 @@ class AsyncRoutingAPI:
             "priority": priority,
         }
         if domain:
-            data["domain"] = domain
+            data["tags"] = [domain]
         if description:
             data["description"] = description
 
-        return await self._client.request("POST", "/api/v1/routing/rules", json=data)
+        return await self._client.request("POST", "/api/v1/routing-rules", json=data)
 
     async def get_stats(
         self,
@@ -311,4 +311,4 @@ class AsyncRoutingAPI:
         if end_date:
             params["end_date"] = end_date
 
-        return await self._client.request("GET", "/api/v1/routing/stats", params=params or None)
+        raise NotImplementedError("Routing stats endpoint is not exposed via the public API")

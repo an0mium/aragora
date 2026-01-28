@@ -80,8 +80,10 @@ class AragoraClient:
 
     def _init_namespaces(self) -> None:
         """Initialize namespace API objects."""
+        from .namespaces.a2a import A2AAPI
         from .namespaces.accounting import AccountingAPI
         from .namespaces.admin import AdminAPI
+        from .namespaces.advertising import AdvertisingAPI
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.ap_automation import APAutomationAPI
@@ -99,6 +101,7 @@ class AragoraClient:
         from .namespaces.control_plane import ControlPlaneAPI
         from .namespaces.cost_management import CostManagementAPI
         from .namespaces.critiques import CritiquesAPI
+        from .namespaces.cross_pollination import CrossPollinationAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
         from .namespaces.documents import DocumentsAPI
@@ -106,18 +109,21 @@ class AragoraClient:
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.gauntlet import GauntletAPI
         from .namespaces.genesis import GenesisAPI
+        from .namespaces.gmail import GmailAPI
         from .namespaces.health import HealthAPI
         from .namespaces.integrations import IntegrationsAPI
         from .namespaces.invoice_processing import InvoiceProcessingAPI
         from .namespaces.knowledge import KnowledgeAPI
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.memory import MemoryAPI
+        from .namespaces.metrics import MetricsAPI
         from .namespaces.monitoring import MonitoringAPI
         from .namespaces.nomic import NomicAPI
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.organizations import OrganizationsAPI
         from .namespaces.payments import PaymentsAPI
+        from .namespaces.plugins import PluginsAPI
         from .namespaces.policies import PoliciesAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.ranking import RankingAPI
@@ -138,8 +144,10 @@ class AragoraClient:
         from .namespaces.workflows import WorkflowsAPI
         from .namespaces.workspaces import WorkspacesAPI
 
+        self.a2a = A2AAPI(self)
         self.accounting = AccountingAPI(self)
         self.admin = AdminAPI(self)
+        self.advertising = AdvertisingAPI(self)
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
         self.ap_automation = APAutomationAPI(self)
@@ -157,6 +165,7 @@ class AragoraClient:
         self.control_plane = ControlPlaneAPI(self)
         self.cost_management = CostManagementAPI(self)
         self.critiques = CritiquesAPI(self)
+        self.cross_pollination = CrossPollinationAPI(self)
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
         self.documents = DocumentsAPI(self)
@@ -164,18 +173,21 @@ class AragoraClient:
         self.explainability = ExplainabilityAPI(self)
         self.gauntlet = GauntletAPI(self)
         self.genesis = GenesisAPI(self)
+        self.gmail = GmailAPI(self)
         self.health = HealthAPI(self)
         self.integrations = IntegrationsAPI(self)
         self.invoice_processing = InvoiceProcessingAPI(self)
         self.knowledge = KnowledgeAPI(self)
         self.marketplace = MarketplaceAPI(self)
         self.memory = MemoryAPI(self)
+        self.metrics = MetricsAPI(self)
         self.monitoring = MonitoringAPI(self)
         self.nomic = NomicAPI(self)
         self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
         self.payments = PaymentsAPI(self)
+        self.plugins = PluginsAPI(self)
         self.policies = PoliciesAPI(self)
         self.pulse = PulseAPI(self)
         self.ranking = RankingAPI(self)
@@ -371,8 +383,10 @@ class AragoraAsyncClient:
 
     def _init_namespaces(self) -> None:
         """Initialize namespace API objects."""
+        from .namespaces.a2a import AsyncA2AAPI
         from .namespaces.accounting import AsyncAccountingAPI
         from .namespaces.admin import AsyncAdminAPI
+        from .namespaces.advertising import AsyncAdvertisingAPI
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.ap_automation import AsyncAPAutomationAPI
@@ -390,6 +404,7 @@ class AragoraAsyncClient:
         from .namespaces.control_plane import AsyncControlPlaneAPI
         from .namespaces.cost_management import AsyncCostManagementAPI
         from .namespaces.critiques import AsyncCritiquesAPI
+        from .namespaces.cross_pollination import AsyncCrossPollinationAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
         from .namespaces.documents import AsyncDocumentsAPI
@@ -397,18 +412,21 @@ class AragoraAsyncClient:
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
         from .namespaces.genesis import AsyncGenesisAPI
+        from .namespaces.gmail import AsyncGmailAPI
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
         from .namespaces.invoice_processing import AsyncInvoiceProcessingAPI
         from .namespaces.knowledge import AsyncKnowledgeAPI
         from .namespaces.marketplace import AsyncMarketplaceAPI
         from .namespaces.memory import AsyncMemoryAPI
+        from .namespaces.metrics import AsyncMetricsAPI
         from .namespaces.monitoring import AsyncMonitoringAPI
         from .namespaces.nomic import AsyncNomicAPI
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
         from .namespaces.payments import AsyncPaymentsAPI
+        from .namespaces.plugins import AsyncPluginsAPI
         from .namespaces.policies import AsyncPoliciesAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.ranking import AsyncRankingAPI
@@ -429,8 +447,10 @@ class AragoraAsyncClient:
         from .namespaces.workflows import AsyncWorkflowsAPI
         from .namespaces.workspaces import AsyncWorkspacesAPI
 
+        self.a2a = AsyncA2AAPI(self)
         self.accounting = AsyncAccountingAPI(self)
         self.admin = AsyncAdminAPI(self)
+        self.advertising = AsyncAdvertisingAPI(self)
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
         self.ap_automation = AsyncAPAutomationAPI(self)
@@ -448,6 +468,7 @@ class AragoraAsyncClient:
         self.control_plane = AsyncControlPlaneAPI(self)
         self.cost_management = AsyncCostManagementAPI(self)
         self.critiques = AsyncCritiquesAPI(self)
+        self.cross_pollination = AsyncCrossPollinationAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
         self.documents = AsyncDocumentsAPI(self)
@@ -455,18 +476,21 @@ class AragoraAsyncClient:
         self.explainability = AsyncExplainabilityAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
         self.genesis = AsyncGenesisAPI(self)
+        self.gmail = AsyncGmailAPI(self)
         self.health = AsyncHealthAPI(self)
         self.integrations = AsyncIntegrationsAPI(self)
         self.invoice_processing = AsyncInvoiceProcessingAPI(self)
         self.knowledge = AsyncKnowledgeAPI(self)
         self.marketplace = AsyncMarketplaceAPI(self)
         self.memory = AsyncMemoryAPI(self)
+        self.metrics = AsyncMetricsAPI(self)
         self.monitoring = AsyncMonitoringAPI(self)
         self.nomic = AsyncNomicAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)
         self.payments = AsyncPaymentsAPI(self)
+        self.plugins = AsyncPluginsAPI(self)
         self.policies = AsyncPoliciesAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.ranking = AsyncRankingAPI(self)
