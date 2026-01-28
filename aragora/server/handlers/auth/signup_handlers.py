@@ -254,6 +254,7 @@ async def handle_signup(
         return error_response(f"Signup failed: {str(e)}", status=500)
 
 
+@rate_limit(rpm=10, limiter_name="auth_verify")
 async def handle_verify_email(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -326,6 +327,7 @@ async def handle_verify_email(
         return error_response(f"Verification failed: {str(e)}", status=500)
 
 
+@rate_limit(rpm=2, limiter_name="auth_resend")
 async def handle_resend_verification(
     data: Dict[str, Any],
     user_id: str = "default",
@@ -453,6 +455,7 @@ async def handle_setup_organization(
 # =============================================================================
 
 
+@rate_limit(rpm=10, limiter_name="auth_invite")
 async def handle_invite(
     data: Dict[str, Any],
     user_id: str = "default",
