@@ -50,7 +50,7 @@ async def checkpoint_store(temp_checkpoint_dir: Path):
     """Create FileCheckpointStore with temp directory."""
     from aragora.debate.checkpoint import FileCheckpointStore
 
-    return FileCheckpointStore(storage_dir=str(temp_checkpoint_dir))
+    return FileCheckpointStore(base_dir=str(temp_checkpoint_dir))
 
 
 @pytest_asyncio.fixture
@@ -360,7 +360,7 @@ class TestGUPPHookRecovery:
             pytest.skip("Bead/HookQueue modules not available")
 
         # Create bead store and debate bead
-        bead_store = BeadStore(storage_dir=str(temp_bead_dir), git_enabled=False)
+        bead_store = BeadStore(bead_dir=Path(temp_bead_dir), git_enabled=False)
 
         bead = Bead(
             id=str(uuid.uuid4()),
@@ -394,7 +394,7 @@ class TestGUPPHookRecovery:
         except ImportError:
             pytest.skip("Bead/HookQueue modules not available")
 
-        bead_store = BeadStore(storage_dir=str(temp_bead_dir), git_enabled=False)
+        bead_store = BeadStore(bead_dir=Path(temp_bead_dir), git_enabled=False)
 
         # Create completed bead
         bead = Bead(

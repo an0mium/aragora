@@ -340,7 +340,8 @@ class TestRBACErrorMessages:
             sensitive_operation(ctx)
 
         # Error should include information about what permission was denied
-        assert exc_info.value.permission_key == "sensitive:operation"
+        # Permission key is normalized from colon to dot format
+        assert exc_info.value.permission_key == "sensitive.operation"
 
     def test_permission_denied_does_not_leak_sensitive_info(self):
         """Verify error messages don't leak sensitive information."""
