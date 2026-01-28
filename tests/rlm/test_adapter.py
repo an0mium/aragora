@@ -7,15 +7,25 @@ Tests the external environment pattern for context access:
 - Drill-down to sections
 - Query-based access
 - Smart truncation fallback
+- Circuit breaker and timeout handling (robustness)
 """
 
+import asyncio
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.rlm.adapter import (
     RLMContextAdapter,
     RegisteredContent,
     get_adapter,
+)
+from aragora.rlm.exceptions import (
+    RLMCircuitOpenError,
+    RLMContentNotFoundError,
+    RLMError,
+    RLMProviderError,
+    RLMTimeoutError,
 )
 from aragora.rlm.types import RLMResult
 
