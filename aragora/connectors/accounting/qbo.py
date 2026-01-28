@@ -702,14 +702,31 @@ class QuickBooksConnector:
         Returns:
             Vendor data or None if not found
         """
-        # Escape single quotes in name
-        safe_name = name.replace("'", "\\'")
+        safe_name = self._sanitize_query_value(name)
         query = f"SELECT * FROM Vendor WHERE DisplayName = '{safe_name}'"
 
         response = await self._request("GET", f"query?query={query}")
         vendors = response.get("QueryResponse", {}).get("Vendor", [])
 
         return vendors[0] if vendors else None
+
+    def _sanitize_query_value(self, value: str) -> str:
+        """
+        Sanitize a value for use in QuickBooks Query Language.
+
+        QBO Query Language uses single quotes for strings. To include a literal
+        single quote, it must be doubled (e.g., 'O''Brien').
+
+        Args:
+            value: The value to sanitize
+
+        Returns:
+            Sanitized value safe for use in QBO queries
+        """
+        if not isinstance(value, str):
+            value = str(value)
+        # Double single quotes for QBO query language (standard SQL-like escaping)
+        return value.replace("'", "''")
 
     async def create_vendor(
         self,
