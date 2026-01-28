@@ -8,10 +8,12 @@ from .admin import AdminAPI, AsyncAdminAPI
 from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .audit import AsyncAuditAPI, AuditAPI
+from .auth import AsyncAuthAPI, AuthAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
+from .health import AsyncHealthAPI, HealthAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
@@ -31,6 +33,10 @@ __all__ = [
     "AsyncAnalyticsAPI",
     "AuditAPI",
     "AsyncAuditAPI",
+    "AuthAPI",
+    "AsyncAuthAPI",
+    "HealthAPI",
+    "AsyncHealthAPI",
     "ConsensusAPI",
     "AsyncConsensusAPI",
     "DebatesAPI",

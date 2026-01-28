@@ -84,10 +84,12 @@ class AragoraClient:
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.audit import AuditAPI
+        from .namespaces.auth import AuthAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.gauntlet import GauntletAPI
+        from .namespaces.health import HealthAPI
         from .namespaces.knowledge import KnowledgeAPI
         from .namespaces.memory import MemoryAPI
         from .namespaces.onboarding import OnboardingAPI
@@ -102,10 +104,12 @@ class AragoraClient:
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
         self.audit = AuditAPI(self)
+        self.auth = AuthAPI(self)
         self.consensus = ConsensusAPI(self)
         self.debates = DebatesAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.gauntlet = GauntletAPI(self)
+        self.health = HealthAPI(self)
         self.knowledge = KnowledgeAPI(self)
         self.memory = MemoryAPI(self)
         self.onboarding = OnboardingAPI(self)

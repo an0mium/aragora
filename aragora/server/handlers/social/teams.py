@@ -631,7 +631,7 @@ class TeamsIntegrationHandler(BaseHandler):
                 },
             ]
 
-    def _send_help_response(
+    async def _send_help_response(
         self,
         conversation: Dict[str, Any],
         service_url: str,
@@ -679,25 +679,16 @@ class TeamsIntegrationHandler(BaseHandler):
 
         connector = get_teams_connector()
         if connector:
-
-            async def send():
-                return await connector.send_message(
-                    channel_id=conversation.get("id", ""),
-                    text="Aragora Help",
-                    blocks=help_blocks,
-                    service_url=service_url,
-                )
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(send())
-            finally:
-                loop.close()
+            await connector.send_message(
+                channel_id=conversation.get("id", ""),
+                text="Aragora Help",
+                blocks=help_blocks,
+                service_url=service_url,
+            )
 
         return json_response({"status": "help_sent"})
 
-    def _send_error(
+    async def _send_error(
         self,
         message: str,
         conversation: Dict[str, Any],
@@ -706,31 +697,22 @@ class TeamsIntegrationHandler(BaseHandler):
         """Send error message to conversation."""
         connector = get_teams_connector()
         if connector:
-
-            async def send():
-                return await connector.send_message(
-                    channel_id=conversation.get("id", ""),
-                    text=message,
-                    service_url=service_url,
-                )
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(send())
-            finally:
-                loop.close()
+            await connector.send_message(
+                channel_id=conversation.get("id", ""),
+                text=message,
+                service_url=service_url,
+            )
 
         return json_response({"status": "error", "message": message})
 
-    def _send_unknown_command(
+    async def _send_unknown_command(
         self,
         command: str,
         conversation: Dict[str, Any],
         service_url: str,
     ) -> HandlerResult:
         """Send unknown command message."""
-        return self._send_error(
+        return await self._send_error(
             f"Unknown command: {command}. Use `@aragora help` for available commands.",
             conversation,
             service_url,

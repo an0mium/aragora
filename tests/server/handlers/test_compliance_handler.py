@@ -325,7 +325,7 @@ class TestGDPRLegalHolds:
             "POST",
             "/api/v2/compliance/gdpr/legal-holds",
             body={
-                "user_id": "user-001",
+                "user_ids": ["user-001"],
                 "reason": "Litigation pending",
                 "case_id": "case-001",
             },
@@ -352,7 +352,7 @@ class TestGDPRCoordinatedDeletion:
         result = await handler.handle(
             "POST",
             "/api/v2/compliance/gdpr/coordinated-deletion",
-            body={"user_id": "user-001"},
+            body={"user_id": "user-001", "reason": "User deletion request"},
         )
         assert result.status_code in (200, 202)
 
