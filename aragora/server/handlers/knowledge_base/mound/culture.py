@@ -70,7 +70,7 @@ class CultureOperationsMixin:
             }
         )
 
-    @require_permission("culture:read")
+    @require_permission("culture:write")
     @handle_errors("add culture document")
     def _handle_add_culture_document(self: CultureHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/culture/documents - Add culture document."""
@@ -132,7 +132,7 @@ class CultureOperationsMixin:
             status=201,
         )
 
-    @require_permission("culture:read")
+    @require_permission("culture:write")
     @handle_errors("promote to culture")
     def _handle_promote_to_culture(self: CultureHandlerProtocol, handler: Any) -> HandlerResult:
         """Handle POST /api/knowledge/mound/culture/promote - Promote knowledge to culture."""

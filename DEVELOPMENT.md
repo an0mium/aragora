@@ -317,6 +317,25 @@ Code ownership is managed via `.github/CODEOWNERS`. As of v2.4.0, ownership rule
 
 If you need tighter review gating on specific files, add explicit entries to CODEOWNERS.
 
+## Related Documentation
+
+### Error Handling & Resilience
+- [docs/ERROR_CODES.md](docs/ERROR_CODES.md) - Complete error code reference (70+ codes)
+- [docs/CONNECTOR_ERROR_HANDLING.md](docs/CONNECTOR_ERROR_HANDLING.md) - Connector error patterns
+- [docs/RESILIENCE.md](docs/RESILIENCE.md) - Circuit breaker and retry patterns
+- [docs/ERROR_TRACKING.md](docs/ERROR_TRACKING.md) - Error monitoring setup
+
+### Handler Development
+- [docs/HANDLER_DEVELOPMENT.md](docs/HANDLER_DEVELOPMENT.md) - Handler creation guide with patterns
+- [docs/HANDLERS.md](docs/HANDLERS.md) - Complete handler inventory by domain
+- [docs/HANDLER_COVERAGE_MATRIX.md](docs/HANDLER_COVERAGE_MATRIX.md) - Test coverage tracking
+- [docs/RBAC_HANDLER_GUIDE.md](docs/RBAC_HANDLER_GUIDE.md) - RBAC integration for handlers
+
+### Architecture & API
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture overview
+- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - REST API documentation
+- [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) - Environment variable reference
+
 ## License
 
 MIT License - see LICENSE file for details.
