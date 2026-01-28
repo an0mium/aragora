@@ -486,7 +486,8 @@ class TestErrorResponses:
         result = handler.handle("/api/v1/transcription/audio", {}, mock_http_handler)
         assert result is None
 
-    def test_json_error_format(self, handler, mock_transcription_available):
+    @pytest.mark.asyncio
+    async def test_json_error_format(self, handler, mock_transcription_available):
         """Test error responses are JSON formatted."""
         mock_http = MockHandler(
             headers={
