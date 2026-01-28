@@ -90,12 +90,15 @@ class TestRequestDeduplicator:
         assert is_dup is False
 
     @pytest.mark.asyncio
-    async def test_expired_not_duplicate(self, deduplicator):
+    async def test_expired_not_duplicate(self, deduplicator, monkeypatch):
         """Request after window expires should not be duplicate."""
+        now = 1_000_000.0
+        monkeypatch.setattr("aragora.server.middleware.decision_routing.time.time", lambda: now)
+
         await deduplicator.check_and_mark("test", "user-1", "slack")
 
-        # Wait for window to expire
-        await asyncio.sleep(1.1)
+        # Advance time beyond window
+        now += 2.0
 
         is_dup, _ = await deduplicator.check_and_mark("test", "user-1", "slack")
         assert is_dup is False
@@ -150,12 +153,15 @@ class TestResponseCache:
         assert r2 == "answer2"
 
     @pytest.mark.asyncio
-    async def test_cache_expiry(self, cache):
+    async def test_cache_expiry(self, cache, monkeypatch):
         """Should not return expired entries."""
+        now = 1_000_000.0
+        monkeypatch.setattr("aragora.server.middleware.decision_routing.time.time", lambda: now)
+
         await cache.set("query", "answer")
 
-        # Wait for TTL to expire
-        await asyncio.sleep(1.1)
+        # Advance time beyond TTL
+        now += 2.0
 
         result = await cache.get("query")
         assert result is None
