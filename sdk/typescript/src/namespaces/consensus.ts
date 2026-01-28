@@ -169,7 +169,7 @@ export interface FilterOptions {
  * Interface for the internal client methods used by ConsensusAPI.
  */
 interface ConsensusClientInterface {
-  request<T>(method: string, path: string, options?: { params?: Record<string, string | number | boolean | undefined> }): Promise<T>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, unknown> }): Promise<T>;
 }
 
 /**

@@ -509,7 +509,8 @@ class TestControlPlaneHandlerSubmitTask:
         assert result is not None
         assert result.status_code == 400
 
-    def test_submit_task_success(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_task_success(self, control_plane_handler, mock_coordinator):
         """Test successfully submitting a task."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -523,7 +524,9 @@ class TestControlPlaneHandlerSubmitTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
+            result = await control_plane_handler.handle_post(
+                "/api/v1/control-plane/tasks", {}, handler
+            )
 
         assert result is not None
         assert result.status_code == 201

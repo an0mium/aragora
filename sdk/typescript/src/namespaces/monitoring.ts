@@ -138,7 +138,7 @@ export interface GetAnomaliesOptions {
  * Interface for the internal client methods used by MonitoringAPI.
  */
 interface MonitoringClientInterface {
-  request<T>(method: string, path: string, options?: { params?: Record<string, string | number | boolean | undefined>; body?: unknown }): Promise<T>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, unknown>; body?: unknown }): Promise<T>;
 }
 
 /**

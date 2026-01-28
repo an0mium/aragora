@@ -105,7 +105,7 @@ export class HistoryNamespace {
     const response = await this.client.request<{ debates: HistoricalDebate[] }>(
       'GET',
       '/api/v1/history/debates',
-      { params: options }
+      { params: options as Record<string, unknown> }
     );
     return response.debates;
   }
@@ -119,7 +119,7 @@ export class HistoryNamespace {
     const response = await this.client.request<{ cycles: NomicCycle[] }>(
       'GET',
       '/api/v1/history/cycles',
-      { params: options }
+      { params: options as Record<string, unknown> }
     );
     return response.cycles;
   }
@@ -136,7 +136,7 @@ export class HistoryNamespace {
     const response = await this.client.request<{ events: HistoricalEvent[] }>(
       'GET',
       '/api/v1/history/events',
-      { params: options }
+      { params: options as Record<string, unknown> }
     );
     return response.events;
   }
@@ -165,7 +165,7 @@ export class HistoryNamespace {
     const response = await this.client.request<{ debates: HistoricalDebate[] }>(
       'GET',
       `/api/v1/agent/${encodeURIComponent(agentName)}/history`,
-      { params: options }
+      { params: options as Record<string, unknown> }
     );
     return response.debates;
   }

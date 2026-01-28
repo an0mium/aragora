@@ -219,7 +219,8 @@ class TestControlPlaneHealth:
 class TestAgentRegistration:
     """Tests for POST /api/control-plane/agents endpoint."""
 
-    def test_register_requires_auth(self, handler, mock_http_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_register_requires_auth(self, handler, mock_http_handler, mock_coordinator):
         """Should require authentication for agent registration."""
         mock_http_handler.command = "POST"
         mock_http_handler.rfile = MagicMock()
@@ -236,7 +237,9 @@ class TestAgentRegistration:
                     HandlerResult(401, "application/json", b'{"error": "Unauthorized"}', {}),
                 ),
             ):
-                result = handler.handle_post("/api/v1/control-plane/agents", {}, mock_http_handler)
+                result = await handler.handle_post(
+                    "/api/v1/control-plane/agents", {}, mock_http_handler
+                )
 
         assert get_status(result) == 401
 
@@ -462,7 +465,8 @@ class TestCoordinatorNotInitialized:
         assert get_status(result) == 503
         assert "not initialized" in get_body(result)["error"]
 
-    def test_submit_returns_503_without_coordinator(
+    @pytest.mark.asyncio
+    async def test_submit_returns_503_without_coordinator(
         self, handler, mock_http_handler, mock_admin_user
     ):
         """Should return 503 when coordinator not initialized."""
@@ -477,7 +481,7 @@ class TestCoordinatorNotInitialized:
                     "read_json_body_validated",
                     return_value=({"task_type": "debate"}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/tasks", {}, mock_http_handler
                     )
 

@@ -1838,7 +1838,7 @@ export class AragoraClient {
     offset?: number;
   }): Promise<{ nodes: any[]; total: number }> {
     return this.request<{ nodes: any[]; total: number }>('GET', '/api/v1/knowledge/mound/nodes', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -1872,7 +1872,7 @@ export class AragoraClient {
     limit?: number;
   }): Promise<{ relationships: any[]; total: number }> {
     return this.request<{ relationships: any[]; total: number }>('GET', '/api/v1/knowledge/mound/relationships', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -1917,7 +1917,7 @@ export class AragoraClient {
     limit?: number;
   }): Promise<{ items: any[]; total: number }> {
     return this.request<{ items: any[]; total: number }>('GET', '/api/v1/knowledge/mound/stale', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -1958,7 +1958,7 @@ export class AragoraClient {
     return this.request<{ nodes: any[]; relationships: any[] }>(
       'GET',
       `/api/v1/knowledge/mound/graph/${encodeURIComponent(nodeId)}/lineage`,
-      { params: options as Record<string, string | number | boolean | undefined> }
+      { params: options as Record<string, unknown> }
     );
   }
 
@@ -1976,7 +1976,7 @@ export class AragoraClient {
     return this.request<{ nodes: any[]; relationships: any[] }>(
       'GET',
       `/api/v1/knowledge/mound/graph/${encodeURIComponent(nodeId)}/related`,
-      { params: options as Record<string, string | number | boolean | undefined> }
+      { params: options as Record<string, unknown> }
     );
   }
 
@@ -1991,7 +1991,7 @@ export class AragoraClient {
     max_nodes?: number;
   }): Promise<{ nodes: any[]; links: any[] }> {
     return this.request<{ nodes: any[]; links: any[] }>('GET', '/api/v1/knowledge/mound/export/d3', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2005,7 +2005,7 @@ export class AragoraClient {
     node_types?: string[];
   }): Promise<{ graphml: string }> {
     return this.request<{ graphml: string }>('GET', '/api/v1/knowledge/mound/export/graphml', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2042,7 +2042,7 @@ export class AragoraClient {
     offset?: number;
   }): Promise<{ contradictions: any[]; total: number }> {
     return this.request<{ contradictions: any[]; total: number }>('GET', '/api/v1/knowledge/mound/contradictions', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2155,7 +2155,7 @@ export class AragoraClient {
     limit?: number;
   }): Promise<{ events: any[]; total: number }> {
     return this.request<{ events: any[]; total: number }>('GET', '/api/v1/knowledge/mound/governance/audit', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2192,7 +2192,7 @@ export class AragoraClient {
     end_date?: string;
   }): Promise<any> {
     return this.request<any>('GET', '/api/v1/knowledge/mound/analytics/usage', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2236,7 +2236,7 @@ export class AragoraClient {
     return this.request<{ trend: Array<{ date: string; score: number }> }>(
       'GET',
       '/api/v1/knowledge/mound/analytics/quality/trend',
-      { params: options as Record<string, string | number | boolean | undefined> }
+      { params: options as Record<string, unknown> }
     );
   }
 
@@ -2289,7 +2289,7 @@ export class AragoraClient {
     limit?: number;
   }): Promise<{ clusters: any[]; total: number }> {
     return this.request<{ clusters: any[]; total: number }>('GET', '/api/v1/knowledge/mound/dedup/clusters', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2326,7 +2326,7 @@ export class AragoraClient {
     limit?: number;
   }): Promise<{ items: any[]; total: number }> {
     return this.request<{ items: any[]; total: number }>('GET', '/api/v1/knowledge/mound/pruning/items', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2358,7 +2358,7 @@ export class AragoraClient {
     limit?: number;
   }): Promise<{ history: any[] }> {
     return this.request<{ history: any[] }>('GET', '/api/v1/knowledge/mound/pruning/history', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -2446,7 +2446,7 @@ export class AragoraClient {
     return this.request<{ history: Array<{ timestamp: string; confidence: number; event_type: string }> }>(
       'GET',
       '/api/v1/knowledge/mound/confidence/history',
-      { params: { node_id: nodeId, ...options } as Record<string, string | number | boolean | undefined> }
+      { params: { node_id: nodeId, ...options } as Record<string, unknown> }
     );
   }
 

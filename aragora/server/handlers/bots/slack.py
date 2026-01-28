@@ -105,6 +105,140 @@ def verify_slack_signature(
     return hmac.compare_digest(my_signature, signature)
 
 
+async def _start_slack_debate(
+    topic: str,
+    channel_id: str,
+    user_id: str,
+    response_url: str = "",
+    thread_ts: str | None = None,
+) -> str:
+    """Start a debate from Slack via DecisionRouter.
+
+    Uses the unified DecisionRouter for:
+    - Deduplication (prevents duplicate debates for same topic/user)
+    - Caching (returns cached results if available)
+    - Origin registration for result routing
+    """
+    import uuid
+
+    debate_id = str(uuid.uuid4())
+
+    try:
+        from aragora.core import (
+            DecisionRequest,
+            DecisionType,
+            InputSource,
+            RequestContext,
+            ResponseChannel,
+            get_decision_router,
+        )
+
+        # Create response channel for result routing
+        response_channel = ResponseChannel(
+            platform="slack",
+            channel_id=channel_id,
+            user_id=user_id,
+            thread_id=thread_ts,
+            metadata={"response_url": response_url} if response_url else {},
+        )
+
+        # Create request context
+        context = RequestContext(
+            user_id=user_id,
+            session_id=f"slack:{channel_id}",
+        )
+
+        # Create decision request
+        request = DecisionRequest(
+            content=topic,
+            decision_type=DecisionType.DEBATE,
+            source=InputSource.SLACK,
+            response_channels=[response_channel],
+            context=context,
+        )
+
+        # Route through DecisionRouter
+        router = get_decision_router()
+        result = await router.route(request)
+
+        if result.debate_id:
+            logger.info(f"DecisionRouter started debate {result.debate_id} from Slack")
+            # Track active debate
+            _active_debates[result.debate_id] = {
+                "topic": topic,
+                "channel_id": channel_id,
+                "user_id": user_id,
+                "thread_ts": thread_ts,
+                "started_at": time.time(),
+            }
+            return result.debate_id
+        return debate_id
+
+    except ImportError:
+        logger.debug("DecisionRouter not available, using fallback")
+        return await _fallback_start_debate(topic, channel_id, user_id, debate_id, thread_ts)
+    except Exception as e:
+        logger.error(f"DecisionRouter failed: {e}, using fallback")
+        return await _fallback_start_debate(topic, channel_id, user_id, debate_id, thread_ts)
+
+
+async def _fallback_start_debate(
+    topic: str,
+    channel_id: str,
+    user_id: str,
+    debate_id: str,
+    thread_ts: str | None = None,
+) -> str:
+    """Fallback debate start when DecisionRouter unavailable."""
+    # Register origin for result routing
+    try:
+        from aragora.server.debate_origin import register_debate_origin
+
+        register_debate_origin(
+            debate_id=debate_id,
+            platform="slack",
+            channel_id=channel_id,
+            user_id=user_id,
+            thread_id=thread_ts,
+            metadata={"topic": topic},
+        )
+    except Exception as e:
+        logger.warning(f"Failed to register debate origin: {e}")
+
+    # Try to enqueue via Redis queue
+    try:
+        from aragora.queue import create_debate_job, create_redis_queue
+
+        job = create_debate_job(
+            debate_id=debate_id,
+            topic=topic,
+            user_id=user_id,
+            metadata={
+                "platform": "slack",
+                "channel_id": channel_id,
+                "thread_ts": thread_ts,
+            },
+        )
+        queue = create_redis_queue()
+        await queue.enqueue(job)
+        logger.info(f"Debate {debate_id} enqueued via Redis queue")
+    except ImportError:
+        logger.warning("Redis queue not available, debate will run inline")
+    except Exception as e:
+        logger.warning(f"Failed to enqueue debate: {e}")
+
+    # Track active debate
+    _active_debates[debate_id] = {
+        "topic": topic,
+        "channel_id": channel_id,
+        "user_id": user_id,
+        "thread_ts": thread_ts,
+        "started_at": time.time(),
+    }
+
+    return debate_id
+
+
 def build_debate_message_blocks(
     debate_id: str,
     task: str,
@@ -578,13 +712,24 @@ async def handle_slack_commands(request: Any) -> HandlerResult:
         args = parts[1] if len(parts) > 1 else ""
 
         if subcommand == "ask" and args:
-            # Start a new debate
+            # Start a new debate via DecisionRouter
+            channel_id = params.get("channel_id", [""])[0]
+            user_id = params.get("user_id", [""])[0]
+            response_url = params.get("response_url", [""])[0]
+
+            debate_id = await _start_slack_debate(
+                topic=args,
+                channel_id=channel_id,
+                user_id=user_id,
+                response_url=response_url,
+            )
+
             return json_response(
                 {
                     "response_type": "in_channel",
-                    "text": f" Starting debate: _{args[:100]}_\n\nAgents are deliberating...",
+                    "text": f"Starting debate: _{args[:100]}_\n\nAgents are deliberating... (ID: {debate_id[:8]}...)",
                     "blocks": build_debate_message_blocks(
-                        debate_id="pending",
+                        debate_id=debate_id,
                         task=args,
                         agents=["Claude", "GPT-4", "Gemini", "Mistral"],
                         current_round=1,
@@ -833,8 +978,10 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
             if method != "POST":
                 return error_response("Method not allowed. Use POST.", 405)
 
-            # Verify Slack signature
-            signing_secret = os.environ.get("SLACK_SIGNING_SECRET", "")
+            # Verify Slack signature (use cached secret for test compatibility)
+            signing_secret = getattr(self, "_signing_secret", "") or os.environ.get(
+                "SLACK_SIGNING_SECRET", ""
+            )
             if signing_secret:
                 if not self._verify_signature(handler):
                     return error_response("Invalid Slack signature", 401)

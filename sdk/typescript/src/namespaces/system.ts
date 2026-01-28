@@ -152,7 +152,7 @@ export interface HistoryOptions {
  * Interface for the internal client methods used by SystemAPI.
  */
 interface SystemClientInterface {
-  request<T>(method: string, path: string, options?: { params?: Record<string, string | number | boolean | undefined>; body?: unknown }): Promise<T>;
+  request<T>(method: string, path: string, options?: { params?: Record<string, unknown>; body?: unknown }): Promise<T>;
 }
 
 /**
