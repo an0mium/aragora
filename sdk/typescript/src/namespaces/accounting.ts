@@ -227,21 +227,11 @@ export interface PayrollList {
 // =============================================================================
 
 interface AccountingClientInterface {
-  // QuickBooks
-  getAccountingStatus(): Promise<AccountingStatus>;
-  initiateAccountingConnect(): Promise<{ auth_url: string }>;
-  disconnectAccounting(): Promise<{ success: boolean; message?: string }>;
-  listAccountingCustomers(params?: ListCustomersParams): Promise<CustomerList>;
-  listAccountingTransactions(params?: ListTransactionsParams): Promise<TransactionList>;
-  generateAccountingReport(request: ReportRequest): Promise<ReportResponse>;
-  // Gusto
-  getGustoStatus(): Promise<{ connected: boolean; company_name?: string }>;
-  initiateGustoConnect(): Promise<{ auth_url: string }>;
-  disconnectGusto(): Promise<{ success: boolean; message?: string }>;
-  listGustoEmployees(params?: PaginationParams): Promise<EmployeeList>;
-  listGustoPayrolls(params?: PaginationParams): Promise<PayrollList>;
-  getGustoPayroll(payrollId: string): Promise<PayrollDetails>;
-  generateGustoJournalEntry(payrollId: string): Promise<JournalEntry>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 // =============================================================================
@@ -290,7 +280,7 @@ export class AccountingAPI {
    * Get QuickBooks connection status and dashboard data.
    */
   async getStatus(): Promise<AccountingStatus> {
-    return this.client.getAccountingStatus();
+    return this.client.request('GET', '/api/v2/accounting/status');
   }
 
   /**
@@ -299,14 +289,14 @@ export class AccountingAPI {
    * @returns URL to redirect user for OAuth.
    */
   async connect(): Promise<{ auth_url: string }> {
-    return this.client.initiateAccountingConnect();
+    return this.client.request('POST', '/api/v2/accounting/connect');
   }
 
   /**
    * Disconnect QuickBooks integration.
    */
   async disconnect(): Promise<{ success: boolean; message?: string }> {
-    return this.client.disconnectAccounting();
+    return this.client.request('POST', '/api/v2/accounting/disconnect');
   }
 
   // ===========================================================================
@@ -321,7 +311,9 @@ export class AccountingAPI {
    * @param params.offset - Pagination offset.
    */
   async listCustomers(params?: ListCustomersParams): Promise<CustomerList> {
-    return this.client.listAccountingCustomers(params);
+    return this.client.request('GET', '/api/v2/accounting/customers', {
+      params: params as Record<string, unknown>,
+    });
   }
 
   // ===========================================================================
@@ -336,7 +328,9 @@ export class AccountingAPI {
    * @param params.end_date - Filter to date (ISO format).
    */
   async listTransactions(params?: ListTransactionsParams): Promise<TransactionList> {
-    return this.client.listAccountingTransactions(params);
+    return this.client.request('GET', '/api/v2/accounting/transactions', {
+      params: params as Record<string, unknown>,
+    });
   }
 
   // ===========================================================================
@@ -364,7 +358,9 @@ export class AccountingAPI {
    * ```
    */
   async generateReport(request: ReportRequest): Promise<ReportResponse> {
-    return this.client.generateAccountingReport(request);
+    return this.client.request('POST', '/api/v2/accounting/reports', {
+      json: request,
+    });
   }
 
   // ===========================================================================
@@ -379,35 +375,39 @@ export class AccountingAPI {
      * Get Gusto connection status.
      */
     getStatus: async (): Promise<{ connected: boolean; company_name?: string }> => {
-      return this.client.getGustoStatus();
+      return this.client.request('GET', '/api/v2/gusto/status');
     },
 
     /**
      * Initiate Gusto OAuth connection.
      */
     connect: async (): Promise<{ auth_url: string }> => {
-      return this.client.initiateGustoConnect();
+      return this.client.request('POST', '/api/v2/gusto/connect');
     },
 
     /**
      * Disconnect Gusto integration.
      */
     disconnect: async (): Promise<{ success: boolean; message?: string }> => {
-      return this.client.disconnectGusto();
+      return this.client.request('POST', '/api/v2/gusto/disconnect');
     },
 
     /**
      * List employees.
      */
     listEmployees: async (params?: PaginationParams): Promise<EmployeeList> => {
-      return this.client.listGustoEmployees(params);
+      return this.client.request('GET', '/api/v2/gusto/employees', {
+        params: params as Record<string, unknown>,
+      });
     },
 
     /**
      * List payroll runs.
      */
     listPayrolls: async (params?: PaginationParams): Promise<PayrollList> => {
-      return this.client.listGustoPayrolls(params);
+      return this.client.request('GET', '/api/v2/gusto/payrolls', {
+        params: params as Record<string, unknown>,
+      });
     },
 
     /**
@@ -416,7 +416,7 @@ export class AccountingAPI {
      * @param payrollId - Payroll run ID.
      */
     getPayroll: async (payrollId: string): Promise<PayrollDetails> => {
-      return this.client.getGustoPayroll(payrollId);
+      return this.client.request('GET', `/api/v2/gusto/payrolls/${payrollId}`);
     },
 
     /**
@@ -428,7 +428,7 @@ export class AccountingAPI {
      * @param payrollId - Payroll run ID.
      */
     generateJournalEntry: async (payrollId: string): Promise<JournalEntry> => {
-      return this.client.generateGustoJournalEntry(payrollId);
+      return this.client.request('POST', `/api/v2/gusto/payrolls/${payrollId}/journal-entry`);
     },
   };
 }

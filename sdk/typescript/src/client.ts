@@ -5683,6 +5683,8 @@ export class AragoraClient {
       'POST',
       `/api/v1/receipts/${encodeURIComponent(receiptId)}/verify`
     );
+  }
+
   /**
    * Verify multiple decision receipts in batch.
    */
@@ -5729,16 +5731,16 @@ export class AragoraClient {
    */
   async exportReceiptPdf(receiptId: string): Promise<Blob> {
     const response = await fetch(
-      \`\${this.config.baseUrl}/api/v1/receipts/\${encodeURIComponent(receiptId)}/export/pdf\`,
+      `\${this.config.baseUrl}/api/v1/receipts/\${encodeURIComponent(receiptId)}/export/pdf`,
       {
         method: 'GET',
         headers: {
-          Authorization: \`Bearer \${this.config.apiKey}\`,
+          Authorization: `Bearer \${this.config.apiKey}`,
         },
       }
     );
     if (!response.ok) {
-      throw new AragoraError(\`Failed to export PDF: \${response.statusText}\`, 'API_ERROR');
+      throw new AragoraError(`Failed to export PDF: \${response.statusText}`, 'API_ERROR');
     }
     return response.blob();
   }
@@ -5748,18 +5750,18 @@ export class AragoraClient {
    */
   async exportReceiptCsv(receiptIds: string[]): Promise<Blob> {
     const response = await fetch(
-      \`\${this.config.baseUrl}/api/v1/receipts/export/csv\`,
+      `\${this.config.baseUrl}/api/v1/receipts/export/csv`,
       {
         method: 'POST',
         headers: {
-          Authorization: \`Bearer \${this.config.apiKey}\`,
+          Authorization: `Bearer \${this.config.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ receipt_ids: receiptIds }),
       }
     );
     if (!response.ok) {
-      throw new AragoraError(\`Failed to export CSV: \${response.statusText}\`, 'API_ERROR');
+      throw new AragoraError(`Failed to export CSV: \${response.statusText}`, 'API_ERROR');
     }
     return response.blob();
   }

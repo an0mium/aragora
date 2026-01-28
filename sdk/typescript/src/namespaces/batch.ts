@@ -112,10 +112,11 @@ export interface ListBatchesOptions {
  * Interface for the internal client methods used by BatchAPI.
  */
 interface BatchClientInterface {
-  submitBatch(request: BatchSubmitRequest): Promise<BatchSubmitResponse>;
-  getBatchStatus(batchId: string): Promise<BatchStatusResponse>;
-  listBatches(options?: ListBatchesOptions): Promise<{ batches: BatchSummary[]; count: number }>;
-  getQueueStatus(): Promise<QueueStatus>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -161,27 +162,31 @@ export class BatchAPI {
    * Submit a batch of debates for processing.
    */
   async submit(request: BatchSubmitRequest): Promise<BatchSubmitResponse> {
-    return this.client.submitBatch(request);
+    return this.client.request('POST', '/api/v2/batch', {
+      json: request,
+    });
   }
 
   /**
    * Get status of a batch request.
    */
   async getStatus(batchId: string): Promise<BatchStatusResponse> {
-    return this.client.getBatchStatus(batchId);
+    return this.client.request('GET', `/api/v2/batch/${batchId}`);
   }
 
   /**
    * List batch requests.
    */
   async list(options?: ListBatchesOptions): Promise<{ batches: BatchSummary[]; count: number }> {
-    return this.client.listBatches(options);
+    return this.client.request('GET', '/api/v2/batch', {
+      params: options as Record<string, unknown>,
+    });
   }
 
   /**
    * Get overall queue status.
    */
   async getQueueStatus(): Promise<QueueStatus> {
-    return this.client.getQueueStatus();
+    return this.client.request('GET', '/api/v2/batch/queue/status');
   }
 }

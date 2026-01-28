@@ -131,7 +131,7 @@ class GmailIngestHandler(SecureHandler):
             )
         return auth_ctx.user_id, auth_ctx.org_id, None
 
-    def handle(
+    async def handle(
         self,
         path: str,
         query_params: Dict[str, Any],
@@ -150,28 +150,28 @@ class GmailIngestHandler(SecureHandler):
             return auth_error
 
         if path == "/api/v1/gmail/status":
-            return self._get_status(user_id)
+            return await self._get_status(user_id)
 
         if path == "/api/v1/gmail/auth/url":
             return self._get_auth_url(query_params)
 
         if path == "/api/v1/gmail/auth/callback":
             # Handle OAuth callback GET
-            return self._handle_oauth_callback(query_params, user_id, org_id or "")
+            return await self._handle_oauth_callback(query_params, user_id, org_id or "")
 
         if path == "/api/v1/gmail/sync/status":
-            return self._get_sync_status(user_id)
+            return await self._get_sync_status(user_id)
 
         if path == "/api/v1/gmail/messages":
-            return self._list_messages(user_id, query_params)
+            return await self._list_messages(user_id, query_params)
 
         if path.startswith("/api/v1/gmail/message/"):
             message_id = path.split("/")[-1]
-            return self._get_message(user_id, message_id)
+            return await self._get_message(user_id, message_id)
 
         return error_response("Not found", 404)
 
-    def handle_post(
+    async def handle_post(
         self,
         path: str,
         body: Dict[str, Any],
@@ -193,26 +193,22 @@ class GmailIngestHandler(SecureHandler):
             return self._start_connect(body, user_id)
 
         if path == "/api/v1/gmail/auth/callback":
-            return self._handle_oauth_callback_post(body, user_id, org_id or "")
+            return await self._handle_oauth_callback_post(body, user_id, org_id or "")
 
         if path == "/api/v1/gmail/sync":
-            return self._start_sync(body, user_id)
+            return await self._start_sync(body, user_id)
 
         if path == "/api/v1/gmail/search":
-            return self._search(user_id, body)
+            return await self._search(user_id, body)
 
         if path == "/api/v1/gmail/disconnect":
-            return self._disconnect(user_id)
+            return await self._disconnect(user_id)
 
         return error_response("Not found", 404)
 
-    def _get_status(self, user_id: str) -> HandlerResult:
+    async def _get_status(self, user_id: str) -> HandlerResult:
         """Get connection status for user."""
-        loop = asyncio.new_event_loop()
-        try:
-            state = loop.run_until_complete(get_user_state(user_id))
-        finally:
-            loop.close()
+        state = await get_user_state(user_id)
 
         if not state:
             return json_response(

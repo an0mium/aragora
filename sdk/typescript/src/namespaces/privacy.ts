@@ -123,19 +123,21 @@ export interface AccountDeletionRequest {
 }
 
 /**
+ * Client interface for making HTTP requests.
+ */
+interface PrivacyClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
+
+/**
  * Privacy API for GDPR/CCPA compliance.
  */
 export class PrivacyAPI {
-  private baseUrl: string;
-  private headers: HeadersInit;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    };
-  }
+  constructor(private client: PrivacyClientInterface) {}
 
   /**
    * Export all user data (GDPR Article 15, CCPA Right to Know).
@@ -143,45 +145,23 @@ export class PrivacyAPI {
    * @param format - Export format (json or csv)
    */
   async exportData(format: 'json' | 'csv' = 'json'): Promise<DataExport> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/privacy/export?format=${format}`,
-      {
-        method: 'GET',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Export failed: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/privacy/export', {
+      params: { format },
+    });
   }
 
   /**
    * Get inventory of data categories collected.
    */
   async getDataInventory(): Promise<DataInventory> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/privacy/data-inventory`,
-      {
-        method: 'GET',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to get data inventory: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/privacy/data-inventory');
   }
 
   /**
    * Get current privacy preferences.
    */
   async getPreferences(): Promise<PrivacyPreferences> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/privacy/preferences`,
-      {
-        method: 'GET',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to get preferences: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/privacy/preferences');
   }
 
   /**
@@ -192,16 +172,9 @@ export class PrivacyAPI {
   async updatePreferences(
     preferences: Partial<PrivacyPreferences>
   ): Promise<{ message: string; preferences: PrivacyPreferences }> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/privacy/preferences`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(preferences),
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to update preferences: ${response.statusText}`);
-    return response.json();
+    return this.client.request('POST', '/api/v1/privacy/preferences', {
+      json: preferences as Record<string, unknown>,
+    });
   }
 
   /**
@@ -212,15 +185,8 @@ export class PrivacyAPI {
   async deleteAccount(
     request: AccountDeletionRequest
   ): Promise<AccountDeletionResponse> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/privacy/account`,
-      {
-        method: 'DELETE',
-        headers: this.headers,
-        body: JSON.stringify(request),
-      }
-    );
-    if (!response.ok) throw new Error(`Account deletion failed: ${response.statusText}`);
-    return response.json();
+    return this.client.request('DELETE', '/api/v1/privacy/account', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 }

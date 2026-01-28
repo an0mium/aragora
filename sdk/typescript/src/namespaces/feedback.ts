@@ -86,19 +86,21 @@ export interface FeedbackPrompt {
 }
 
 /**
+ * Client interface for making HTTP requests.
+ */
+interface FeedbackClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
+
+/**
  * Feedback API for collecting user feedback.
  */
 export class FeedbackAPI {
-  private baseUrl: string;
-  private headers: HeadersInit;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    };
-  }
+  constructor(private client: FeedbackClientInterface) {}
 
   /**
    * Submit NPS feedback.
@@ -110,13 +112,9 @@ export class FeedbackAPI {
       throw new Error('NPS score must be between 0 and 10');
     }
 
-    const response = await fetch(`${this.baseUrl}/api/v1/feedback/nps`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(submission),
+    return this.client.request('POST', '/api/v1/feedback/nps', {
+      json: submission as unknown as Record<string, unknown>,
     });
-    if (!response.ok) throw new Error(`Failed to submit NPS: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -129,13 +127,9 @@ export class FeedbackAPI {
       throw new Error('Comment is required for feedback submission');
     }
 
-    const response = await fetch(`${this.baseUrl}/api/v1/feedback/general`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(submission),
+    return this.client.request('POST', '/api/v1/feedback/general', {
+      json: submission as unknown as Record<string, unknown>,
     });
-    if (!response.ok) throw new Error(`Failed to submit feedback: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -198,26 +192,15 @@ export class FeedbackAPI {
    * @param days - Number of days to include (default 30)
    */
   async getNPSSummary(days: number = 30): Promise<NPSSummary> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/feedback/nps/summary?days=${days}`,
-      {
-        method: 'GET',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to get NPS summary: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/feedback/nps/summary', {
+      params: { days },
+    });
   }
 
   /**
    * Get active feedback prompts for the current user.
    */
   async getPrompts(): Promise<{ prompts: FeedbackPrompt[] }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/feedback/prompts`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to get prompts: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/feedback/prompts');
   }
 }

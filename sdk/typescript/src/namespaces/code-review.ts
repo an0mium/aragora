@@ -123,19 +123,21 @@ export interface ReviewHistoryResponse {
 }
 
 /**
+ * Client interface for making HTTP requests.
+ */
+interface CodeReviewClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
+
+/**
  * Code Review API for multi-agent code analysis.
  */
 export class CodeReviewAPI {
-  private baseUrl: string;
-  private headers: HeadersInit;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    };
-  }
+  constructor(private client: CodeReviewClientInterface) {}
 
   /**
    * Review a code snippet.
@@ -145,13 +147,9 @@ export class CodeReviewAPI {
   async reviewCode(
     request: CodeReviewRequest
   ): Promise<{ result: ReviewResult; result_id: string; message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/code-review/review`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(request),
+    return this.client.request('POST', '/api/v1/code-review/review', {
+      json: request as unknown as Record<string, unknown>,
     });
-    if (!response.ok) throw new Error(`Code review failed: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -162,13 +160,9 @@ export class CodeReviewAPI {
   async reviewDiff(
     request: DiffReviewRequest
   ): Promise<{ result: ReviewResult; result_id: string; message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/code-review/diff`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(request),
+    return this.client.request('POST', '/api/v1/code-review/diff', {
+      json: request as unknown as Record<string, unknown>,
     });
-    if (!response.ok) throw new Error(`Diff review failed: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -186,13 +180,9 @@ export class CodeReviewAPI {
       );
     }
 
-    const response = await fetch(`${this.baseUrl}/api/v1/code-review/pr`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(request),
+    return this.client.request('POST', '/api/v1/code-review/pr', {
+      json: request as unknown as Record<string, unknown>,
     });
-    if (!response.ok) throw new Error(`PR review failed: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -201,15 +191,7 @@ export class CodeReviewAPI {
    * @param resultId - Review result ID
    */
   async getResult(resultId: string): Promise<{ result: ReviewResult }> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/code-review/results/${resultId}`,
-      {
-        method: 'GET',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to get result: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', `/api/v1/code-review/results/${resultId}`);
   }
 
   /**
@@ -221,17 +203,13 @@ export class CodeReviewAPI {
     limit?: number;
     offset?: number;
   }): Promise<ReviewHistoryResponse> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.set('limit', options.limit.toString());
-    if (options?.offset) params.set('offset', options.offset.toString());
+    const params: Record<string, unknown> = {};
+    if (options?.limit) params.limit = options.limit;
+    if (options?.offset) params.offset = options.offset;
 
-    const url = `${this.baseUrl}/api/v1/code-review/history${params.toString() ? `?${params}` : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.headers,
+    return this.client.request('GET', '/api/v1/code-review/history', {
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
-    if (!response.ok) throw new Error(`Failed to get history: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -241,15 +219,8 @@ export class CodeReviewAPI {
    * @param language - Programming language (optional)
    */
   async securityScan(code: string, language?: string): Promise<SecurityScanResult> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/code-review/security-scan`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({ code, language }),
-      }
-    );
-    if (!response.ok) throw new Error(`Security scan failed: ${response.statusText}`);
-    return response.json();
+    return this.client.request('POST', '/api/v1/code-review/security-scan', {
+      json: { code, language },
+    });
   }
 }

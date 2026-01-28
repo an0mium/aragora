@@ -17,11 +17,11 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import aiohttp
 
-from aragora.connectors.enterprise.base import EnterpriseConnector, SyncState
+from aragora.connectors.enterprise.base import EnterpriseConnector, SyncItem, SyncState
 from aragora.reasoning.provenance import SourceType
 from aragora.resilience import CircuitBreaker
 
@@ -720,3 +720,51 @@ class GoogleCalendarConnector(EnterpriseConnector):
         calendar_ids = self.calendar_ids or ["primary"]
         events = await self.get_upcoming_events(hours=168, calendar_ids=calendar_ids)  # 1 week
         return {"events": [e.to_dict() for e in events]}
+
+    async def sync_items(
+        self,
+        state: SyncState,
+        batch_size: int = 100,
+    ) -> AsyncIterator[SyncItem]:
+        """Yield calendar events as SyncItems for incremental sync."""
+        calendar_ids = self.calendar_ids or ["primary"]
+        if state.last_sync_at:
+            time_min = state.last_sync_at
+        else:
+            time_min = datetime.now(timezone.utc) - timedelta(days=30)
+        time_max = datetime.now(timezone.utc) + timedelta(days=90)
+
+        for cal_id in calendar_ids:
+            try:
+                events = await self.get_events(
+                    calendar_id=cal_id,
+                    time_min=time_min,
+                    time_max=time_max,
+                    max_results=batch_size,
+                )
+                for event in events:
+                    content_parts = [f"# {event.summary}"]
+                    if event.description:
+                        content_parts.append(event.description)
+                    if event.location:
+                        content_parts.append(f"Location: {event.location}")
+                    yield SyncItem(
+                        id=f"gcal:{cal_id}:{event.id}",
+                        source_type="calendar",
+                        source_id=event.id,
+                        content="\n".join(content_parts),
+                        title=event.summary,
+                        url=event.html_link or "",
+                        author=event.organizer_name or event.organizer_email or "",
+                        created_at=event.created,
+                        updated_at=event.updated,
+                        domain="calendar",
+                        confidence=0.9,
+                        metadata={
+                            "calendar_id": cal_id,
+                            "status": event.status,
+                            "all_day": event.all_day,
+                        },
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to sync events from calendar {cal_id}: {e}")

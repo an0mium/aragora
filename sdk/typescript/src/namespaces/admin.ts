@@ -171,9 +171,9 @@ interface AdminClientInterface {
   adjustCreditBalance(orgId: string, body: { amount: number; reason: string }): Promise<CreditAccount>;
   getExpiringCredits(orgId: string): Promise<{ credits: Array<{ amount: number; expires_at: string }> }>;
   // Security endpoints
-  getSecurityStatus(): Promise<SecurityStatus>;
+  getAdminSecurityStatus(): Promise<SecurityStatus>;
   rotateSecurityKey(keyType: string): Promise<{ success: boolean; new_key_id: string }>;
-  getSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }>;
+  getAdminSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }>;
   listSecurityKeys(): Promise<{ keys: SecurityKey[] }>;
 }
 
@@ -277,7 +277,7 @@ export class AdminAPI {
    * Get circuit breaker states.
    */
   async getCircuitBreakers(): Promise<CircuitBreakerList> {
-    return this.client.getCircuitBreakers();
+    return this.client.getAdminCircuitBreakers();
   }
 
   /**
@@ -305,7 +305,7 @@ export class AdminAPI {
    * Reset all circuit breakers to closed state.
    */
   async resetCircuitBreakers(): Promise<{ success: boolean; reset_count: number }> {
-    return this.client.resetCircuitBreakers();
+    return this.client.resetAdminCircuitBreakers();
   }
 
   // ===========================================================================
@@ -381,7 +381,7 @@ export class AdminAPI {
    * Get security status overview.
    */
   async getSecurityStatus(): Promise<SecurityStatus> {
-    return this.client.getSecurityStatus();
+    return this.client.getAdminSecurityStatus();
   }
 
   /**
@@ -397,7 +397,7 @@ export class AdminAPI {
    * Get security health check results.
    */
   async getSecurityHealth(): Promise<{ healthy: boolean; checks: Record<string, boolean> }> {
-    return this.client.getSecurityHealth();
+    return this.client.getAdminSecurityHealth();
   }
 
   /**

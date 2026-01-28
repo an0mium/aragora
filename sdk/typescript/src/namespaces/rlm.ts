@@ -128,30 +128,27 @@ export interface RLMStats {
 }
 
 /**
+ * Client interface for making HTTP requests.
+ */
+interface RLMClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
+
+/**
  * RLM API for recursive language model operations.
  */
 export class RLMAPI {
-  private baseUrl: string;
-  private headers: HeadersInit;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    };
-  }
+  constructor(private client: RLMClientInterface) {}
 
   /**
    * Get RLM compression statistics.
    */
   async getStats(): Promise<RLMStats> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/stats`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to get stats: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/rlm/stats');
   }
 
   /**
@@ -162,12 +159,7 @@ export class RLMAPI {
     default: string;
     documentation: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/strategies`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to get strategies: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/rlm/strategies');
   }
 
   /**
@@ -187,17 +179,13 @@ export class RLMAPI {
     compression_result: CompressionResult;
     created_at: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/compress`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
+    return this.client.request('POST', '/api/v1/rlm/compress', {
+      json: {
         content,
         source_type: options?.source_type ?? 'text',
         levels: options?.levels ?? 4,
-      }),
+      },
     });
-    if (!response.ok) throw new Error(`Compression failed: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -216,19 +204,15 @@ export class RLMAPI {
       max_iterations?: number;
     }
   ): Promise<QueryResult> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/query`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
+    return this.client.request('POST', '/api/v1/rlm/query', {
+      json: {
         context_id: contextId,
         query,
         strategy: options?.strategy ?? 'auto',
         refine: options?.refine ?? false,
         max_iterations: options?.max_iterations ?? 3,
-      }),
+      },
     });
-    if (!response.ok) throw new Error(`Query failed: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -245,17 +229,13 @@ export class RLMAPI {
     limit: number;
     offset: number;
   }> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.set('limit', options.limit.toString());
-    if (options?.offset) params.set('offset', options.offset.toString());
+    const params: Record<string, unknown> = {};
+    if (options?.limit) params.limit = options.limit;
+    if (options?.offset) params.offset = options.offset;
 
-    const url = `${this.baseUrl}/api/v1/rlm/contexts${params.toString() ? `?${params}` : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.headers,
+    return this.client.request('GET', '/api/v1/rlm/contexts', {
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
-    if (!response.ok) throw new Error(`Failed to list contexts: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -265,13 +245,12 @@ export class RLMAPI {
    * @param includeContent - Include summary preview content
    */
   async getContext(contextId: string, includeContent = false): Promise<ContextDetails> {
-    const url = `${this.baseUrl}/api/v1/rlm/context/${contextId}${includeContent ? '?include_content=true' : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.headers,
+    const params: Record<string, unknown> = {};
+    if (includeContent) params.include_content = true;
+
+    return this.client.request('GET', `/api/v1/rlm/context/${contextId}`, {
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
-    if (!response.ok) throw new Error(`Failed to get context: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -282,12 +261,7 @@ export class RLMAPI {
   async deleteContext(
     contextId: string
   ): Promise<{ success: boolean; context_id: string; message: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/context/${contextId}`, {
-      method: 'DELETE',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to delete context: ${response.statusText}`);
-    return response.json();
+    return this.client.request('DELETE', `/api/v1/rlm/context/${contextId}`);
   }
 
   /**
@@ -296,12 +270,7 @@ export class RLMAPI {
   async getStreamModes(): Promise<{
     modes: Array<{ mode: string; description: string; use_case: string }>;
   }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/stream/modes`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok) throw new Error(`Failed to get stream modes: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/rlm/stream/modes');
   }
 
   /**
@@ -327,19 +296,15 @@ export class RLMAPI {
     total_chunks: number;
     timestamp: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/rlm/stream`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
+    return this.client.request('POST', '/api/v1/rlm/stream', {
+      json: {
         context_id: contextId,
         mode: options?.mode ?? 'top_down',
         query: options?.query,
         level: options?.level,
         chunk_size: options?.chunk_size ?? 500,
         include_metadata: options?.include_metadata ?? true,
-      }),
+      },
     });
-    if (!response.ok) throw new Error(`Stream failed: ${response.statusText}`);
-    return response.json();
   }
 }

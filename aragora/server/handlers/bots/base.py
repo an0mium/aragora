@@ -25,11 +25,12 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any, Callable, Coroutine, Dict, Optional, TypeVar
+from typing import Any, Callable, Coroutine, Dict, Optional, Tuple, TypeVar
 
 from aragora.server.handlers.base import HandlerResult, error_response, json_response
-from aragora.server.handlers.utils.auth import UnauthorizedError, ForbiddenError
+from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +194,114 @@ class BotHandlerMixin:
             pass  # Audit not available
 
         return error_response("Unauthorized", 401)
+
+    # =========================================================================
+    # Request body utilities - consolidates ~80 lines of duplicated code
+    # =========================================================================
+
+    def _read_request_body(self, handler: Any) -> bytes:
+        """Read the request body from the handler.
+
+        Handles Content-Length header parsing and body reading.
+
+        Args:
+            handler: The HTTP request handler with headers and rfile.
+
+        Returns:
+            The raw request body as bytes.
+        """
+        content_length = int(handler.headers.get("Content-Length", 0))
+        if content_length <= 0:
+            return b""
+        return handler.rfile.read(content_length)
+
+    def _parse_json_body(
+        self, body: bytes, context: str = "webhook"
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[HandlerResult]]:
+        """Parse JSON from request body with standardized error handling.
+
+        Args:
+            body: Raw request body bytes.
+            context: Context string for error logging (e.g., "webhook", "event").
+
+        Returns:
+            Tuple of (parsed_data, error_response).
+            If parsing succeeds: (dict, None)
+            If parsing fails: (None, HandlerResult with 400 error)
+            If body is empty: ({}, None)
+        """
+        if not body:
+            return {}, None
+
+        try:
+            return json.loads(body.decode("utf-8")), None
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in {self.bot_platform} {context}: {e}")
+            return None, error_response("Invalid JSON", 400)
+
+    def _handle_webhook_exception(
+        self,
+        exception: Exception,
+        context: str = "webhook",
+        return_200_on_error: bool = True,
+    ) -> HandlerResult:
+        """Handle webhook exceptions with standardized logging and responses.
+
+        Many bot platforms require 200 responses even on error to prevent retries.
+        This method provides consistent exception handling across all bot handlers.
+
+        Args:
+            exception: The caught exception.
+            context: Context string for logging (e.g., "webhook", "event").
+            return_200_on_error: If True, return 200 with error in body (prevents retries).
+                               If False, return appropriate error status code.
+
+        Returns:
+            HandlerResult with appropriate status and error message.
+        """
+        error_msg = str(exception)[:100]
+
+        if isinstance(exception, json.JSONDecodeError):
+            logger.error(f"Invalid JSON in {self.bot_platform} {context}: {exception}")
+            return error_response("Invalid JSON payload", 400)
+
+        if isinstance(exception, (ValueError, KeyError, TypeError)):
+            logger.warning(f"Data error in {self.bot_platform} {context}: {exception}")
+            if return_200_on_error:
+                return json_response({"ok": False, "error": error_msg})
+            return error_response(f"Invalid data: {error_msg}", 400)
+
+        if isinstance(exception, (ConnectionError, OSError, TimeoutError)):
+            logger.error(f"Connection error in {self.bot_platform} {context}: {exception}")
+            if return_200_on_error:
+                return json_response({"ok": False, "error": "Connection error"})
+            return error_response("Service temporarily unavailable", 503)
+
+        # Unexpected exception
+        logger.exception(f"Unexpected {self.bot_platform} {context} error: {exception}")
+        if return_200_on_error:
+            return json_response({"ok": False, "error": error_msg})
+        return error_response(f"Internal error: {error_msg}", 500)
+
+    def _audit_webhook_auth_failure(self, method: str, reason: Optional[str] = None) -> None:
+        """Audit a webhook authentication failure.
+
+        Args:
+            method: Authentication method that failed (e.g., "signature", "token").
+            reason: Optional additional reason for the failure.
+        """
+        try:
+            from aragora.audit.unified import audit_security
+
+            audit_security(
+                event_type=f"{self.bot_platform}_webhook_auth_failed",
+                actor_id="unknown",
+                resource_type=f"{self.bot_platform}_webhook",
+                resource_id=method,
+                reason=reason,
+            )
+        except ImportError:
+            pass  # Audit not available
 
 
 __all__ = [

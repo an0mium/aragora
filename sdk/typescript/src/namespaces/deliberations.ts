@@ -66,10 +66,11 @@ export interface DeliberationStreamConfig {
  * Interface for the internal client methods used by DeliberationsAPI.
  */
 interface DeliberationsClientInterface {
-  getActiveDeliberations(): Promise<ActiveDeliberationsResponse>;
-  getDeliberationStats(): Promise<DeliberationStats>;
-  getDeliberation(deliberationId: string): Promise<Deliberation>;
-  getDeliberationStreamConfig(): Promise<DeliberationStreamConfig>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 /**
@@ -101,27 +102,27 @@ export class DeliberationsAPI {
    * List all active deliberation sessions.
    */
   async listActive(): Promise<ActiveDeliberationsResponse> {
-    return this.client.getActiveDeliberations();
+    return this.client.request('GET', '/api/v2/deliberations/active');
   }
 
   /**
    * Get deliberation statistics.
    */
   async getStats(): Promise<DeliberationStats> {
-    return this.client.getDeliberationStats();
+    return this.client.request('GET', '/api/v2/deliberations/stats');
   }
 
   /**
    * Get a specific deliberation by ID.
    */
   async get(deliberationId: string): Promise<Deliberation> {
-    return this.client.getDeliberation(deliberationId);
+    return this.client.request('GET', `/api/v2/deliberations/${deliberationId}`);
   }
 
   /**
    * Get WebSocket stream configuration for real-time updates.
    */
   async getStreamConfig(): Promise<DeliberationStreamConfig> {
-    return this.client.getDeliberationStreamConfig();
+    return this.client.request('GET', '/api/v2/deliberations/stream/config');
   }
 }

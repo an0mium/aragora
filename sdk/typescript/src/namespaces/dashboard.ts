@@ -207,19 +207,21 @@ export interface QuickActionResult {
 }
 
 /**
+ * Client interface for making HTTP requests.
+ */
+interface DashboardClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
+
+/**
  * Dashboard API for overview and quick actions.
  */
 export class DashboardAPI {
-  private baseUrl: string;
-  private headers: HeadersInit;
-
-  constructor(baseUrl: string, apiKey: string) {
-    this.baseUrl = baseUrl;
-    this.headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    };
-  }
+  constructor(private client: DashboardClientInterface) {}
 
   /**
    * Get dashboard overview.
@@ -227,13 +229,12 @@ export class DashboardAPI {
    * @param refresh - Force refresh cache
    */
   async getOverview(refresh = false): Promise<DashboardOverview> {
-    const url = `${this.baseUrl}/api/v1/dashboard${refresh ? '?refresh=true' : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.headers,
+    const params: Record<string, unknown> = {};
+    if (refresh) params.refresh = true;
+
+    return this.client.request('GET', '/api/v1/dashboard', {
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
-    if (!response.ok) throw new Error(`Failed to get dashboard: ${response.statusText}`);
-    return response.json();
   }
 
   /**
@@ -242,15 +243,9 @@ export class DashboardAPI {
    * @param period - Time period (day, week, month)
    */
   async getStats(period: 'day' | 'week' | 'month' = 'week'): Promise<DashboardStats> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/dashboard/stats?period=${period}`,
-      {
-        method: 'GET',
-        headers: this.headers,
-      }
-    );
-    if (!response.ok) throw new Error(`Failed to get stats: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/dashboard/stats', {
+      params: { period },
+    });
   }
 
   /**
@@ -269,44 +264,28 @@ export class DashboardAPI {
     offset: number;
     has_more: boolean;
   }> {
-    const params = new URLSearchParams();
-    if (options?.limit) params.set('limit', options.limit.toString());
-    if (options?.offset) params.set('offset', options.offset.toString());
-    if (options?.type) params.set('type', options.type);
+    const params: Record<string, unknown> = {};
+    if (options?.limit) params.limit = options.limit;
+    if (options?.offset) params.offset = options.offset;
+    if (options?.type) params.type = options.type;
 
-    const url = `${this.baseUrl}/api/v1/dashboard/activity${params.toString() ? `?${params}` : ''}`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.headers,
+    return this.client.request('GET', '/api/v1/dashboard/activity', {
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
-    if (!response.ok) throw new Error(`Failed to get activity: ${response.statusText}`);
-    return response.json();
   }
 
   /**
    * Get inbox summary for dashboard.
    */
   async getInboxSummary(): Promise<InboxSummary> {
-    const response = await fetch(`${this.baseUrl}/api/v1/dashboard/inbox-summary`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok)
-      throw new Error(`Failed to get inbox summary: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/dashboard/inbox-summary');
   }
 
   /**
    * Get available quick actions.
    */
   async getQuickActions(): Promise<{ actions: QuickAction[]; count: number }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/dashboard/quick-actions`, {
-      method: 'GET',
-      headers: this.headers,
-    });
-    if (!response.ok)
-      throw new Error(`Failed to get quick actions: ${response.statusText}`);
-    return response.json();
+    return this.client.request('GET', '/api/v1/dashboard/quick-actions');
   }
 
   /**
@@ -322,19 +301,11 @@ export class DashboardAPI {
       options?: Record<string, unknown>;
     }
   ): Promise<QuickActionResult> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/dashboard/quick-actions/${actionId}`,
-      {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify({
-          confirm: options?.confirm ?? true,
-          options: options?.options,
-        }),
-      }
-    );
-    if (!response.ok)
-      throw new Error(`Failed to execute action: ${response.statusText}`);
-    return response.json();
+    return this.client.request('POST', `/api/v1/dashboard/quick-actions/${actionId}`, {
+      json: {
+        confirm: options?.confirm ?? true,
+        options: options?.options,
+      },
+    });
   }
 }

@@ -200,12 +200,16 @@ export interface GoogleActionsResponse {
 // Devices API
 // =============================================================================
 
-type RequestFn = (
-  method: string,
-  path: string,
-  data?: unknown,
-  params?: Record<string, unknown>
-) => Promise<unknown>;
+/**
+ * Client interface for devices operations.
+ */
+interface DevicesClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
 
 /**
  * Devices namespace API for push notification management.
@@ -217,7 +221,7 @@ type RequestFn = (
  * - Health monitoring
  */
 export class DevicesAPI {
-  constructor(private request: RequestFn) {}
+  constructor(private client: DevicesClientInterface) {}
 
   // ===========================================================================
   // Device Registration
@@ -237,12 +241,9 @@ export class DevicesAPI {
     device_type: DeviceType;
     registered_at: string;
   }> {
-    return this.request('POST', '/devices/register', registration) as Promise<{
-      success: boolean;
-      device_id: string;
-      device_type: DeviceType;
-      registered_at: string;
-    }>;
+    return this.client.request('POST', '/devices/register', {
+      json: registration as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -256,11 +257,7 @@ export class DevicesAPI {
     device_id: string;
     deleted_at: string;
   }> {
-    return this.request('DELETE', `/devices/${deviceId}`) as Promise<{
-      success: boolean;
-      device_id: string;
-      deleted_at: string;
-    }>;
+    return this.client.request('DELETE', `/devices/${deviceId}`);
   }
 
   /**
@@ -270,7 +267,7 @@ export class DevicesAPI {
    * @returns Device details
    */
   async get(deviceId: string): Promise<Device> {
-    return this.request('GET', `/devices/${deviceId}`) as Promise<Device>;
+    return this.client.request('GET', `/devices/${deviceId}`);
   }
 
   /**
@@ -284,11 +281,7 @@ export class DevicesAPI {
     device_count: number;
     devices: Device[];
   }> {
-    return this.request('GET', `/devices/user/${userId}`) as Promise<{
-      user_id: string;
-      device_count: number;
-      devices: Device[];
-    }>;
+    return this.client.request('GET', `/devices/user/${userId}`);
   }
 
   // ===========================================================================
@@ -303,7 +296,9 @@ export class DevicesAPI {
    * @returns Delivery result
    */
   async notify(deviceId: string, message: NotificationMessage): Promise<NotificationResult> {
-    return this.request('POST', `/devices/${deviceId}/notify`, message) as Promise<NotificationResult>;
+    return this.client.request('POST', `/devices/${deviceId}/notify`, {
+      json: message as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -314,7 +309,9 @@ export class DevicesAPI {
    * @returns Delivery results for all devices
    */
   async notifyUser(userId: string, message: NotificationMessage): Promise<UserNotificationResult> {
-    return this.request('POST', `/devices/user/${userId}/notify`, message) as Promise<UserNotificationResult>;
+    return this.client.request('POST', `/devices/user/${userId}/notify`, {
+      json: message as unknown as Record<string, unknown>,
+    });
   }
 
   // ===========================================================================
