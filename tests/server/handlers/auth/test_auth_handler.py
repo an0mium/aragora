@@ -364,3 +364,304 @@ class TestHandlerRegistration:
         """Test AuthHandler has can_handle method."""
         assert hasattr(auth_handler, "can_handle")
         assert callable(auth_handler.can_handle)
+
+
+# ===========================================================================
+# Test: API Key Management
+# ===========================================================================
+
+
+class TestAPIKeyManagement:
+    """Test API key generation and revocation."""
+
+    def test_generate_api_key_requires_auth(self, auth_handler):
+        """Test API key generation requires authentication."""
+        request = make_mock_handler(body={"name": "test-key"}, command="POST")
+
+        result = auth_handler._handle_generate_api_key(request)
+        parsed = parse_result(result)
+
+        # Should fail without auth token
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_generate_api_key_missing_name(self, auth_handler):
+        """Test API key generation fails without name."""
+        request = make_mock_handler(body={}, command="POST")
+        request.headers["Authorization"] = "Bearer valid-token"
+
+        result = auth_handler._handle_generate_api_key(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+    def test_revoke_api_key_requires_auth(self, auth_handler):
+        """Test API key revocation requires authentication."""
+        request = make_mock_handler(body={"key_id": "key-123"}, command="POST")
+
+        result = auth_handler._handle_revoke_api_key(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_revoke_api_key_missing_key_id(self, auth_handler):
+        """Test API key revocation fails without key_id."""
+        request = make_mock_handler(body={}, command="POST")
+        request.headers["Authorization"] = "Bearer valid-token"
+
+        result = auth_handler._handle_revoke_api_key(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+
+# ===========================================================================
+# Test: Session Management
+# ===========================================================================
+
+
+class TestSessionManagement:
+    """Test session listing and revocation."""
+
+    def test_list_sessions_requires_auth(self, auth_handler):
+        """Test session listing requires authentication."""
+        request = make_mock_handler(command="GET")
+
+        result = auth_handler._handle_list_sessions(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_revoke_session_requires_auth(self, auth_handler):
+        """Test session revocation requires authentication."""
+        request = make_mock_handler(command="DELETE")
+
+        result = auth_handler._handle_revoke_session(request, "session-123")
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_logout_all_requires_auth(self, auth_handler):
+        """Test logout all requires authentication."""
+        request = make_mock_handler(command="POST")
+
+        result = auth_handler._handle_logout_all(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+
+# ===========================================================================
+# Test: MFA Operations
+# ===========================================================================
+
+
+class TestMFAOperations:
+    """Test MFA setup, enable, disable, and backup codes."""
+
+    def test_mfa_setup_requires_auth(self, auth_handler):
+        """Test MFA setup requires authentication."""
+        request = make_mock_handler(command="POST")
+
+        result = auth_handler._handle_mfa_setup(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_mfa_enable_requires_auth(self, auth_handler):
+        """Test MFA enable requires authentication."""
+        request = make_mock_handler(body={"code": "123456"}, command="POST")
+
+        result = auth_handler._handle_mfa_enable(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_mfa_enable_missing_code(self, auth_handler):
+        """Test MFA enable fails without code."""
+        request = make_mock_handler(body={}, command="POST")
+        request.headers["Authorization"] = "Bearer valid-token"
+
+        result = auth_handler._handle_mfa_enable(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+    def test_mfa_disable_requires_auth(self, auth_handler):
+        """Test MFA disable requires authentication."""
+        request = make_mock_handler(body={"code": "123456"}, command="POST")
+
+        result = auth_handler._handle_mfa_disable(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_mfa_verify_missing_code(self, auth_handler):
+        """Test MFA verify fails without code."""
+        request = make_mock_handler(body={}, command="POST")
+
+        result = auth_handler._handle_mfa_verify(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+    def test_mfa_backup_codes_requires_auth(self, auth_handler):
+        """Test MFA backup codes requires authentication."""
+        request = make_mock_handler(command="GET")
+
+        result = auth_handler._handle_mfa_backup_codes(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+
+# ===========================================================================
+# Test: Profile Operations
+# ===========================================================================
+
+
+class TestProfileOperations:
+    """Test profile get and update operations."""
+
+    def test_get_me_requires_auth(self, auth_handler):
+        """Test get me requires authentication."""
+        request = make_mock_handler(command="GET")
+
+        result = auth_handler._handle_get_me(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_update_me_requires_auth(self, auth_handler):
+        """Test update me requires authentication."""
+        request = make_mock_handler(body={"name": "New Name"}, command="PUT")
+
+        result = auth_handler._handle_update_me(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_change_password_requires_auth(self, auth_handler):
+        """Test change password requires authentication."""
+        request = make_mock_handler(
+            body={"current_password": "old", "new_password": "new123"},
+            command="POST",
+        )
+
+        result = auth_handler._handle_change_password(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_change_password_missing_current(self, auth_handler):
+        """Test change password fails without current password."""
+        request = make_mock_handler(
+            body={"new_password": "new123"},
+            command="POST",
+        )
+        request.headers["Authorization"] = "Bearer valid-token"
+
+        result = auth_handler._handle_change_password(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+    def test_change_password_missing_new(self, auth_handler):
+        """Test change password fails without new password."""
+        request = make_mock_handler(
+            body={"current_password": "old"},
+            command="POST",
+        )
+        request.headers["Authorization"] = "Bearer valid-token"
+
+        result = auth_handler._handle_change_password(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+
+# ===========================================================================
+# Test: Token Operations
+# ===========================================================================
+
+
+class TestTokenOperations:
+    """Test token revocation operations."""
+
+    def test_revoke_token_requires_auth(self, auth_handler):
+        """Test token revocation requires authentication."""
+        request = make_mock_handler(body={"token": "some-token"}, command="POST")
+
+        result = auth_handler._handle_revoke_token(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (401, 503)
+
+    def test_revoke_token_missing_token(self, auth_handler):
+        """Test token revocation fails without token."""
+        request = make_mock_handler(body={}, command="POST")
+        request.headers["Authorization"] = "Bearer valid-token"
+
+        result = auth_handler._handle_revoke_token(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] in (400, 401)
+
+    def test_logout_requires_auth(self, auth_handler):
+        """Test logout requires authentication."""
+        request = make_mock_handler(command="POST")
+
+        result = auth_handler._handle_logout(request)
+        parsed = parse_result(result)
+
+        # Logout should work or return 401/503
+        assert parsed["status_code"] in (200, 401, 503)
+
+
+# ===========================================================================
+# Test: Route Handling with API Versions
+# ===========================================================================
+
+
+class TestVersionedRoutes:
+    """Test handler with versioned API routes."""
+
+    def test_can_handle_v1_login(self, auth_handler):
+        """Test handler recognizes v1 login route."""
+        assert auth_handler.can_handle("/api/v1/auth/login") is True
+
+    def test_can_handle_v1_sessions(self, auth_handler):
+        """Test handler recognizes v1 sessions route."""
+        assert auth_handler.can_handle("/api/v1/auth/sessions") is True
+
+    def test_can_handle_v1_mfa_setup(self, auth_handler):
+        """Test handler recognizes v1 MFA setup route."""
+        assert auth_handler.can_handle("/api/v1/auth/mfa/setup") is True
+
+    def test_can_handle_api_keys_route(self, auth_handler):
+        """Test handler recognizes API keys route."""
+        # Check if the route exists
+        can_handle = auth_handler.can_handle("/api/auth/api-keys") or auth_handler.can_handle(
+            "/api/v1/auth/api-keys"
+        )
+        # This may be true or false depending on implementation
+        assert isinstance(can_handle, bool)

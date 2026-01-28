@@ -80,17 +80,24 @@ class AragoraClient:
 
     def _init_namespaces(self) -> None:
         """Initialize namespace API objects."""
+        from .namespaces.accounting import AccountingAPI
         from .namespaces.admin import AdminAPI
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
+        from .namespaces.ap_automation import APAutomationAPI
+        from .namespaces.ar_automation import ARAutomationAPI
         from .namespaces.audit import AuditAPI
         from .namespaces.auth import AuthAPI
         from .namespaces.backups import BackupsAPI
+        from .namespaces.batch import BatchAPI
         from .namespaces.belief import BeliefAPI
         from .namespaces.billing import BillingAPI
         from .namespaces.budgets import BudgetsAPI
+        from .namespaces.code_review import CodeReviewAPI
+        from .namespaces.codebase import CodebaseAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.control_plane import ControlPlaneAPI
+        from .namespaces.cost_management import CostManagementAPI
         from .namespaces.critiques import CritiquesAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
@@ -119,6 +126,7 @@ class AragoraClient:
         from .namespaces.relationships import RelationshipsAPI
         from .namespaces.replays import ReplaysAPI
         from .namespaces.rlm import RLMAPI
+        from .namespaces.routing import RoutingAPI
         from .namespaces.sme import SMEAPI
         from .namespaces.teams import TeamsAPI
         from .namespaces.tenants import TenantsAPI
@@ -130,17 +138,24 @@ class AragoraClient:
         from .namespaces.workflows import WorkflowsAPI
         from .namespaces.workspaces import WorkspacesAPI
 
+        self.accounting = AccountingAPI(self)
         self.admin = AdminAPI(self)
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
+        self.ap_automation = APAutomationAPI(self)
+        self.ar_automation = ARAutomationAPI(self)
         self.audit = AuditAPI(self)
         self.auth = AuthAPI(self)
         self.backups = BackupsAPI(self)
+        self.batch = BatchAPI(self)
         self.belief = BeliefAPI(self)
         self.billing = BillingAPI(self)
         self.budgets = BudgetsAPI(self)
+        self.code_review = CodeReviewAPI(self)
+        self.codebase = CodebaseAPI(self)
         self.consensus = ConsensusAPI(self)
         self.control_plane = ControlPlaneAPI(self)
+        self.cost_management = CostManagementAPI(self)
         self.critiques = CritiquesAPI(self)
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
@@ -169,6 +184,7 @@ class AragoraClient:
         self.relationships = RelationshipsAPI(self)
         self.replays = ReplaysAPI(self)
         self.rlm = RLMAPI(self)
+        self.routing = RoutingAPI(self)
         self.sme = SMEAPI(self)
         self.teams = TeamsAPI(self)
         self.tenants = TenantsAPI(self)
@@ -355,17 +371,24 @@ class AragoraAsyncClient:
 
     def _init_namespaces(self) -> None:
         """Initialize namespace API objects."""
+        from .namespaces.accounting import AsyncAccountingAPI
         from .namespaces.admin import AsyncAdminAPI
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
+        from .namespaces.ap_automation import AsyncAPAutomationAPI
+        from .namespaces.ar_automation import AsyncARAutomationAPI
         from .namespaces.audit import AsyncAuditAPI
         from .namespaces.auth import AsyncAuthAPI
         from .namespaces.backups import AsyncBackupsAPI
+        from .namespaces.batch import AsyncBatchAPI
         from .namespaces.belief import AsyncBeliefAPI
         from .namespaces.billing import AsyncBillingAPI
         from .namespaces.budgets import AsyncBudgetsAPI
+        from .namespaces.code_review import AsyncCodeReviewAPI
+        from .namespaces.codebase import AsyncCodebaseAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.control_plane import AsyncControlPlaneAPI
+        from .namespaces.cost_management import AsyncCostManagementAPI
         from .namespaces.critiques import AsyncCritiquesAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
@@ -394,6 +417,7 @@ class AragoraAsyncClient:
         from .namespaces.relationships import AsyncRelationshipsAPI
         from .namespaces.replays import AsyncReplaysAPI
         from .namespaces.rlm import AsyncRLMAPI
+        from .namespaces.routing import AsyncRoutingAPI
         from .namespaces.sme import AsyncSMEAPI
         from .namespaces.teams import AsyncTeamsAPI
         from .namespaces.tenants import AsyncTenantsAPI
@@ -405,17 +429,24 @@ class AragoraAsyncClient:
         from .namespaces.workflows import AsyncWorkflowsAPI
         from .namespaces.workspaces import AsyncWorkspacesAPI
 
+        self.accounting = AsyncAccountingAPI(self)
         self.admin = AsyncAdminAPI(self)
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
+        self.ap_automation = AsyncAPAutomationAPI(self)
+        self.ar_automation = AsyncARAutomationAPI(self)
         self.audit = AsyncAuditAPI(self)
         self.auth = AsyncAuthAPI(self)
         self.backups = AsyncBackupsAPI(self)
+        self.batch = AsyncBatchAPI(self)
         self.belief = AsyncBeliefAPI(self)
         self.billing = AsyncBillingAPI(self)
         self.budgets = AsyncBudgetsAPI(self)
+        self.code_review = AsyncCodeReviewAPI(self)
+        self.codebase = AsyncCodebaseAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.control_plane = AsyncControlPlaneAPI(self)
+        self.cost_management = AsyncCostManagementAPI(self)
         self.critiques = AsyncCritiquesAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
@@ -444,6 +475,7 @@ class AragoraAsyncClient:
         self.relationships = AsyncRelationshipsAPI(self)
         self.replays = AsyncReplaysAPI(self)
         self.rlm = AsyncRLMAPI(self)
+        self.routing = AsyncRoutingAPI(self)
         self.sme = AsyncSMEAPI(self)
         self.teams = AsyncTeamsAPI(self)
         self.tenants = AsyncTenantsAPI(self)
