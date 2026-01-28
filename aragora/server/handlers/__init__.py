@@ -152,6 +152,7 @@ from .public import StatusPageHandler  # Public status page
 from .memory import InsightsHandler  # Moved to memory/
 from .introspection import IntrospectionHandler
 from .knowledge_base import KnowledgeHandler, KnowledgeMoundHandler
+from .knowledge_chat import KnowledgeChatHandler
 from .knowledge.checkpoints import KMCheckpointHandler
 from .laboratory import LaboratoryHandler
 from .agents import LeaderboardViewHandler  # Moved to agents/
@@ -333,6 +334,7 @@ ALL_HANDLERS = [
     InsightsHandler,
     KnowledgeHandler,
     KnowledgeMoundHandler,  # Extended Knowledge Mound API - STABLE
+    KnowledgeChatHandler,  # Knowledge-Chat integration - EXPERIMENTAL
     KMCheckpointHandler,  # KM checkpoint backup/restore API
     GalleryHandler,
     BreakpointsHandler,
@@ -510,6 +512,7 @@ HANDLER_STABILITY: dict[str, Stability] = {
     "InsightsHandler": Stability.STABLE,  # 3 test files, 110+ tests
     "KnowledgeHandler": Stability.EXPERIMENTAL,  # Knowledge base API - new
     "KnowledgeMoundHandler": Stability.STABLE,  # Knowledge Mound API - Graduated from Phase A1
+    "KnowledgeChatHandler": Stability.EXPERIMENTAL,  # Knowledge-Chat integration - new
     "ReviewsHandler": Stability.STABLE,  # 18 tests, shareable code reviews
     "FormalVerificationHandler": Stability.STABLE,  # 18 tests, Z3/Lean backends
     # Promoted to Stable (Jan 2026) - from Preview
@@ -714,6 +717,7 @@ __all__ = [
     "InsightsHandler",
     "KnowledgeHandler",
     "KnowledgeMoundHandler",
+    "KnowledgeChatHandler",
     "GalleryHandler",
     "BreakpointsHandler",
     "LearningHandler",

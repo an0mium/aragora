@@ -121,6 +121,7 @@ OrchestrationHandler: HandlerType = None
 DeliberationsHandler: HandlerType = None
 KnowledgeHandler: HandlerType = None
 KnowledgeMoundHandler: HandlerType = None
+KnowledgeChatHandler: HandlerType = None
 PolicyHandler: HandlerType = None
 QueueHandler: HandlerType = None
 RLMContextHandler: HandlerType = None
@@ -180,6 +181,9 @@ try:
     )
     from aragora.server.handlers import (
         KnowledgeMoundHandler as _KnowledgeMoundHandler,
+    )
+    from aragora.server.handlers import (
+        KnowledgeChatHandler as _KnowledgeChatHandler,
     )
     from aragora.server.handlers import (
         AgentsHandler as _AgentsHandler,
@@ -570,6 +574,7 @@ try:
     DeliberationsHandler = _DeliberationsHandler
     KnowledgeHandler = _KnowledgeHandler
     KnowledgeMoundHandler = _KnowledgeMoundHandler
+    KnowledgeChatHandler = _KnowledgeChatHandler
     PolicyHandler = _PolicyHandler
     QueueHandler = _QueueHandler
     RLMContextHandler = _RLMContextHandler
@@ -696,6 +701,7 @@ HANDLER_REGISTRY: List[Tuple[str, Any]] = [
     ("_control_plane_handler", ControlPlaneHandler),
     ("_knowledge_handler", KnowledgeHandler),
     ("_knowledge_mound_handler", KnowledgeMoundHandler),
+    ("_knowledge_chat_handler", KnowledgeChatHandler),
     ("_policy_handler", PolicyHandler),
     ("_queue_handler", QueueHandler),
     ("_rlm_context_handler", RLMContextHandler),
