@@ -363,7 +363,9 @@ export class UnifiedInboxAPI {
   async list(params?: ListMessagesParams): Promise<{
     messages: UnifiedMessage[];
     total: number;
-    unread_count: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
   }> {
     return this.listMessages(params);
   }

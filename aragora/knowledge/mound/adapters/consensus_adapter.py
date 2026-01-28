@@ -50,7 +50,7 @@ class ValidationSyncResult(TypedDict):
 
 logger = logging.getLogger(__name__)
 
-# Import mixin for semantic search functionality
+# Import mixins for shared adapter functionality
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
 
 
