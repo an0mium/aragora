@@ -33,6 +33,7 @@ _SUSPICIOUS_PATTERNS = [
     re.compile(r"\{\{.*\}\}"),  # Template injection
 ]
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from aragora.resilience_patterns import with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,7 @@ class GraphDebatesHandler(SecureHandler):
         logger.debug("POST /api/debates/graph - running graph debate")
         return await self._run_graph_debate(handler, data)
 
+    @with_timeout(180.0)
     async def _run_graph_debate(self, handler, data: dict) -> HandlerResult:
         """Run a graph-structured debate with automatic branching.
 
