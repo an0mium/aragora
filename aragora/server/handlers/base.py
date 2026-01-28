@@ -1566,7 +1566,7 @@ class BaseHandler:
 
     def handle_put(
         self, path: str, query_params: dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
+    ) -> MaybeAsyncHandlerResult:
         """
         Handle a PUT request. Override in subclasses that support PUT.
 
