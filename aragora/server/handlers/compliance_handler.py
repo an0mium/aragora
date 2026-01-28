@@ -35,7 +35,7 @@ from aragora.server.handlers.base import (
     json_response,
 )
 from aragora.server.handlers.utils.rate_limit import rate_limit
-from aragora.rbac.decorators import require_permission
+from aragora.rbac.decorators import PermissionDeniedError, require_permission
 from aragora.storage.audit_store import get_audit_store
 from aragora.storage.receipt_store import get_receipt_store
 from aragora.privacy.deletion import get_deletion_scheduler, get_legal_hold_manager
@@ -181,6 +181,10 @@ class ComplianceHandler(BaseHandler):
                 return await self._add_backup_exclusion(body)
 
             return error_response("Not found", 404)
+
+        except PermissionDeniedError as e:
+            logger.warning(f"Permission denied for compliance request: {e}")
+            return error_response(str(e), 403)
 
         except Exception as e:
             logger.exception(f"Error handling compliance request: {e}")
