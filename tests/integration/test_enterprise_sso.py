@@ -224,7 +224,8 @@ class TestOIDCProviderConfigurations:
 class TestSAMLAuthentication:
     """Test SAML authentication flows."""
 
-    def test_saml_request_generation(self):
+    @pytest.mark.asyncio
+    async def test_saml_request_generation(self):
         """Test SAML authentication request generation."""
         pytest.importorskip("onelogin.saml2", reason="python3-saml required")
         from aragora.auth.saml import SAMLProvider, SAMLConfig
@@ -241,17 +242,18 @@ class TestSAMLAuthentication:
 
         provider = SAMLProvider(config)
 
-        # Generate SAML AuthnRequest
-        request_url, request_id = provider.create_authn_request()
+        # Generate SAML AuthnRequest via get_authorization_url
+        state = provider.generate_state()
+        request_url = await provider.get_authorization_url(state=state)
 
         assert "SAMLRequest=" in request_url
-        assert request_id is not None
 
-    def test_saml_response_validation(self):
+    @pytest.mark.asyncio
+    async def test_saml_response_validation(self):
         """Test SAML response validation."""
         pytest.importorskip("onelogin.saml2", reason="python3-saml required")
         from aragora.auth.saml import SAMLProvider, SAMLConfig
-        from aragora.auth.sso import SSOProviderType
+        from aragora.auth.sso import SSOProviderType, SSOUser
 
         config = SAMLConfig(
             provider_type=SSOProviderType.SAML,
@@ -264,16 +266,16 @@ class TestSAMLAuthentication:
 
         provider = SAMLProvider(config)
 
-        # Mock SAML response processing
-        mock_user = MockSSOUser(
-            sub="user-123",
+        # Mock SSOUser to be returned by authenticate
+        mock_user = SSOUser(
+            id="user-123",
             email="user@example.com",
             name="Test User",
             groups=["Engineering", "Admins"],
         )
 
-        with patch.object(provider, "process_response", return_value=mock_user):
-            user = provider.process_response("mock-saml-response")
+        with patch.object(provider, "authenticate", return_value=mock_user):
+            user = await provider.authenticate(saml_response="mock-saml-response")
 
         assert user.email == "user@example.com"
         assert "Engineering" in user.groups
