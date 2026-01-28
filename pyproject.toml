@@ -76,6 +76,7 @@ dev = [
     "datamodel-code-generator>=0.25,<1.0",  # Python SDK type generation from OpenAPI
     "async-timeout>=4.0,<5.0",  # Async timeouts for Python <3.11 in CI/dev
     "python3-saml>=1.15,<2.0",  # SAML authentication for enterprise SSO testing
+    "tiktoken>=0.5,<1.0",  # Token counting for LLM context management
 ]
 # Test dependencies - install with: pip install -e ".[test]"
 # This includes all optional dependencies needed for full test coverage
