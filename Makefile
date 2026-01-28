@@ -61,7 +61,7 @@ test:
 	pytest tests/ -v --timeout=120
 
 test-fast:
-	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration --ignore=tests/benchmarks
+	pytest tests/ -v --timeout=60 -m "not slow and not e2e and not load" --ignore=tests/integration --ignore=tests/benchmarks --ignore=tests/load --ignore=tests/performance
 
 test-unit:
 	pytest tests/ -v --timeout=30 -m unit --ignore=tests/integration --ignore=tests/e2e -q
