@@ -32,6 +32,8 @@ EventCallback = Callable[[str, Dict[str, Any]], None]
 
 logger = logging.getLogger(__name__)
 
+# Import mixin for semantic search functionality
+
 
 @dataclass
 class KMValidationResult:

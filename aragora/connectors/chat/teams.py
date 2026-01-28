@@ -1468,6 +1468,65 @@ class TeamsConnector(ChatPlatformConnector):
             logger.debug(f"Teams get_channel_info error: {e}")
             return None
 
+    async def list_channels(
+        self,
+        team_id: str,
+        include_private: bool = False,
+        **kwargs: Any,
+    ) -> list[ChatChannel]:
+        """
+        List all channels in a Microsoft Teams team.
+
+        Uses Microsoft Graph API to enumerate channels.
+
+        Args:
+            team_id: Team ID to list channels for
+            include_private: Whether to include private channels (default: False)
+            **kwargs: Additional options
+
+        Returns:
+            List of ChatChannel objects
+        """
+        channels: list[ChatChannel] = []
+
+        try:
+            endpoint = f"/teams/{team_id}/channels"
+            if not include_private:
+                endpoint += "?$filter=membershipType eq 'standard'"
+
+            success, data, error = await self._graph_api_request(
+                endpoint=endpoint,
+                method="GET",
+                operation="list_channels",
+            )
+
+            if not success or not data:
+                logger.warning(f"Failed to list channels for team {team_id}: {error}")
+                return channels
+
+            channel_list = data.get("value", [])
+            for channel_data in channel_list:
+                channel = ChatChannel(
+                    id=channel_data.get("id", ""),
+                    platform=self.platform_name,
+                    name=channel_data.get("displayName"),
+                    is_private=channel_data.get("membershipType") == "private",
+                    team_id=team_id,
+                    metadata={
+                        "description": channel_data.get("description"),
+                        "web_url": channel_data.get("webUrl"),
+                        "membership_type": channel_data.get("membershipType"),
+                    },
+                )
+                channels.append(channel)
+
+            logger.debug(f"Listed {len(channels)} channels for team {team_id}")
+            return channels
+
+        except Exception as e:
+            logger.error(f"Teams list_channels error: {e}")
+            return channels
+
     async def get_user_info(
         self,
         user_id: str,
