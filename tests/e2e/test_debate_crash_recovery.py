@@ -351,7 +351,6 @@ class TestVotingPhaseCrashRecovery:
 class TestGUPPHookRecovery:
     """Tests for GUPP hook queue recovery after process restart."""
 
-    @pytest.mark.xfail(reason="HookQueue API changed - tests need refactoring to use async methods")
     async def test_hook_queue_recovery_finds_pending_work(self, temp_bead_dir):
         """Test that hook queue recovery finds pending beads."""
         try:
@@ -373,23 +372,23 @@ class TestGUPPHookRecovery:
         )
         await bead_store.create(bead)
 
-        # Create hook queue and push bead
+        # Create hook queue, initialize, and push bead (async API)
         hook_queue = HookQueue(
             agent_id="claude",
             bead_store=bead_store,
             hooks_dir=Path(temp_bead_dir / "hooks"),
         )
-        hook_queue.push(bead)
+        await hook_queue.initialize()
+        await hook_queue.push(bead.id)
 
-        # Get pending work
-        pending = hook_queue.get_pending()
-        assert len(pending) >= 1
+        # Get pending work via recover_on_startup
+        pending_beads = await hook_queue.recover_on_startup()
+        assert len(pending_beads) >= 1
 
         # Find our bead
-        found = any(entry.bead_id == bead.id for entry in pending)
+        found = any(b.id == bead.id for b in pending_beads)
         assert found, "Pushed bead should be in pending queue"
 
-    @pytest.mark.xfail(reason="HookQueue API changed - tests need refactoring to use async methods")
     async def test_hook_recovery_skips_completed_beads(self, temp_bead_dir):
         """Test that completed beads are not recovered."""
         try:
@@ -417,17 +416,18 @@ class TestGUPPHookRecovery:
             bead_store=bead_store,
             hooks_dir=Path(temp_bead_dir / "hooks"),
         )
+        await hook_queue.initialize()
 
-        # Try to push completed bead - should be rejected or filtered
-        hook_queue.push(bead)
+        # Try to push completed bead (async API)
+        await hook_queue.push(bead.id)
 
-        # Get pending - completed beads should be filtered
-        pending = hook_queue.get_pending()
-        completed_pending = [e for e in pending if e.bead_id == bead.id]
+        # Get pending via recover_on_startup - completed beads should be filtered
+        pending_beads = await hook_queue.recover_on_startup()
+        completed_pending = [b for b in pending_beads if b.id == bead.id]
 
-        # Completed beads should either not be pushed or be filtered in get_pending
-        # Implementation may vary, but completed work should not be re-processed
-        assert len(completed_pending) == 0 or pending[0].bead.status != BeadStatus.PENDING
+        # Completed beads should be filtered out by recover_on_startup
+        # since is_terminal() returns True for COMPLETED status
+        assert len(completed_pending) == 0, "Completed beads should not be in recovery list"
 
 
 # ============================================================================
