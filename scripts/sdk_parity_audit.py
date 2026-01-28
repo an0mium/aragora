@@ -117,9 +117,9 @@ PY_CALL_LEGACY_RE = re.compile(
     re.MULTILINE,
 )
 
-# Pattern for _client.request("GET", "path") style (current)
+# Pattern for _client.request("GET", "path") and _client._request("GET", "path") styles
 PY_CALL_RE = re.compile(
-    r"\b_client\.request\(\s*['\"](?P<method>GET|POST|PUT|PATCH|DELETE)['\"][,\s]*(?P<path>f?\"[^\"]+\"|f?'[^']+')",
+    r"\b_client\._?request\(\s*['\"](?P<method>GET|POST|PUT|PATCH|DELETE)['\"][,\s]*(?P<path>f?\"[^\"]+\"|f?'[^']+')",
     re.MULTILINE,
 )
 
