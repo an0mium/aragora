@@ -52,7 +52,9 @@ def mock_auth_context():
 def reset_rate_limiter():
     """Reset rate limiter before each test."""
     _matrix_limiter._buckets.clear()
-    yield
+    # Ensure rate limiting is enabled for tests
+    with patch("aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False):
+        yield
 
 
 # =============================================================================
