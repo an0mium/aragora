@@ -157,12 +157,17 @@ broadcast-polly = [
     "aragora[broadcast]",
     "boto3>=1.34,<2.0",
 ]
-broadcast-xtts = [
-    "aragora[broadcast]",
-    "TTS>=0.22,<1.0",  # Coqui TTS for XTTS v2 (requires torch)
-]
+# NOTE: broadcast-xtts disabled - TTS requires numpy<2 which conflicts with numpy>=2 in base deps
+# To use XTTS v2, create an isolated environment:
+#   python -m venv xtts-env && source xtts-env/bin/activate
+#   pip install aragora TTS>=0.22
+# broadcast-xtts = [
+#     "aragora[broadcast]",
+#     "TTS>=0.22,<1.0",  # Coqui TTS for XTTS v2 (requires torch)
+# ]
 broadcast-premium = [
-    "aragora[broadcast-elevenlabs,broadcast-polly,broadcast-xtts]",
+    # Note: XTTS excluded - see broadcast-xtts comment above for isolated install
+    "aragora[broadcast-elevenlabs,broadcast-polly]",
 ]
 research = [
     "duckduckgo-search>=6.0,<8.0",
