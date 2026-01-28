@@ -203,6 +203,8 @@ import {
   // Additional namespaces (SDK Parity Sprint)
   AccountingAPI,
   APAutomationAPI,
+  ComplianceAPI,
+  ConnectorsAPI,
   ARAutomationAPI,
   BackupsAPI,
   BatchAPI,
@@ -237,6 +239,17 @@ import {
   HistoryNamespace,
   RankingNamespace,
   HealthNamespace,
+  QueueAPI,
+  ChatAPI,
+  FlipsAPI,
+  InsightsAPI,
+  ClassifyAPI,
+  CalibrationAPI,
+  MatchesAPI,
+  ReputationAPI,
+  EvolutionAPI,
+  OpenApiAPI,
+  ProbesAPI,
 } from './namespaces';
 
 interface RequestOptions {
@@ -685,6 +698,12 @@ export class AragoraClient {
   /** Verticals API - Domain-specific configurations. */
   readonly verticals: VerticalsAPI;
 
+  /** Compliance API - SOC 2, GDPR, and audit trail operations. */
+  readonly compliance: ComplianceAPI;
+
+  /** Connectors API - Data source integrations and sync management. */
+  readonly connectors: ConnectorsAPI;
+
   // =========================================================================
   // New Namespaces (SDK Parity Sprint - Phase 2)
   // =========================================================================
@@ -706,6 +725,39 @@ export class AragoraClient {
 
   /** Health API - System health monitoring and status checks. */
   readonly health: HealthNamespace;
+
+  /** Queue API - Background job queue management. */
+  readonly queue: QueueAPI;
+
+  /** Chat API - Knowledge chat utilities. */
+  readonly chat: ChatAPI;
+
+  /** Flips API - Recent and summary flip analytics. */
+  readonly flips: FlipsAPI;
+
+  /** Insights API - Insight extraction and feeds. */
+  readonly insights: InsightsAPI;
+
+  /** Classify API - Policy classification endpoints. */
+  readonly classify: ClassifyAPI;
+
+  /** Calibration API - Calibration leaderboard. */
+  readonly calibration: CalibrationAPI;
+
+  /** Matches API - Recent matches. */
+  readonly matches: MatchesAPI;
+
+  /** Reputation API - Reputation listings. */
+  readonly reputation: ReputationAPI;
+
+  /** Evolution API - Agent evolution history. */
+  readonly evolution: EvolutionAPI;
+
+  /** OpenAPI API - Spec retrieval. */
+  readonly openapi: OpenApiAPI;
+
+  /** Probes API - Capability probing. */
+  readonly probes: ProbesAPI;
 
   constructor(config: AragoraConfig) {
     this.config = {
@@ -800,6 +852,8 @@ export class AragoraClient {
     this.unifiedInbox = new UnifiedInboxAPI(this);
     this.usageMetering = new UsageMeteringAPI(this);
     this.verticals = new VerticalsAPI(this);
+    this.compliance = new ComplianceAPI(this);
+    this.connectors = new ConnectorsAPI(this);
 
     // New namespaces (SDK Parity Sprint - Phase 2)
     this.relationships = new RelationshipsNamespace(this);
@@ -813,6 +867,17 @@ export class AragoraClient {
     this.advertising = new AdvertisingAPI(this);
     this.a2a = new A2AAPI(this);
     this.metrics = new MetricsAPI(this);
+    this.queue = new QueueAPI(this);
+    this.chat = new ChatAPI(this);
+    this.flips = new FlipsAPI(this);
+    this.insights = new InsightsAPI(this);
+    this.classify = new ClassifyAPI(this);
+    this.calibration = new CalibrationAPI(this);
+    this.matches = new MatchesAPI(this);
+    this.reputation = new ReputationAPI(this);
+    this.evolution = new EvolutionAPI(this);
+    this.openapi = new OpenApiAPI(this);
+    this.probes = new ProbesAPI(this);
   }
 
   // ===========================================================================
@@ -1074,6 +1139,22 @@ export class AragoraClient {
     return this.request<{ agents: Agent[] }>('GET', '/api/agents');
   }
 
+  async listAgentsAvailability(): Promise<{ available: string[]; missing?: string[] }> {
+    return this.request<{ available: string[]; missing?: string[] }>('GET', '/api/v1/agents/availability');
+  }
+
+  async listAgentsHealth(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/agents/health');
+  }
+
+  async listLocalAgents(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/agents/local');
+  }
+
+  async getLocalAgentsStatus(): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', '/api/v1/agents/local/status');
+  }
+
   async getAgent(name: string): Promise<Agent> {
     return this.request<Agent>('GET', `/api/agents/${encodeURIComponent(name)}`);
   }
@@ -1118,6 +1199,26 @@ export class AragoraClient {
 
   async getAgentNetwork(name: string): Promise<AgentNetwork> {
     return this.request<AgentNetwork>('GET', `/api/v1/agent/${encodeURIComponent(name)}/network`);
+  }
+
+  async getAgentAllies(name: string): Promise<{ allies: AgentRelationship[] }> {
+    return this.request<{ allies: AgentRelationship[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/allies`);
+  }
+
+  async getAgentRivals(name: string): Promise<{ rivals: AgentRelationship[] }> {
+    return this.request<{ rivals: AgentRelationship[] }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/rivals`);
+  }
+
+  async getAgentReputation(name: string): Promise<{ reputation: number | null }> {
+    return this.request<{ reputation: number | null }>('GET', `/api/v1/agent/${encodeURIComponent(name)}/reputation`);
+  }
+
+  async getAgentCalibrationCurve(name: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/agent/${encodeURIComponent(name)}/calibration-curve`);
+  }
+
+  async getAgentCalibrationSummary(name: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>('GET', `/api/v1/agent/${encodeURIComponent(name)}/calibration-summary`);
   }
 
   async getAgentMoments(name: string, params?: { type?: string; limit?: number } & PaginationParams): Promise<{ moments: AgentMoment[] }> {
