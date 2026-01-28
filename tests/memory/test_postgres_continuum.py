@@ -10,15 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from contextlib import asynccontextmanager
 import json
 
-
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    asyncpg = None  # type: ignore
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 # Tests that don't require asyncpg
@@ -84,7 +76,6 @@ class TestPostgresContinuumSchema:
         assert "REFERENCES continuum_memory" in POSTGRES_CONTINUUM_SCHEMA
 
 
-# Skip remaining tests if asyncpg not available
 class TestPostgresContinuumMemory:
     """Tests for PostgresContinuumMemory class."""
 

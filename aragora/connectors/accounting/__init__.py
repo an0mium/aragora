@@ -7,6 +7,11 @@ Integrations for accounting and financial services:
 - Gusto payroll
 """
 
+from aragora.connectors.accounting.base import (
+    AccountingConnectorBase,
+    PaginationConfig,
+    RetryConfig,
+)
 from aragora.connectors.accounting.qbo import (
     QuickBooksConnector,
     QBOCredentials,
@@ -68,6 +73,10 @@ from aragora.connectors.accounting.xero import (
 )
 
 __all__ = [
+    # Base
+    "AccountingConnectorBase",
+    "PaginationConfig",
+    "RetryConfig",
     # QBO
     "QuickBooksConnector",
     "QBOCredentials",

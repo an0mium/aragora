@@ -1,0 +1,131 @@
+# Argo Rollouts Helm Values for Aragora
+# Install: helm install argo-rollouts argo/argo-rollouts -n argo-rollouts --create-namespace -f values.yaml
+
+# Controller configuration
+controller:
+  # High availability
+  replicas: 2
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  # Metrics for Prometheus
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+
+  # Node selector (optional)
+  nodeSelector: {}
+
+  # Tolerations (optional)
+  tolerations: []
+
+  # Pod anti-affinity for HA
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: argo-rollouts
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+
+  # Ingress for dashboard
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - rollouts.aragora.internal
+    tls:
+      - secretName: argo-rollouts-tls
+        hosts:
+          - rollouts.aragora.internal
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Notifications configuration
+notifications:
+  enabled: true
+
+  # Slack notifications
+  notifiers:
+    service.slack: |
+      token: $slack-token
+
+  # Notification templates
+  templates:
+    template.rollout-completed: |
+      message: |
+        Rollout {{.rollout.metadata.name}} completed successfully!
+        Revision: {{.rollout.status.currentPodHash}}
+        Image: {{(index .rollout.spec.template.spec.containers 0).image}}
+
+    template.rollout-aborted: |
+      message: |
+        :warning: Rollout {{.rollout.metadata.name}} was aborted!
+        Reason: {{.rollout.status.message}}
+        Please investigate immediately.
+
+    template.analysis-failed: |
+      message: |
+        :x: Analysis failed for {{.rollout.metadata.name}}
+        Failed metrics: {{range .analysisRun.status.metricResults}}{{if eq .phase "Failed"}}{{.name}} {{end}}{{end}}
+
+  # Triggers
+  triggers:
+    trigger.on-rollout-completed: |
+      - send: [rollout-completed]
+
+    trigger.on-rollout-aborted: |
+      - send: [rollout-aborted]
+
+    trigger.on-analysis-run-failed: |
+      - send: [analysis-failed]
+
+  # Secret for tokens
+  secret:
+    create: false
+    name: argocd-notifications-secret
+
+# Service account
+serviceAccount:
+  create: true
+  name: argo-rollouts
+
+# RBAC
+rbac:
+  create: true
+
+# Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 999
+  fsGroup: 999
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

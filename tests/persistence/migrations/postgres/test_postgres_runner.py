@@ -11,13 +11,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 # ===========================================================================
@@ -227,7 +221,6 @@ class TestRegisterMigration:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrate:
     """Tests for migrate method."""
 
@@ -299,7 +292,6 @@ class TestMigrate:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestRollback:
     """Tests for rollback method."""
 
@@ -340,7 +332,6 @@ class TestRollback:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestVerifyChecksums:
     """Tests for verify_checksums method."""
 
@@ -367,7 +358,6 @@ class TestVerifyChecksums:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestStatus:
     """Tests for status method."""
 

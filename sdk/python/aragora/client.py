@@ -85,10 +85,12 @@ class AragoraClient:
         from .namespaces.analytics import AnalyticsAPI
         from .namespaces.audit import AuditAPI
         from .namespaces.auth import AuthAPI
+        from .namespaces.belief import BeliefAPI
         from .namespaces.consensus import ConsensusAPI
         from .namespaces.debates import DebatesAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.gauntlet import GauntletAPI
+        from .namespaces.genesis import GenesisAPI
         from .namespaces.health import HealthAPI
         from .namespaces.knowledge import KnowledgeAPI
         from .namespaces.memory import MemoryAPI
@@ -99,6 +101,7 @@ class AragoraClient:
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
         from .namespaces.receipts import ReceiptsAPI
+        from .namespaces.relationships import RelationshipsAPI
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.webhooks import WebhooksAPI
@@ -110,10 +113,12 @@ class AragoraClient:
         self.analytics = AnalyticsAPI(self)
         self.audit = AuditAPI(self)
         self.auth = AuthAPI(self)
+        self.belief = BeliefAPI(self)
         self.consensus = ConsensusAPI(self)
         self.debates = DebatesAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.gauntlet = GauntletAPI(self)
+        self.genesis = GenesisAPI(self)
         self.health = HealthAPI(self)
         self.knowledge = KnowledgeAPI(self)
         self.memory = MemoryAPI(self)
@@ -124,6 +129,7 @@ class AragoraClient:
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
         self.receipts = ReceiptsAPI(self)
+        self.relationships = RelationshipsAPI(self)
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
         self.webhooks = WebhooksAPI(self)
@@ -299,10 +305,12 @@ class AragoraAsyncClient:
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.audit import AsyncAuditAPI
         from .namespaces.auth import AsyncAuthAPI
+        from .namespaces.belief import AsyncBeliefAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
+        from .namespaces.genesis import AsyncGenesisAPI
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.knowledge import AsyncKnowledgeAPI
         from .namespaces.memory import AsyncMemoryAPI
@@ -313,6 +321,7 @@ class AragoraAsyncClient:
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
         from .namespaces.receipts import AsyncReceiptsAPI
+        from .namespaces.relationships import AsyncRelationshipsAPI
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
@@ -324,10 +333,12 @@ class AragoraAsyncClient:
         self.analytics = AsyncAnalyticsAPI(self)
         self.audit = AsyncAuditAPI(self)
         self.auth = AsyncAuthAPI(self)
+        self.belief = AsyncBeliefAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
+        self.genesis = AsyncGenesisAPI(self)
         self.health = AsyncHealthAPI(self)
         self.knowledge = AsyncKnowledgeAPI(self)
         self.memory = AsyncMemoryAPI(self)
@@ -338,6 +349,7 @@ class AragoraAsyncClient:
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
         self.receipts = AsyncReceiptsAPI(self)
+        self.relationships = AsyncRelationshipsAPI(self)
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)

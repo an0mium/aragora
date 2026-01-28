@@ -13,13 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime, timezone
 
 
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 class TestMigrationStats:
@@ -276,7 +270,6 @@ class TestSQLiteOperations:
             conn.close()
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresOperations:
     """Tests for PostgreSQL operations with mocking."""
 
@@ -413,7 +406,6 @@ class TestReportPrinting:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrateTableAsync:
     """Tests for async migrate_table method."""
 
@@ -561,7 +553,6 @@ class TestMigrateTableAsync:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrateConsensusMemory:
     """Tests for migrate_consensus_memory method."""
 
@@ -643,7 +634,6 @@ class TestMigrateConsensusMemory:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrateCritiqueStore:
     """Tests for migrate_critique_store method."""
 
@@ -724,7 +714,6 @@ class TestMigrateCritiqueStore:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrateAll:
     """Tests for migrate_all method."""
 
@@ -815,7 +804,6 @@ class TestMigrateAll:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestConnectionPoolLifecycle:
     """Tests for connection pool management."""
 

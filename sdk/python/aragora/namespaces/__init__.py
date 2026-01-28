@@ -9,10 +9,12 @@ from .agents import AgentsAPI, AsyncAgentsAPI
 from .analytics import AnalyticsAPI, AsyncAnalyticsAPI
 from .audit import AsyncAuditAPI, AuditAPI
 from .auth import AsyncAuthAPI, AuthAPI
+from .belief import AsyncBeliefAPI, BeliefAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
+from .genesis import AsyncGenesisAPI, GenesisAPI
 from .health import AsyncHealthAPI, HealthAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
@@ -23,6 +25,7 @@ from .pulse import AsyncPulseAPI, PulseAPI
 from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
+from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
 from .usage import AsyncUsageAPI, UsageAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
@@ -40,6 +43,8 @@ __all__ = [
     "AsyncAuditAPI",
     "AuthAPI",
     "AsyncAuthAPI",
+    "BeliefAPI",
+    "AsyncBeliefAPI",
     "HealthAPI",
     "AsyncHealthAPI",
     "ConsensusAPI",
@@ -50,6 +55,8 @@ __all__ = [
     "AsyncExplainabilityAPI",
     "GauntletAPI",
     "AsyncGauntletAPI",
+    "GenesisAPI",
+    "AsyncGenesisAPI",
     "KnowledgeAPI",
     "AsyncKnowledgeAPI",
     "MemoryAPI",
@@ -68,6 +75,8 @@ __all__ = [
     "AsyncRBACAPI",
     "ReceiptsAPI",
     "AsyncReceiptsAPI",
+    "RelationshipsAPI",
+    "AsyncRelationshipsAPI",
     "UsageAPI",
     "AsyncUsageAPI",
     "VerificationAPI",

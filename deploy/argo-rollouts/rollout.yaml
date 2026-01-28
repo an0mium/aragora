@@ -1,0 +1,323 @@
+# Argo Rollouts Canary Deployment for Aragora
+# This replaces the standard Deployment with a Rollout that supports
+# canary deployments, blue-green, and automated rollbacks.
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: aragora
+  labels:
+    app.kubernetes.io/name: aragora
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: aragora
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aragora
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aragora
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: aragora
+
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: aragora
+          image: aragora/aragora:latest
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['environment']
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+  # Canary deployment strategy
+  strategy:
+    canary:
+      # Maximum unavailable pods during update
+      maxUnavailable: 0
+      maxSurge: 1
+
+      # Canary steps - gradual traffic shifting
+      steps:
+        # Step 1: Send 5% traffic to canary, pause for analysis
+        - setWeight: 5
+        - pause:
+            duration: 2m
+
+        # Step 2: Increase to 20% if analysis passes
+        - setWeight: 20
+        - pause:
+            duration: 5m
+
+        # Step 3: Increase to 50%
+        - setWeight: 50
+        - pause:
+            duration: 5m
+
+        # Step 4: Increase to 80%
+        - setWeight: 80
+        - pause:
+            duration: 5m
+
+        # Final: 100% (full rollout)
+        # Implicit when steps complete
+
+      # Traffic routing
+      trafficRouting:
+        nginx:
+          stableIngress: aragora-stable
+          # Additional annotations for canary
+          additionalIngressAnnotations:
+            canary-by-header: X-Canary
+            canary-by-header-value: "true"
+
+      # Anti-affinity to spread canary pods
+      antiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          weight: 100
+
+      # Canary metadata
+      canaryMetadata:
+        labels:
+          deployment-type: canary
+        annotations:
+          role: canary
+
+      # Stable metadata
+      stableMetadata:
+        labels:
+          deployment-type: stable
+        annotations:
+          role: stable
+
+      # Analysis to run during canary
+      analysis:
+        templates:
+          - templateName: aragora-canary-analysis
+
+        # Start analysis at step 0
+        startingStep: 0
+
+        # Analysis arguments
+        args:
+          - name: service-name
+            value: aragora-canary
+          - name: namespace
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+
+      # Rollback on failure
+      abortScaleDownDelaySeconds: 30
+
+---
+# AnalysisTemplate for canary validation
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: aragora-canary-analysis
+spec:
+  args:
+    - name: service-name
+    - name: namespace
+
+  metrics:
+    # Metric 1: Success rate must be > 99%
+    - name: success-rate
+      interval: 1m
+      successCondition: result[0] >= 0.99
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{
+              namespace="{{args.namespace}}",
+              service="{{args.service-name}}",
+              status=~"2.."
+            }[5m]))
+            /
+            sum(rate(http_requests_total{
+              namespace="{{args.namespace}}",
+              service="{{args.service-name}}"
+            }[5m]))
+
+    # Metric 2: P99 latency must be < 500ms
+    - name: latency-p99
+      interval: 1m
+      successCondition: result[0] < 500
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_seconds_bucket{
+                namespace="{{args.namespace}}",
+                service="{{args.service-name}}"
+              }[5m])) by (le)
+            ) * 1000
+
+    # Metric 3: Error rate must be < 1%
+    - name: error-rate
+      interval: 1m
+      successCondition: result[0] < 0.01
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(rate(http_requests_total{
+              namespace="{{args.namespace}}",
+              service="{{args.service-name}}",
+              status=~"5.."
+            }[5m]))
+            /
+            sum(rate(http_requests_total{
+              namespace="{{args.namespace}}",
+              service="{{args.service-name}}"
+            }[5m]))
+
+    # Metric 4: Pod restarts must be 0
+    - name: pod-restarts
+      interval: 2m
+      successCondition: result[0] == 0
+      failureLimit: 1
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc.cluster.local:9090
+          query: |
+            sum(increase(kube_pod_container_status_restarts_total{
+              namespace="{{args.namespace}}",
+              pod=~"aragora-.*"
+            }[10m]))
+
+---
+# Ingress for stable traffic
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aragora-stable
+  labels:
+    app.kubernetes.io/name: aragora
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.aragora.ai
+      secretName: aragora-tls
+  rules:
+    - host: api.aragora.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aragora-stable
+                port:
+                  number: 8080
+
+---
+# Service for stable pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora-stable
+  labels:
+    app.kubernetes.io/name: aragora
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: aragora
+
+---
+# Service for canary pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: aragora-canary
+  labels:
+    app.kubernetes.io/name: aragora
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: aragora
