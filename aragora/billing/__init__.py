@@ -86,14 +86,24 @@ from aragora.billing.multi_org import (
     ROLE_PERMISSIONS,
     get_multi_org_manager,
 )
-from aragora.billing.invoice_export import (
-    InvoiceExporter,
-    InvoiceCompanyInfo,
-    InvoiceCustomerInfo,
-    InvoiceExportConfig,
-    export_invoice_pdf,
-    export_invoice_html,
-)
+
+# Invoice export requires reportlab (optional dependency)
+try:
+    from aragora.billing.invoice_export import (
+        InvoiceExporter,
+        InvoiceCompanyInfo,
+        InvoiceCustomerInfo,
+        InvoiceExportConfig,
+        export_invoice_pdf,
+        export_invoice_html,
+    )
+except ImportError:
+    InvoiceExporter = None  # type: ignore[misc, assignment]
+    InvoiceCompanyInfo = None  # type: ignore[misc, assignment]
+    InvoiceCustomerInfo = None  # type: ignore[misc, assignment]
+    InvoiceExportConfig = None  # type: ignore[misc, assignment]
+    export_invoice_pdf = None  # type: ignore[misc, assignment]
+    export_invoice_html = None  # type: ignore[misc, assignment]
 from aragora.billing.discounts import (
     DiscountType,
     DiscountCodeStatus,
