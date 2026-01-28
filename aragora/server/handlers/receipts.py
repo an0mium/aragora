@@ -5,7 +5,8 @@ Provides REST API endpoints for decision receipt management:
 - List and retrieve receipts with filtering
 - Verify receipt integrity and signatures
 - Export receipts in multiple formats
-- Batch verification operations
+- Batch verification and signing operations
+- Shareable links for receipts
 
 Endpoints:
     GET  /api/v2/receipts                              - List receipts with filters
@@ -15,17 +16,25 @@ Endpoints:
     POST /api/v2/receipts/:receipt_id/verify           - Verify integrity checksum
     POST /api/v2/receipts/:receipt_id/verify-signature - Verify cryptographic signature
     POST /api/v2/receipts/verify-batch                 - Batch signature verification
+    POST /api/v2/receipts/sign-batch                   - Batch signing
+    POST /api/v2/receipts/batch-export                 - Batch export to ZIP
     GET  /api/v2/receipts/stats                        - Receipt statistics
+    POST /api/v2/receipts/:receipt_id/share            - Create shareable link
+    GET  /api/v2/receipts/share/:token                 - Access receipt via share token
 
 These endpoints support the "defensible decisions" pillar with:
 - Cryptographic signature verification
 - 7-year retention for compliance
 - Full audit trail integration
+- Time-limited shareable links
 """
 
 from __future__ import annotations
 
+import io
 import logging
+import secrets
+import zipfile
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -59,6 +68,7 @@ class ReceiptsHandler(BaseHandler):
         """Initialize with server context."""
         super().__init__(server_context)
         self._store = None  # Lazy initialization
+        self._share_store = None  # Lazy initialization for share tokens
 
     def _get_store(self):
         """Get or create receipt store (lazy initialization)."""
@@ -67,6 +77,14 @@ class ReceiptsHandler(BaseHandler):
 
             self._store = get_receipt_store()
         return self._store
+
+    def _get_share_store(self):
+        """Get or create receipt share store (lazy initialization)."""
+        if self._share_store is None:
+            from aragora.storage.receipt_share_store import get_receipt_share_store
+
+            self._share_store = get_receipt_share_store()
+        return self._share_store
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the request."""
@@ -112,6 +130,19 @@ class ReceiptsHandler(BaseHandler):
             if path == "/api/v2/receipts/verify-batch" and method == "POST":
                 return await self._verify_batch(body)
 
+            # Batch signing
+            if path == "/api/v2/receipts/sign-batch" and method == "POST":
+                return await self._sign_batch(body)
+
+            # Batch export
+            if path == "/api/v2/receipts/batch-export" and method == "POST":
+                return await self._batch_export(body)
+
+            # Access shared receipt (public endpoint)
+            if path.startswith("/api/v2/receipts/share/") and method == "GET":
+                token = path.split("/api/v2/receipts/share/")[1].rstrip("/")
+                return await self._get_shared_receipt(token)
+
             # List receipts
             if path == "/api/v2/receipts" and method == "GET":
                 return await self._list_receipts(query_params)
@@ -135,6 +166,10 @@ class ReceiptsHandler(BaseHandler):
                 # Signature verification
                 if len(parts) > 5 and parts[5] == "verify-signature" and method == "POST":
                     return await self._verify_signature(receipt_id)
+
+                # Share receipt
+                if len(parts) > 5 and parts[5] == "share" and method == "POST":
+                    return await self._share_receipt(receipt_id, body)
 
                 # Send to channel
                 if len(parts) > 5 and parts[5] == "send-to-channel" and method == "POST":
@@ -754,6 +789,266 @@ class ReceiptsHandler(BaseHandler):
                 "pagination": {"limit": limit, "offset": offset, "total": total},
                 "summary": {"total_receipts": total, "returned_receipts": len(receipts)},
             }
+        )
+
+    @require_permission("receipts:share")
+    async def _share_receipt(self, receipt_id: str, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Create a shareable link for a receipt.
+
+        Body:
+            expires_in_hours: Hours until link expires (default 24, max 720 = 30 days)
+            max_accesses: Maximum number of accesses (optional, None = unlimited)
+
+        Returns:
+            Share URL and token details
+        """
+        store = self._get_store()
+        receipt = store.get(receipt_id)
+
+        if not receipt:
+            return error_response("Receipt not found", 404)
+
+        # Parse options
+        expires_in_hours = min(int(body.get("expires_in_hours", 24)), 720)
+        max_accesses = body.get("max_accesses")
+
+        # Generate share token
+        token = secrets.token_urlsafe(24)
+        expires_at = datetime.now(timezone.utc).timestamp() + (expires_in_hours * 3600)
+
+        # Store share link
+        share_store = self._get_share_store()
+        share_store.save(
+            token=token,
+            receipt_id=receipt_id,
+            expires_at=expires_at,
+            max_accesses=max_accesses,
+        )
+
+        # Emit webhook notification
+        try:
+            from aragora.integrations.receipt_webhooks import emit_receipt_shared
+
+            emit_receipt_shared(receipt_id, token, expires_at)
+        except ImportError:
+            logger.debug("Receipt webhooks not available")
+
+        share_url = f"/api/v2/receipts/share/{token}"
+
+        return json_response(
+            {
+                "success": True,
+                "receipt_id": receipt_id,
+                "share_url": share_url,
+                "token": token,
+                "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
+                "max_accesses": max_accesses,
+            }
+        )
+
+    async def _get_shared_receipt(self, token: str) -> HandlerResult:
+        """
+        Access a receipt via share token.
+
+        This is a public endpoint - no authentication required.
+        """
+        share_store = self._get_share_store()
+        share_info = share_store.get_by_token(token)
+
+        if not share_info:
+            return error_response("Share link not found", 404)
+
+        # Check expiration
+        if (
+            share_info.get("expires_at")
+            and share_info["expires_at"] < datetime.now(timezone.utc).timestamp()
+        ):
+            return error_response("Share link has expired", 410)
+
+        # Check access limit
+        if share_info.get("max_accesses"):
+            if share_info.get("access_count", 0) >= share_info["max_accesses"]:
+                return error_response("Share link access limit reached", 410)
+
+        # Increment access count
+        share_store.increment_access(token)
+
+        # Get receipt
+        store = self._get_store()
+        receipt = store.get(share_info["receipt_id"])
+
+        if not receipt:
+            return error_response("Receipt not found", 404)
+
+        return json_response(
+            {
+                "receipt": receipt.to_full_dict(),
+                "shared": True,
+                "access_count": share_info.get("access_count", 0) + 1,
+            }
+        )
+
+    @require_permission("receipts:sign")
+    async def _sign_batch(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Batch sign multiple receipts.
+
+        Body:
+            receipt_ids: List of receipt IDs to sign (max 100)
+            algorithm: Signing algorithm (hmac-sha256, rsa-sha256, ed25519)
+        """
+        receipt_ids = body.get("receipt_ids", [])
+        algorithm = body.get("algorithm", "hmac-sha256")
+
+        if not receipt_ids:
+            return error_response("receipt_ids required", 400)
+
+        if len(receipt_ids) > 100:
+            return error_response("Maximum 100 receipts per batch", 400)
+
+        store = self._get_store()
+        results = []
+        signed_count = 0
+        failed_count = 0
+        skipped_count = 0
+
+        try:
+            from aragora.gauntlet.signing import ReceiptSigner
+
+            signer = ReceiptSigner(algorithm=algorithm)
+
+            for receipt_id in receipt_ids:
+                receipt = store.get(receipt_id)
+
+                if not receipt:
+                    results.append({"receipt_id": receipt_id, "status": "not_found"})
+                    failed_count += 1
+                    continue
+
+                # Check if already signed
+                if store.get_signature(receipt_id):
+                    results.append({"receipt_id": receipt_id, "status": "already_signed"})
+                    skipped_count += 1
+                    continue
+
+                try:
+                    # Sign the receipt
+                    signature = signer.sign(receipt.data)
+                    store.store_signature(receipt_id, signature, algorithm)
+                    results.append({"receipt_id": receipt_id, "status": "signed"})
+                    signed_count += 1
+                except Exception as e:
+                    results.append({"receipt_id": receipt_id, "status": "error", "error": str(e)})
+                    failed_count += 1
+
+        except ImportError:
+            return error_response("Signing module not available", 501)
+
+        return json_response(
+            {
+                "results": results,
+                "summary": {
+                    "total": len(receipt_ids),
+                    "signed": signed_count,
+                    "skipped": skipped_count,
+                    "failed": failed_count,
+                },
+            }
+        )
+
+    @require_permission("receipts:export")
+    async def _batch_export(self, body: Dict[str, Any]) -> HandlerResult:
+        """
+        Batch export multiple receipts to a ZIP file.
+
+        Body:
+            receipt_ids: List of receipt IDs to export (max 100)
+            format: Export format (json, html, markdown, csv)
+        """
+        receipt_ids = body.get("receipt_ids", [])
+        export_format = body.get("format", "json").lower()
+
+        if not receipt_ids:
+            return error_response("receipt_ids required", 400)
+
+        if len(receipt_ids) > 100:
+            return error_response("Maximum 100 receipts per batch", 400)
+
+        if export_format not in ("json", "html", "markdown", "md", "csv"):
+            return error_response(
+                f"Unsupported format: {export_format}. Supported: json, html, markdown, csv",
+                400,
+            )
+
+        store = self._get_store()
+
+        # Create ZIP in memory
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            exported_count = 0
+            failed_ids = []
+
+            for receipt_id in receipt_ids:
+                receipt = store.get(receipt_id)
+
+                if not receipt:
+                    failed_ids.append(receipt_id)
+                    continue
+
+                try:
+                    from aragora.export.decision_receipt import DecisionReceipt
+
+                    decision_receipt = DecisionReceipt.from_dict(receipt.data)
+
+                    # Determine file extension
+                    if export_format == "json":
+                        content = decision_receipt.to_json(indent=2)
+                        ext = "json"
+                    elif export_format in ("html",):
+                        content = decision_receipt.to_html()
+                        ext = "html"
+                    elif export_format in ("markdown", "md"):
+                        content = decision_receipt.to_markdown()
+                        ext = "md"
+                    elif export_format == "csv":
+                        content = decision_receipt.to_csv()
+                        ext = "csv"
+                    else:
+                        content = decision_receipt.to_json(indent=2)
+                        ext = "json"
+
+                    filename = f"receipt-{receipt_id}.{ext}"
+                    zip_file.writestr(filename, content)
+                    exported_count += 1
+
+                except Exception as e:
+                    logger.warning(f"Failed to export receipt {receipt_id}: {e}")
+                    failed_ids.append(receipt_id)
+
+            # Add manifest
+            manifest = {
+                "exported_at": datetime.now(timezone.utc).isoformat(),
+                "format": export_format,
+                "total_requested": len(receipt_ids),
+                "exported": exported_count,
+                "failed": failed_ids,
+            }
+            import json
+
+            zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.read()
+
+        return HandlerResult(
+            status_code=200,
+            content_type="application/zip",
+            body=zip_bytes,
+            headers={
+                "Content-Disposition": "attachment; filename=receipts-export.zip",
+            },
         )
 
     def _parse_timestamp(self, value: Optional[str]) -> Optional[float]:
