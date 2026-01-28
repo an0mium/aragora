@@ -92,6 +92,18 @@ class ReceiptsHandler(BaseHandler):
             if path == "/api/v2/receipts/stats" and method == "GET":
                 return await self._get_stats()
 
+            # Retention status endpoint (GDPR compliance)
+            if path == "/api/v2/receipts/retention-status" and method == "GET":
+                return await self._get_retention_status()
+
+            # DSAR endpoint (GDPR Data Subject Access Request)
+            if path.startswith("/api/v2/receipts/dsar/") and method == "GET":
+                parts = path.split("/")
+                if len(parts) >= 6:
+                    user_id = parts[5]
+                    return await self._get_dsar(user_id, query_params)
+                return error_response("User ID required for DSAR request", 400)
+
             # Search endpoint
             if path == "/api/v2/receipts/search" and method == "GET":
                 return await self._search_receipts(query_params)

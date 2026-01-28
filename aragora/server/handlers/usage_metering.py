@@ -56,7 +56,7 @@ class UsageMeteringHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
-    def handle(
+    async def handle(
         self,
         path: str,
         query_params: dict,
@@ -75,22 +75,22 @@ class UsageMeteringHandler(SecureHandler):
             method = handler.command
 
         if path == "/api/v1/billing/usage" and method == "GET":
-            return self._get_usage(handler, query_params)
+            return await self._get_usage(handler, query_params)
 
         if path == "/api/v1/billing/usage/summary" and method == "GET":
-            return self._get_usage(handler, query_params)
+            return await self._get_usage(handler, query_params)
 
         if path == "/api/v1/billing/usage/breakdown" and method == "GET":
-            return self._get_usage_breakdown(handler, query_params)
+            return await self._get_usage_breakdown(handler, query_params)
 
         if path == "/api/v1/billing/limits" and method == "GET":
-            return self._get_limits(handler, query_params)
+            return await self._get_limits(handler, query_params)
 
         if path == "/api/v1/billing/usage/export" and method == "GET":
-            return self._export_usage(handler, query_params)
+            return await self._export_usage(handler, query_params)
 
         if path == "/api/v1/quotas" and method == "GET":
-            return self._get_quota_status(handler, query_params)
+            return await self._get_quota_status(handler, query_params)
 
         return error_response("Method not allowed", 405)
 
@@ -114,7 +114,7 @@ class UsageMeteringHandler(SecureHandler):
 
     @handle_errors("get usage")
     @require_permission("org:billing")
-    def _get_usage(
+    async def _get_usage(
         self,
         handler,
         query_params: dict,
@@ -150,8 +150,6 @@ class UsageMeteringHandler(SecureHandler):
                 }
             }
         """
-        import asyncio
-
         # Get user and organization
         user_store = self._get_user_store()
         if not user_store:
@@ -178,23 +176,17 @@ class UsageMeteringHandler(SecureHandler):
         meter = self._get_usage_meter()
 
         # Get usage summary
-        loop = asyncio.new_event_loop()
-        try:
-            summary = loop.run_until_complete(
-                meter.get_usage_summary(
-                    org_id=org.id,
-                    period=period,
-                    tier=tier,
-                )
-            )
-        finally:
-            loop.close()
+        summary = await meter.get_usage_summary(
+            org_id=org.id,
+            period=period,
+            tier=tier,
+        )
 
         return json_response({"usage": summary.to_dict()})
 
     @handle_errors("get usage breakdown")
     @require_permission("org:billing")
-    def _get_usage_breakdown(
+    async def _get_usage_breakdown(
         self,
         handler,
         query_params: dict,
@@ -224,8 +216,6 @@ class UsageMeteringHandler(SecureHandler):
                 }
             }
         """
-        import asyncio
-
         # Get user and organization
         user_store = self._get_user_store()
         if not user_store:
@@ -263,17 +253,11 @@ class UsageMeteringHandler(SecureHandler):
         meter = self._get_usage_meter()
 
         # Get detailed breakdown
-        loop = asyncio.new_event_loop()
-        try:
-            breakdown = loop.run_until_complete(
-                meter.get_usage_breakdown(
-                    org_id=org.id,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-            )
-        finally:
-            loop.close()
+        breakdown = await meter.get_usage_breakdown(
+            org_id=org.id,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         return json_response({"breakdown": breakdown.to_dict()})
 
