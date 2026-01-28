@@ -10,14 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 from contextlib import asynccontextmanager
 import json
 
-
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 class TestPostgresConsensusSchema:
@@ -80,7 +73,6 @@ class TestPostgresConsensusSchema:
         assert "REFERENCES consensus" in POSTGRES_CONSENSUS_SCHEMA
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresConsensusMemory:
     """Tests for PostgresConsensusMemory class."""
 
@@ -199,7 +191,6 @@ class TestPostgresConsensusMemory:
         assert result == 42
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresDissentOperations:
     """Tests for dissent operations."""
 
@@ -275,7 +266,6 @@ class TestPostgresDissentOperations:
         mock_conn.execute.assert_called()
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresProofOperations:
     """Tests for verified proof operations."""
 
