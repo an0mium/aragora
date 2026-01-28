@@ -42,6 +42,37 @@ logger = logging.getLogger(__name__)
 # Default columns to use for change tracking
 DEFAULT_TIMESTAMP_COLUMNS = ["updated_at", "modified_at", "last_modified", "timestamp"]
 
+# SQL identifier validation pattern (alphanumeric, underscores, and hyphens only)
+import re
+
+_SAFE_IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_\-]*$")
+
+
+def _validate_sql_identifier(name: str, identifier_type: str = "identifier") -> str:
+    """
+    Validate a SQL identifier to prevent SQL injection.
+
+    Args:
+        name: The identifier to validate (table name, column)
+        identifier_type: Description for error messages
+
+    Returns:
+        The validated identifier
+
+    Raises:
+        ValueError: If the identifier contains invalid characters
+    """
+    if not name:
+        raise ValueError(f"SQL {identifier_type} cannot be empty")
+    if len(name) > 64:
+        raise ValueError(f"SQL {identifier_type} too long (max 64 chars for MySQL)")
+    if not _SAFE_IDENTIFIER_PATTERN.match(name):
+        raise ValueError(
+            f"Invalid SQL {identifier_type}: '{name}'. "
+            "Only alphanumeric characters, underscores, and hyphens are allowed."
+        )
+    return name
+
 
 class MySQLConnector(EnterpriseConnector):
     """
