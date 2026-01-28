@@ -150,13 +150,18 @@ class TestEventHandlers:
             },
         )
 
-        result = await handle_pull_request(event)
+        with patch(
+            "aragora.server.handlers.webhooks.github_app.queue_code_review_debate",
+            return_value="test-debate-id",
+        ):
+            result = await handle_pull_request(event)
 
         assert result["event"] == "pull_request"
         assert result["action"] == "opened"
         assert result["pr_number"] == 42
         assert result["debate_queued"] is True
         assert result["debate_type"] == "code_review"
+        assert result["debate_id"] == "test-debate-id"
 
     @pytest.mark.asyncio
     async def test_handle_pull_request_synchronize(self):
@@ -172,9 +177,14 @@ class TestEventHandlers:
             },
         )
 
-        result = await handle_pull_request(event)
+        with patch(
+            "aragora.server.handlers.webhooks.github_app.queue_code_review_debate",
+            return_value="sync-debate-id",
+        ):
+            result = await handle_pull_request(event)
 
         assert result["debate_queued"] is True
+        assert result["debate_id"] == "sync-debate-id"
 
     @pytest.mark.asyncio
     async def test_handle_pull_request_closed(self):
@@ -212,11 +222,16 @@ class TestEventHandlers:
             },
         )
 
-        result = await handle_issues(event)
+        with patch(
+            "aragora.server.handlers.webhooks.github_app.queue_issue_triage_debate",
+            return_value="triage-debate-id",
+        ):
+            result = await handle_issues(event)
 
         assert result["event"] == "issues"
         assert result["issue_number"] == 99
         assert result["triage_queued"] is True
+        assert result["debate_id"] == "triage-debate-id"
 
     @pytest.mark.asyncio
     async def test_handle_push(self):
@@ -272,24 +287,25 @@ class TestHandleGitHubWebhook:
         event_type: str = "ping",
         payload: dict = None,
         secret: str = None,
-    ) -> MagicMock:
+    ) -> dict:
         """Create a mock server context for testing."""
-        ctx = MagicMock()
-        ctx.headers = {
+        payload = payload or {"zen": "Test zen"}
+        raw_body = json.dumps(payload).encode()
+
+        headers = {
             "x-github-event": event_type,
             "x-github-delivery": "test-delivery-id",
         }
 
-        payload = payload or {"zen": "Test zen"}
-        raw_body = json.dumps(payload).encode()
-        ctx.body = payload
-        ctx.raw_body = raw_body
-
         if secret:
             computed = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
-            ctx.headers["x-hub-signature-256"] = f"sha256={computed}"
+            headers["x-hub-signature-256"] = f"sha256={computed}"
 
-        return ctx
+        return {
+            "headers": headers,
+            "body": payload,
+            "raw_body": raw_body,
+        }
 
     @pytest.mark.asyncio
     async def test_ping_event_success(self):
@@ -326,7 +342,7 @@ class TestHandleGitHubWebhook:
     async def test_invalid_signature_rejected(self):
         """Invalid signature returns 401."""
         ctx = self.create_mock_context(event_type="ping")
-        ctx.headers["x-hub-signature-256"] = "sha256=invalid"
+        ctx["headers"]["x-hub-signature-256"] = "sha256=invalid"
 
         with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": "real-secret"}, clear=False):
             result = await handle_github_webhook(ctx)
@@ -359,9 +375,16 @@ class TestHandleGitHubWebhook:
             },
         )
 
-        with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}, clear=False):
+        with (
+            patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}, clear=False),
+            patch(
+                "aragora.server.handlers.webhooks.github_app.queue_code_review_debate",
+                return_value="test-debate-123",
+            ),
+        ):
             result = await handle_github_webhook(ctx)
 
         body = json.loads(result.body.decode("utf-8"))
         assert body["success"] is True
         assert body["debate_queued"] is True
+        assert body["debate_id"] == "test-debate-123"

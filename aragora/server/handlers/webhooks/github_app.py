@@ -127,6 +127,199 @@ def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
     return hmac.compare_digest(expected, computed)
 
 
+async def queue_code_review_debate(
+    pr: Dict[str, Any],
+    repo: Dict[str, Any],
+    installation_id: Optional[int],
+) -> Optional[str]:
+    """
+    Queue a code review debate for a pull request.
+
+    Args:
+        pr: Pull request payload
+        repo: Repository payload
+        installation_id: GitHub App installation ID
+
+    Returns:
+        Debate ID if queued successfully, None otherwise
+    """
+    try:
+        from aragora.core.decision import (
+            DecisionRequest,
+            DecisionType,
+            InputSource,
+            ResponseChannel,
+            RequestContext,
+            get_decision_router,
+        )
+        from aragora.server.debate_origin import register_debate_origin
+        import uuid
+
+        debate_id = str(uuid.uuid4())
+        pr_number = pr.get("number")
+        pr_title = pr.get("title", "")
+        pr_url = pr.get("html_url", "")
+        pr_body = pr.get("body", "")
+        repo_name = repo.get("full_name", "")
+
+        # Register origin for result routing back to GitHub
+        register_debate_origin(
+            debate_id=debate_id,
+            platform="github",
+            channel_id=f"{repo_name}/pull/{pr_number}",
+            user_id=pr.get("user", {}).get("login", ""),
+            metadata={
+                "pr_number": pr_number,
+                "pr_url": pr_url,
+                "repo": repo_name,
+                "installation_id": installation_id,
+            },
+        )
+
+        # Build debate topic from PR info
+        topic = f"Review PR #{pr_number}: {pr_title}"
+        context_info = (
+            f"Repository: {repo_name}\n\n{pr_body}" if pr_body else f"Repository: {repo_name}"
+        )
+
+        request = DecisionRequest(
+            content=topic,
+            decision_type=DecisionType.DEBATE,
+            source=InputSource.GITHUB,
+            response_channels=[
+                ResponseChannel(
+                    platform="github",
+                    channel_id=f"{repo_name}/pull/{pr_number}",
+                    user_id=pr.get("user", {}).get("login", ""),
+                )
+            ],
+            context=RequestContext(
+                user_id=f"github:{pr.get('user', {}).get('login', '')}",
+                metadata={
+                    "pr_number": pr_number,
+                    "pr_url": pr_url,
+                    "context": context_info,
+                },
+            ),
+        )
+
+        router = get_decision_router()
+        result = await router.route(request)
+
+        if result and result.success:
+            logger.info(f"Queued code review debate {debate_id} for PR #{pr_number}")
+            return debate_id
+        else:
+            logger.warning(f"Failed to route code review debate for PR #{pr_number}")
+            return None
+
+    except ImportError:
+        logger.debug("DecisionRouter not available for GitHub code review")
+        return None
+    except Exception as e:
+        logger.error(f"Error queuing code review debate: {e}")
+        return None
+
+
+async def queue_issue_triage_debate(
+    issue: Dict[str, Any],
+    repo: Dict[str, Any],
+    installation_id: Optional[int],
+) -> Optional[str]:
+    """
+    Queue an issue triage debate.
+
+    Args:
+        issue: Issue payload
+        repo: Repository payload
+        installation_id: GitHub App installation ID
+
+    Returns:
+        Debate ID if queued successfully, None otherwise
+    """
+    try:
+        from aragora.core.decision import (
+            DecisionRequest,
+            DecisionType,
+            InputSource,
+            ResponseChannel,
+            RequestContext,
+            get_decision_router,
+        )
+        from aragora.server.debate_origin import register_debate_origin
+        import uuid
+
+        debate_id = str(uuid.uuid4())
+        issue_number = issue.get("number")
+        issue_title = issue.get("title", "")
+        issue_url = issue.get("html_url", "")
+        issue_body = issue.get("body", "")
+        repo_name = repo.get("full_name", "")
+        labels = [label.get("name") for label in issue.get("labels", [])]
+
+        # Register origin for result routing back to GitHub
+        register_debate_origin(
+            debate_id=debate_id,
+            platform="github",
+            channel_id=f"{repo_name}/issues/{issue_number}",
+            user_id=issue.get("user", {}).get("login", ""),
+            metadata={
+                "issue_number": issue_number,
+                "issue_url": issue_url,
+                "repo": repo_name,
+                "labels": labels,
+                "installation_id": installation_id,
+            },
+        )
+
+        # Build debate topic from issue info
+        topic = f"Triage issue #{issue_number}: {issue_title}"
+        context_info = (
+            f"Repository: {repo_name}\nLabels: {', '.join(labels) if labels else 'none'}\n\n{issue_body}"
+            if issue_body
+            else f"Repository: {repo_name}"
+        )
+
+        request = DecisionRequest(
+            content=topic,
+            decision_type=DecisionType.DEBATE,
+            source=InputSource.GITHUB,
+            response_channels=[
+                ResponseChannel(
+                    platform="github",
+                    channel_id=f"{repo_name}/issues/{issue_number}",
+                    user_id=issue.get("user", {}).get("login", ""),
+                )
+            ],
+            context=RequestContext(
+                user_id=f"github:{issue.get('user', {}).get('login', '')}",
+                metadata={
+                    "issue_number": issue_number,
+                    "issue_url": issue_url,
+                    "context": context_info,
+                    "labels": labels,
+                },
+            ),
+        )
+
+        router = get_decision_router()
+        result = await router.route(request)
+
+        if result and result.success:
+            logger.info(f"Queued issue triage debate {debate_id} for issue #{issue_number}")
+            return debate_id
+        else:
+            logger.warning(f"Failed to route issue triage debate for issue #{issue_number}")
+            return None
+
+    except ImportError:
+        logger.debug("DecisionRouter not available for GitHub issue triage")
+        return None
+    except Exception as e:
+        logger.error(f"Error queuing issue triage debate: {e}")
+        return None
+
+
 # Event handler registry
 _event_handlers: Dict[GitHubEventType, Callable] = {}
 
@@ -182,11 +375,14 @@ async def handle_pull_request(event: GitHubWebhookEvent) -> Dict[str, Any]:
 
     # Auto-trigger debate on PR open or new commits
     if action in (GitHubAction.OPENED.value, GitHubAction.SYNCHRONIZE.value):
-        result["debate_queued"] = True
+        debate_id = await queue_code_review_debate(pr, repo, event.installation_id)
+        result["debate_queued"] = debate_id is not None
         result["debate_type"] = "code_review"
-        logger.info(f"Queued code review debate for PR #{pr.get('number')}")
-        # TODO: Actually queue the debate via debate orchestrator
-        # await queue_code_review_debate(pr, repo, event.installation_id)
+        if debate_id:
+            result["debate_id"] = debate_id
+            logger.info(f"Queued code review debate {debate_id} for PR #{pr.get('number')}")
+        else:
+            logger.warning(f"Failed to queue code review debate for PR #{pr.get('number')}")
 
     return result
 
@@ -217,10 +413,13 @@ async def handle_issues(event: GitHubWebhookEvent) -> Dict[str, Any]:
 
     # Auto-triage on issue open
     if action == GitHubAction.OPENED.value:
-        result["triage_queued"] = True
-        logger.info(f"Queued triage for issue #{issue.get('number')}")
-        # TODO: Queue issue triage debate
-        # await queue_issue_triage_debate(issue, repo, event.installation_id)
+        debate_id = await queue_issue_triage_debate(issue, repo, event.installation_id)
+        result["triage_queued"] = debate_id is not None
+        if debate_id:
+            result["debate_id"] = debate_id
+            logger.info(f"Queued triage debate {debate_id} for issue #{issue.get('number')}")
+        else:
+            logger.warning(f"Failed to queue triage debate for issue #{issue.get('number')}")
 
     return result
 
