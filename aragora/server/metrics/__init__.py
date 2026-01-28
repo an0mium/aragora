@@ -113,7 +113,7 @@ from .knowledge_mound import (
     track_federation_sync,
     track_federation_regions,
 )
-from .export import generate_metrics
+from .export import generate_metrics, _format_labels
 
 __all__ = [
     # Metric types
@@ -202,4 +202,5 @@ __all__ = [
     "track_federation_regions",
     # Export
     "generate_metrics",
+    "_format_labels",
 ]
