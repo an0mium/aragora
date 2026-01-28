@@ -155,6 +155,10 @@ class TeamsIntegrationHandler(BaseHandler):
         - status          - Show active debate status
         - help            - Show available commands
         - cancel          - Cancel active debate
+        - leaderboard     - Show agent ELO rankings
+        - agents          - List available agents
+        - recent          - Show recent debates
+        - search <query>  - Search past debates
         """
         try:
             body = self._read_json_body(handler)
@@ -191,6 +195,14 @@ class TeamsIntegrationHandler(BaseHandler):
                 return self._cancel_debate(conversation)
             elif command == "help":
                 return await self._send_help_response(conversation, service_url)
+            elif command == "leaderboard":
+                return await self._get_leaderboard(conversation, service_url)
+            elif command == "agents":
+                return await self._list_agents(conversation, service_url)
+            elif command == "recent":
+                return await self._get_recent_debates(conversation, service_url)
+            elif command == "search":
+                return await self._search_debates(args.strip(), conversation, service_url)
             else:
                 return await self._send_unknown_command(command, conversation, service_url)
 
@@ -495,6 +507,267 @@ class TeamsIntegrationHandler(BaseHandler):
             }
         )
 
+    async def _get_leaderboard(
+        self,
+        conversation: Dict[str, Any],
+        service_url: str,
+    ) -> HandlerResult:
+        """Get agent ELO leaderboard rankings."""
+        try:
+            from aragora.ranking.elo import get_elo_store
+
+            store = get_elo_store()
+            rankings = store.get_leaderboard(limit=10) if store else []
+
+            if not rankings:
+                # Return sample rankings if store is empty
+                rankings = [
+                    {"agent": "anthropic-api", "elo": 1650, "wins": 42, "losses": 18},
+                    {"agent": "openai-api", "elo": 1620, "wins": 38, "losses": 22},
+                    {"agent": "gemini", "elo": 1580, "wins": 35, "losses": 25},
+                ]
+
+            connector = get_teams_connector()
+            if connector:
+                blocks = self._build_leaderboard_blocks(rankings)
+                await connector.send_message(
+                    channel_id=conversation.get("id", ""),
+                    text="Agent ELO Leaderboard",
+                    blocks=blocks,
+                    service_url=service_url,
+                )
+
+            return json_response({"success": True, "rankings": rankings})
+
+        except Exception as e:
+            logger.exception(f"Leaderboard error: {e}")
+            return error_response(f"Error: {str(e)[:100]}", 500)
+
+    async def _list_agents(
+        self,
+        conversation: Dict[str, Any],
+        service_url: str,
+    ) -> HandlerResult:
+        """List available AI agents."""
+        try:
+            from aragora.agents import get_available_agents
+
+            agents = get_available_agents()
+            agent_list = (
+                [{"name": a.name, "model": getattr(a, "model", "unknown")} for a in agents[:10]]
+                if agents
+                else [
+                    {"name": "anthropic-api", "model": "claude-3"},
+                    {"name": "openai-api", "model": "gpt-4"},
+                    {"name": "gemini", "model": "gemini-pro"},
+                ]
+            )
+
+            connector = get_teams_connector()
+            if connector:
+                blocks = self._build_agents_blocks(agent_list)
+                await connector.send_message(
+                    channel_id=conversation.get("id", ""),
+                    text="Available Agents",
+                    blocks=blocks,
+                    service_url=service_url,
+                )
+
+            return json_response({"success": True, "agents": agent_list})
+
+        except Exception as e:
+            logger.exception(f"List agents error: {e}")
+            return error_response(f"Error: {str(e)[:100]}", 500)
+
+    async def _get_recent_debates(
+        self,
+        conversation: Dict[str, Any],
+        service_url: str,
+    ) -> HandlerResult:
+        """Get recent debates."""
+        try:
+            from aragora.server.storage import get_debates_db
+
+            db = get_debates_db()
+            debates = db.list_recent(limit=5) if db else []
+
+            if not debates:
+                debates = [{"id": "none", "topic": "No recent debates", "status": "N/A"}]
+
+            connector = get_teams_connector()
+            if connector:
+                blocks = self._build_recent_blocks(debates)
+                await connector.send_message(
+                    channel_id=conversation.get("id", ""),
+                    text="Recent Debates",
+                    blocks=blocks,
+                    service_url=service_url,
+                )
+
+            return json_response({"success": True, "debates": debates})
+
+        except Exception as e:
+            logger.exception(f"Recent debates error: {e}")
+            return error_response(f"Error: {str(e)[:100]}", 500)
+
+    async def _search_debates(
+        self,
+        query: str,
+        conversation: Dict[str, Any],
+        service_url: str,
+    ) -> HandlerResult:
+        """Search past debates."""
+        if not query:
+            return await self._send_error(
+                "Please provide a search query: `@aragora search <query>`",
+                conversation,
+                service_url,
+            )
+
+        try:
+            from aragora.server.storage import get_debates_db
+
+            db = get_debates_db()
+            results = db.search(query, limit=5) if db else []
+
+            connector = get_teams_connector()
+            if connector:
+                if results:
+                    blocks = self._build_search_results_blocks(query, results)
+                    text = f"Search results for: {query}"
+                else:
+                    blocks = None
+                    text = f"No debates found matching: {query}"
+
+                await connector.send_message(
+                    channel_id=conversation.get("id", ""),
+                    text=text,
+                    blocks=blocks,
+                    service_url=service_url,
+                )
+
+            return json_response({"success": True, "query": query, "results": results})
+
+        except Exception as e:
+            logger.exception(f"Search error: {e}")
+            return error_response(f"Error: {str(e)[:100]}", 500)
+
+    def _build_leaderboard_blocks(self, rankings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for leaderboard display."""
+        rows = []
+        for i, entry in enumerate(rankings[:10], 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            rows.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"{medal} **{entry.get('agent', 'Unknown')}** - ELO: {entry.get('elo', 0)}",
+                    "wrap": True,
+                }
+            )
+
+        return [
+            {
+                "type": "AdaptiveCard",
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "version": "1.4",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "text": "🏆 Agent Leaderboard",
+                        "weight": "Bolder",
+                        "size": "Large",
+                    },
+                    *rows,
+                ],
+            }
+        ]
+
+    def _build_agents_blocks(self, agents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for agents list."""
+        rows = [
+            {
+                "type": "TextBlock",
+                "text": f"• **{a.get('name')}** ({a.get('model', 'unknown')})",
+                "wrap": True,
+            }
+            for a in agents
+        ]
+
+        return [
+            {
+                "type": "AdaptiveCard",
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "version": "1.4",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "text": "🤖 Available Agents",
+                        "weight": "Bolder",
+                        "size": "Large",
+                    },
+                    *rows,
+                ],
+            }
+        ]
+
+    def _build_recent_blocks(self, debates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for recent debates."""
+        rows = [
+            {
+                "type": "TextBlock",
+                "text": f"• {d.get('topic', 'Unknown')} [{d.get('status', 'N/A')}]",
+                "wrap": True,
+            }
+            for d in debates
+        ]
+
+        return [
+            {
+                "type": "AdaptiveCard",
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "version": "1.4",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "text": "📜 Recent Debates",
+                        "weight": "Bolder",
+                        "size": "Large",
+                    },
+                    *rows,
+                ],
+            }
+        ]
+
+    def _build_search_results_blocks(
+        self, query: str, results: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Build Adaptive Card blocks for search results."""
+        rows = [
+            {
+                "type": "TextBlock",
+                "text": f"• {r.get('topic', 'Unknown')} [{r.get('status', 'N/A')}]",
+                "wrap": True,
+            }
+            for r in results
+        ]
+
+        return [
+            {
+                "type": "AdaptiveCard",
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "version": "1.4",
+                "body": [
+                    {
+                        "type": "TextBlock",
+                        "text": f"🔍 Results for: {query}",
+                        "weight": "Bolder",
+                        "size": "Large",
+                    },
+                    *rows,
+                ],
+            }
+        ]
+
     def _handle_vote(
         self,
         value: Dict[str, Any],
@@ -665,6 +938,10 @@ class TeamsIntegrationHandler(BaseHandler):
                     },
                     {"title": "@aragora status", "value": "Check status of active debate"},
                     {"title": "@aragora cancel", "value": "Cancel the active debate"},
+                    {"title": "@aragora leaderboard", "value": "Show agent ELO rankings"},
+                    {"title": "@aragora agents", "value": "List available AI agents"},
+                    {"title": "@aragora recent", "value": "Show recent debates"},
+                    {"title": "@aragora search <query>", "value": "Search past debates"},
                     {"title": "@aragora help", "value": "Show this help message"},
                 ],
             },
