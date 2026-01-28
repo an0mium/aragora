@@ -18,17 +18,14 @@ Environment Variables:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from typing import Any, Dict, Optional
 
-from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
     json_response,
-    safe_error_message,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -161,26 +158,18 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             signature = handler.headers.get("x-zm-signature", "")
 
             # Read body
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length)
+            body = self._read_request_body(handler)
 
             # Verify signature if bot is configured
             if bot and signature and not bot.verify_webhook(body, timestamp, signature):
                 logger.warning("Zoom webhook signature verification failed")
-                audit_security(
-                    event_type="zoom_webhook_auth_failed",
-                    actor_id="unknown",
-                    resource_type="zoom_webhook",
-                    resource_id="signature",
-                )
+                self._audit_webhook_auth_failure("signature")
                 return error_response("Invalid signature", 401)
 
             # Parse event
-            try:
-                event = json.loads(body.decode("utf-8"))
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Zoom event: {e}")
-                return error_response("Invalid JSON", 400)
+            event, err = self._parse_json_body(body, "Zoom event")
+            if err:
+                return err
 
             event_type = event.get("event", "")
             logger.info(f"Zoom event received: {event_type}")
@@ -228,18 +217,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
 
             return json_response(result)
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in Zoom event: {e}")
-            return error_response("Invalid JSON payload", 400)
-        except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error in Zoom event: {e}")
-            return error_response(safe_error_message(e, "Zoom event"), 400)
-        except (ConnectionError, OSError, TimeoutError) as e:
-            logger.error(f"Connection error processing Zoom event: {e}")
-            return error_response(safe_error_message(e, "Zoom event"), 503)
         except Exception as e:
-            logger.exception(f"Unexpected Zoom event error: {e}")
-            return error_response(safe_error_message(e, "Zoom event"), 500)
+            return self._handle_webhook_exception(e, "Zoom event", return_200_on_error=False)
 
 
 __all__ = ["ZoomHandler"]

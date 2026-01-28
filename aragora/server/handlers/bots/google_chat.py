@@ -15,7 +15,6 @@ Environment Variables:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from typing import Any, Coroutine, Dict, Optional
@@ -23,7 +22,6 @@ from typing import Any, Coroutine, Dict, Optional
 from aragora.audit.unified import audit_data
 from aragora.server.handlers.base import (
     HandlerResult,
-    error_response,
     json_response,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
@@ -158,16 +156,11 @@ class GoogleChatHandler(BotHandlerMixin, SecureHandler):
         - Bot added/removed from space
         """
         try:
-            # Read body
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length)
-
-            # Parse event
-            try:
-                event = json.loads(body.decode("utf-8"))
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Google Chat event: {e}")
-                return error_response("Invalid JSON", 400)
+            # Read and parse body
+            body = self._read_request_body(handler)
+            event, err = self._parse_json_body(body, "Google Chat event")
+            if err:
+                return err
 
             event_type = event.get("type", "")
             logger.debug(f"Google Chat event: {event_type}")

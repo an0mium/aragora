@@ -18,12 +18,10 @@ from __future__ import annotations
 
 import hmac
 import hashlib
-import json
 import logging
 import os
 from typing import Any, Dict, Optional
 
-from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -176,25 +174,17 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
         try:
             # Verify signature if app secret is configured
             signature = handler.headers.get("X-Hub-Signature-256", "")
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length)
+            body = self._read_request_body(handler)
 
             if not _verify_whatsapp_signature(signature, body):
                 logger.warning("WhatsApp signature verification failed")
-                audit_security(
-                    event_type="whatsapp_webhook_auth_failed",
-                    actor_id="unknown",
-                    resource_type="whatsapp_webhook",
-                    resource_id="signature",
-                )
+                self._audit_webhook_auth_failure("signature")
                 return error_response("Invalid signature", 401)
 
             # Parse webhook payload
-            try:
-                payload = json.loads(body.decode("utf-8"))
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in WhatsApp webhook: {e}")
-                return error_response("Invalid JSON", 400)
+            payload, err = self._parse_json_body(body, "WhatsApp webhook")
+            if err:
+                return err
 
             # Process webhook entries
             for entry in payload.get("entry", []):

@@ -16,17 +16,13 @@ Environment Variables:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
 from typing import Any, Dict, Optional
 
-from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     HandlerResult,
-    error_response,
     json_response,
-    safe_error_message,
 )
 from aragora.server.handlers.bots.base import BotHandlerMixin
 from aragora.server.handlers.secure import SecureHandler
@@ -180,16 +176,11 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
             )
 
         try:
-            # Read body
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length)
-
-            # Parse activity
-            try:
-                activity_json = json.loads(body.decode("utf-8"))
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Teams message: {e}")
-                return error_response("Invalid JSON", 400)
+            # Read and parse body
+            body = self._read_request_body(handler)
+            activity_json, err = self._parse_json_body(body, "Teams message")
+            if err:
+                return err
 
             # Get authorization header
             auth_header = handler.headers.get("Authorization", "")
@@ -213,25 +204,13 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
                     await adapter.authenticate_request(activity, auth_header)
                 except (ValueError, KeyError) as auth_error:
                     logger.warning(f"Teams auth failed due to invalid token: {auth_error}")
-                    audit_security(
-                        event_type="teams_webhook_auth_failed",
-                        actor_id="unknown",
-                        resource_type="teams_webhook",
-                        resource_id="auth_token",
-                        reason="invalid_token",
-                    )
+                    self._audit_webhook_auth_failure("auth_token", "invalid_token")
                     response_status = 401
                     response_body = {"error": "Invalid authentication token"}
                     return
                 except Exception as auth_error:
                     logger.exception(f"Unexpected Teams auth error: {auth_error}")
-                    audit_security(
-                        event_type="teams_webhook_auth_failed",
-                        actor_id="unknown",
-                        resource_type="teams_webhook",
-                        resource_id="auth_token",
-                        reason="unexpected_error",
-                    )
+                    self._audit_webhook_auth_failure("auth_token", "unexpected_error")
                     response_status = 401
                     response_body = {"error": "Unauthorized"}
                     return
@@ -262,18 +241,8 @@ class TeamsHandler(BotHandlerMixin, SecureHandler):
 
             return json_response(response_body, status=response_status)
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in Teams message: {e}")
-            return error_response("Invalid JSON payload", 400)
-        except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Data error in Teams message: {e}")
-            return error_response(safe_error_message(e, "teams message"), 400)
-        except (ConnectionError, OSError, TimeoutError) as e:
-            logger.error(f"Connection error processing Teams message: {e}")
-            return error_response(safe_error_message(e, "teams message"), 503)
         except Exception as e:
-            logger.exception(f"Unexpected Teams message error: {e}")
-            return error_response(safe_error_message(e, "teams message"), 500)
+            return self._handle_webhook_exception(e, "Teams message", return_200_on_error=False)
 
 
 __all__ = ["TeamsHandler"]

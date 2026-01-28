@@ -19,7 +19,6 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-from aragora.audit.unified import audit_security
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
@@ -145,26 +144,18 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             timestamp = handler.headers.get("X-Signature-Timestamp", "")
 
             # Read body
-            content_length = int(handler.headers.get("Content-Length", 0))
-            body = handler.rfile.read(content_length)
+            body = self._read_request_body(handler)
 
             # Verify signature
             if not _verify_discord_signature(signature, timestamp, body):
                 logger.warning("Discord signature verification failed")
-                audit_security(
-                    event_type="discord_webhook_auth_failed",
-                    actor_id="unknown",
-                    resource_type="discord_webhook",
-                    resource_id="signature",
-                )
+                self._audit_webhook_auth_failure("signature")
                 return error_response("Invalid signature", 401)
 
             # Parse interaction
-            try:
-                interaction = json.loads(body.decode("utf-8"))
-            except json.JSONDecodeError as e:
-                logger.error(f"Invalid JSON in Discord interaction: {e}")
-                return error_response("Invalid JSON", 400)
+            interaction, err = self._parse_json_body(body, "Discord interaction")
+            if err:
+                return err
 
             interaction_type = interaction.get("type")
 
