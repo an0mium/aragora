@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 async def load_config(config_path: str | None = None) -> dict[str, Any]:
     """Load rotation configuration."""
     # Default config paths
-    paths = [
+    paths: list[str | Path | None] = [
         config_path,
         os.environ.get("ROTATION_CONFIG_PATH"),
         "/etc/aragora/rotation/rotation.yaml",
@@ -47,7 +47,7 @@ async def load_config(config_path: str | None = None) -> dict[str, Any]:
     for path in paths:
         if path is None:
             continue
-        path_obj: Path = Path(path) if isinstance(path, str) else path
+        path_obj = Path(path) if isinstance(path, str) else path
         if path_obj.exists():
             with path_obj.open() as f:
                 config = yaml.safe_load(f)

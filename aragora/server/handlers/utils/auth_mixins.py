@@ -33,6 +33,10 @@ logger = logging.getLogger(__name__)
 _ForbiddenError: Type[Exception]
 _UnauthorizedError: Type[Exception]
 
+# Pre-declare module-level names for type checking
+ForbiddenError: Type[Exception]  # noqa: N816
+UnauthorizedError: Type[Exception]  # noqa: N816
+
 try:
     from aragora.server.handlers.utils.auth import ForbiddenError, UnauthorizedError
 
@@ -44,8 +48,8 @@ except ImportError:
     _ForbiddenError = Exception
     _UnauthorizedError = Exception
     # Create module-level aliases for decorator compatibility
-    ForbiddenError = Exception  # noqa: N816  # type: ignore[misc]
-    UnauthorizedError = Exception  # noqa: N816  # type: ignore[misc]
+    ForbiddenError = Exception  # noqa: N816
+    UnauthorizedError = Exception  # noqa: N816
 
 # Track if auth module is available
 _AUTH_AVAILABLE = _AUTH_EXCEPTIONS_AVAILABLE

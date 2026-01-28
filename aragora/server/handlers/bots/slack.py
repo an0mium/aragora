@@ -139,7 +139,7 @@ async def _start_slack_debate(
             channel_id=channel_id,
             user_id=user_id,
             thread_id=thread_ts,
-            metadata={"response_url": response_url} if response_url else {},
+            webhook_url=response_url,
         )
 
         # Create request context
@@ -161,17 +161,17 @@ async def _start_slack_debate(
         router = get_decision_router()
         result = await router.route(request)
 
-        if result.debate_id:
-            logger.info(f"DecisionRouter started debate {result.debate_id} from Slack")
+        if result.request_id:
+            logger.info(f"DecisionRouter started debate {result.request_id} from Slack")
             # Track active debate
-            _active_debates[result.debate_id] = {
+            _active_debates[result.request_id] = {
                 "topic": topic,
                 "channel_id": channel_id,
                 "user_id": user_id,
                 "thread_ts": thread_ts,
                 "started_at": time.time(),
             }
-            return result.debate_id
+            return result.request_id
         return debate_id
 
     except ImportError:
@@ -210,16 +210,16 @@ async def _fallback_start_debate(
         from aragora.queue import create_debate_job, create_redis_queue
 
         job = create_debate_job(
-            debate_id=debate_id,
-            topic=topic,
+            question=topic,
             user_id=user_id,
             metadata={
+                "debate_id": debate_id,
                 "platform": "slack",
                 "channel_id": channel_id,
                 "thread_ts": thread_ts,
             },
         )
-        queue = create_redis_queue()
+        queue = await create_redis_queue()
         await queue.enqueue(job)
         logger.info(f"Debate {debate_id} enqueued via Redis queue")
     except ImportError:

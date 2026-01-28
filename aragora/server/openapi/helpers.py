@@ -199,6 +199,7 @@ def _array_response(description: str, schema: str | dict[str, Any]) -> dict[str,
         schema: Either a schema reference string (e.g., "Device")
                 or an inline schema dict (e.g., {"device_id": {"type": "string"}, ...})
     """
+    items_schema: dict[str, Any]
     if isinstance(schema, str):
         # Schema reference
         items_schema = {"$ref": f"#/components/schemas/{schema}"}

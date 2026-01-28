@@ -35,6 +35,7 @@ from aragora.rbac.defaults import get_role_permissions
 from aragora.server.handlers.base import (
     HandlerResult,
     error_response,
+    json_response,
     success_response,
 )
 from aragora.server.handlers.secure import SecureHandler
@@ -80,7 +81,7 @@ class AutomationHandler(SecureHandler):
 
     def __init__(self, server_context: Any = None) -> None:
         """Initialize automation handler."""
-        super().__init__(server_context or {})
+        super().__init__(server_context or {})  # type: ignore[arg-type]
         self._zapier = ZapierConnector()
         self._n8n = N8NConnector()
         self._connectors = {
@@ -102,7 +103,7 @@ class AutomationHandler(SecureHandler):
 
             # Not authenticated - return 401
             if not auth_ctx.is_authenticated or not auth_ctx.user_id:
-                return error_response("Authentication required", status_code=401)
+                return error_response("Authentication required", status=401)
 
             # Build RBAC authorization context
             roles = {auth_ctx.role} if auth_ctx.role else {"member"}
@@ -125,12 +126,12 @@ class AutomationHandler(SecureHandler):
                     f"Permission denied: user={auth_ctx.user_id} permission={permission} "
                     f"reason={decision.reason}"
                 )
-                return error_response(f"Permission denied: {decision.reason}", status_code=403)
+                return error_response(f"Permission denied: {decision.reason}", status=403)
 
             return None  # Allowed
         except Exception as e:
             logger.warning(f"RBAC check failed: {e}")
-            return error_response("Authentication required", status_code=401)
+            return error_response("Authentication required", status=401)
 
     def handle_get(
         self,
@@ -260,7 +261,7 @@ class AutomationHandler(SecureHandler):
             if sub:
                 return success_response(sub.to_dict())
 
-        return error_response(f"Webhook {webhook_id} not found", status_code=404)
+        return error_response(f"Webhook {webhook_id} not found", status=404)
 
     def _list_events(self) -> HandlerResult:
         """List available automation event types."""
@@ -332,26 +333,26 @@ class AutomationHandler(SecureHandler):
         try:
             body = self._get_request_body(handler)
         except Exception as e:
-            return error_response(f"Invalid request body: {e}", status_code=400)
+            return error_response(f"Invalid request body: {e}", status=400)
 
         webhook_url = body.get("webhook_url") or body.get("url")
         if not webhook_url:
-            return error_response("webhook_url is required", status_code=400)
+            return error_response("webhook_url is required", status=400)
 
         events_raw = body.get("events", [])
         if not events_raw:
-            return error_response("events list is required", status_code=400)
+            return error_response("events list is required", status=400)
 
         # Parse events
         try:
             events = [AutomationEventType(e) for e in events_raw]
         except ValueError as e:
-            return error_response(f"Invalid event type: {e}", status_code=400)
+            return error_response(f"Invalid event type: {e}", status=400)
 
         platform = body.get("platform", "generic")
         connector = self._connectors.get(platform)
         if not connector:
-            return error_response(f"Unknown platform: {platform}", status_code=400)
+            return error_response(f"Unknown platform: {platform}", status=400)
 
         workspace_id = body.get("workspace_id")
         user_id = body.get("user_id")
@@ -368,18 +369,18 @@ class AutomationHandler(SecureHandler):
 
             logger.info(f"[AutomationHandler] Created subscription {subscription.id}")
 
-            return success_response(
+            return json_response(
                 {
                     "subscription": subscription.to_dict(),
                     "secret": subscription.secret,  # Only returned on creation
                     "message": "Webhook subscription created successfully",
                 },
-                status_code=201,
+                status=201,
             )
 
         except Exception as e:
             logger.error(f"[AutomationHandler] Subscribe failed: {e}")
-            return error_response(f"Failed to create subscription: {e}", status_code=500)
+            return error_response(f"Failed to create subscription: {e}", status=500)
 
     def _unsubscribe(self, webhook_id: str) -> HandlerResult:
         """Remove a webhook subscription."""
@@ -401,7 +402,7 @@ class AutomationHandler(SecureHandler):
                     }
                 )
 
-        return error_response(f"Webhook {webhook_id} not found", status_code=404)
+        return error_response(f"Webhook {webhook_id} not found", status=404)
 
     async def _test_webhook(self, webhook_id: str) -> HandlerResult:
         """Test a webhook subscription."""
@@ -436,23 +437,23 @@ class AutomationHandler(SecureHandler):
                         }
                     )
 
-        return error_response(f"Webhook {webhook_id} not found", status_code=404)
+        return error_response(f"Webhook {webhook_id} not found", status=404)
 
     async def _dispatch_event(self, handler: Any) -> HandlerResult:
         """Dispatch an event to matching subscriptions (internal)."""
         try:
             body = self._get_request_body(handler)
         except Exception as e:
-            return error_response(f"Invalid request body: {e}", status_code=400)
+            return error_response(f"Invalid request body: {e}", status=400)
 
         event_raw = body.get("event_type") or body.get("event")
         if not event_raw:
-            return error_response("event_type is required", status_code=400)
+            return error_response("event_type is required", status=400)
 
         try:
             event_type = AutomationEventType(event_raw)
         except ValueError:
-            return error_response(f"Invalid event type: {event_raw}", status_code=400)
+            return error_response(f"Invalid event type: {event_raw}", status=400)
 
         payload = body.get("payload", {})
         workspace_id = body.get("workspace_id")
