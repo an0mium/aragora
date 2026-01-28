@@ -38,7 +38,13 @@ def get_body(result: HandlerResult) -> dict:
     """Extract body from HandlerResult."""
     if result is None:
         return {}
-    return json.loads(result.body.decode("utf-8")) if result.body else {}
+    if not result.body:
+        return {}
+    body = json.loads(result.body.decode("utf-8"))
+    if isinstance(body, dict) and "data" in body and body.get("success") is True:
+        data = body.get("data")
+        return data if isinstance(data, dict) else body
+    return body
 
 
 def get_status(result: HandlerResult) -> int:
@@ -128,6 +134,21 @@ def reset_rate_limiters():
         yield
 
 
+@pytest.fixture(autouse=True)
+def reset_signup_state():
+    """Clear pending signup/invite state between tests."""
+    try:
+        from aragora.server.handlers.auth import signup_handlers
+
+        signup_handlers._pending_signups.clear()
+        signup_handlers._pending_invites.clear()
+        yield
+        signup_handlers._pending_signups.clear()
+        signup_handlers._pending_invites.clear()
+    except Exception:
+        yield
+
+
 @pytest.fixture
 def temp_db_path():
     """Create a temporary database path."""
@@ -185,7 +206,8 @@ def receipt_handler():
 class TestCompleteUserSignupFlow:
     """E2E tests for the complete user signup to first value journey."""
 
-    def test_step1_user_signup(self, signup_handler, user_store):
+    @pytest.mark.asyncio
+    async def test_step1_user_signup(self, signup_handler):
         """Test user can sign up with email and password."""
         signup_data = {
             "email": "newuser@example.com",
@@ -193,20 +215,17 @@ class TestCompleteUserSignupFlow:
             "name": "New User",
         }
 
-        request = create_mock_request(body=signup_data, path="/api/v1/auth/signup")
-        result = signup_handler.handle(request)
+        result = await signup_handler(signup_data)
 
         assert get_status(result) in [200, 201], f"Signup failed: {get_body(result)}"
 
         body = get_body(result)
-        assert "user_id" in body or "id" in body or "message" in body
+        assert body.get("email") == "newuser@example.com"
+        assert "verification_token" in body
+        assert "expires_in" in body
 
-        # Verify user was created in store
-        user = user_store.get_user_by_email("newuser@example.com")
-        assert user is not None
-        assert user.name == "New User"
-
-    def test_step2_email_verification_flow(self, signup_handler, user_store):
+    @pytest.mark.asyncio
+    async def test_step2_email_verification_flow(self, signup_handler):
         """Test email verification token generation and validation."""
         # First signup
         signup_data = {
@@ -214,15 +233,23 @@ class TestCompleteUserSignupFlow:
             "password": "SecurePassword123!",
             "name": "Verify User",
         }
-        request = create_mock_request(body=signup_data, path="/api/v1/auth/signup")
-        result = signup_handler.handle(request)
+        signup_result = await signup_handler(signup_data)
 
-        status = get_status(result)
+        status = get_status(signup_result)
         assert status in [200, 201, 202], f"Signup failed with status {status}"
 
-        # User should exist but may need verification
-        user = user_store.get_user_by_email("verify@example.com")
-        assert user is not None
+        signup_body = get_body(signup_result)
+        verification_token = signup_body.get("verification_token")
+        assert verification_token
+
+        from aragora.server.handlers.auth.signup_handlers import handle_verify_email
+
+        verify_result = await handle_verify_email({"token": verification_token})
+        verify_body = get_body(verify_result)
+
+        assert get_status(verify_result) in [200, 201]
+        assert verify_body.get("email") == "verify@example.com"
+        assert "access_token" in verify_body
 
     def test_step3_user_login(self, auth_handler, user_store):
         """Test user can login after signup."""
@@ -242,13 +269,14 @@ class TestCompleteUserSignupFlow:
         }
 
         request = create_mock_request(body=login_data, path="/api/v1/auth/login")
-        result = auth_handler.handle(request)
+        result = auth_handler.handle(request.path, {}, request)
 
         status = get_status(result)
         body = get_body(result)
 
         assert status == 200, f"Login failed: {body}"
-        assert "access_token" in body or "token" in body
+        tokens = body.get("tokens", {})
+        assert "access_token" in tokens or "token" in tokens or "token" in body
 
     def test_step4_authenticated_request(self, auth_handler, user_store):
         """Test authenticated requests work with JWT token."""
@@ -272,7 +300,7 @@ class TestCompleteUserSignupFlow:
             path="/api/v1/auth/me",
         )
 
-        result = auth_handler.handle(request)
+        result = auth_handler.handle(request.path, {}, request)
         body = get_body(result)
 
         # Should get user info or valid response
@@ -356,7 +384,7 @@ class TestCompleteUserSignupFlow:
         from aragora.debate.orchestrator import Arena
         from aragora.debate.protocol import DebateProtocol
         from aragora.core import Environment
-        from aragora.gauntlet.receipts import ReceiptGenerator
+        from aragora.export.decision_receipt import DecisionReceipt
 
         env = Environment(task="Should we approve this decision?")
         protocol = DebateProtocol(
@@ -375,22 +403,10 @@ class TestCompleteUserSignupFlow:
         arena = Arena(env, mock_agents, protocol)
         result = await arena.run()
 
-        # Generate receipt
-        generator = ReceiptGenerator()
-
-        # Create receipt data from result
-        receipt_data = {
-            "debate_id": "test-debate-123",
-            "task": env.task,
-            "rounds_completed": result.rounds_completed,
-            "agents": ["agent1", "agent2"],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        receipt = generator.generate(receipt_data)
+        receipt = DecisionReceipt.from_debate_result(result)
 
         assert receipt is not None
-        assert "debate_id" in receipt or hasattr(receipt, "debate_id")
+        assert hasattr(receipt, "receipt_id")
 
 
 @pytest.mark.e2e
@@ -446,19 +462,9 @@ class TestFullSignupToExportJourney:
         assert hasattr(result, "rounds_completed")
 
         # Step 5: Generate receipt (export)
-        from aragora.gauntlet.receipts import ReceiptGenerator
+        from aragora.export.decision_receipt import DecisionReceipt
 
-        generator = ReceiptGenerator()
-        receipt_data = {
-            "debate_id": f"debate-{user.id}",
-            "user_id": str(user.id),
-            "task": env.task,
-            "rounds_completed": result.rounds_completed,
-            "agents": [a.name for a in mock_agents],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-        receipt = generator.generate(receipt_data)
+        receipt = DecisionReceipt.from_debate_result(result)
         assert receipt is not None
 
         # Journey complete!
@@ -469,7 +475,8 @@ class TestFullSignupToExportJourney:
 class TestSignupValidation:
     """Tests for signup validation edge cases."""
 
-    def test_signup_rejects_weak_password(self, signup_handler):
+    @pytest.mark.asyncio
+    async def test_signup_rejects_weak_password(self, signup_handler):
         """Test signup rejects weak passwords."""
         signup_data = {
             "email": "weak@example.com",
@@ -477,13 +484,13 @@ class TestSignupValidation:
             "name": "Weak Password User",
         }
 
-        request = create_mock_request(body=signup_data, path="/api/v1/auth/signup")
-        result = signup_handler.handle(request)
+        result = await signup_handler(signup_data)
 
         # Should reject with 400
         assert get_status(result) == 400
 
-    def test_signup_rejects_invalid_email(self, signup_handler):
+    @pytest.mark.asyncio
+    async def test_signup_rejects_invalid_email(self, signup_handler):
         """Test signup rejects invalid emails."""
         signup_data = {
             "email": "not-an-email",
@@ -491,33 +498,24 @@ class TestSignupValidation:
             "name": "Invalid Email User",
         }
 
-        request = create_mock_request(body=signup_data, path="/api/v1/auth/signup")
-        result = signup_handler.handle(request)
+        result = await signup_handler(signup_data)
 
         # Should reject with 400
         assert get_status(result) == 400
 
-    def test_signup_rejects_duplicate_email(self, signup_handler, user_store):
+    @pytest.mark.asyncio
+    async def test_signup_rejects_duplicate_email(self, signup_handler):
         """Test signup rejects duplicate email addresses."""
-        # Create existing user
-        password_hash, password_salt = hash_password("ExistingPassword123!")
-        user_store.create_user(
-            email="existing@example.com",
-            password_hash=password_hash,
-            password_salt=password_salt,
-            name="Existing User",
-            role="member",
-        )
-
-        # Try to signup with same email
+        # Create pending signup
         signup_data = {
             "email": "existing@example.com",
             "password": "NewPassword123!",
             "name": "Duplicate User",
         }
+        await signup_handler(signup_data)
 
-        request = create_mock_request(body=signup_data, path="/api/v1/auth/signup")
-        result = signup_handler.handle(request)
+        # Try to signup with same email
+        result = await signup_handler(signup_data)
 
         # Should reject with 400 or 409
         assert get_status(result) in [400, 409]

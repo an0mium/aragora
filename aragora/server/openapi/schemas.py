@@ -2099,6 +2099,78 @@ COMMON_SCHEMAS: dict[str, Any] = {
         "required": ["node_id", "success"],
     },
     # ==========================================================================
+    # Knowledge Base (Facts) Schemas
+    # ==========================================================================
+    "KnowledgeFact": {
+        "type": "object",
+        "description": "Knowledge fact record",
+        "properties": {
+            "id": {"type": "string"},
+            "statement": {"type": "string"},
+            "workspace_id": {"type": "string"},
+            "confidence": {"type": "number"},
+            "validation_status": {"type": "string"},
+            "topics": {"type": "array", "items": {"type": "string"}},
+            "evidence_ids": {"type": "array", "items": {"type": "string"}},
+            "source_documents": {"type": "array", "items": {"type": "string"}},
+            "metadata": {"type": "object", "additionalProperties": True},
+            "created_at": {"type": "string", "format": "date-time"},
+            "updated_at": {"type": "string", "format": "date-time"},
+        },
+        "required": ["id", "statement"],
+    },
+    "KnowledgeFactList": {
+        "type": "object",
+        "description": "List of knowledge facts",
+        "properties": {
+            "facts": {"type": "array", "items": {"$ref": "#/components/schemas/KnowledgeFact"}},
+            "total": {"type": "integer"},
+            "limit": {"type": "integer"},
+            "offset": {"type": "integer"},
+        },
+    },
+    "KnowledgeSearchResult": {
+        "type": "object",
+        "description": "Knowledge search result entry",
+        "properties": {
+            "id": {"type": "string"},
+            "content": {"type": "string"},
+            "score": {"type": "number"},
+            "metadata": {"type": "object", "additionalProperties": True},
+        },
+    },
+    "KnowledgeSearchResponse": {
+        "type": "object",
+        "description": "Knowledge search response",
+        "properties": {
+            "query": {"type": "string"},
+            "workspace_id": {"type": "string"},
+            "results": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/KnowledgeSearchResult"},
+            },
+            "count": {"type": "integer"},
+        },
+    },
+    "KnowledgeStats": {
+        "type": "object",
+        "description": "Knowledge base statistics",
+        "properties": {
+            "workspace_id": {"type": "string"},
+            "total_facts": {"type": "integer"},
+            "total_entries": {"type": "integer"},
+            "sources": {"type": "object", "additionalProperties": {"type": "integer"}},
+            "categories": {"type": "object", "additionalProperties": {"type": "integer"}},
+            "avg_confidence": {"type": "number"},
+            "last_updated": {"type": "string", "format": "date-time"},
+        },
+    },
+    "KnowledgeQueryResponse": {
+        "type": "object",
+        "description": "Knowledge query response (structure depends on query engine)",
+        "additionalProperties": True,
+    },
+    # ==========================================================================
     # Control Plane Response Schemas
     # ==========================================================================
     "AgentRegistration": {

@@ -44,6 +44,7 @@ from aragora.server.openapi.endpoints.shared_inbox import INBOX_ENDPOINTS
 from aragora.server.openapi.endpoints.gmail import GMAIL_ENDPOINTS
 from aragora.server.openapi.endpoints.outlook import OUTLOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.knowledge_chat import KNOWLEDGE_CHAT_ENDPOINTS
+from aragora.server.openapi.endpoints.knowledge_base import KNOWLEDGE_BASE_ENDPOINTS
 from aragora.server.openapi.endpoints.knowledge_mound import KNOWLEDGE_MOUND_ENDPOINTS
 from aragora.server.openapi.endpoints.audit_sessions import AUDIT_SESSIONS_ENDPOINTS
 from aragora.server.openapi.endpoints.accounting import ACCOUNTING_ENDPOINTS
@@ -115,6 +116,7 @@ ALL_ENDPOINTS = {
     **GMAIL_ENDPOINTS,
     **OUTLOOK_ENDPOINTS,
     **KNOWLEDGE_CHAT_ENDPOINTS,
+    **KNOWLEDGE_BASE_ENDPOINTS,
     **KNOWLEDGE_MOUND_ENDPOINTS,
     **AUDIT_SESSIONS_ENDPOINTS,
     **ACCOUNTING_ENDPOINTS,
@@ -170,6 +172,7 @@ __all__ = [
     "GMAIL_ENDPOINTS",
     "OUTLOOK_ENDPOINTS",
     "KNOWLEDGE_CHAT_ENDPOINTS",
+    "KNOWLEDGE_BASE_ENDPOINTS",
     "KNOWLEDGE_MOUND_ENDPOINTS",
     "AUDIT_SESSIONS_ENDPOINTS",
     "ACCOUNTING_ENDPOINTS",

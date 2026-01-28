@@ -256,7 +256,7 @@ async def post_receipt_tool(
         Dict with receipt posting result
     """
     try:
-        from aragora.gauntlet.receipts import ReceiptGenerator
+        from aragora.export.decision_receipt import DecisionReceipt
         from aragora.mcp.tools_module.debate import get_debate_tool
 
         # Get debate data
@@ -264,17 +264,26 @@ async def post_receipt_tool(
         if "error" in debate:
             return debate
 
-        # Generate receipt
-        generator = ReceiptGenerator()
-        receipt = await generator.generate(
-            debate_id=debate_id,
-            task=debate.get("task", ""),
-            final_answer=debate.get("final_answer", ""),
-            consensus_reached=debate.get("consensus_reached", False),
+        # Generate a lightweight receipt snapshot for chat display
+        receipt_obj = DecisionReceipt(
+            receipt_id=f"rcpt_{uuid.uuid4().hex[:12]}",
+            gauntlet_id=debate_id,
+            input_summary=debate.get("task", ""),
             confidence=debate.get("confidence", 0.0),
-            agents=debate.get("agents", []),
-            rounds=debate.get("rounds", []),
+            verdict="APPROVED" if debate.get("consensus_reached") else "NEEDS_REVIEW",
+            agents_involved=debate.get("agents", []),
+            rounds_completed=len(debate.get("rounds", []))
+            if debate.get("rounds")
+            else debate.get("rounds_completed", 0),
         )
+        receipt = {
+            "task": debate.get("task", ""),
+            "final_answer": debate.get("final_answer", ""),
+            "consensus_reached": debate.get("consensus_reached", False),
+            "confidence": debate.get("confidence", 0.0),
+            "hash": receipt_obj.checksum,
+            "timestamp": receipt_obj.timestamp,
+        }
 
         # Format receipt for chat
         receipt_content = _format_receipt(receipt, platform, include_summary, include_hash)

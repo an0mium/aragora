@@ -84,4 +84,26 @@ DECISION_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/decisions/{request_id}/explain": {
+        "get": {
+            "tags": ["Decisions"],
+            "summary": "Explain decision",
+            "operationId": "explainDecision",
+            "description": "Get a detailed explanation for a decision.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "request_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Decision explanation"),
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
 }

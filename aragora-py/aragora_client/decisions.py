@@ -335,10 +335,9 @@ class DecisionsAPI:
             result = await client.decisions.cancel("dec_abc123")
             assert result.status == DecisionStatus.CANCELLED
         """
-        response = await self._client._post(
-            f"/api/v1/decisions/{decision_id}/cancel", {}
+        raise NotImplementedError(
+            "Decision cancellation is not supported by the current API."
         )
-        return DecisionResult.from_dict(response)
 
     async def retry(self, decision_id: str) -> DecisionResult:
         """Retry a failed decision.
@@ -357,10 +356,7 @@ class DecisionsAPI:
             if original.status == DecisionStatus.FAILED:
                 new_result = await client.decisions.retry("dec_abc123")
         """
-        response = await self._client._post(
-            f"/api/v1/decisions/{decision_id}/retry", {}
-        )
-        return DecisionResult.from_dict(response)
+        raise NotImplementedError("Decision retry is not supported by the current API.")
 
     # =========================================================================
     # Convenience Methods

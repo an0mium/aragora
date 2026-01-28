@@ -171,6 +171,23 @@ class DistributedDebateCoordinator:
         self._connected = True
         logger.info("[DistributedDebate] Coordinator connected")
 
+    async def disconnect(self) -> None:
+        """Stop the distributed debate coordinator."""
+        if not self._connected:
+            return
+
+        self._connected = False
+
+        if self._sync_task:
+            self._sync_task.cancel()
+            try:
+                await self._sync_task
+            except asyncio.CancelledError:
+                pass
+            self._sync_task = None
+
+        logger.info("[DistributedDebate] Coordinator disconnected")
+
     async def close(self) -> None:
         """Stop the distributed debate coordinator."""
         if self._sync_task:

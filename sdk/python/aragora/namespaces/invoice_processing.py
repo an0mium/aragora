@@ -62,7 +62,7 @@ class InvoiceProcessingAPI:
         if vendor_hint:
             data["vendor_hint"] = vendor_hint
 
-        return self._client._request("POST", "/api/v1/accounting/invoices/upload", json=data)
+        return self._client.request("POST", "/api/v1/accounting/invoices/upload", json=data)
 
     def create(
         self,
@@ -115,7 +115,7 @@ class InvoiceProcessingAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request("POST", "/api/v1/accounting/invoices", json=data)
+        return self._client.request("POST", "/api/v1/accounting/invoices", json=data)
 
     def list(
         self,
@@ -154,7 +154,7 @@ class InvoiceProcessingAPI:
         if date_to:
             params["date_to"] = date_to
 
-        return self._client._request("GET", "/api/v1/accounting/invoices", params=params)
+        return self._client.request("GET", "/api/v1/accounting/invoices", params=params)
 
     def get(self, invoice_id: str) -> dict[str, Any]:
         """
@@ -166,7 +166,7 @@ class InvoiceProcessingAPI:
         Returns:
             Invoice details.
         """
-        return self._client._request("GET", f"/api/v1/accounting/invoices/{invoice_id}")
+        return self._client.request("GET", f"/api/v1/accounting/invoices/{invoice_id}")
 
     # =========================================================================
     # Approval Workflow
@@ -191,7 +191,7 @@ class InvoiceProcessingAPI:
         if approver_id:
             data["approver_id"] = approver_id
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/accounting/invoices/{invoice_id}/approve", json=data
         )
 
@@ -214,7 +214,7 @@ class InvoiceProcessingAPI:
         if reason:
             data["reason"] = reason
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/accounting/invoices/{invoice_id}/reject", json=data
         )
 
@@ -225,7 +225,7 @@ class InvoiceProcessingAPI:
         Returns:
             List of pending invoices with count.
         """
-        return self._client._request("GET", "/api/v1/accounting/invoices/pending")
+        return self._client.request("GET", "/api/v1/accounting/invoices/pending")
 
     # =========================================================================
     # PO Matching
@@ -241,7 +241,7 @@ class InvoiceProcessingAPI:
         Returns:
             Match result with variance details.
         """
-        return self._client._request("POST", f"/api/v1/accounting/invoices/{invoice_id}/match")
+        return self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/match")
 
     def create_purchase_order(
         self,
@@ -270,7 +270,7 @@ class InvoiceProcessingAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request("POST", "/api/v1/accounting/purchase-orders", json=data)
+        return self._client.request("POST", "/api/v1/accounting/purchase-orders", json=data)
 
     # =========================================================================
     # Anomaly Detection
@@ -286,7 +286,7 @@ class InvoiceProcessingAPI:
         Returns:
             List of anomalies with severity.
         """
-        return self._client._request("GET", f"/api/v1/accounting/invoices/{invoice_id}/anomalies")
+        return self._client.request("GET", f"/api/v1/accounting/invoices/{invoice_id}/anomalies")
 
     # =========================================================================
     # Payment Scheduling
@@ -319,7 +319,7 @@ class InvoiceProcessingAPI:
         if notes:
             data["notes"] = notes
 
-        return self._client._request(
+        return self._client.request(
             "POST", f"/api/v1/accounting/invoices/{invoice_id}/schedule", json=data
         )
 
@@ -352,7 +352,7 @@ class InvoiceProcessingAPI:
         if date_to:
             params["date_to"] = date_to
 
-        return self._client._request("GET", "/api/v1/accounting/payments/scheduled", params=params)
+        return self._client.request("GET", "/api/v1/accounting/payments/scheduled", params=params)
 
     # =========================================================================
     # Statistics
@@ -365,7 +365,7 @@ class InvoiceProcessingAPI:
         Returns:
             List of overdue invoices with total amount.
         """
-        return self._client._request("GET", "/api/v1/accounting/invoices/overdue")
+        return self._client.request("GET", "/api/v1/accounting/invoices/overdue")
 
     def get_stats(self, period: str | None = None) -> dict[str, Any]:
         """
@@ -381,7 +381,7 @@ class InvoiceProcessingAPI:
         if period:
             params["period"] = period
 
-        return self._client._request("GET", "/api/v1/accounting/invoices/stats", params=params)
+        return self._client.request("GET", "/api/v1/accounting/invoices/stats", params=params)
 
 
 class AsyncInvoiceProcessingAPI:
@@ -407,7 +407,7 @@ class AsyncInvoiceProcessingAPI:
         if vendor_hint:
             data["vendor_hint"] = vendor_hint
 
-        return await self._client._request("POST", "/api/v1/accounting/invoices/upload", json=data)
+        return await self._client.request("POST", "/api/v1/accounting/invoices/upload", json=data)
 
     async def create(
         self,
@@ -443,7 +443,7 @@ class AsyncInvoiceProcessingAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request("POST", "/api/v1/accounting/invoices", json=data)
+        return await self._client.request("POST", "/api/v1/accounting/invoices", json=data)
 
     async def list(
         self,
@@ -468,11 +468,11 @@ class AsyncInvoiceProcessingAPI:
         if date_to:
             params["date_to"] = date_to
 
-        return await self._client._request("GET", "/api/v1/accounting/invoices", params=params)
+        return await self._client.request("GET", "/api/v1/accounting/invoices", params=params)
 
     async def get(self, invoice_id: str) -> dict[str, Any]:
         """Get a specific invoice."""
-        return await self._client._request("GET", f"/api/v1/accounting/invoices/{invoice_id}")
+        return await self._client.request("GET", f"/api/v1/accounting/invoices/{invoice_id}")
 
     # =========================================================================
     # Approval Workflow
@@ -488,7 +488,7 @@ class AsyncInvoiceProcessingAPI:
         if approver_id:
             data["approver_id"] = approver_id
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/accounting/invoices/{invoice_id}/approve", json=data
         )
 
@@ -502,13 +502,13 @@ class AsyncInvoiceProcessingAPI:
         if reason:
             data["reason"] = reason
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/accounting/invoices/{invoice_id}/reject", json=data
         )
 
     async def get_pending_approvals(self) -> dict[str, Any]:
         """Get invoices pending approval."""
-        return await self._client._request("GET", "/api/v1/accounting/invoices/pending")
+        return await self._client.request("GET", "/api/v1/accounting/invoices/pending")
 
     # =========================================================================
     # PO Matching
@@ -516,9 +516,7 @@ class AsyncInvoiceProcessingAPI:
 
     async def match_to_po(self, invoice_id: str) -> dict[str, Any]:
         """Match an invoice to a purchase order."""
-        return await self._client._request(
-            "POST", f"/api/v1/accounting/invoices/{invoice_id}/match"
-        )
+        return await self._client.request("POST", f"/api/v1/accounting/invoices/{invoice_id}/match")
 
     async def create_purchase_order(
         self,
@@ -536,7 +534,7 @@ class AsyncInvoiceProcessingAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request("POST", "/api/v1/accounting/purchase-orders", json=data)
+        return await self._client.request("POST", "/api/v1/accounting/purchase-orders", json=data)
 
     # =========================================================================
     # Anomaly Detection
@@ -544,7 +542,7 @@ class AsyncInvoiceProcessingAPI:
 
     async def get_anomalies(self, invoice_id: str) -> dict[str, Any]:
         """Get anomalies detected in an invoice."""
-        return await self._client._request(
+        return await self._client.request(
             "GET", f"/api/v1/accounting/invoices/{invoice_id}/anomalies"
         )
 
@@ -568,7 +566,7 @@ class AsyncInvoiceProcessingAPI:
         if notes:
             data["notes"] = notes
 
-        return await self._client._request(
+        return await self._client.request(
             "POST", f"/api/v1/accounting/invoices/{invoice_id}/schedule", json=data
         )
 
@@ -589,7 +587,7 @@ class AsyncInvoiceProcessingAPI:
         if date_to:
             params["date_to"] = date_to
 
-        return await self._client._request(
+        return await self._client.request(
             "GET", "/api/v1/accounting/payments/scheduled", params=params
         )
 
@@ -599,7 +597,7 @@ class AsyncInvoiceProcessingAPI:
 
     async def get_overdue(self) -> dict[str, Any]:
         """Get overdue invoices."""
-        return await self._client._request("GET", "/api/v1/accounting/invoices/overdue")
+        return await self._client.request("GET", "/api/v1/accounting/invoices/overdue")
 
     async def get_stats(self, period: str | None = None) -> dict[str, Any]:
         """Get invoice processing statistics."""
@@ -607,6 +605,4 @@ class AsyncInvoiceProcessingAPI:
         if period:
             params["period"] = period
 
-        return await self._client._request(
-            "GET", "/api/v1/accounting/invoices/stats", params=params
-        )
+        return await self._client.request("GET", "/api/v1/accounting/invoices/stats", params=params)

@@ -19,11 +19,13 @@ from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .decisions import AsyncDecisionsAPI, DecisionsAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
+from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .genesis import AsyncGenesisAPI, GenesisAPI
 from .health import AsyncHealthAPI, HealthAPI
 from .integrations import AsyncIntegrationsAPI, IntegrationsAPI
+from .invoice_processing import AsyncInvoiceProcessingAPI, InvoiceProcessingAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
@@ -32,6 +34,7 @@ from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
+from .payments import AsyncPaymentsAPI, PaymentsAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
 from .pulse import AsyncPulseAPI, PulseAPI
 from .ranking import AsyncRankingAPI, RankingAPI
@@ -82,6 +85,8 @@ __all__ = [
     "AsyncDecisionsAPI",
     "DocumentsAPI",
     "AsyncDocumentsAPI",
+    "ExpensesAPI",
+    "AsyncExpensesAPI",
     "ExplainabilityAPI",
     "AsyncExplainabilityAPI",
     "GauntletAPI",
@@ -92,6 +97,8 @@ __all__ = [
     "AsyncHealthAPI",
     "IntegrationsAPI",
     "AsyncIntegrationsAPI",
+    "InvoiceProcessingAPI",
+    "AsyncInvoiceProcessingAPI",
     "KnowledgeAPI",
     "AsyncKnowledgeAPI",
     "MarketplaceAPI",
@@ -108,6 +115,8 @@ __all__ = [
     "AsyncOnboardingAPI",
     "OrganizationsAPI",
     "AsyncOrganizationsAPI",
+    "PaymentsAPI",
+    "AsyncPaymentsAPI",
     "PoliciesAPI",
     "AsyncPoliciesAPI",
     "PulseAPI",

@@ -549,7 +549,22 @@ async def handle_invite(
 
         # In production: send invitation email
         invite_url = f"/invite/{invite_token}"
-        logger.info(f"Invitation sent to {email} for org {organization_id}")
+        logger.info(f"Invitation sent for org {organization_id}")
+
+        # Audit logging
+        try:
+            from aragora.audit.unified import audit_action
+
+            audit_action(
+                user_id=user_id,
+                action="team_invitation_sent",
+                resource_type="invitation",
+                organization_id=organization_id,
+                invitee_email=email,
+                role=role,
+            )
+        except ImportError:
+            pass  # Audit not available
 
         return success_response(
             {

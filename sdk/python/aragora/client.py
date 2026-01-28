@@ -94,11 +94,13 @@ class AragoraClient:
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
         from .namespaces.documents import DocumentsAPI
+        from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
         from .namespaces.gauntlet import GauntletAPI
         from .namespaces.genesis import GenesisAPI
         from .namespaces.health import HealthAPI
         from .namespaces.integrations import IntegrationsAPI
+        from .namespaces.invoice_processing import InvoiceProcessingAPI
         from .namespaces.knowledge import KnowledgeAPI
         from .namespaces.marketplace import MarketplaceAPI
         from .namespaces.memory import MemoryAPI
@@ -107,6 +109,7 @@ class AragoraClient:
         from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
         from .namespaces.organizations import OrganizationsAPI
+        from .namespaces.payments import PaymentsAPI
         from .namespaces.policies import PoliciesAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.ranking import RankingAPI
@@ -140,11 +143,13 @@ class AragoraClient:
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
         self.documents = DocumentsAPI(self)
+        self.expenses = ExpensesAPI(self)
         self.explainability = ExplainabilityAPI(self)
         self.gauntlet = GauntletAPI(self)
         self.genesis = GenesisAPI(self)
         self.health = HealthAPI(self)
         self.integrations = IntegrationsAPI(self)
+        self.invoice_processing = InvoiceProcessingAPI(self)
         self.knowledge = KnowledgeAPI(self)
         self.marketplace = MarketplaceAPI(self)
         self.memory = MemoryAPI(self)
@@ -153,6 +158,7 @@ class AragoraClient:
         self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
         self.organizations = OrganizationsAPI(self)
+        self.payments = PaymentsAPI(self)
         self.policies = PoliciesAPI(self)
         self.pulse = PulseAPI(self)
         self.ranking = RankingAPI(self)
@@ -237,6 +243,17 @@ class AragoraClient:
             raise AragoraError(f"Request failed after {self.max_retries} retries") from last_error
 
         raise AragoraError("Unexpected error")
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Backward-compatible alias for request()."""
+        return self.request(method, path, params=params, json=json, headers=headers)
 
     def _handle_error_response(self, response: httpx.Response) -> None:
         """Handle error responses and raise appropriate exceptions."""
@@ -350,11 +367,13 @@ class AragoraAsyncClient:
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
         from .namespaces.documents import AsyncDocumentsAPI
+        from .namespaces.expenses import AsyncExpensesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
         from .namespaces.genesis import AsyncGenesisAPI
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.integrations import AsyncIntegrationsAPI
+        from .namespaces.invoice_processing import AsyncInvoiceProcessingAPI
         from .namespaces.knowledge import AsyncKnowledgeAPI
         from .namespaces.marketplace import AsyncMarketplaceAPI
         from .namespaces.memory import AsyncMemoryAPI
@@ -363,6 +382,7 @@ class AragoraAsyncClient:
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
         from .namespaces.organizations import AsyncOrganizationsAPI
+        from .namespaces.payments import AsyncPaymentsAPI
         from .namespaces.policies import AsyncPoliciesAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.ranking import AsyncRankingAPI
@@ -396,11 +416,13 @@ class AragoraAsyncClient:
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
         self.documents = AsyncDocumentsAPI(self)
+        self.expenses = AsyncExpensesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
         self.genesis = AsyncGenesisAPI(self)
         self.health = AsyncHealthAPI(self)
         self.integrations = AsyncIntegrationsAPI(self)
+        self.invoice_processing = AsyncInvoiceProcessingAPI(self)
         self.knowledge = AsyncKnowledgeAPI(self)
         self.marketplace = AsyncMarketplaceAPI(self)
         self.memory = AsyncMemoryAPI(self)
@@ -409,6 +431,7 @@ class AragoraAsyncClient:
         self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
         self.organizations = AsyncOrganizationsAPI(self)
+        self.payments = AsyncPaymentsAPI(self)
         self.policies = AsyncPoliciesAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.ranking = AsyncRankingAPI(self)
@@ -491,6 +514,17 @@ class AragoraAsyncClient:
             raise AragoraError(f"Request failed after {self.max_retries} retries") from last_error
 
         raise AragoraError("Unexpected error")
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        params: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        """Backward-compatible alias for request()."""
+        return await self.request(method, path, params=params, json=json, headers=headers)
 
     def _handle_error_response(self, response: httpx.Response) -> None:
         """Handle error responses."""

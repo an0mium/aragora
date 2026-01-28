@@ -18,6 +18,8 @@ export interface WebSocketOptions {
   autoReconnect?: boolean;
   maxReconnectAttempts?: number;
   reconnectDelay?: number;
+  maxReconnectDelay?: number;
+  maxHandshakeFailures?: number;
   heartbeatInterval?: number;
 }
 
@@ -40,6 +42,9 @@ export class AragoraWebSocket {
   private ws: WebSocket | null = null;
   private options: Required<WebSocketOptions>;
   private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private hasEverConnected = false;
+  private handshakeFailures = 0;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private eventHandlers: Map<string, Set<EventHandler>> = new Map();
   private stateHandlers: Set<StateHandler> = new Set();
@@ -54,6 +59,8 @@ export class AragoraWebSocket {
       autoReconnect: options.autoReconnect ?? true,
       maxReconnectAttempts: options.maxReconnectAttempts ?? 5,
       reconnectDelay: options.reconnectDelay ?? 1000,
+      maxReconnectDelay: options.maxReconnectDelay ?? 30000,
+      maxHandshakeFailures: options.maxHandshakeFailures ?? 3,
       heartbeatInterval: options.heartbeatInterval ?? 30000,
     };
   }
@@ -65,6 +72,9 @@ export class AragoraWebSocket {
     return new Promise((resolve, reject) => {
       if (this.ws?.readyState === WebSocket.OPEN) {
         resolve();
+        return;
+      }
+      if (this.state === 'connecting') {
         return;
       }
 
@@ -79,6 +89,8 @@ export class AragoraWebSocket {
 
       this.ws.onopen = () => {
         this.reconnectAttempts = 0;
+        this.hasEverConnected = true;
+        this.handshakeFailures = 0;
         this.setState('connected');
         this.startHeartbeat();
 
@@ -103,10 +115,15 @@ export class AragoraWebSocket {
         this.stopHeartbeat();
         this.setState('disconnected');
 
-        if (this.options.autoReconnect && this.reconnectAttempts < this.options.maxReconnectAttempts) {
-          this.reconnectAttempts++;
-          setTimeout(() => this.connect(), this.options.reconnectDelay * this.reconnectAttempts);
+        if (!this.hasEverConnected) {
+          this.handshakeFailures += 1;
+          if (this.handshakeFailures >= this.options.maxHandshakeFailures) {
+            this.setState('error');
+            return;
+          }
         }
+
+        this.scheduleReconnect();
       };
 
       this.ws.onerror = (_error) => {
@@ -123,6 +140,10 @@ export class AragoraWebSocket {
    */
   disconnect(): void {
     this.options.autoReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.stopHeartbeat();
     this.ws?.close();
     this.ws = null;
@@ -232,6 +253,26 @@ export class AragoraWebSocket {
     this.heartbeatTimer = setInterval(() => {
       this.send({ type: 'ping' });
     }, this.options.heartbeatInterval);
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.options.autoReconnect) {
+      return;
+    }
+    if (this.reconnectAttempts >= this.options.maxReconnectAttempts) {
+      this.setState('error');
+      return;
+    }
+
+    this.reconnectAttempts += 1;
+    const baseDelay = this.options.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = Math.min(baseDelay, this.options.maxReconnectDelay);
+    const jitter = delay * (0.8 + Math.random() * 0.4);
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+    }
+    this.reconnectTimer = setTimeout(() => this.connect(), jitter);
   }
 
   private stopHeartbeat(): void {

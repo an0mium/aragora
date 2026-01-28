@@ -8,7 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from aragora.debate.distributed import DistributedDebateCoordinator, DistributedDebateResult
+from aragora.debate.distributed import (
+    DistributedDebateCoordinator,
+    DistributedDebateResult,
+)
 from aragora.debate.distributed_events import (
     DistributedDebateEventType,
     DistributedDebateEvent,
@@ -28,57 +31,93 @@ def mock_event_bus():
 
 
 @pytest.fixture
-def mock_local_registry():
-    """Create a mock local registry."""
-    registry = MagicMock()
-    registry.list_available = AsyncMock(
-        return_value=[
-            MagicMock(agent_id="claude-3", model="claude-3", capabilities=["debate"]),
-            MagicMock(agent_id="gpt-4", model="gpt-4", capabilities=["debate"]),
-        ]
-    )
-    return registry
+def mock_agent_pool():
+    """Create a mock agent pool."""
+    pool = MagicMock()
+    pool.find_agents.return_value = [
+        MagicMock(
+            agent_id="claude-3",
+            model="claude-3",
+            capabilities=["debate"],
+            is_local=True,
+            estimated_latency_ms=10,
+        ),
+        MagicMock(
+            agent_id="gpt-4",
+            model="gpt-4",
+            capabilities=["debate"],
+            is_local=False,
+            estimated_latency_ms=25,
+        ),
+    ]
+    return pool
 
 
 @pytest.fixture
-def coordinator(mock_event_bus, mock_local_registry):
+def coordinator(mock_event_bus, mock_agent_pool):
     """Create a distributed debate coordinator."""
     return DistributedDebateCoordinator(
         instance_id="test-instance",
         event_bus=mock_event_bus,
-        local_registry=mock_local_registry,
+        agent_pool=mock_agent_pool,
+    )
+
+
+def make_result(
+    debate_id: str = "test-debate",
+    task: str = "Test task",
+    consensus_reached: bool = True,
+    final_answer: str = "Test answer",
+    winning_agent: str = "claude-3",
+    confidence: float = 0.85,
+    rounds_completed: int = 3,
+) -> DistributedDebateResult:
+    """Helper to create a DistributedDebateResult with all required fields."""
+    return DistributedDebateResult(
+        debate_id=debate_id,
+        task=task,
+        consensus_reached=consensus_reached,
+        final_answer=final_answer if consensus_reached else None,
+        winning_agent=winning_agent if consensus_reached else None,
+        confidence=confidence,
+        rounds_completed=rounds_completed,
+        participating_instances=["test-instance"],
+        participating_agents=["claude-3", "gpt-4"],
+        duration_seconds=30.0,
+        proposals=[],
+        votes=[],
     )
 
 
 class TestDistributedDebateCoordinatorInit:
     """Tests for coordinator initialization."""
 
-    def test_coordinator_creation(self, mock_event_bus, mock_local_registry):
+    def test_coordinator_creation(self, mock_event_bus, mock_agent_pool):
         """Test creating a coordinator."""
         coordinator = DistributedDebateCoordinator(
             instance_id="my-instance",
             event_bus=mock_event_bus,
-            local_registry=mock_local_registry,
+            agent_pool=mock_agent_pool,
         )
 
         assert coordinator._instance_id == "my-instance"
         assert coordinator._event_bus == mock_event_bus
         assert coordinator._connected is False
 
-    def test_coordinator_without_event_bus(self, mock_local_registry):
+    def test_coordinator_without_event_bus(self, mock_agent_pool):
         """Test coordinator works without event bus (local only)."""
         coordinator = DistributedDebateCoordinator(
             instance_id="local-instance",
-            local_registry=mock_local_registry,
+            agent_pool=mock_agent_pool,
         )
 
         assert coordinator._event_bus is None
 
-    def test_coordinator_generates_instance_id(self, mock_event_bus, mock_local_registry):
+    def test_coordinator_generates_instance_id(self, mock_event_bus, mock_agent_pool):
         """Test coordinator generates instance ID if not provided."""
         coordinator = DistributedDebateCoordinator(
             event_bus=mock_event_bus,
-            local_registry=mock_local_registry,
+            agent_pool=mock_agent_pool,
         )
 
         assert coordinator._instance_id is not None
@@ -138,66 +177,48 @@ class TestDistributedDebateCoordinatorDebates:
         """Test starting debate publishes event."""
         await coordinator.connect()
 
-        # Mock the debate execution
-        with patch.object(coordinator, "_run_debate", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = DistributedDebateResult(
-                debate_id="test-debate",
-                consensus_reached=True,
-                final_answer="PostgreSQL",
-                confidence=0.85,
-                rounds_completed=3,
-            )
-
+        with (
+            patch.object(coordinator, "_collect_proposals", new_callable=AsyncMock),
+            patch.object(coordinator, "_collect_critiques", new_callable=AsyncMock),
+        ):
             result = await coordinator.start_debate(
                 task="What database should we use?",
             )
 
-            # Verify event was published
-            assert mock_event_bus.publish.called
+        # Verify event was published
+        assert mock_event_bus.publish.called
 
     @pytest.mark.asyncio
     async def test_start_debate_with_agents(self, coordinator, mock_event_bus):
         """Test starting debate with specific agents."""
         await coordinator.connect()
 
-        with patch.object(coordinator, "_run_debate", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = DistributedDebateResult(
-                debate_id="test-debate",
-                consensus_reached=True,
-                final_answer="Use microservices",
-                confidence=0.9,
-                rounds_completed=2,
-            )
-
+        with (
+            patch.object(coordinator, "_collect_proposals", new_callable=AsyncMock),
+            patch.object(coordinator, "_collect_critiques", new_callable=AsyncMock),
+        ):
             result = await coordinator.start_debate(
                 task="Architecture decision",
                 agents=["claude-3", "gpt-4", "gemini"],
             )
 
-            # Verify agents were passed
-            call_args = mock_run.call_args
-            assert call_args is not None
+        assert set(result.participating_agents) == {"claude-3", "gpt-4", "gemini"}
 
     @pytest.mark.asyncio
     async def test_start_debate_with_context(self, coordinator, mock_event_bus):
         """Test starting debate with context."""
         await coordinator.connect()
 
-        with patch.object(coordinator, "_run_debate", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = DistributedDebateResult(
-                debate_id="test-debate",
-                consensus_reached=False,
-                final_answer=None,
-                confidence=0.0,
-                rounds_completed=5,
-            )
-
+        with (
+            patch.object(coordinator, "_collect_proposals", new_callable=AsyncMock),
+            patch.object(coordinator, "_collect_critiques", new_callable=AsyncMock),
+        ):
             result = await coordinator.start_debate(
                 task="Design review",
                 context={"codebase": "python", "team_size": 5},
             )
 
-            assert result.rounds_completed == 5
+        assert result.rounds_completed == coordinator._config.max_rounds
 
 
 class TestDistributedDebateCoordinatorEventHandling:
@@ -243,7 +264,7 @@ class TestDistributedDebateCoordinatorState:
     async def test_get_debate_state(self, coordinator):
         """Test getting debate state."""
         # Create a debate first
-        coordinator._active_debates["debate-123"] = DistributedDebateState(
+        coordinator._debates["debate-123"] = DistributedDebateState(
             debate_id="debate-123",
             task="Test task",
             coordinator_instance=coordinator._instance_id,
@@ -251,7 +272,7 @@ class TestDistributedDebateCoordinatorState:
             current_round=2,
         )
 
-        state = coordinator.get_debate_state("debate-123")
+        state = coordinator.get_debate("debate-123")
 
         assert state is not None
         assert state.debate_id == "debate-123"
@@ -260,19 +281,19 @@ class TestDistributedDebateCoordinatorState:
     @pytest.mark.asyncio
     async def test_get_nonexistent_debate_state(self, coordinator):
         """Test getting state for nonexistent debate."""
-        state = coordinator.get_debate_state("nonexistent")
+        state = coordinator.get_debate("nonexistent")
 
         assert state is None
 
     @pytest.mark.asyncio
     async def test_list_active_debates(self, coordinator):
         """Test listing active debates."""
-        coordinator._active_debates["debate-1"] = DistributedDebateState(
+        coordinator._debates["debate-1"] = DistributedDebateState(
             debate_id="debate-1",
             task="Task 1",
             coordinator_instance=coordinator._instance_id,
         )
-        coordinator._active_debates["debate-2"] = DistributedDebateState(
+        coordinator._debates["debate-2"] = DistributedDebateState(
             debate_id="debate-2",
             task="Task 2",
             coordinator_instance=coordinator._instance_id,
@@ -280,9 +301,10 @@ class TestDistributedDebateCoordinatorState:
 
         debates = coordinator.list_active_debates()
 
+        debate_ids = {debate.debate_id for debate in debates}
         assert len(debates) == 2
-        assert "debate-1" in debates
-        assert "debate-2" in debates
+        assert "debate-1" in debate_ids
+        assert "debate-2" in debate_ids
 
 
 class TestDistributedDebateCoordinatorConsensus:
@@ -325,11 +347,12 @@ class TestDistributedDebateCoordinatorConsensus:
             ],
         )
 
-        reached, confidence = coordinator._check_consensus(state)
+        coordinator._debates["debate-123"] = state
+        reached = await coordinator._check_consensus("debate-123", 1)
 
         # With 3/3 support, consensus should be reached
         assert reached is True
-        assert confidence > 0.8
+        assert state.confidence > 0.8
 
 
 class TestDistributedDebateResult:

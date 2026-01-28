@@ -124,11 +124,7 @@ class DecisionsAPI:
         Returns:
             Cancellation confirmation
         """
-        data: dict[str, Any] = {}
-        if reason:
-            data["reason"] = reason
-
-        return self._client._request("POST", f"/api/v1/decisions/{decision_id}/cancel", json=data)
+        raise NotImplementedError("Decision cancellation is not supported by the current API.")
 
     def retry(self, decision_id: str) -> dict[str, Any]:
         """
@@ -140,7 +136,7 @@ class DecisionsAPI:
         Returns:
             Retry result with new decision_id
         """
-        return self._client._request("POST", f"/api/v1/decisions/{decision_id}/retry")
+        raise NotImplementedError("Decision retry is not supported by the current API.")
 
     def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """
@@ -152,7 +148,7 @@ class DecisionsAPI:
         Returns:
             Decision receipt
         """
-        return self._client._request("GET", f"/api/v1/decisions/{decision_id}/receipt")
+        raise NotImplementedError("Decision receipts are not available in this API.")
 
     def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """
@@ -183,11 +179,7 @@ class DecisionsAPI:
         Returns:
             Feedback submission confirmation
         """
-        data: dict[str, Any] = {"rating": rating}
-        if comment:
-            data["comment"] = comment
-
-        return self._client._request("POST", f"/api/v1/decisions/{decision_id}/feedback", json=data)
+        raise NotImplementedError("Decision feedback is not available in this API.")
 
 
 class AsyncDecisionsAPI:
@@ -246,21 +238,15 @@ class AsyncDecisionsAPI:
 
     async def cancel(self, decision_id: str, reason: str | None = None) -> dict[str, Any]:
         """Cancel a pending or processing decision."""
-        data: dict[str, Any] = {}
-        if reason:
-            data["reason"] = reason
-
-        return await self._client._request(
-            "POST", f"/api/v1/decisions/{decision_id}/cancel", json=data
-        )
+        raise NotImplementedError("Decision cancellation is not supported by the current API.")
 
     async def retry(self, decision_id: str) -> dict[str, Any]:
         """Retry a failed decision."""
-        return await self._client._request("POST", f"/api/v1/decisions/{decision_id}/retry")
+        raise NotImplementedError("Decision retry is not supported by the current API.")
 
     async def get_receipt(self, decision_id: str) -> dict[str, Any]:
         """Get the receipt for a completed decision."""
-        return await self._client._request("GET", f"/api/v1/decisions/{decision_id}/receipt")
+        raise NotImplementedError("Decision receipts are not available in this API.")
 
     async def get_explanation(self, decision_id: str) -> dict[str, Any]:
         """Get the explanation for a completed decision."""
@@ -273,10 +259,4 @@ class AsyncDecisionsAPI:
         comment: str | None = None,
     ) -> dict[str, Any]:
         """Submit feedback on a decision."""
-        data: dict[str, Any] = {"rating": rating}
-        if comment:
-            data["comment"] = comment
-
-        return await self._client._request(
-            "POST", f"/api/v1/decisions/{decision_id}/feedback", json=data
-        )
+        raise NotImplementedError("Decision feedback is not available in this API.")

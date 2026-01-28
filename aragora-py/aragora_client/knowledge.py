@@ -60,6 +60,19 @@ class KnowledgeAPI:
 
     def __init__(self, client) -> None:
         self._client = client
+        self._default_workspace_id = "default"
+
+    def _fact_to_entry(self, data: dict[str, Any]) -> KnowledgeEntry:
+        """Normalize fact payloads into KnowledgeEntry for backward compatibility."""
+        payload = dict(data)
+        if "statement" in payload and "content" not in payload:
+            payload["content"] = payload.get("statement")
+        if "topics" in payload and "tags" not in payload:
+            payload["tags"] = payload.get("topics")
+        if "source_documents" in payload and "source" not in payload:
+            docs = payload.get("source_documents") or []
+            payload["source"] = docs[0] if docs else None
+        return KnowledgeEntry.model_validate(payload)
 
     # ==========================================================================
     # Search and Query
@@ -76,7 +89,7 @@ class KnowledgeAPI:
         workspace_id: str | None = None,
     ) -> list[KnowledgeSearchResult]:
         """Search knowledge chunks via embeddings."""
-        params: dict[str, Any] = {"query": query, "limit": limit}
+        params: dict[str, Any] = {"q": query, "limit": limit}
         if min_score is not None:
             params["min_score"] = min_score
         if source_filter:
@@ -114,63 +127,84 @@ class KnowledgeAPI:
         self,
         content: str,
         *,
-        source: str | None = None,
-        source_type: str | None = None,
+        statement: str | None = None,
+        workspace_id: str | None = None,
+        topics: list[str] | None = None,
+        evidence_ids: list[str] | None = None,
+        source_documents: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
         tags: list[str] | None = None,
+        source: str | None = None,
+        source_type: str | None = None,
         confidence: float | None = None,
-    ) -> dict[str, Any]:
-        """Add a new knowledge entry."""
-        payload: dict[str, Any] = {"content": content}
-        if source is not None:
-            payload["source"] = source
-        if source_type is not None:
-            payload["source_type"] = source_type
+    ) -> KnowledgeEntry:
+        """Add a new knowledge fact (backwards compatible with KnowledgeEntry)."""
+        payload: dict[str, Any] = {
+            "statement": statement or content,
+            "workspace_id": workspace_id or self._default_workspace_id,
+            "confidence": confidence if confidence is not None else 0.5,
+        }
+        if topics is not None:
+            payload["topics"] = topics
+        if tags is not None and topics is None:
+            payload["topics"] = tags
+        if evidence_ids is not None:
+            payload["evidence_ids"] = evidence_ids
+        if source_documents is not None:
+            payload["source_documents"] = source_documents
+        elif source is not None:
+            payload["source_documents"] = [source]
         if metadata is not None:
-            payload["metadata"] = metadata
-        if tags is not None:
-            payload["tags"] = tags
-        if confidence is not None:
-            payload["confidence"] = confidence
-        return await self._client._post("/api/v1/knowledge", payload)
+            payload["metadata"] = dict(metadata)
+        if source_type is not None:
+            payload.setdefault("metadata", {})["source_type"] = source_type
+
+        data = await self._client._post("/api/v1/knowledge/facts", payload)
+        return self._fact_to_entry(data)
 
     async def get(self, entry_id: str) -> KnowledgeEntry:
-        """Get a knowledge entry by ID."""
-        data = await self._client._get(f"/api/v1/knowledge/{entry_id}")
-        return KnowledgeEntry.model_validate(data)
+        """Get a knowledge fact by ID."""
+        data = await self._client._get(f"/api/v1/knowledge/facts/{entry_id}")
+        return self._fact_to_entry(data)
 
     async def update(
         self,
         entry_id: str,
         *,
-        content: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        tags: list[str] | None = None,
         confidence: float | None = None,
-        source: str | None = None,
+        validation_status: str | None = None,
+        evidence_ids: list[str] | None = None,
+        topics: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        superseded_by: str | None = None,
+        tags: list[str] | None = None,
         source_type: str | None = None,
     ) -> KnowledgeEntry:
-        """Update a knowledge entry."""
+        """Update a knowledge fact."""
         updates: dict[str, Any] = {}
-        if content is not None:
-            updates["content"] = content
-        if metadata is not None:
-            updates["metadata"] = metadata
-        if tags is not None:
-            updates["tags"] = tags
         if confidence is not None:
             updates["confidence"] = confidence
-        if source is not None:
-            updates["source"] = source
+        if validation_status is not None:
+            updates["validation_status"] = validation_status
+        if evidence_ids is not None:
+            updates["evidence_ids"] = evidence_ids
+        if topics is not None:
+            updates["topics"] = topics
+        if tags is not None and topics is None:
+            updates["topics"] = tags
+        if metadata is not None:
+            updates["metadata"] = metadata
+        if superseded_by is not None:
+            updates["superseded_by"] = superseded_by
         if source_type is not None:
-            updates["source_type"] = source_type
-        data = await self._client._put(f"/api/v1/knowledge/{entry_id}", updates)
-        return KnowledgeEntry.model_validate(data)
+            updates.setdefault("metadata", {})["source_type"] = source_type
+        data = await self._client._put(f"/api/v1/knowledge/facts/{entry_id}", updates)
+        return self._fact_to_entry(data)
 
     async def delete(self, entry_id: str) -> dict[str, Any]:
-        """Delete a knowledge entry."""
-        result = await self._client._delete(f"/api/v1/knowledge/{entry_id}")
-        return result if result is not None else {"deleted": True}
+        """Delete a knowledge fact."""
+        result = await self._client._delete(f"/api/v1/knowledge/facts/{entry_id}")
+        return result if result is not None else {"deleted": True, "fact_id": entry_id}
 
     # ==========================================================================
     # Fact Operations
@@ -256,9 +290,34 @@ class KnowledgeAPI:
         *,
         skip_duplicates: bool = True,
     ) -> dict[str, Any]:
-        """Bulk import entries."""
-        payload = {"entries": entries, "skip_duplicates": skip_duplicates}
-        return await self._client._post("/api/v1/knowledge/bulk-import", payload)
+        """Bulk import entries by creating facts sequentially."""
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, Any]] = []
+        for entry in entries:
+            try:
+                statement = entry.get("statement") or entry.get("content") or ""
+                response = await self.add(
+                    statement,
+                    workspace_id=entry.get("workspace_id"),
+                    topics=entry.get("topics") or entry.get("tags"),
+                    evidence_ids=entry.get("evidence_ids"),
+                    source_documents=entry.get("source_documents"),
+                    metadata=entry.get("metadata"),
+                    source=entry.get("source"),
+                    source_type=entry.get("source_type"),
+                    confidence=entry.get("confidence"),
+                )
+                results.append(response.model_dump())
+            except Exception as exc:  # pragma: no cover - network failures
+                errors.append({"entry": entry, "error": str(exc)})
+
+        return {
+            "imported": len(results),
+            "failed": len(errors),
+            "results": results,
+            "errors": errors,
+            "skip_duplicates": skip_duplicates,
+        }
 
     # ==========================================================================
     # Compatibility aliases

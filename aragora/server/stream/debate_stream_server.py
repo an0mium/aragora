@@ -775,6 +775,7 @@ class DebateStreamServer(ServerBase):
         origin = self._extract_ws_origin(websocket)
         if origin and origin not in WS_ALLOWED_ORIGINS:
             self._release_ws_connection(client_ip)
+            logger.warning(f"[ws] Origin not allowed for {client_ip}: {origin}")
             await websocket.close(4003, "Origin not allowed")
             return (False, client_ip, "", 0, False, None)
 
