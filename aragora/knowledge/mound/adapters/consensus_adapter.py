@@ -40,19 +40,14 @@ class SyncResult(TypedDict):
     duration_ms: float
 
 
-class ValidationSyncResult(TypedDict):
-    """Type for reverse validation sync result."""
-
-    records_analyzed: int
-    records_updated: int
-    errors: List[str]
-
-
 logger = logging.getLogger(__name__)
 
 # Import mixins for shared adapter functionality
 from aragora.knowledge.mound.adapters._semantic_mixin import SemanticSearchMixin
-from aragora.knowledge.mound.adapters._reverse_flow_base import ReverseFlowMixin
+from aragora.knowledge.mound.adapters._reverse_flow_base import (
+    ReverseFlowMixin,
+    ValidationSyncResult,
+)
 
 
 @dataclass
@@ -724,12 +719,16 @@ class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
         Returns:
             Dict with sync statistics
         """
+        import time
         from datetime import datetime
 
+        start_time = time.time()
         result: ValidationSyncResult = {
             "records_analyzed": 0,
             "records_updated": 0,
+            "records_skipped": 0,
             "errors": [],
+            "duration_ms": 0.0,
         }
 
         for item in km_items:
@@ -783,10 +782,12 @@ class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
                 result["errors"].append(f"Failed to update {source_id}: {str(e)}")
                 logger.warning(f"Reverse sync failed for consensus {source_id}: {e}")
 
+        result["duration_ms"] = (time.time() - start_time) * 1000
+
         logger.info(
             f"Consensus reverse sync complete: "
             f"analyzed={result['records_analyzed']}, "
             f"updated={result['records_updated']}"
         )
 
-        return result  # type: ignore[return-value]
+        return result
