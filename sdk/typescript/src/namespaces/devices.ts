@@ -326,7 +326,7 @@ export class DevicesAPI {
    * @returns Connector health status
    */
   async getHealth(): Promise<ConnectorHealth> {
-    return this.request('GET', '/devices/health') as Promise<ConnectorHealth>;
+    return this.client.request('GET', '/devices/health');
   }
 
   // ===========================================================================
@@ -343,7 +343,9 @@ export class DevicesAPI {
    * @returns Alexa skill response
    */
   async handleAlexaWebhook(request: AlexaRequest): Promise<AlexaResponse> {
-    return this.request('POST', '/devices/alexa/webhook', request) as Promise<AlexaResponse>;
+    return this.client.request('POST', '/devices/alexa/webhook', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 
   /**
@@ -356,6 +358,8 @@ export class DevicesAPI {
    * @returns Google Actions response
    */
   async handleGoogleWebhook(request: GoogleActionsRequest): Promise<GoogleActionsResponse> {
-    return this.request('POST', '/devices/google/webhook', request) as Promise<GoogleActionsResponse>;
+    return this.client.request('POST', '/devices/google/webhook', {
+      json: request as unknown as Record<string, unknown>,
+    });
   }
 }

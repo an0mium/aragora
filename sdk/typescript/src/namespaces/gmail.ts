@@ -135,19 +135,11 @@ export interface CreateDebateConfigRequest {
 // =============================================================================
 
 interface GmailClientInterface {
-  getGmailConnection(): Promise<GmailConnection | null>;
-  initiateGmailConnection(redirectUri?: string): Promise<OAuthInitResponse>;
-  completeGmailConnection(code: string, state: string): Promise<GmailConnection>;
-  disconnectGmail(): Promise<{ disconnected: boolean }>;
-  syncGmail(): Promise<SyncResult>;
-  listTriageRules(): Promise<{ rules: EmailTriageRule[] }>;
-  createTriageRule(body: CreateTriageRuleRequest): Promise<EmailTriageRule>;
-  updateTriageRule(ruleId: string, body: UpdateTriageRuleRequest): Promise<EmailTriageRule>;
-  deleteTriageRule(ruleId: string): Promise<{ deleted: boolean }>;
-  listDebateConfigs(): Promise<{ configs: EmailDebateConfig[] }>;
-  createDebateConfig(body: CreateDebateConfigRequest): Promise<EmailDebateConfig>;
-  listProcessedEmails(params?: PaginationParams & { status?: string }): Promise<ProcessedEmailList>;
-  getGmailStats(): Promise<GmailStats>;
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
 }
 
 // =============================================================================
@@ -200,7 +192,7 @@ export class GmailAPI {
    * @returns Connection object if connected, null otherwise.
    */
   async getConnection(): Promise<GmailConnection | null> {
-    return this.client.getGmailConnection();
+    return this.client.request('GET', '/api/v2/gmail/connection');
   }
 
   /**
@@ -217,7 +209,9 @@ export class GmailAPI {
    * ```
    */
   async initiateConnection(redirectUri?: string): Promise<OAuthInitResponse> {
-    return this.client.initiateGmailConnection(redirectUri);
+    return this.client.request('POST', '/api/v2/gmail/connect', {
+      json: redirectUri ? { redirect_uri: redirectUri } : undefined,
+    });
   }
 
   /**
@@ -228,21 +222,23 @@ export class GmailAPI {
    * @returns Connected Gmail account details.
    */
   async completeConnection(code: string, state: string): Promise<GmailConnection> {
-    return this.client.completeGmailConnection(code, state);
+    return this.client.request('POST', '/api/v2/gmail/callback', {
+      json: { code, state },
+    });
   }
 
   /**
    * Disconnect Gmail account.
    */
   async disconnect(): Promise<{ disconnected: boolean }> {
-    return this.client.disconnectGmail();
+    return this.client.request('POST', '/api/v2/gmail/disconnect');
   }
 
   /**
    * Trigger manual email sync.
    */
   async sync(): Promise<SyncResult> {
-    return this.client.syncGmail();
+    return this.client.request('POST', '/api/v2/gmail/sync');
   }
 
   // ===========================================================================
@@ -253,7 +249,7 @@ export class GmailAPI {
    * List email triage rules.
    */
   async listTriageRules(): Promise<EmailTriageRule[]> {
-    const response = await this.client.listTriageRules();
+    const response = await this.client.request<{ rules: EmailTriageRule[] }>('GET', '/api/v2/gmail/triage-rules');
     return response.rules;
   }
 
@@ -271,21 +267,25 @@ export class GmailAPI {
    * ```
    */
   async createTriageRule(request: CreateTriageRuleRequest): Promise<EmailTriageRule> {
-    return this.client.createTriageRule(request);
+    return this.client.request('POST', '/api/v2/gmail/triage-rules', {
+      json: request,
+    });
   }
 
   /**
    * Update an email triage rule.
    */
   async updateTriageRule(ruleId: string, request: UpdateTriageRuleRequest): Promise<EmailTriageRule> {
-    return this.client.updateTriageRule(ruleId, request);
+    return this.client.request('PATCH', `/api/v2/gmail/triage-rules/${ruleId}`, {
+      json: request,
+    });
   }
 
   /**
    * Delete an email triage rule.
    */
   async deleteTriageRule(ruleId: string): Promise<{ deleted: boolean }> {
-    return this.client.deleteTriageRule(ruleId);
+    return this.client.request('DELETE', `/api/v2/gmail/triage-rules/${ruleId}`);
   }
 
   // ===========================================================================
@@ -296,7 +296,7 @@ export class GmailAPI {
    * List email debate configurations.
    */
   async listDebateConfigs(): Promise<EmailDebateConfig[]> {
-    const response = await this.client.listDebateConfigs();
+    const response = await this.client.request<{ configs: EmailDebateConfig[] }>('GET', '/api/v2/gmail/debate-configs');
     return response.configs;
   }
 
@@ -314,7 +314,9 @@ export class GmailAPI {
    * ```
    */
   async createDebateConfig(request: CreateDebateConfigRequest): Promise<EmailDebateConfig> {
-    return this.client.createDebateConfig(request);
+    return this.client.request('POST', '/api/v2/gmail/debate-configs', {
+      json: request,
+    });
   }
 
   // ===========================================================================
@@ -329,13 +331,15 @@ export class GmailAPI {
    * @param params.offset - Offset for pagination.
    */
   async listProcessedEmails(params?: PaginationParams & { status?: string }): Promise<ProcessedEmailList> {
-    return this.client.listProcessedEmails(params);
+    return this.client.request('GET', '/api/v2/gmail/processed', {
+      params: params as Record<string, unknown>,
+    });
   }
 
   /**
    * Get Gmail processing statistics.
    */
   async getStats(): Promise<GmailStats> {
-    return this.client.getGmailStats();
+    return this.client.request('GET', '/api/v2/gmail/stats');
   }
 }

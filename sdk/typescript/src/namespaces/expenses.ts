@@ -119,12 +119,16 @@ export interface CategorizeResult {
 // Expenses API
 // =============================================================================
 
-type RequestFn = (
-  method: string,
-  path: string,
-  data?: unknown,
-  params?: Record<string, unknown>
-) => Promise<unknown>;
+/**
+ * Client interface for expenses operations.
+ */
+interface ExpensesClientInterface {
+  request<T = unknown>(
+    method: string,
+    path: string,
+    options?: { params?: Record<string, unknown>; json?: Record<string, unknown> }
+  ): Promise<T>;
+}
 
 /**
  * Expenses namespace API for expense tracking and management.
@@ -136,7 +140,7 @@ type RequestFn = (
  * - QuickBooks Online sync
  */
 export class ExpensesAPI {
-  constructor(private request: RequestFn) {}
+  constructor(private client: ExpensesClientInterface) {}
 
   // ===========================================================================
   // Receipt Processing
