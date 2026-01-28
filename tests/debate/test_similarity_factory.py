@@ -227,10 +227,9 @@ class TestBackendFunctionality:
         sim = backend.compute_similarity("", "")
         assert sim == 0.0
 
+    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_tfidf_compute_similarity(self):
         """Test tfidf backend computes similarity."""
-        if not SimilarityFactory.is_available("tfidf"):
-            pytest.skip("TFIDFBackend requires scikit-learn")
         backend = SimilarityFactory.create("tfidf")
         sim = backend.compute_similarity(
             "The quick brown fox jumps over the lazy dog",
@@ -240,10 +239,9 @@ class TestBackendFunctionality:
         # Should have some similarity due to shared words
         assert sim > 0.1
 
+    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_tfidf_identical_texts(self):
         """Test tfidf returns 1.0 for identical texts."""
-        if not SimilarityFactory.is_available("tfidf"):
-            pytest.skip("TFIDFBackend requires scikit-learn")
         backend = SimilarityFactory.create("tfidf")
         sim = backend.compute_similarity(
             "The quick brown fox",
