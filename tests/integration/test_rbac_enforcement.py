@@ -224,7 +224,7 @@ class TestBackupHandlerRBACEnforcement:
 
         # With correct permission
         ctx = AuthorizationContext(
-            user_id="user_123",
+            user_id="backup_user_with_perm",
             permissions={"backup.read"},
         )
         result = protected_func(ctx)
@@ -232,10 +232,10 @@ class TestBackupHandlerRBACEnforcement:
 
         # Without permission - use different user_id to avoid cache collision
         ctx_no_perms = AuthorizationContext(
-            user_id="user_456_no_perms",
+            user_id="backup_user_no_perm",
             permissions={"other.perm"},
         )
-        with pytest.raises(Exception):  # PermissionDenied
+        with pytest.raises(PermissionDeniedError):
             protected_func(ctx_no_perms)
 
 

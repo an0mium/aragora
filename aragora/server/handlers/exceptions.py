@@ -267,6 +267,13 @@ EXCEPTION_MAP: dict[type, Tuple[int, str, bool]] = {
     sqlite3.IntegrityError: (409, "warning", False),  # Often a conflict
     # Timeouts
     TimeoutError: (504, "warning", False),
+    HandlerTimeoutError: (504, "warning", True),
+    # JSON parsing
+    HandlerJSONParseError: (400, "info", True),
+    # Streaming
+    HandlerStreamError: (500, "warning", True),
+    # OAuth
+    HandlerOAuthError: (400, "info", True),
 }
 
 # Generic error messages for exceptions that shouldn't expose details
@@ -391,6 +398,10 @@ __all__ = [
     "HandlerRateLimitError",
     "HandlerExternalServiceError",
     "HandlerDatabaseError",
+    "HandlerJSONParseError",
+    "HandlerTimeoutError",
+    "HandlerStreamError",
+    "HandlerOAuthError",
     # Classification utilities
     "classify_exception",
     "handle_handler_error",

@@ -8,12 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.integrations.langchain import (
     AragoraTool,
+    AragoraDebateTool,
     AragoraRetriever,
     AragoraCallbackHandler,
-    AragoraToolInput,
     is_langchain_available,
-    get_langchain_version,
+    LANGCHAIN_AVAILABLE,
 )
+from aragora.integrations.langchain.tools import AragoraToolInput, get_langchain_version
 
 
 # =============================================================================
