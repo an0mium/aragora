@@ -17,6 +17,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import requires_sklearn, REQUIRES_SKLEARN
+
 from aragora.debate.convergence import (
     AdvancedConvergenceAnalyzer,
     AdvancedConvergenceMetrics,
@@ -273,17 +275,15 @@ class TestJaccardBackendThreadSafety:
 # =============================================================================
 
 
+@pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
 class TestTFIDFBackend:
     """Tests for TFIDFBackend similarity computation."""
 
     @pytest.fixture
     def backend(self):
-        """Create TF-IDF backend if sklearn is available."""
-        try:
-            TFIDFBackend.clear_cache()
-            return TFIDFBackend()
-        except ImportError:
-            pytest.skip("scikit-learn not installed")
+        """Create TF-IDF backend."""
+        TFIDFBackend.clear_cache()
+        return TFIDFBackend()
 
     def test_identical_texts(self, backend):
         """Identical texts have similarity close to 1.0."""
@@ -926,13 +926,11 @@ class TestGetSimilarityBackend:
         backend = get_similarity_backend("jaccard")
         assert isinstance(backend, JaccardBackend)
 
+    @pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
     def test_get_tfidf_if_available(self):
         """Request TF-IDF backend if sklearn available."""
-        try:
-            backend = get_similarity_backend("tfidf")
-            assert isinstance(backend, TFIDFBackend)
-        except ImportError:
-            pytest.skip("scikit-learn not installed")
+        backend = get_similarity_backend("tfidf")
+        assert isinstance(backend, TFIDFBackend)
 
     def test_get_auto_selects_best(self):
         """Auto mode selects best available backend (Jaccard due to env override)."""

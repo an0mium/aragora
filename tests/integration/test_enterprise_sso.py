@@ -17,12 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Skip all tests unless RUN_SSO_API_UPDATE_TESTS is set
-if not os.environ.get("RUN_SSO_API_UPDATE_TESTS"):
-    pytest.skip(
-        "OIDCConfig API changed, tests need update (set RUN_SSO_API_UPDATE_TESTS=1)",
-        allow_module_level=True,
-    )
+# Tests now use the updated OIDCConfig API with factory methods
 
 
 @dataclass

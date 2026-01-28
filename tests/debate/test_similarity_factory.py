@@ -3,6 +3,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
+from tests.conftest import requires_sklearn, REQUIRES_SKLEARN
+
 from aragora.debate.similarity.factory import (
     SimilarityFactory,
     BackendInfo,
