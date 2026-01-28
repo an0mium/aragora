@@ -505,75 +505,66 @@ class TestHandleGetRouting:
 # ============================================================================
 
 
+@requires_matrix_handler
 class TestMatrixDebateFallback:
     """Tests for fallback implementation when MatrixDebateRunner unavailable."""
 
     @pytest.mark.asyncio
     async def test_fallback_runs_scenarios_in_parallel(self, mock_handler, sample_scenarios):
         """Test fallback runs scenarios concurrently."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
+        handler = MatrixDebatesHandler({})
 
-            handler = MatrixDebatesHandler({})
+        mock_agent = Mock()
+        mock_agent.name = "claude"
 
-            mock_agent = Mock()
-            mock_agent.name = "claude"
+        with patch.object(handler, "_load_agents", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = [mock_agent]
 
-            with patch.object(handler, "_load_agents", new_callable=AsyncMock) as mock_load:
-                mock_load.return_value = [mock_agent]
-
-                # Mock Arena to track scenario runs
-                with patch("aragora.debate.orchestrator.Arena") as mock_arena_class:
-                    mock_arena = Mock()
-                    mock_arena.run = AsyncMock(
-                        return_value=Mock(
-                            winner="claude",
-                            final_answer="Test answer",
-                            confidence=0.8,
-                            consensus_reached=True,
-                            rounds_used=2,
-                        )
+            # Mock Arena to track scenario runs
+            with patch("aragora.debate.orchestrator.Arena") as mock_arena_class:
+                mock_arena = Mock()
+                mock_arena.run = AsyncMock(
+                    return_value=Mock(
+                        winner="claude",
+                        final_answer="Test answer",
+                        confidence=0.8,
+                        consensus_reached=True,
+                        rounds_used=2,
                     )
-                    mock_arena_class.return_value = mock_arena
-
-                    result = await handler._run_matrix_debate_fallback(
-                        mock_handler,
-                        {
-                            "task": "Test task",
-                            "scenarios": sample_scenarios,
-                            "agents": ["claude"],
-                            "max_rounds": 3,
-                        },
-                    )
-
-                    assert result.status_code == 200
-                    data = json.loads(result.body)
-                    assert "matrix_id" in data
-                    assert data["scenario_count"] == 3
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available (see #133)")
-
-    @pytest.mark.asyncio
-    async def test_fallback_no_agents(self, mock_handler, sample_scenarios):
-        """Test fallback returns error when no agents loaded."""
-        try:
-            from aragora.server.handlers.debates import MatrixDebatesHandler
-
-            handler = MatrixDebatesHandler({})
-
-            with patch.object(handler, "_load_agents", new_callable=AsyncMock) as mock_load:
-                mock_load.return_value = []
+                )
+                mock_arena_class.return_value = mock_arena
 
                 result = await handler._run_matrix_debate_fallback(
                     mock_handler,
                     {
                         "task": "Test task",
                         "scenarios": sample_scenarios,
+                        "agents": ["claude"],
+                        "max_rounds": 3,
                     },
                 )
 
-                assert result.status_code == 400
+                assert result.status_code == 200
                 data = json.loads(result.body)
-                assert "agent" in data.get("error", "").lower()
-        except ImportError:
-            pytest.skip("MatrixDebatesHandler not available (see #133)")
+                assert "matrix_id" in data
+                assert data["scenario_count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_fallback_no_agents(self, mock_handler, sample_scenarios):
+        """Test fallback returns error when no agents loaded."""
+        handler = MatrixDebatesHandler({})
+
+        with patch.object(handler, "_load_agents", new_callable=AsyncMock) as mock_load:
+            mock_load.return_value = []
+
+            result = await handler._run_matrix_debate_fallback(
+                mock_handler,
+                {
+                    "task": "Test task",
+                    "scenarios": sample_scenarios,
+                },
+            )
+
+            assert result.status_code == 400
+            data = json.loads(result.body)
+            assert "agent" in data.get("error", "").lower()
