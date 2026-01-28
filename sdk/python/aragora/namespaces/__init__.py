@@ -35,6 +35,7 @@ from .decisions import AsyncDecisionsAPI, DecisionsAPI
 from .deliberations import AsyncDeliberationsAPI, DeliberationsAPI
 from .devices import AsyncDevicesAPI, DevicesAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
+from .email_priority import AsyncEmailPriorityAPI, EmailPriorityAPI
 from .email_services import AsyncEmailServicesAPI, EmailServicesAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
@@ -43,22 +44,29 @@ from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .genesis import AsyncGenesisAPI, GenesisAPI
 from .gmail import AsyncGmailAPI, GmailAPI
 from .health import AsyncHealthAPI, HealthAPI
+from .history import AsyncHistoryAPI, HistoryAPI
 from .integrations import AsyncIntegrationsAPI, IntegrationsAPI
+from .introspection import AsyncIntrospectionAPI, IntrospectionAPI
 from .invoice_processing import AsyncInvoiceProcessingAPI, InvoiceProcessingAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
+from .laboratory import AsyncLaboratoryAPI, LaboratoryAPI
 from .leaderboard import AsyncLeaderboardAPI, LeaderboardAPI
 from .learning import AsyncLearningAPI, LearningAPI
 from .marketplace import AsyncMarketplaceAPI, MarketplaceAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
 from .metrics import AsyncMetricsAPI, MetricsAPI
+from .moments import AsyncMomentsAPI, MomentsAPI
 from .monitoring import AsyncMonitoringAPI, MonitoringAPI
 from .nomic import AsyncNomicAPI, NomicAPI
 from .notifications import AsyncNotificationsAPI, NotificationsAPI
+from .oauth import AsyncOAuthAPI, OAuthAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
 from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .outlook import AsyncOutlookAPI, OutlookAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI
+from .persona import AsyncPersonaAPI, PersonaAPI
 from .plugins import AsyncPluginsAPI, PluginsAPI
+from .podcast import AsyncPodcastAPI, PodcastAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
 from .privacy import AsyncPrivacyAPI, PrivacyAPI
 from .pulse import AsyncPulseAPI, PulseAPI
@@ -67,8 +75,10 @@ from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
 from .relationships import AsyncRelationshipsAPI, RelationshipsAPI
 from .replays import AsyncReplaysAPI, ReplaysAPI
+from .retention import AsyncRetentionAPI, RetentionAPI
 from .rlm import RLMAPI, AsyncRLMAPI
 from .routing import AsyncRoutingAPI, RoutingAPI
+from .skills import AsyncSkillsAPI, SkillsAPI
 from .sme import SMEAPI, AsyncSMEAPI
 from .system import AsyncSystemAPI, SystemAPI
 from .teams import AsyncTeamsAPI, TeamsAPI
@@ -79,11 +89,13 @@ from .training import AsyncTrainingAPI, TrainingAPI
 from .transcription import AsyncTranscriptionAPI, TranscriptionAPI
 from .unified_inbox import AsyncUnifiedInboxAPI, UnifiedInboxAPI
 from .usage import AsyncUsageAPI, UsageAPI
+from .usage_metering import AsyncUsageMeteringAPI, UsageMeteringAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .verticals import AsyncVerticalsAPI, VerticalsAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
 from .workflows import AsyncWorkflowsAPI, WorkflowsAPI
 from .workspaces import AsyncWorkspacesAPI, WorkspacesAPI
+from .youtube import AsyncYouTubeAPI, YouTubeAPI
 
 __all__ = [
     "A2AAPI",
@@ -188,12 +200,16 @@ __all__ = [
     "AsyncMemoryAPI",
     "MetricsAPI",
     "AsyncMetricsAPI",
+    "MomentsAPI",
+    "AsyncMomentsAPI",
     "MonitoringAPI",
     "AsyncMonitoringAPI",
     "NomicAPI",
     "AsyncNomicAPI",
     "NotificationsAPI",
     "AsyncNotificationsAPI",
+    "OAuthAPI",
+    "AsyncOAuthAPI",
     "OnboardingAPI",
     "AsyncOnboardingAPI",
     "OrganizationsAPI",
@@ -202,8 +218,12 @@ __all__ = [
     "AsyncOutlookAPI",
     "PaymentsAPI",
     "AsyncPaymentsAPI",
+    "PersonaAPI",
+    "AsyncPersonaAPI",
     "PluginsAPI",
     "AsyncPluginsAPI",
+    "PodcastAPI",
+    "AsyncPodcastAPI",
     "PoliciesAPI",
     "AsyncPoliciesAPI",
     "PrivacyAPI",
@@ -220,10 +240,14 @@ __all__ = [
     "AsyncRelationshipsAPI",
     "ReplaysAPI",
     "AsyncReplaysAPI",
+    "RetentionAPI",
+    "AsyncRetentionAPI",
     "RLMAPI",
     "AsyncRLMAPI",
     "RoutingAPI",
     "AsyncRoutingAPI",
+    "SkillsAPI",
+    "AsyncSkillsAPI",
     "SMEAPI",
     "AsyncSMEAPI",
     "SystemAPI",
@@ -244,6 +268,8 @@ __all__ = [
     "AsyncUnifiedInboxAPI",
     "UsageAPI",
     "AsyncUsageAPI",
+    "UsageMeteringAPI",
+    "AsyncUsageMeteringAPI",
     "VerificationAPI",
     "AsyncVerificationAPI",
     "VerticalsAPI",
@@ -254,4 +280,6 @@ __all__ = [
     "AsyncWorkflowsAPI",
     "WorkspacesAPI",
     "AsyncWorkspacesAPI",
+    "YouTubeAPI",
+    "AsyncYouTubeAPI",
 ]
