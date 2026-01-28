@@ -15,7 +15,6 @@ Endpoints for enterprise document ingestion:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -558,75 +557,6 @@ class DocumentBatchHandler(BaseHandler):
         import uuid
 
         return f"batch-{uuid.uuid4().hex[:12]}"
-
-    def _submit_job_sync(self, processor, **kwargs) -> str:
-        """Synchronous wrapper for async job submission."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            # Create a new event loop in a thread for sync wrapper
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(lambda: asyncio.run(processor.submit(**kwargs)))
-                return future.result(timeout=30)
-        else:
-            return loop.run_until_complete(processor.submit(**kwargs))
-
-    def _get_status_sync(self, processor, job_id: str):
-        """Synchronous wrapper for async get_status."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(lambda: asyncio.run(processor.get_status(job_id)))
-                return future.result(timeout=10)
-        else:
-            return loop.run_until_complete(processor.get_status(job_id))
-
-    def _get_result_sync(self, processor, job_id: str):
-        """Synchronous wrapper for async get_result."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(lambda: asyncio.run(processor.get_result(job_id)))
-                return future.result(timeout=10)
-        else:
-            return loop.run_until_complete(processor.get_result(job_id))
-
-    def _cancel_sync(self, processor, job_id: str) -> bool:
-        """Synchronous wrapper for async cancel."""
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        if loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(lambda: asyncio.run(processor.cancel(job_id)))
-                return future.result(timeout=10)
-        else:
-            return loop.run_until_complete(processor.cancel(job_id))
 
     # Knowledge processing job handlers
 
