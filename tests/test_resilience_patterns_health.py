@@ -9,9 +9,8 @@ Tests cover:
 - Latency tracking
 """
 
-import time
+from datetime import datetime, timezone
 import pytest
-from unittest.mock import MagicMock
 
 from aragora.resilience_patterns import (
     HealthStatus,
@@ -26,26 +25,37 @@ class TestHealthStatus:
     def test_healthy_status(self):
         """Test creating healthy status."""
         status = HealthStatus(
-            component="test_component",
             healthy=True,
-            last_check=time.time(),
+            last_check=datetime.now(timezone.utc),
         )
-        assert status.component == "test_component"
         assert status.healthy is True
         assert status.consecutive_failures == 0
 
     def test_unhealthy_status(self):
         """Test creating unhealthy status."""
         status = HealthStatus(
-            component="test_component",
             healthy=False,
-            last_check=time.time(),
+            last_check=datetime.now(timezone.utc),
             consecutive_failures=3,
             last_error="Connection refused",
         )
         assert status.healthy is False
         assert status.consecutive_failures == 3
         assert status.last_error == "Connection refused"
+
+    def test_to_dict(self):
+        """Test serialization to dict."""
+        now = datetime.now(timezone.utc)
+        status = HealthStatus(
+            healthy=True,
+            last_check=now,
+            latency_ms=15.5,
+            metadata={"version": "1.0"},
+        )
+        data = status.to_dict()
+        assert data["healthy"] is True
+        assert data["latency_ms"] == 15.5
+        assert data["metadata"]["version"] == "1.0"
 
 
 class TestHealthChecker:
@@ -54,29 +64,32 @@ class TestHealthChecker:
     def test_initial_state(self):
         """Test initial healthy state."""
         checker = HealthChecker("test_component")
-        assert checker.is_healthy() is True
-        assert checker.get_consecutive_failures() == 0
+        status = checker.get_status()
+        assert status.healthy is True
+        assert status.consecutive_failures == 0
 
     def test_record_success(self):
         """Test recording successful checks."""
         checker = HealthChecker("test_component")
         checker.record_success(latency_ms=50.0)
 
-        assert checker.is_healthy() is True
         status = checker.get_status()
         assert status.healthy is True
+        assert status.latency_ms == 50.0
 
     def test_record_failure_below_threshold(self):
         """Test recording failures below threshold."""
         checker = HealthChecker("test_component", failure_threshold=3)
         checker.record_failure("Error 1")
 
-        assert checker.is_healthy() is True  # Still healthy
-        assert checker.get_consecutive_failures() == 1
+        status = checker.get_status()
+        assert status.healthy is True  # Still healthy
+        assert status.consecutive_failures == 1
 
         checker.record_failure("Error 2")
-        assert checker.is_healthy() is True
-        assert checker.get_consecutive_failures() == 2
+        status = checker.get_status()
+        assert status.healthy is True
+        assert status.consecutive_failures == 2
 
     def test_transition_to_unhealthy(self):
         """Test transition to unhealthy after threshold."""
@@ -85,8 +98,9 @@ class TestHealthChecker:
         for i in range(3):
             checker.record_failure(f"Error {i}")
 
-        assert checker.is_healthy() is False
-        assert checker.get_consecutive_failures() == 3
+        status = checker.get_status()
+        assert status.healthy is False
+        assert status.consecutive_failures == 3
 
     def test_recovery_after_success(self):
         """Test recovery after successful checks."""
@@ -95,14 +109,14 @@ class TestHealthChecker:
         # Make unhealthy
         checker.record_failure("Error 1")
         checker.record_failure("Error 2")
-        assert checker.is_healthy() is False
+        assert checker.get_status().healthy is False
 
         # Start recovery
         checker.record_success()
-        assert checker.is_healthy() is False  # Not yet recovered
+        assert checker.get_status().healthy is False  # Not yet recovered
 
         checker.record_success()
-        assert checker.is_healthy() is True  # Recovered
+        assert checker.get_status().healthy is True  # Recovered
 
     def test_failure_resets_recovery(self):
         """Test that failure resets recovery progress."""
@@ -111,7 +125,7 @@ class TestHealthChecker:
         # Make unhealthy
         checker.record_failure("Error 1")
         checker.record_failure("Error 2")
-        assert checker.is_healthy() is False
+        assert checker.get_status().healthy is False
 
         # Start recovery
         checker.record_success()
@@ -121,7 +135,7 @@ class TestHealthChecker:
         checker.record_failure("Error 3")
 
         # Should need full recovery again
-        assert checker.is_healthy() is False
+        assert checker.get_status().healthy is False
 
     def test_latency_tracking(self):
         """Test latency tracking."""
@@ -132,7 +146,7 @@ class TestHealthChecker:
         checker.record_success(latency_ms=150.0)
 
         status = checker.get_status()
-        assert status.avg_latency_ms == 150.0  # (100 + 200 + 150) / 3
+        assert status.latency_ms == 150.0  # (100 + 200 + 150) / 3
 
     def test_latency_window(self):
         """Test latency sliding window."""
@@ -144,7 +158,7 @@ class TestHealthChecker:
         checker.record_success(latency_ms=400.0)  # Pushes out 100
 
         status = checker.get_status()
-        assert status.avg_latency_ms == 300.0  # (200 + 300 + 400) / 3
+        assert status.latency_ms == 300.0  # (200 + 300 + 400) / 3
 
     def test_get_status(self):
         """Test getting full status."""
@@ -153,10 +167,9 @@ class TestHealthChecker:
         checker.record_failure("Test error")
 
         status = checker.get_status()
-        assert status.component == "test_component"
         assert status.consecutive_failures == 1
         assert status.last_error == "Test error"
-        assert status.last_check > 0
+        assert status.last_check is not None
 
     def test_custom_metadata(self):
         """Test custom metadata storage."""
@@ -174,12 +187,13 @@ class TestHealthChecker:
 
         checker.record_failure("Error 1")
         checker.record_failure("Error 2")
-        assert checker.is_healthy() is False
+        assert checker.get_status().healthy is False
 
         checker.reset()
 
-        assert checker.is_healthy() is True
-        assert checker.get_consecutive_failures() == 0
+        status = checker.get_status()
+        assert status.healthy is True
+        assert status.consecutive_failures == 0
 
 
 class TestHealthReport:
@@ -187,49 +201,66 @@ class TestHealthReport:
 
     def test_empty_report(self):
         """Test empty health report."""
-        report = HealthReport(components=[], overall_healthy=True)
+        report = HealthReport(
+            components={},
+            overall_healthy=True,
+            checked_at=datetime.now(timezone.utc),
+        )
         assert report.overall_healthy is True
         assert len(report.components) == 0
 
     def test_all_healthy(self):
         """Test report with all healthy components."""
-        components = [
-            HealthStatus(component="comp1", healthy=True, last_check=time.time()),
-            HealthStatus(component="comp2", healthy=True, last_check=time.time()),
-        ]
-        report = HealthReport(components=components, overall_healthy=True)
+        components = {
+            "comp1": HealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
+            "comp2": HealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
+        }
+        report = HealthReport(
+            components=components,
+            overall_healthy=True,
+            checked_at=datetime.now(timezone.utc),
+        )
 
         assert report.overall_healthy is True
         assert len(report.components) == 2
 
     def test_one_unhealthy(self):
         """Test report with one unhealthy component."""
-        components = [
-            HealthStatus(component="comp1", healthy=True, last_check=time.time()),
-            HealthStatus(
-                component="comp2",
+        components = {
+            "comp1": HealthStatus(healthy=True, last_check=datetime.now(timezone.utc)),
+            "comp2": HealthStatus(
                 healthy=False,
-                last_check=time.time(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=5,
             ),
-        ]
-        report = HealthReport(components=components, overall_healthy=False)
+        }
+        report = HealthReport(
+            components=components,
+            overall_healthy=False,
+            checked_at=datetime.now(timezone.utc),
+        )
 
         assert report.overall_healthy is False
-        unhealthy = [c for c in report.components if not c.healthy]
+        unhealthy = [name for name, status in report.components.items() if not status.healthy]
         assert len(unhealthy) == 1
+        assert "comp2" in unhealthy
 
     def test_to_dict(self):
         """Test serialization to dict."""
-        components = [
-            HealthStatus(component="comp1", healthy=True, last_check=1234567890.0),
-        ]
-        report = HealthReport(components=components, overall_healthy=True)
+        now = datetime.now(timezone.utc)
+        components = {
+            "comp1": HealthStatus(healthy=True, last_check=now),
+        }
+        report = HealthReport(
+            components=components,
+            overall_healthy=True,
+            checked_at=now,
+        )
 
         data = report.to_dict()
         assert data["overall_healthy"] is True
         assert len(data["components"]) == 1
-        assert data["components"][0]["component"] == "comp1"
+        assert "comp1" in data["components"]
 
 
 class TestHealthCheckerIntegration:
@@ -243,11 +274,11 @@ class TestHealthCheckerIntegration:
         states = []
         for _ in range(10):
             checker.record_success()
-            states.append(checker.is_healthy())
+            states.append(checker.get_status().healthy)
             checker.record_failure("Flap")
-            states.append(checker.is_healthy())
+            states.append(checker.get_status().healthy)
             checker.record_failure("Flap")
-            states.append(checker.is_healthy())
+            states.append(checker.get_status().healthy)
 
         # Should have transitioned multiple times
         transitions = sum(1 for i in range(1, len(states)) if states[i] != states[i - 1])
@@ -280,12 +311,20 @@ class TestHealthCheckerIntegration:
         # Service 2 stays healthy
         checker2.record_failure("Error")
 
-        assert checker1.is_healthy() is False
-        assert checker2.is_healthy() is True
+        assert checker1.get_status().healthy is False
+        assert checker2.get_status().healthy is True
 
         # Get combined report
-        statuses = [checker1.get_status(), checker2.get_status()]
-        report = HealthReport(components=statuses, overall_healthy=all(s.healthy for s in statuses))
+        statuses = {
+            "service1": checker1.get_status(),
+            "service2": checker2.get_status(),
+        }
+        report = HealthReport(
+            components=statuses,
+            overall_healthy=all(s.healthy for s in statuses.values()),
+            checked_at=datetime.now(timezone.utc),
+        )
 
         assert report.overall_healthy is False
-        assert len([c for c in report.components if not c.healthy]) == 1
+        unhealthy = [name for name, status in report.components.items() if not status.healthy]
+        assert len(unhealthy) == 1

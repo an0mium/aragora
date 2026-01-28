@@ -41,22 +41,22 @@ class TestCircuitBreakerConfig:
         """Test default configuration values."""
         config = CircuitBreakerConfig()
         assert config.failure_threshold == 5
-        assert config.success_threshold == 2
+        assert config.success_threshold == 3
         assert config.cooldown_seconds == 60.0
-        assert config.half_open_max_calls == 1
+        assert config.half_open_max_requests == 3
 
     def test_custom_config(self):
         """Test custom configuration."""
         config = CircuitBreakerConfig(
             failure_threshold=10,
-            success_threshold=3,
+            success_threshold=5,
             cooldown_seconds=30.0,
-            half_open_max_calls=2,
+            half_open_max_requests=2,
         )
         assert config.failure_threshold == 10
-        assert config.success_threshold == 3
+        assert config.success_threshold == 5
         assert config.cooldown_seconds == 30.0
-        assert config.half_open_max_calls == 2
+        assert config.half_open_max_requests == 2
 
 
 class TestBaseCircuitBreaker:
@@ -66,15 +66,17 @@ class TestBaseCircuitBreaker:
         """Test initial state is CLOSED."""
         cb = BaseCircuitBreaker("test")
         assert cb.state == CircuitState.CLOSED
-        assert cb.failure_count == 0
-        assert cb.success_count == 0
+        assert cb.is_closed is True
+        assert cb.is_open is False
 
     def test_record_success_in_closed_state(self):
         """Test recording success in closed state."""
         cb = BaseCircuitBreaker("test")
         cb.record_success()
         assert cb.state == CircuitState.CLOSED
-        assert cb.failure_count == 0
+        stats = cb.get_stats()
+        assert stats.consecutive_failures == 0
+        assert stats.success_count == 1
 
     def test_record_failure_below_threshold(self):
         """Test recording failures below threshold."""
@@ -83,11 +85,11 @@ class TestBaseCircuitBreaker:
 
         cb.record_failure()
         assert cb.state == CircuitState.CLOSED
-        assert cb.failure_count == 1
+        assert cb.get_stats().consecutive_failures == 1
 
         cb.record_failure()
         assert cb.state == CircuitState.CLOSED
-        assert cb.failure_count == 2
+        assert cb.get_stats().consecutive_failures == 2
 
     def test_transition_to_open(self):
         """Test transition from CLOSED to OPEN when threshold reached."""
@@ -98,12 +100,13 @@ class TestBaseCircuitBreaker:
             cb.record_failure()
 
         assert cb.state == CircuitState.OPEN
-        assert cb.failure_count == 3
+        assert cb.is_open is True
+        assert cb.get_stats().consecutive_failures == 3
 
-    def test_allow_request_when_closed(self):
+    def test_can_execute_when_closed(self):
         """Test that requests are allowed when circuit is closed."""
         cb = BaseCircuitBreaker("test")
-        assert cb.allow_request() is True
+        assert cb.can_execute() is True
 
     def test_block_request_when_open(self):
         """Test that requests are blocked when circuit is open."""
@@ -112,7 +115,7 @@ class TestBaseCircuitBreaker:
 
         cb.record_failure()  # Opens circuit
         assert cb.state == CircuitState.OPEN
-        assert cb.allow_request() is False
+        assert cb.can_execute() is False
 
     def test_transition_to_half_open_after_cooldown(self):
         """Test transition from OPEN to HALF_OPEN after cooldown."""
@@ -124,8 +127,8 @@ class TestBaseCircuitBreaker:
 
         time.sleep(0.15)  # Wait for cooldown
 
-        # Next allow_request check should transition to HALF_OPEN
-        assert cb.allow_request() is True
+        # Next can_execute check should transition to HALF_OPEN
+        assert cb.can_execute() is True
         assert cb.state == CircuitState.HALF_OPEN
 
     def test_close_circuit_on_success_in_half_open(self):
@@ -137,7 +140,7 @@ class TestBaseCircuitBreaker:
 
         cb.record_failure()  # CLOSED -> OPEN
         time.sleep(0.02)  # Wait for cooldown
-        cb.allow_request()  # OPEN -> HALF_OPEN
+        cb.can_execute()  # OPEN -> HALF_OPEN
 
         assert cb.state == CircuitState.HALF_OPEN
 
@@ -154,7 +157,7 @@ class TestBaseCircuitBreaker:
 
         cb.record_failure()  # CLOSED -> OPEN
         time.sleep(0.02)  # Wait for cooldown
-        cb.allow_request()  # OPEN -> HALF_OPEN
+        cb.can_execute()  # OPEN -> HALF_OPEN
 
         assert cb.state == CircuitState.HALF_OPEN
 
@@ -165,16 +168,16 @@ class TestBaseCircuitBreaker:
         """Test that state change callback is invoked."""
         callback_calls = []
 
-        def on_state_change(old_state, new_state):
-            callback_calls.append((old_state, new_state))
+        def on_state_change(name, old_state, new_state):
+            callback_calls.append((name, old_state, new_state))
 
-        config = CircuitBreakerConfig(failure_threshold=1)
-        cb = BaseCircuitBreaker("test", config, on_state_change=on_state_change)
+        config = CircuitBreakerConfig(failure_threshold=1, on_state_change=on_state_change)
+        cb = BaseCircuitBreaker("test", config)
 
         cb.record_failure()  # CLOSED -> OPEN
 
         assert len(callback_calls) == 1
-        assert callback_calls[0] == (CircuitState.CLOSED, CircuitState.OPEN)
+        assert callback_calls[0] == ("test", CircuitState.CLOSED, CircuitState.OPEN)
 
     def test_success_resets_failure_count(self):
         """Test that success resets consecutive failure count."""
@@ -183,10 +186,10 @@ class TestBaseCircuitBreaker:
 
         cb.record_failure()
         cb.record_failure()
-        assert cb.failure_count == 2
+        assert cb.get_stats().consecutive_failures == 2
 
         cb.record_success()
-        assert cb.failure_count == 0
+        assert cb.get_stats().consecutive_failures == 0
 
     def test_get_stats(self):
         """Test getting circuit breaker stats."""
@@ -195,10 +198,22 @@ class TestBaseCircuitBreaker:
         cb.record_failure()
 
         stats = cb.get_stats()
-        assert stats.name == "test"
         assert stats.state == CircuitState.CLOSED
-        assert stats.failure_count == 1
+        assert stats.consecutive_failures == 1
         assert stats.total_requests >= 2
+
+    def test_reset(self):
+        """Test reset functionality."""
+        config = CircuitBreakerConfig(failure_threshold=1)
+        cb = BaseCircuitBreaker("test", config)
+
+        cb.record_failure()  # Opens circuit
+        assert cb.state == CircuitState.OPEN
+
+        cb.reset()
+
+        assert cb.state == CircuitState.CLOSED
+        assert cb.get_stats().consecutive_failures == 0
 
 
 class TestWithCircuitBreakerDecorator:
@@ -207,8 +222,9 @@ class TestWithCircuitBreakerDecorator:
     @pytest.mark.asyncio
     async def test_success_passes_through(self):
         """Test successful calls pass through."""
+        config = CircuitBreakerConfig(failure_threshold=3)
 
-        @with_circuit_breaker(CircuitBreakerConfig(failure_threshold=3))
+        @with_circuit_breaker("test_success", config)
         async def success():
             return "success"
 
@@ -219,8 +235,9 @@ class TestWithCircuitBreakerDecorator:
     async def test_failure_recorded(self):
         """Test failures are recorded."""
         call_count = 0
+        config = CircuitBreakerConfig(failure_threshold=3)
 
-        @with_circuit_breaker(CircuitBreakerConfig(failure_threshold=3))
+        @with_circuit_breaker("test_failure", config)
         async def fail():
             nonlocal call_count
             call_count += 1
@@ -236,8 +253,9 @@ class TestWithCircuitBreakerDecorator:
     async def test_circuit_opens_after_threshold(self):
         """Test circuit opens after failure threshold."""
         call_count = 0
+        config = CircuitBreakerConfig(failure_threshold=2, cooldown_seconds=60.0)
 
-        @with_circuit_breaker(CircuitBreakerConfig(failure_threshold=2, cooldown_seconds=60.0))
+        @with_circuit_breaker("test_open", config)
         async def fail():
             nonlocal call_count
             call_count += 1
@@ -258,8 +276,9 @@ class TestWithCircuitBreakerDecorator:
     @pytest.mark.asyncio
     async def test_circuit_breaker_open_error_has_cooldown(self):
         """Test CircuitBreakerOpenError includes cooldown info."""
+        config = CircuitBreakerConfig(failure_threshold=1, cooldown_seconds=30.0)
 
-        @with_circuit_breaker(CircuitBreakerConfig(failure_threshold=1, cooldown_seconds=30.0))
+        @with_circuit_breaker("test_cooldown", config)
         async def fail():
             raise ValueError("fail")
 
@@ -269,6 +288,7 @@ class TestWithCircuitBreakerDecorator:
         try:
             await fail()
         except CircuitBreakerOpenError as e:
+            assert e.cooldown_remaining is not None
             assert e.cooldown_remaining > 0
             assert e.cooldown_remaining <= 30.0
 
@@ -278,14 +298,21 @@ class TestCircuitBreakerOpenError:
 
     def test_error_message(self):
         """Test error message format."""
-        error = CircuitBreakerOpenError("test_service", 25.5)
-        assert "test_service" in str(error)
-        assert "25.5" in str(error) or "25" in str(error)
+        error = CircuitBreakerOpenError(
+            message="Circuit is open",
+            circuit_name="test_service",
+            cooldown_remaining=25.5,
+        )
+        assert "Circuit is open" in str(error)
 
     def test_error_attributes(self):
         """Test error attributes."""
-        error = CircuitBreakerOpenError("test_service", 25.5)
-        assert error.service_name == "test_service"
+        error = CircuitBreakerOpenError(
+            message="Circuit is open",
+            circuit_name="test_service",
+            cooldown_remaining=25.5,
+        )
+        assert error.circuit_name == "test_service"
         assert error.cooldown_remaining == 25.5
 
 
@@ -297,8 +324,9 @@ class TestCircuitBreakerConcurrency:
         """Test concurrent calls are handled correctly."""
         call_count = 0
         success_count = 0
+        config = CircuitBreakerConfig(failure_threshold=10)
 
-        @with_circuit_breaker(CircuitBreakerConfig(failure_threshold=10))
+        @with_circuit_breaker("test_concurrent", config)
         async def concurrent_op():
             nonlocal call_count, success_count
             call_count += 1
@@ -322,7 +350,7 @@ class TestCircuitBreakerConcurrency:
 
         failure_count = 0
 
-        @with_circuit_breaker(config)
+        @with_circuit_breaker("test_concurrent_fail", config)
         async def concurrent_fail():
             nonlocal failure_count
             failure_count += 1

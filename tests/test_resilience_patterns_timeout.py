@@ -24,23 +24,23 @@ from aragora.resilience_patterns.timeout import TimeoutError as PatternTimeoutEr
 class TestTimeoutConfig:
     """Tests for TimeoutConfig dataclass."""
 
-    def test_default_config(self):
-        """Test default configuration values."""
-        config = TimeoutConfig()
-        assert config.timeout_seconds == 30.0
-        assert config.error_message is None
+    def test_required_seconds(self):
+        """Test that seconds is required."""
+        config = TimeoutConfig(seconds=5.0)
+        assert config.seconds == 5.0
         assert config.on_timeout is None
+        assert config.message is None
 
     def test_custom_config(self):
         """Test custom configuration."""
         callback = MagicMock()
         config = TimeoutConfig(
-            timeout_seconds=5.0,
-            error_message="Custom timeout message",
+            seconds=5.0,
+            message="Custom timeout message",
             on_timeout=callback,
         )
-        assert config.timeout_seconds == 5.0
-        assert config.error_message == "Custom timeout message"
+        assert config.seconds == 5.0
+        assert config.message == "Custom timeout message"
         assert config.on_timeout == callback
 
 
@@ -74,7 +74,7 @@ class TestWithTimeoutAsync:
     @pytest.mark.asyncio
     async def test_timeout_with_config(self):
         """Test timeout with TimeoutConfig."""
-        config = TimeoutConfig(timeout_seconds=0.1)
+        config = TimeoutConfig(seconds=0.1)
 
         @with_timeout(config)
         async def slow_op():
@@ -87,15 +87,15 @@ class TestWithTimeoutAsync:
     async def test_timeout_callback(self):
         """Test timeout callback invocation."""
         callback_called = False
-        timeout_value = None
+        operation_name = None
 
-        def on_timeout(seconds):
-            nonlocal callback_called, timeout_value
+        def on_timeout(op_name):
+            nonlocal callback_called, operation_name
             callback_called = True
-            timeout_value = seconds
+            operation_name = op_name
 
         config = TimeoutConfig(
-            timeout_seconds=0.1,
+            seconds=0.1,
             on_timeout=on_timeout,
         )
 
@@ -107,7 +107,7 @@ class TestWithTimeoutAsync:
             await slow_op()
 
         assert callback_called is True
-        assert timeout_value == 0.1
+        assert operation_name == "slow_op"
 
     @pytest.mark.asyncio
     async def test_exception_propagation(self):
@@ -177,13 +177,20 @@ class TestPatternTimeoutError:
 
     def test_error_message(self):
         """Test error message format."""
-        error = PatternTimeoutError(timeout_seconds=5.0, operation="test_operation")
-        assert "5.0" in str(error) or "5" in str(error)
-        assert "test_operation" in str(error)
+        error = PatternTimeoutError(
+            message="Operation 'test_op' timed out after 5.0s",
+            timeout_seconds=5.0,
+            operation="test_operation",
+        )
+        assert "timed out" in str(error)
 
     def test_error_attributes(self):
         """Test error attributes."""
-        error = PatternTimeoutError(timeout_seconds=10.0, operation="my_operation")
+        error = PatternTimeoutError(
+            message="Timeout",
+            timeout_seconds=10.0,
+            operation="my_operation",
+        )
         assert error.timeout_seconds == 10.0
         assert error.operation == "my_operation"
 
