@@ -70,6 +70,7 @@ from ..base import (
 )
 from ..secure import SecureHandler, ForbiddenError, UnauthorizedError
 from ..utils.rate_limit import RateLimiter, get_client_ip
+from aragora.resilience_patterns import with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,7 @@ class MatrixDebatesHandler(SecureHandler):
         logger.debug("POST /api/debates/matrix - running matrix debate")
         return await self._run_matrix_debate(handler, data)
 
+    @with_timeout(180.0)
     async def _run_matrix_debate(self, handler: Any, data: dict[str, Any]) -> HandlerResult:
         """Run parallel scenario debates.
 
