@@ -3,8 +3,8 @@
 Generated: 2026-01-28
 
 ## Summary
-- SDK TS endpoints not implemented by handlers: 770
-- SDK PY endpoints not implemented by handlers: 699
+- SDK TS endpoints not implemented by handlers: 759
+- SDK PY endpoints not implemented by handlers: 689
 
 These endpoints likely represent stale SDK methods or legacy routes. They should be removed,
 deprecated, or reintroduced in the server if still required.
@@ -23,8 +23,6 @@ DELETE /api/v1/accounting/expenses/sync
 DELETE /api/v1/accounting/expenses/upload
 DELETE /api/v1/analytics/{param}
 DELETE /api/v1/audit/sessions/{param}
-DELETE /api/v1/auth/api-keys/{param}
-DELETE /api/v1/auth/mfa
 DELETE /api/v1/bindings
 DELETE /api/v1/bindings/resolve
 DELETE /api/v1/bindings/stats
@@ -177,8 +175,6 @@ GET /api/v1/audit/sessions/{param}/report
 GET /api/v1/audit/stats
 GET /api/v1/audit/types
 GET /api/v1/audit/workflow/states
-GET /api/v1/auth/api-keys
-GET /api/v1/auth/oauth/authorize
 GET /api/v1/autonomous/monitoring/anomalies
 GET /api/v1/autonomous/monitoring/baseline/{param}
 GET /api/v1/autonomous/monitoring/trends
@@ -546,16 +542,9 @@ POST /api/v1/audit/sessions/{param}/intervene
 POST /api/v1/audit/sessions/{param}/pause
 POST /api/v1/audit/sessions/{param}/resume
 POST /api/v1/audit/sessions/{param}/start
-POST /api/v1/auth/accept-invite
-POST /api/v1/auth/api-keys
 POST /api/v1/auth/change-password
 POST /api/v1/auth/forgot-password
-POST /api/v1/auth/invite
-POST /api/v1/auth/oauth/callback
-POST /api/v1/auth/resend-verification
 POST /api/v1/auth/reset-password
-POST /api/v1/auth/setup-organization
-POST /api/v1/auth/verify-email
 POST /api/v1/autonomous/monitoring/record
 POST /api/v1/bindings
 POST /api/v1/bindings/resolve
@@ -797,7 +786,6 @@ DELETE /api/v1/accounting/expenses/sync
 DELETE /api/v1/accounting/expenses/upload
 DELETE /api/v1/accounting/expenses/{param}
 DELETE /api/v1/audit/sessions/{param}
-DELETE /api/v1/auth/api-keys/{param}
 DELETE /api/v1/backups/schedules/{param}
 DELETE /api/v1/backups/{param}
 DELETE /api/v1/bindings
@@ -933,8 +921,6 @@ GET /api/v1/audit/sessions/{param}/report
 GET /api/v1/audit/stats
 GET /api/v1/audit/types
 GET /api/v1/audit/workflow/states
-GET /api/v1/auth/api-keys
-GET /api/v1/auth/oauth/url
 GET /api/v1/backups
 GET /api/v1/backups/schedules
 GET /api/v1/backups/{param}
@@ -1280,14 +1266,7 @@ POST /api/v1/audit/sessions/{param}/intervene
 POST /api/v1/audit/sessions/{param}/pause
 POST /api/v1/audit/sessions/{param}/resume
 POST /api/v1/audit/sessions/{param}/start
-POST /api/v1/auth/api-keys
 POST /api/v1/auth/logout/all
-POST /api/v1/auth/oauth/callback
-POST /api/v1/auth/password/change
-POST /api/v1/auth/password/forgot
-POST /api/v1/auth/password/reset
-POST /api/v1/auth/verify-email
-POST /api/v1/auth/verify-email/resend
 POST /api/v1/backups
 POST /api/v1/backups/schedules
 POST /api/v1/backups/{param}/restore

@@ -33,6 +33,14 @@ from aragora.billing.jwt_auth import extract_user_from_request, validate_refresh
 from aragora.rbac import AuthorizationContext, check_permission
 from aragora.rbac.defaults import get_role_permissions
 
+from .signup_handlers import (
+    handle_accept_invite,
+    handle_check_invite,
+    handle_invite,
+    handle_resend_verification,
+    handle_setup_organization,
+    handle_verify_email,
+)
 from ..base import (
     HandlerResult,
     error_response,
@@ -85,14 +93,27 @@ class AuthHandler(SecureHandler):
         "/api/auth/revoke",
         "/api/auth/me",
         "/api/auth/password",
+        "/api/auth/password/change",
+        "/api/auth/password/forgot",
+        "/api/auth/password/reset",
         "/api/auth/api-key",
+        "/api/auth/api-keys",
+        "/api/auth/api-keys/*",
         "/api/auth/mfa/setup",
         "/api/auth/mfa/enable",
         "/api/auth/mfa/disable",
         "/api/auth/mfa/verify",
         "/api/auth/mfa/backup-codes",
+        "/api/auth/mfa",
         "/api/auth/sessions",
         "/api/auth/sessions/*",  # For DELETE /api/auth/sessions/:id
+        "/api/auth/verify-email",
+        "/api/auth/verify-email/resend",
+        "/api/auth/resend-verification",
+        "/api/auth/setup-organization",
+        "/api/auth/invite",
+        "/api/auth/check-invite",
+        "/api/auth/accept-invite",
     ]
 
     def can_handle(self, path: str) -> bool:
@@ -102,6 +123,8 @@ class AuthHandler(SecureHandler):
             return True
         # Handle wildcard routes for session management
         if normalized.startswith("/api/auth/sessions/"):
+            return True
+        if normalized.startswith("/api/auth/api-keys/"):
             return True
         return False
 
@@ -143,6 +166,15 @@ class AuthHandler(SecureHandler):
         if path == "/api/auth/password" and method == "POST":
             return self._handle_change_password(handler)
 
+        if path == "/api/auth/password/change" and method == "POST":
+            return self._handle_change_password(handler)
+
+        if path == "/api/auth/password/forgot" and method == "POST":
+            return error_response("Password reset flow not implemented", 501)
+
+        if path == "/api/auth/password/reset" and method == "POST":
+            return error_response("Password reset flow not implemented", 501)
+
         if path == "/api/auth/revoke" and method == "POST":
             return self._handle_revoke_token(handler)
 
@@ -152,6 +184,18 @@ class AuthHandler(SecureHandler):
             elif method == "DELETE":
                 return self._handle_revoke_api_key(handler)
 
+        if path == "/api/auth/api-keys":
+            if method == "GET":
+                return self._handle_list_api_keys(handler)
+            if method == "POST":
+                return self._handle_generate_api_key(handler)
+            if method == "DELETE":
+                return self._handle_revoke_api_key(handler)
+
+        if path.startswith("/api/auth/api-keys/") and method == "DELETE":
+            prefix = path.split("/")[-1]
+            return self._handle_revoke_api_key_prefix(handler, prefix)
+
         # MFA endpoints
         if path == "/api/auth/mfa/setup" and method == "POST":
             return self._handle_mfa_setup(handler)
@@ -160,6 +204,9 @@ class AuthHandler(SecureHandler):
             return self._handle_mfa_enable(handler)
 
         if path == "/api/auth/mfa/disable" and method == "POST":
+            return self._handle_mfa_disable(handler)
+
+        if path == "/api/auth/mfa" and method == "DELETE":
             return self._handle_mfa_disable(handler)
 
         if path == "/api/auth/mfa/verify" and method == "POST":
@@ -176,7 +223,50 @@ class AuthHandler(SecureHandler):
             session_id = path.split("/")[-1]
             return self._handle_revoke_session(handler, session_id)
 
+        if path == "/api/auth/verify-email" and method == "POST":
+            data = self.read_json_body(handler) or {}
+            return handle_verify_email(data)
+
+        if (
+            path in ("/api/auth/verify-email/resend", "/api/auth/resend-verification")
+            and method == "POST"
+        ):
+            data = self.read_json_body(handler) or {}
+            return handle_resend_verification(data)
+
+        if path == "/api/auth/setup-organization" and method == "POST":
+            data = self.read_json_body(handler) or {}
+            user_id, err = self._require_user_id(handler)
+            if err:
+                return err
+            return handle_setup_organization(data, user_id=user_id)
+
+        if path == "/api/auth/invite" and method == "POST":
+            data = self.read_json_body(handler) or {}
+            user_id, err = self._require_user_id(handler)
+            if err:
+                return err
+            return handle_invite(data, user_id=user_id)
+
+        if path == "/api/auth/check-invite" and method == "GET":
+            return handle_check_invite(query_params or {})
+
+        if path == "/api/auth/accept-invite" and method == "POST":
+            data = self.read_json_body(handler) or {}
+            user_id, err = self._require_user_id(handler)
+            if err:
+                return err
+            return handle_accept_invite(data, user_id=user_id)
+
         return error_response("Method not allowed", 405)
+
+    def _require_user_id(self, handler) -> tuple[Optional[str], Optional[HandlerResult]]:
+        """Return authenticated user_id or error response."""
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+        if not auth_ctx.is_authenticated or not auth_ctx.user_id:
+            return None, error_response("Authentication required", 401)
+        return auth_ctx.user_id, None
 
     def _get_user_store(self):
         """Get user store from context."""
@@ -918,6 +1008,80 @@ class AuthHandler(SecureHandler):
                 action="api_key_revoked",
                 target_type="api_key",
                 target_id=user.id,
+            )
+
+        return json_response({"message": "API key revoked"})
+
+    @rate_limit(rpm=10, limiter_name="auth_list_api_keys")
+    @handle_errors("list API keys")
+    def _handle_list_api_keys(self, handler) -> HandlerResult:
+        """List API keys for the current user."""
+        # RBAC check: reuse api_key.create permission for self-service listing
+        if error := self._check_permission(handler, "api_key.create"):
+            return error
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+
+        if not user_store:
+            return error_response("Authentication service unavailable", 503)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        keys = []
+        if user.api_key_prefix:
+            keys.append(
+                {
+                    "prefix": user.api_key_prefix,
+                    "created_at": (
+                        user.api_key_created_at.isoformat() if user.api_key_created_at else None
+                    ),
+                    "expires_at": (
+                        user.api_key_expires_at.isoformat() if user.api_key_expires_at else None
+                    ),
+                }
+            )
+
+        return json_response({"keys": keys, "count": len(keys)})
+
+    @rate_limit(rpm=5, limiter_name="auth_revoke_api_key_prefix")
+    @handle_errors("revoke API key (prefix)")
+    def _handle_revoke_api_key_prefix(self, handler, prefix: str) -> HandlerResult:
+        """Revoke the user's API key by prefix."""
+        if error := self._check_permission(handler, "api_key.revoke"):
+            return error
+
+        user_store = self._get_user_store()
+        auth_ctx = extract_user_from_request(handler, user_store)
+
+        if not user_store:
+            return error_response("Authentication service unavailable", 503)
+
+        user = user_store.get_user_by_id(auth_ctx.user_id)
+        if not user:
+            return error_response("User not found", 404)
+
+        if not user.api_key_prefix or user.api_key_prefix != prefix:
+            return error_response("API key not found", 404)
+
+        user_store.update_user(
+            user.id,
+            api_key_hash=None,
+            api_key_prefix=None,
+            api_key_created_at=None,
+            api_key_expires_at=None,
+        )
+
+        logger.info(f"API key revoked for user: {user.email} (prefix: {prefix})")
+
+        if AUDIT_AVAILABLE and audit_admin:
+            audit_admin(
+                admin_id=user.id,
+                action="api_key_revoked",
+                target_type="api_key",
+                target_id=prefix,
             )
 
         return json_response({"message": "API key revoked"})

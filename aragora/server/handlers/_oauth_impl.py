@@ -468,6 +468,9 @@ class OAuthHandler(SecureHandler):
         "/api/v1/auth/oauth/apple/callback",
         "/api/v1/auth/oauth/oidc",
         "/api/v1/auth/oauth/oidc/callback",
+        "/api/v1/auth/oauth/url",
+        "/api/v1/auth/oauth/authorize",
+        "/api/v1/auth/oauth/callback",
         "/api/v1/auth/oauth/link",
         "/api/v1/auth/oauth/unlink",
         "/api/v1/auth/oauth/providers",
@@ -483,6 +486,9 @@ class OAuthHandler(SecureHandler):
         "/api/auth/oauth/apple/callback",
         "/api/auth/oauth/oidc",
         "/api/auth/oauth/oidc/callback",
+        "/api/auth/oauth/url",
+        "/api/auth/oauth/authorize",
+        "/api/auth/oauth/callback",
         "/api/auth/oauth/link",
         "/api/auth/oauth/unlink",
         "/api/auth/oauth/providers",
@@ -538,6 +544,12 @@ class OAuthHandler(SecureHandler):
 
         if normalized == "/api/auth/oauth/oidc/callback" and method == "GET":
             return self._handle_oidc_callback(handler, query_params)
+
+        if normalized in ("/api/auth/oauth/url", "/api/auth/oauth/authorize") and method == "GET":
+            return self._handle_oauth_url(handler, query_params)
+
+        if normalized == "/api/auth/oauth/callback" and method == "POST":
+            return self._handle_oauth_callback_api(handler)
 
         if normalized == "/api/auth/oauth/link" and method == "POST":
             return self._handle_link_account(handler)
@@ -1843,6 +1855,101 @@ class OAuthHandler(SecureHandler):
             )
 
         return json_response({"providers": providers})
+
+    @handle_errors("get OAuth authorization URL")
+    def _handle_oauth_url(self, handler, query_params: dict) -> HandlerResult:
+        """Return OAuth authorization URL for a provider without redirecting."""
+        provider = _get_param(query_params, "provider")
+        if not provider:
+            return error_response("Provider is required", 400)
+        provider = provider.lower()
+
+        provider_map = {
+            "google": self._handle_google_auth_start,
+            "github": self._handle_github_auth_start,
+            "microsoft": self._handle_microsoft_auth_start,
+            "apple": self._handle_apple_auth_start,
+            "oidc": self._handle_oidc_auth_start,
+        }
+        handler_fn = provider_map.get(provider)
+        if handler_fn is None:
+            return error_response("Unsupported provider", 400)
+
+        result = handler_fn(handler, query_params)
+        auth_url = result.headers.get("Location") if result and result.headers else None
+        if not auth_url:
+            return error_response("Failed to generate OAuth URL", 500)
+
+        from urllib.parse import parse_qs, urlparse
+
+        state = None
+        try:
+            parsed = urlparse(auth_url)
+            state_vals = parse_qs(parsed.query).get("state")
+            if state_vals:
+                state = state_vals[0]
+        except Exception:
+            state = None
+
+        return json_response({"auth_url": auth_url, "state": state})
+
+    @handle_errors("OAuth callback (API)")
+    def _handle_oauth_callback_api(self, handler) -> HandlerResult:
+        """Complete OAuth flow and return tokens as JSON."""
+        body = self.read_json_body(handler)
+        if body is None:
+            return error_response("Invalid JSON body", 400)
+
+        provider = body.get("provider", "").lower()
+        code = body.get("code")
+        state = body.get("state")
+
+        if not provider or not code or not state:
+            return error_response("provider, code, and state are required", 400)
+
+        callback_map = {
+            "google": self._handle_google_callback,
+            "github": self._handle_github_callback,
+            "microsoft": self._handle_microsoft_callback,
+            "apple": self._handle_apple_callback,
+            "oidc": self._handle_oidc_callback,
+        }
+        handler_fn = callback_map.get(provider)
+        if handler_fn is None:
+            return error_response("Unsupported provider", 400)
+
+        result = handler_fn(handler, {"code": code, "state": state})
+        location = result.headers.get("Location") if result and result.headers else None
+        if not location:
+            return error_response("OAuth callback did not return redirect", 502)
+
+        from urllib.parse import parse_qs, urlparse
+
+        parsed = urlparse(location)
+        params = parse_qs(parsed.query)
+        if "error" in params:
+            return error_response(params.get("error", ["OAuth error"])[0], 400)
+
+        access_token = params.get("access_token", [None])[0]
+        if not access_token:
+            return error_response("OAuth callback did not return tokens", 502)
+
+        refresh_token = params.get("refresh_token", [None])[0]
+        token_type = params.get("token_type", ["Bearer"])[0]
+        expires_in_val = params.get("expires_in", [None])[0]
+        try:
+            expires_in = int(expires_in_val) if expires_in_val is not None else None
+        except (TypeError, ValueError):
+            expires_in = None
+
+        return json_response(
+            {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "token_type": token_type,
+                "expires_in": expires_in,
+            }
+        )
 
     @handle_errors("get user OAuth providers")
     def _handle_get_user_providers(self, handler) -> HandlerResult:

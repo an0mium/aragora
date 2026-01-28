@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 from .audio_engine import VOICE_MAP, generate_audio
 from .mixer import mix_audio, mix_audio_with_ffmpeg
+from .pipeline import BroadcastOptions, BroadcastPipeline
 from .script_gen import ScriptSegment, generate_script
 
 
@@ -96,6 +97,8 @@ def broadcast_debate_sync(
 
 
 __all__ = [
+    "BroadcastOptions",
+    "BroadcastPipeline",
     "generate_script",
     "ScriptSegment",
     "generate_audio",
