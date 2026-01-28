@@ -110,20 +110,20 @@ class HandlerInterface(Protocol):
 
     def handle_delete(
         self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
-        """Handle a DELETE request."""
+    ) -> MaybeAsyncHandlerResult:
+        """Handle a DELETE request. May be sync or async."""
         ...
 
     def handle_patch(
         self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
-        """Handle a PATCH request."""
+    ) -> MaybeAsyncHandlerResult:
+        """Handle a PATCH request. May be sync or async."""
         ...
 
     def handle_put(
         self, path: str, query_params: Dict[str, Any], handler: Any
-    ) -> Optional[HandlerResult]:
-        """Handle a PUT request."""
+    ) -> MaybeAsyncHandlerResult:
+        """Handle a PUT request. May be sync or async."""
         ...
 
 
@@ -323,6 +323,7 @@ def is_authenticated_handler(obj: Any) -> bool:
 __all__ = [
     # Result types
     "HandlerResult",
+    "MaybeAsyncHandlerResult",
     # Protocols
     "HandlerInterface",
     "AuthenticatedHandlerInterface",

@@ -765,15 +765,17 @@ describe('Core Namespace APIs', () => {
     it('should get factors via namespace', async () => {
       const client = createClient({ baseUrl: 'https://api.example.com' });
 
+      // Mock the actual API response format (confidence_attribution, not factors)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: () => Promise.resolve(JSON.stringify({
-          factors: [{ name: 'evidence_quality', weight: 0.4 }]
+          confidence_attribution: [{ factor: 'evidence_quality', contribution: 0.4, explanation: 'Strong evidence' }]
         })),
       });
 
       const result = await client.explainability.getFactors('debate-123');
       expect(result.factors).toHaveLength(1);
+      expect(result.factors[0].name).toBe('evidence_quality');
     });
 
     it('should get counterfactuals via namespace', async () => {
