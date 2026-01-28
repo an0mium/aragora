@@ -5182,10 +5182,52 @@ export class AragoraClient {
   }
 
   /**
+   * Get a specific organization (admin only).
+   */
+  async getAdminOrganization(orgId: string): Promise<import('./namespaces/admin').Organization> {
+    return this.request<import('./namespaces/admin').Organization>('GET', `/api/v1/admin/organizations/${orgId}`);
+  }
+
+  /**
+   * Update an organization (admin only).
+   */
+  async updateAdminOrganization(
+    orgId: string,
+    data: import('./namespaces/admin').OrganizationUpdate
+  ): Promise<import('./namespaces/admin').Organization> {
+    return this.request<import('./namespaces/admin').Organization>('PATCH', `/api/v1/admin/organizations/${orgId}`, {
+      body: data,
+    });
+  }
+
+  /**
    * List all users (admin only).
    */
   async listAdminUsers(params?: PaginationParams): Promise<import('./namespaces/admin').AdminUserList> {
     return this.request<import('./namespaces/admin').AdminUserList>('GET', '/api/v1/admin/users', { params });
+  }
+
+  /**
+   * Get a specific user (admin only).
+   */
+  async getAdminUser(userId: string): Promise<import('./namespaces/admin').AdminUser> {
+    return this.request<import('./namespaces/admin').AdminUser>('GET', `/api/v1/admin/users/${userId}`);
+  }
+
+  /**
+   * Suspend a user account (admin only).
+   */
+  async suspendAdminUser(userId: string, reason?: string): Promise<import('./namespaces/admin').UserAction> {
+    return this.request<import('./namespaces/admin').UserAction>('POST', `/api/v1/admin/users/${userId}/suspend`, {
+      body: reason ? { reason } : undefined,
+    });
+  }
+
+  /**
+   * Activate a suspended user account (admin only).
+   */
+  async activateAdminUser(userId: string): Promise<import('./namespaces/admin').UserAction> {
+    return this.request<import('./namespaces/admin').UserAction>('POST', `/api/v1/admin/users/${userId}/activate`);
   }
 
   /**

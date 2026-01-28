@@ -148,12 +148,31 @@ export interface SecurityKey {
   status: 'active' | 'rotating' | 'expired';
 }
 
+export interface OrganizationUpdate {
+  name?: string;
+  plan?: string;
+  status?: 'active' | 'suspended' | 'pending';
+  settings?: Record<string, unknown>;
+}
+
+export interface UserAction {
+  success: boolean;
+  user_id: string;
+  status: string;
+  message?: string;
+}
+
 /**
  * Interface for the internal client methods used by AdminAPI.
  */
 interface AdminClientInterface {
   listOrganizations(params?: PaginationParams): Promise<OrganizationList>;
+  getAdminOrganization(orgId: string): Promise<Organization>;
+  updateAdminOrganization(orgId: string, data: OrganizationUpdate): Promise<Organization>;
   listAdminUsers(params?: PaginationParams): Promise<AdminUserList>;
+  getAdminUser(userId: string): Promise<AdminUser>;
+  suspendAdminUser(userId: string, reason?: string): Promise<UserAction>;
+  activateAdminUser(userId: string): Promise<UserAction>;
   getAdminStats(): Promise<PlatformStats>;
   getAdminSystemMetrics(): Promise<SystemMetrics>;
   getRevenue(): Promise<RevenueData>;
@@ -225,6 +244,53 @@ export class AdminAPI {
    */
   async listUsers(params?: PaginationParams): Promise<AdminUserList> {
     return this.client.listAdminUsers(params);
+  }
+
+  /**
+   * Get a specific organization by ID.
+   *
+   * @param orgId - Organization ID
+   */
+  async getOrganization(orgId: string): Promise<Organization> {
+    return this.client.getAdminOrganization(orgId);
+  }
+
+  /**
+   * Update an organization.
+   *
+   * @param orgId - Organization ID
+   * @param data - Fields to update
+   */
+  async updateOrganization(orgId: string, data: OrganizationUpdate): Promise<Organization> {
+    return this.client.updateAdminOrganization(orgId, data);
+  }
+
+  /**
+   * Get a specific user by ID.
+   *
+   * @param userId - User ID
+   */
+  async getUser(userId: string): Promise<AdminUser> {
+    return this.client.getAdminUser(userId);
+  }
+
+  /**
+   * Suspend a user account.
+   *
+   * @param userId - User ID to suspend
+   * @param reason - Optional reason for suspension
+   */
+  async suspendUser(userId: string, reason?: string): Promise<UserAction> {
+    return this.client.suspendAdminUser(userId, reason);
+  }
+
+  /**
+   * Activate a suspended user account.
+   *
+   * @param userId - User ID to activate
+   */
+  async activateUser(userId: string): Promise<UserAction> {
+    return this.client.activateAdminUser(userId);
   }
 
   /**
