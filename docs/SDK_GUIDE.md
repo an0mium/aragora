@@ -409,10 +409,15 @@ endpoint details, see API_REFERENCE.md.
 - `client.cross_pollination` - Cross-pollination stats and subscriptions
 - `client.dashboard` - Dashboard overview and quick actions
 - `client.deliberations` - Active deliberations and stats
+- `client.devices` - Device registration and notifications
+- `client.feedback` - NPS surveys and product feedback
 - `client.gmail` - Gmail message operations
 - `client.metrics` - Operational metrics and Prometheus export
 - `client.plugins` - Plugin management and marketplace
+- `client.privacy` - GDPR/CCPA export and privacy preferences
 - `client.system` - Admin history, maintenance, and circuit breakers
+- `client.threat_intel` - Threat intelligence scanning
+- `client.unified_inbox` - Unified inbox routing and actions
 
 ### Organizations
 

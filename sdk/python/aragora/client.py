@@ -106,9 +106,11 @@ class AragoraClient:
         from .namespaces.debates import DebatesAPI
         from .namespaces.decisions import DecisionsAPI
         from .namespaces.deliberations import DeliberationsAPI
+        from .namespaces.devices import DevicesAPI
         from .namespaces.documents import DocumentsAPI
         from .namespaces.expenses import ExpensesAPI
         from .namespaces.explainability import ExplainabilityAPI
+        from .namespaces.feedback import FeedbackAPI
         from .namespaces.gauntlet import GauntletAPI
         from .namespaces.genesis import GenesisAPI
         from .namespaces.gmail import GmailAPI
@@ -127,6 +129,7 @@ class AragoraClient:
         from .namespaces.payments import PaymentsAPI
         from .namespaces.plugins import PluginsAPI
         from .namespaces.policies import PoliciesAPI
+        from .namespaces.privacy import PrivacyAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
@@ -139,8 +142,10 @@ class AragoraClient:
         from .namespaces.system import SystemAPI
         from .namespaces.teams import TeamsAPI
         from .namespaces.tenants import TenantsAPI
+        from .namespaces.threat_intel import ThreatIntelAPI
         from .namespaces.tournaments import TournamentsAPI
         from .namespaces.training import TrainingAPI
+        from .namespaces.unified_inbox import UnifiedInboxAPI
         from .namespaces.usage import UsageAPI
         from .namespaces.verification import VerificationAPI
         from .namespaces.webhooks import WebhooksAPI
@@ -173,9 +178,11 @@ class AragoraClient:
         self.debates = DebatesAPI(self)
         self.decisions = DecisionsAPI(self)
         self.deliberations = DeliberationsAPI(self)
+        self.devices = DevicesAPI(self)
         self.documents = DocumentsAPI(self)
         self.expenses = ExpensesAPI(self)
         self.explainability = ExplainabilityAPI(self)
+        self.feedback = FeedbackAPI(self)
         self.gauntlet = GauntletAPI(self)
         self.genesis = GenesisAPI(self)
         self.gmail = GmailAPI(self)
@@ -194,6 +201,7 @@ class AragoraClient:
         self.payments = PaymentsAPI(self)
         self.plugins = PluginsAPI(self)
         self.policies = PoliciesAPI(self)
+        self.privacy = PrivacyAPI(self)
         self.pulse = PulseAPI(self)
         self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
@@ -207,7 +215,9 @@ class AragoraClient:
         self.teams = TeamsAPI(self)
         self.tenants = TenantsAPI(self)
         self.training = TrainingAPI(self)
+        self.threat_intel = ThreatIntelAPI(self)
         self.tournaments = TournamentsAPI(self)
+        self.unified_inbox = UnifiedInboxAPI(self)
         self.usage = UsageAPI(self)
         self.verification = VerificationAPI(self)
         self.webhooks = WebhooksAPI(self)
@@ -415,9 +425,11 @@ class AragoraAsyncClient:
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.decisions import AsyncDecisionsAPI
         from .namespaces.deliberations import AsyncDeliberationsAPI
+        from .namespaces.devices import AsyncDevicesAPI
         from .namespaces.documents import AsyncDocumentsAPI
         from .namespaces.expenses import AsyncExpensesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
+        from .namespaces.feedback import AsyncFeedbackAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
         from .namespaces.genesis import AsyncGenesisAPI
         from .namespaces.gmail import AsyncGmailAPI
@@ -436,6 +448,7 @@ class AragoraAsyncClient:
         from .namespaces.payments import AsyncPaymentsAPI
         from .namespaces.plugins import AsyncPluginsAPI
         from .namespaces.policies import AsyncPoliciesAPI
+        from .namespaces.privacy import AsyncPrivacyAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
@@ -448,8 +461,10 @@ class AragoraAsyncClient:
         from .namespaces.system import AsyncSystemAPI
         from .namespaces.teams import AsyncTeamsAPI
         from .namespaces.tenants import AsyncTenantsAPI
+        from .namespaces.threat_intel import AsyncThreatIntelAPI
         from .namespaces.tournaments import AsyncTournamentsAPI
         from .namespaces.training import AsyncTrainingAPI
+        from .namespaces.unified_inbox import AsyncUnifiedInboxAPI
         from .namespaces.usage import AsyncUsageAPI
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
@@ -482,9 +497,11 @@ class AragoraAsyncClient:
         self.debates = AsyncDebatesAPI(self)
         self.decisions = AsyncDecisionsAPI(self)
         self.deliberations = AsyncDeliberationsAPI(self)
+        self.devices = AsyncDevicesAPI(self)
         self.documents = AsyncDocumentsAPI(self)
         self.expenses = AsyncExpensesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
+        self.feedback = AsyncFeedbackAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
         self.genesis = AsyncGenesisAPI(self)
         self.gmail = AsyncGmailAPI(self)
@@ -503,6 +520,7 @@ class AragoraAsyncClient:
         self.payments = AsyncPaymentsAPI(self)
         self.plugins = AsyncPluginsAPI(self)
         self.policies = AsyncPoliciesAPI(self)
+        self.privacy = AsyncPrivacyAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
@@ -516,7 +534,9 @@ class AragoraAsyncClient:
         self.teams = AsyncTeamsAPI(self)
         self.tenants = AsyncTenantsAPI(self)
         self.training = AsyncTrainingAPI(self)
+        self.threat_intel = AsyncThreatIntelAPI(self)
         self.tournaments = AsyncTournamentsAPI(self)
+        self.unified_inbox = AsyncUnifiedInboxAPI(self)
         self.usage = AsyncUsageAPI(self)
         self.verification = AsyncVerificationAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)

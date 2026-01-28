@@ -34,6 +34,7 @@ from .devices import AsyncDevicesAPI, DevicesAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
 from .expenses import AsyncExpensesAPI, ExpensesAPI
 from .explainability import AsyncExplainabilityAPI, ExplainabilityAPI
+from .feedback import AsyncFeedbackAPI, FeedbackAPI
 from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .genesis import AsyncGenesisAPI, GenesisAPI
 from .gmail import AsyncGmailAPI, GmailAPI
@@ -52,6 +53,7 @@ from .organizations import AsyncOrganizationsAPI, OrganizationsAPI
 from .payments import AsyncPaymentsAPI, PaymentsAPI
 from .plugins import AsyncPluginsAPI, PluginsAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
+from .privacy import AsyncPrivacyAPI, PrivacyAPI
 from .pulse import AsyncPulseAPI, PulseAPI
 from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
@@ -135,6 +137,8 @@ __all__ = [
     "AsyncExpensesAPI",
     "ExplainabilityAPI",
     "AsyncExplainabilityAPI",
+    "FeedbackAPI",
+    "AsyncFeedbackAPI",
     "GauntletAPI",
     "AsyncGauntletAPI",
     "GenesisAPI",
@@ -171,6 +175,8 @@ __all__ = [
     "AsyncPluginsAPI",
     "PoliciesAPI",
     "AsyncPoliciesAPI",
+    "PrivacyAPI",
+    "AsyncPrivacyAPI",
     "PulseAPI",
     "AsyncPulseAPI",
     "RankingAPI",

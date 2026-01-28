@@ -5626,7 +5626,7 @@ Data export and account deletion for regulatory compliance.
 ### Export User Data
 
 ```http
-GET /api/privacy/export
+GET /api/v1/privacy/export
 Authorization: Bearer <token>
 ```
 
@@ -5644,7 +5644,7 @@ Response:
 ### Get Data Inventory
 
 ```http
-GET /api/privacy/data-inventory
+GET /api/v1/privacy/data-inventory
 Authorization: Bearer <token>
 ```
 
@@ -5671,12 +5671,13 @@ Response:
 ### Delete Account
 
 ```http
-DELETE /api/privacy/account
+DELETE /api/v1/privacy/account
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "confirmation": "DELETE_MY_ACCOUNT",
+  "password": "your-current-password",
+  "confirm": true,
   "reason": "no_longer_needed"
 }
 ```
@@ -5686,14 +5687,15 @@ GDPR Article 17, CCPA Right to Delete.
 ### Update Privacy Preferences
 
 ```http
-POST /api/privacy/preferences
+POST /api/v1/privacy/preferences
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
   "do_not_sell": true,
-  "marketing_emails": false,
-  "analytics_tracking": false
+  "marketing_opt_out": false,
+  "analytics_opt_out": false,
+  "third_party_sharing": true
 }
 ```
 
