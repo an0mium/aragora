@@ -174,7 +174,8 @@ class TestStatusEndpoint:
 class TestUrlValidation:
     """Tests for endpoint.url_validation event."""
 
-    def test_url_validation_with_secret_token(self, handler, url_validation_event):
+    @pytest.mark.asyncio
+    async def test_url_validation_with_secret_token(self, handler, url_validation_event):
         """Test URL validation returns encrypted token when secret configured."""
         body = json.dumps(url_validation_event).encode()
         secret = "test-secret-token"
@@ -189,7 +190,7 @@ class TestUrlValidation:
         )
 
         with patch("aragora.server.handlers.bots.zoom.ZOOM_SECRET_TOKEN", secret):
-            result = handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/zoom/events", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200
