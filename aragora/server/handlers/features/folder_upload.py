@@ -156,10 +156,10 @@ class FolderUploadHandler(BaseHandler):
         return None
 
     @require_permission("upload:create")
-    def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
+    async def handle_post(self, path: str, query_params: dict, handler) -> Optional[HandlerResult]:
         """Route POST folder requests."""
         if path == "/api/v1/documents/folder/scan":
-            return self._scan_folder(handler)
+            return await self._scan_folder(handler)
 
         if path == "/api/v1/documents/folder/upload":
             return self._start_upload(handler)
@@ -177,7 +177,7 @@ class FolderUploadHandler(BaseHandler):
 
     @require_user_auth
     @handle_errors("folder scan")
-    def _scan_folder(self, handler, user=None) -> HandlerResult:
+    async def _scan_folder(self, handler, user=None) -> HandlerResult:
         """Scan a folder and return what would be uploaded.
 
         Request body:
@@ -226,12 +226,8 @@ class FolderUploadHandler(BaseHandler):
 
             scanner = FolderScanner(config)
 
-            # Run scan async
-            loop = asyncio.new_event_loop()
-            try:
-                result = loop.run_until_complete(scanner.scan(path))
-            finally:
-                loop.close()
+            # Run scan
+            result = await scanner.scan(path)
 
             return json_response(result.to_dict())
 

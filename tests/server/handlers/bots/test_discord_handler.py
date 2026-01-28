@@ -179,7 +179,8 @@ class TestStatusEndpoint:
 class TestPingPong:
     """Tests for PING interaction handling."""
 
-    def test_ping_returns_pong(self, handler, ping_interaction):
+    @pytest.mark.asyncio
+    async def test_ping_returns_pong(self, handler, ping_interaction):
         """Test PING interaction returns PONG."""
         body = json.dumps(ping_interaction).encode()
 
@@ -198,7 +199,7 @@ class TestPingPong:
         with patch(
             "aragora.server.handlers.bots.discord._verify_discord_signature", return_value=True
         ):
-            result = handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
+            result = await handler.handle_post("/api/v1/bots/discord/interactions", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 200

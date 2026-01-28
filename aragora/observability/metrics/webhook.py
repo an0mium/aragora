@@ -4,10 +4,10 @@ Webhook Delivery Metrics.
 Prometheus metrics for tracking webhook delivery performance and reliability.
 
 Metrics exposed:
-- aragora_webhook_deliveries_total: Counter of webhook delivery attempts
+- aragora_webhook_event_deliveries_total: Counter of webhook delivery attempts by event type
 - aragora_webhook_delivery_duration_seconds: Histogram of delivery duration
 - aragora_webhook_delivery_retries_total: Counter of retry attempts
-- aragora_webhook_queue_size: Gauge of pending deliveries
+- aragora_webhook_event_queue_size: Gauge of pending event deliveries
 - aragora_webhook_active_endpoints: Gauge of registered webhook endpoints
 
 Usage:
@@ -93,8 +93,8 @@ def _init_metrics():
 
         _DELIVERIES_TOTAL = _get_or_create_metric(
             Counter,
-            "aragora_webhook_deliveries_total",
-            "Total webhook delivery attempts",
+            "aragora_webhook_event_deliveries_total",
+            "Total webhook delivery attempts by event type",
             ["event_type", "success"],
         )
 
@@ -115,8 +115,8 @@ def _init_metrics():
 
         _QUEUE_SIZE = _get_or_create_metric(
             Gauge,
-            "aragora_webhook_queue_size",
-            "Current number of pending webhook deliveries",
+            "aragora_webhook_event_queue_size",
+            "Current number of pending webhook event deliveries",
         )
 
         _ACTIVE_ENDPOINTS = _get_or_create_metric(
