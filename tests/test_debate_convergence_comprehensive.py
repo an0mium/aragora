@@ -275,7 +275,6 @@ class TestJaccardBackendThreadSafety:
 # =============================================================================
 
 
-@pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
 class TestTFIDFBackend:
     """Tests for TFIDFBackend similarity computation."""
 

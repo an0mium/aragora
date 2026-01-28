@@ -59,6 +59,38 @@ except ImportError:
         return None
 
 
+def get_langchain_version() -> Optional[str]:
+    """Get the LangChain version if available."""
+    try:
+        import langchain
+
+        return getattr(langchain, "__version__", "unknown")
+    except ImportError:
+        return None
+
+
+class AragoraToolInput(BaseModel):
+    """Input schema for Aragora debate tool (compatible API)."""
+
+    question: str = Field(description="The question or task to debate")
+    agents: Optional[List[str]] = Field(
+        default=None,
+        description="List of agents to participate",
+    )
+    rounds: int = Field(
+        default=3,
+        description="Number of debate rounds",
+    )
+    consensus_threshold: float = Field(
+        default=0.8,
+        description="Threshold for consensus (0.0-1.0)",
+    )
+    include_evidence: bool = Field(
+        default=True,
+        description="Whether to include evidence in response",
+    )
+
+
 class AragoraDebateInput(BaseModel):
     """Input schema for Aragora debate tool."""
 
