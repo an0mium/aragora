@@ -108,3 +108,57 @@ Content-Type: application/json
   completion.
 - The current implementation performs a lightweight heuristic review. Wire this
   into multi-agent vetted decisionmaking for deeper analysis.
+
+## GitHub App Webhooks
+
+For automatic PR review triggering, install the Aragora GitHub App. The app receives webhooks and automatically queues code review debates.
+
+### Webhook Endpoint
+
+```
+POST /api/v1/webhooks/github
+```
+
+### Supported Events
+
+| Event | Action | Behavior |
+|-------|--------|----------|
+| `pull_request` | `opened` | Queue code review debate |
+| `pull_request` | `synchronize` | Re-trigger on new commits |
+| `issues` | `opened` | Queue issue triage debate |
+| `push` | - | Track code changes for context |
+| `installation` | `created`/`deleted` | Track app installations |
+| `ping` | - | Acknowledge webhook setup |
+
+### Security
+
+Webhooks are verified using HMAC-SHA256 signatures. Configure the secret via:
+
+```bash
+export GITHUB_WEBHOOK_SECRET=your-secret-here
+```
+
+### Setup
+
+1. Create a GitHub App using the manifest in `github-app-manifest.json`
+2. Install the app on your repositories
+3. Configure `GITHUB_WEBHOOK_SECRET` to match the app's webhook secret
+4. Webhooks will automatically trigger debates on PR and issue events
+
+### Status Endpoint
+
+```http
+GET /api/v1/webhooks/github/status
+
+# Response:
+{
+  "status": "configured",
+  "webhook_endpoint": "/api/v1/webhooks/github",
+  "supported_events": ["pull_request", "issues", "push", "installation", "ping"],
+  "features": {
+    "pr_auto_review": true,
+    "issue_triage": true,
+    "push_tracking": true
+  }
+}
+```

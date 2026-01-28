@@ -5,7 +5,7 @@ description: Getting Started with Aragora
 
 # Getting Started with Aragora
 
-> **Last Updated:** 2026-01-18
+> **Last Updated:** 2026-01-27
 
 
 **Aragora** is the control plane for multi-agent vetted decisionmaking across organizational knowledge and channels. It orchestrates diverse AI models to debate your data and deliver defensible decisions wherever your team works. This is the canonical onboarding guide.
@@ -31,7 +31,25 @@ cd aragora
 pip install -e .
 ```
 
-### 2. Configure API Key
+### 2. Configure (Choose One)
+
+#### Option A: Interactive Setup Wizard (Recommended)
+
+The easiest way to configure Aragora:
+
+```bash
+aragora setup
+```
+
+The wizard guides you through:
+- API key configuration with validation
+- Server port settings
+- Database selection (SQLite/PostgreSQL)
+- Optional integrations (Slack, GitHub, Telegram)
+
+See the [CLI Setup Guide](CLI_SETUP_GUIDE.md) for detailed options.
+
+#### Option B: Manual Configuration
 
 Create a `.env` file with at least one AI provider key:
 
@@ -73,7 +91,7 @@ API Keys:
 
 Environment:
   Python: 3.10.13
-  aragora: 0.8.0
+  aragora: 2.4.0
 
 Status: Ready
 ```

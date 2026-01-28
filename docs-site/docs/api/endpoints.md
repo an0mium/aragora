@@ -19,11 +19,14 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Audit Export](#audit-export)
 - [Audit Trail](#audit-trail)
 - [Auditing](#auditing)
+- [Backup Handler](#backup-handler)
 - [Belief](#belief)
+- [Bindings](#bindings)
 - [Breakpoints](#breakpoints)
 - [Budgets](#budgets)
 - [Checkpoints](#checkpoints)
 - [Code Review](#code-review)
+- [Compliance Handler](#compliance-handler)
 - [Composite](#composite)
 - [Consensus](#consensus)
 - [Control Plane](#control-plane)
@@ -34,18 +37,24 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Decision](#decision)
 - [Deliberations](#deliberations)
 - [Dependency Analysis](#dependency-analysis)
+- [Devices](#devices)
 - [Docs](#docs)
+- [Dr Handler](#dr-handler)
 - [Email](#email)
 - [EmailDebate](#emaildebate)
 - [Email Services](#email-services)
+- [EndpointAnalytics](#endpointanalytics)
 - [Evaluation](#evaluation)
 - [Expenses](#expenses)
 - [Explainability](#explainability)
 - [External Integrations](#external-integrations)
+- [Feedback](#feedback)
 - [Gallery](#gallery)
+- [Gastown Dashboard](#gastown-dashboard)
 - [Gauntlet](#gauntlet)
 - [Genesis](#genesis)
 - [Inbox Command](#inbox-command)
+- [Integrations](#integrations)
 - [Introspection](#introspection)
 - [Invoices](#invoices)
 - [KnowledgeChat](#knowledgechat)
@@ -54,7 +63,7 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [Ml](#ml)
 - [Moments](#moments)
 - [Nomic](#nomic)
-- [Oauth](#oauth)
+- [Oauth Wizard](#oauth-wizard)
 - [Onboarding](#onboarding)
 - [Orchestration](#orchestration)
 - [Organizations](#organizations)
@@ -71,7 +80,10 @@ This document describes the HTTP API endpoints provided by the Aragora server.
 - [RLMContext](#rlmcontext)
 - [Selection](#selection)
 - [Shared Inbox](#shared-inbox)
+- [Skill Marketplace](#skill-marketplace)
+- [Skills](#skills)
 - [Slo](#slo)
+- [SMEUsageDashboard](#smeusagedashboard)
 - [Template Marketplace](#template-marketplace)
 - [Threat Intel](#threat-intel)
 - [Tournaments](#tournaments)
@@ -473,6 +485,48 @@ Run red team analysis on a debate
 
 ---
 
+## Backup Handler
+
+Backup HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/backups`
+
+List backups with filters
+
+### `POST` `/api/v2/backups`
+
+Create new backup
+
+### `GET` `/api/v2/backups/:backup_id`
+
+Get specific backup metadata
+
+### `POST` `/api/v2/backups/:backup_id/verify`
+
+Verify backup integrity
+
+### `POST` `/api/v2/backups/:backup_id/verify-comprehensive`
+
+Comprehensive verification
+
+### `POST` `/api/v2/backups/:backup_id/restore-test`
+
+Dry-run restore test
+
+### `DELETE` `/api/v2/backups/:backup_id`
+
+Delete a backup
+
+### `POST` `/api/v2/backups/cleanup`
+
+Run retention policy cleanup
+
+### `GET` `/api/v2/backups/stats`
+
+Backup statistics
+
+---
+
 ## Belief
 
 Belief Network and Reasoning endpoint handlers.
@@ -496,6 +550,40 @@ Get emergent traits from agent performance
 ### `GET` `/api/debate/:debate_id/graph-stats`
 
 Get argument graph statistics
+
+---
+
+## Bindings
+
+Bindings endpoint handlers.
+
+### `GET` `/api/bindings`
+
+List all message bindings
+
+### `GET` `/api/bindings/:provider`
+
+List bindings for a provider
+
+### `POST` `/api/bindings`
+
+Create a new binding
+
+### `PUT` `/api/bindings/:id`
+
+Update a binding
+
+### `DELETE` `/api/bindings/:id`
+
+Remove a binding
+
+### `POST` `/api/bindings/resolve`
+
+Resolve binding for a message
+
+### `GET` `/api/bindings/stats`
+
+Get router statistics
 
 ---
 
@@ -561,9 +649,21 @@ Remove override
 
 Reset budget period
 
+### `GET` `/api/v1/budgets/:id/transactions`
+
+Get transaction history
+
+### `GET` `/api/v1/budgets/:id/trends`
+
+Get spending trends for budget
+
 ### `GET` `/api/v1/budgets/summary`
 
 Get org budget summary
+
+### `GET` `/api/v1/budgets/trends`
+
+Get org-wide spending trends
 
 ### `POST` `/api/v1/budgets/check`
 
@@ -628,6 +728,36 @@ Get review results
 ### `GET` `/api/v1/code-review/history`
 
 Get review history
+
+---
+
+## Compliance Handler
+
+Compliance HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/compliance/soc2-report`
+
+Generate SOC 2 compliance summary
+
+### `GET` `/api/v2/compliance/gdpr-export`
+
+Export user data for GDPR
+
+### `POST` `/api/v2/compliance/gdpr/right-to-be-forgotten`
+
+Execute GDPR right to erasure
+
+### `POST` `/api/v2/compliance/audit-verify`
+
+Verify audit trail integrity
+
+### `GET` `/api/v2/compliance/audit-events`
+
+Export audit events (Elasticsearch/SIEM)
+
+### `GET` `/api/v2/compliance/status`
+
+Overall compliance status
 
 ---
 
@@ -867,6 +997,44 @@ Check license compatibility
 
 ---
 
+## Devices
+
+Device Registration and Notification API Handlers.
+
+### `POST` `/api/devices/register`
+
+Register a device for push notifications
+
+### `DELETE` `/api/devices/\{device_id\}`
+
+Unregister a device
+
+### `POST` `/api/devices/\{device_id\}/notify`
+
+Send notification to a device
+
+### `POST` `/api/devices/user/\{user_id\}/notify`
+
+Send to all user devices
+
+### `GET` `/api/devices/user/\{user_id\}`
+
+List user's devices
+
+### `GET` `/api/devices/health`
+
+Get device connector health
+
+### `POST` `/api/devices/alexa/webhook`
+
+Alexa skill webhook
+
+### `POST` `/api/devices/google/webhook`
+
+Google Actions webhook
+
+---
+
 ## Docs
 
 API documentation endpoint handlers.
@@ -894,6 +1062,28 @@ Swagger UI interactive documentation
 ### `GET` `/api/redoc`
 
 ReDoc API documentation viewer
+
+---
+
+## Dr Handler
+
+Disaster Recovery HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/dr/status`
+
+Get DR readiness status
+
+### `POST` `/api/v2/dr/drill`
+
+Run DR drill (simulated recovery)
+
+### `GET` `/api/v2/dr/objectives`
+
+Get RPO/RTO objectives and current status
+
+### `POST` `/api/v2/dr/validate`
+
+Validate DR configuration
 
 ---
 
@@ -1000,6 +1190,28 @@ List available categories
 ### `POST` `/api/v1/email/categories/learn`
 
 Submit category feedback
+
+---
+
+## EndpointAnalytics
+
+Handler for API endpoint performance analytics.
+
+### `GET` `/api/analytics/endpoints`
+
+GET /api/analytics/endpoints - List all endpoints with metrics
+
+### `GET` `/api/analytics/endpoints/slowest`
+
+GET /api/analytics/endpoints/slowest - Top N slowest endpoints
+
+### `GET` `/api/analytics/endpoints/errors`
+
+GET /api/analytics/endpoints/errors - Top N endpoints by error rate
+
+### `GET` `/api/analytics/endpoints/health`
+
+GET /api/analytics/endpoints/health - Overall API health summary
 
 ---
 
@@ -1215,6 +1427,24 @@ Get node definitions
 
 ---
 
+## Feedback
+
+User Feedback Collection Handler.
+
+### `POST` `/api/v1/feedback/nps`
+
+Submit NPS score
+
+### `POST` `/api/v1/feedback/general`
+
+Submit general feedback
+
+### `GET` `/api/v1/feedback/prompts`
+
+Get active feedback prompts
+
+---
+
 ## Gallery
 
 Public Gallery endpoint handlers.
@@ -1230,6 +1460,32 @@ Get specific debate with full history
 ### `GET` `/api/gallery/:debate_id/embed`
 
 Get embeddable debate summary
+
+---
+
+## Gastown Dashboard
+
+Gas Town Dashboard API Handlers.
+
+### `GET` `/api/v1/dashboard/gastown/overview`
+
+Get Gas Town overview
+
+### `GET` `/api/v1/dashboard/gastown/convoys`
+
+Get convoy list with progress
+
+### `GET` `/api/v1/dashboard/gastown/agents`
+
+Get agent workload distribution
+
+### `GET` `/api/v1/dashboard/gastown/beads`
+
+Get bead queue stats
+
+### `GET` `/api/v1/dashboard/gastown/metrics`
+
+Get throughput metrics
 
 ---
 
@@ -1328,6 +1584,32 @@ Get daily digest
 ### `POST` `/api/inbox/reprioritize`
 
 Trigger AI re-prioritization
+
+---
+
+## Integrations
+
+Integration Management HTTP Handlers for Aragora.
+
+### `GET` `/api/v2/integrations`
+
+List all integrations
+
+### `GET` `/api/v2/integrations/:type`
+
+Get specific integration status
+
+### `DELETE` `/api/v2/integrations/:type`
+
+Disconnect integration
+
+### `POST` `/api/v2/integrations/:type/test`
+
+Test integration connectivity
+
+### `GET` `/api/v2/integrations/stats`
+
+Integration statistics
 
 ---
 
@@ -1453,31 +1735,45 @@ Suggest beneficial trait transfers
 
 ## Metrics
 
-Operational metrics endpoint handlers.
+Handler for operational metrics endpoints.
 
 ### `GET` `/api/metrics`
 
-Get operational metrics for monitoring
+Get comprehensive operational metrics
 
 ### `GET` `/api/metrics/health`
 
-Detailed health check
+Get detailed health check status
 
 ### `GET` `/api/metrics/cache`
 
-Cache statistics
+Get cache statistics
 
 ### `GET` `/api/metrics/verification`
 
-Z3 formal verification statistics
+Get formal verification statistics
 
 ### `GET` `/api/metrics/system`
 
-System information
+Get system information
+
+### `GET` `/api/metrics/background`
+
+Get background task statistics
+
+### `GET` `/api/metrics/debate`
+
+Get debate performance statistics
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `debate_id` | string | Optional specific debate to get insights for |
 
 ### `GET` `/metrics`
 
-Prometheus-format metrics (OpenMetrics)
+Get comprehensive operational metrics
 
 ---
 
@@ -1561,6 +1857,14 @@ Get nomic loop logs
 
 Get risk register entries
 
+### `GET` `/api/nomic/witness/status`
+
+Get Gas Town witness patrol status
+
+### `GET` `/api/nomic/mayor/current`
+
+Get current Gas Town mayor information
+
 ### `GET` `/api/modes`
 
 Get available operational modes
@@ -1571,25 +1875,25 @@ Real-time WebSocket event stream
 
 ---
 
-## Oauth
+## Oauth Wizard
 
-OAuth Authentication Handlers.
+Unified OAuth Wizard Handler for SME Onboarding.
 
-### `GET` `/api/auth/oauth/google`
+### `GET` `/api/v2/integrations/wizard`
 
-Redirect to Google OAuth consent screen
+Get wizard configuration
 
-### `GET` `/api/auth/oauth/google/callback`
+### `GET` `/api/v2/integrations/wizard/providers`
 
-Handle OAuth callback
+List all available providers
 
-### `POST` `/api/auth/oauth/link`
+### `GET` `/api/v2/integrations/wizard/status`
 
-Link OAuth account to existing user
+Get status of all integrations
 
-### `DELETE` `/api/auth/oauth/unlink`
+### `POST` `/api/v2/integrations/wizard/validate`
 
-Unlink OAuth provider from account
+Validate configuration before connecting
 
 ---
 
@@ -1971,6 +2275,10 @@ Decision Receipt HTTP Handlers for Aragora.
 
 List receipts with filters
 
+### `GET` `/api/v2/receipts/search`
+
+Full-text search receipts
+
 ### `GET` `/api/v2/receipts/:receipt_id`
 
 Get specific receipt
@@ -2173,6 +2481,74 @@ Test routing rule
 
 ---
 
+## Skill Marketplace
+
+Skill Marketplace API Handlers.
+
+### `GET` `/api/v1/skills/marketplace/search`
+
+Search skills
+
+### `GET` `/api/v1/skills/marketplace/\{skill_id\}`
+
+Get skill details
+
+### `GET` `/api/v1/skills/marketplace/\{skill_id\}/versions`
+
+Get skill versions
+
+### `GET` `/api/v1/skills/marketplace/\{skill_id\}/ratings`
+
+Get skill ratings
+
+### `POST` `/api/v1/skills/marketplace/publish`
+
+Publish a skill
+
+### `POST` `/api/v1/skills/marketplace/\{skill_id\}/install`
+
+Install a skill
+
+### `DELETE` `/api/v1/skills/marketplace/\{skill_id\}/install`
+
+Uninstall a skill
+
+### `POST` `/api/v1/skills/marketplace/\{skill_id\}/rate`
+
+Rate a skill
+
+### `GET` `/api/v1/skills/marketplace/installed`
+
+List installed skills
+
+### `GET` `/api/v1/skills/marketplace/stats`
+
+Get marketplace statistics
+
+---
+
+## Skills
+
+Skills endpoint handlers.
+
+### `GET` `/api/skills`
+
+List all registered skills
+
+### `GET` `/api/skills/:name`
+
+Get skill details
+
+### `POST` `/api/skills/invoke`
+
+Invoke a skill by name
+
+### `GET` `/api/skills/:name/metrics`
+
+Get skill execution metrics
+
+---
+
 ## Slo
 
 SLO (Service Level Objective) endpoint handlers.
@@ -2196,6 +2572,40 @@ Recent SLO violations
 ### `GET` `/api/v1/slos/status`
 
 Versioned endpoint
+
+---
+
+## SMEUsageDashboard
+
+Handler for SME usage dashboard endpoints.
+
+### `GET` `/api/v1/usage/summary` 🔒
+
+Get unified usage summary for the SME dashboard
+
+### `GET` `/api/v1/usage/breakdown` 🔒
+
+Get detailed usage breakdown by dimension
+
+### `GET` `/api/v1/usage/roi` 🔒
+
+Get ROI analysis for the organization
+
+### `GET` `/api/v1/usage/export` 🔒
+
+Export usage data in various formats
+
+### `GET` `/api/v1/usage/budget-status`
+
+GET /api/v1/usage/budget-status
+
+### `GET` `/api/v1/usage/forecast` 🔒
+
+Get usage forecast based on current patterns
+
+### `GET` `/api/v1/usage/benchmarks` 🔒
+
+Get industry benchmark comparison data
 
 ---
 
@@ -2482,6 +2892,14 @@ Handle GET /api/webhooks/events - list available event types
 ### `GET` `/api/v1/webhooks/slo/status`
 
 Handle GET /api/webhooks/slo/status - get SLO webhook status
+
+### `GET` `/api/v1/webhooks/dead-letter`
+
+GET /api/v1/webhooks/dead-letter
+
+### `GET` `/api/v1/webhooks/queue/stats`
+
+Handle GET /api/webhooks/queue/stats - get queue statistics
 
 ---
 

@@ -22,6 +22,7 @@ Use this index for fast navigation. For a fuller map, see
 | Control plane overview | [CONTROL_PLANE.md](../enterprise/control-plane-overview) |
 | Control plane operations | [CONTROL_PLANE_GUIDE.md](../enterprise/control-plane) |
 | API reference | [API_REFERENCE.md](../api/reference) |
+| Admin API reference | [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md) |
 | API examples | [API_EXAMPLES.md](../api/examples) |
 | Production deployment | [DEPLOYMENT.md](../deployment/overview) |
 | Troubleshooting | [TROUBLESHOOTING.md](../operations/troubleshooting) |
@@ -39,6 +40,7 @@ Use this index for fast navigation. For a fuller map, see
 
 - Architecture: [ARCHITECTURE.md](../core-concepts/architecture)
 - Debate engine: [DEBATE_INTERNALS.md](../core-concepts/debate-internals)
+- Declarative hooks: [HOOKS.md](HOOKS.md)
 - Workflow engine: [WORKFLOW_ENGINE.md](../core-concepts/workflow-engine)
 - Templates: [TEMPLATES.md](../guides/templates)
 - Knowledge Mound: [KNOWLEDGE_MOUND.md](../core-concepts/knowledge-mound)
@@ -46,6 +48,7 @@ Use this index for fast navigation. For a fuller map, see
 - Memory overview: [MEMORY.md](../core-concepts/memory-overview)
 - Document ingestion: [DOCUMENTS.md](../guides/documents)
 - Agent catalog: [AGENTS.md](../core-concepts/agents)
+- Skills system: [SKILLS.md](SKILLS.md)
 
 ## Control Plane & Operations
 
@@ -73,6 +76,7 @@ Use this index for fast navigation. For a fuller map, see
 ## API & SDK
 
 - API reference: [API_REFERENCE.md](../api/reference)
+- Admin API reference: [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md)
 - Endpoint catalog (auto-generated): [API_ENDPOINTS.md](../api/endpoints)
 - API usage guide: [API_USAGE.md](../guides/api-usage)
 - WebSocket events: [WEBSOCKET_EVENTS.md](../guides/websocket-events)
@@ -87,6 +91,7 @@ Use this index for fast navigation. For a fuller map, see
 - Security overview: [SECURITY.md](../security/overview)
 - Authentication guide: [AUTH_GUIDE.md](../security/authentication)
 - SSO setup: [SSO_SETUP.md](../enterprise/sso)
+- RBAC/ABAC strategy: [security/rbac-abac-strategy.md](security/rbac-abac-strategy.md)
 
 ## Costs & Billing
 
@@ -116,5 +121,5 @@ Deprecated docs are archived in `docs/deprecated/`. See
 
 ## Inventory
 
-- Markdown files under `docs/`: 266 (includes deprecated)
-- Last updated: 2026-01-23
+- Markdown files under `docs/`: 267 (includes deprecated)
+- Last updated: 2026-01-27

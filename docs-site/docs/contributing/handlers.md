@@ -322,6 +322,7 @@ POST /api/formal/prove          - Generate formal proof
 | `code_review.py` | `/api/v1/code-review/*` | Multi-agent code review |
 | `dashboard.py` | `/api/v1/dashboard/*` | Main dashboard API |
 | `docs.py` | `/api/docs/*` | API documentation |
+| `debates/intervention.py` | `/api/debates/*/intervention/*` | Mid‑debate interventions |
 | `gallery.py` | `/api/gallery/*` | Debate gallery |
 | `gauntlet.py` | `/api/gauntlet/*` | Adversarial testing |
 | `genesis.py` | `/api/genesis/*` | Agent breeding |

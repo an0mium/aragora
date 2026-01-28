@@ -90,6 +90,9 @@ tests/
 │   ├── test_api_workflow.py      # API workflow tests
 │   ├── test_debate_lifecycle.py  # Full debate lifecycle
 │   └── test_websocket_events.py  # WebSocket event tests
+├── skills/                        # Skills system tests
+│   ├── builtin/                  # Built-in skill coverage
+│   └── test_*.py                 # Registry/loader/base tests
 ├── security/                      # Security tests
 │   ├── test_auth_boundaries.py   # Auth boundary tests
 │   ├── test_cors.py              # CORS handling
@@ -125,6 +128,22 @@ pytest tests/ -n auto
 pytest tests/ -s
 ```
 
+### Auth/RBAC Checks
+
+By default, handler permission decorators are bypassed during tests. Set
+`ARAGORA_TEST_REAL_AUTH=1` to exercise real RBAC checks in a test run.
+
+If RBAC decorators block integration endpoints, mock an `AuthorizationContext`
+in the integration tests (see `tests/integration/test_*_api.py`).
+
+### OpenAPI Route Validation
+
+Validate handler routes against the OpenAPI spec:
+
+```bash
+python scripts/validate_openapi_routes.py
+```
+
 ### Test Markers
 
 Tests use markers to categorize them:
@@ -137,6 +156,7 @@ Tests use markers to categorize them:
 | `integration_minimal` | Minimal integration baseline (no external services) | `-m integration_minimal` |
 | `knowledge` | Knowledge Mound tests | `-m knowledge` |
 | `e2e` | End-to-end tests | `-m e2e` |
+| `no_auto_auth` | Opt out of autouse auth mocking in handler tests | `-m no_auto_auth` |
 
 ```bash
 # Run only fast tests
@@ -649,6 +669,162 @@ pytest tests/integration/test_server_under_load.py -v
 2. **Use `@pytest.mark.slow`** - For tests >5 seconds
 3. **Parallelize with `-n auto`** - When tests are isolated
 4. **Cache expensive fixtures** - Use `scope="session"` when safe
+
+## Domain-Specific E2E Tests
+
+In addition to the system-level E2E harness, Aragora includes domain-specific E2E test suites for compliance, privacy, and security features.
+
+### Compliance E2E Tests
+
+**Location:** `tests/e2e/test_compliance_e2e.py`
+
+Tests SOC 2, GDPR, and audit compliance workflows:
+
+```bash
+# Run compliance E2E tests
+pytest tests/e2e/test_compliance_e2e.py -v
+
+# Run specific compliance area
+pytest tests/e2e/test_compliance_e2e.py::TestSOC2ReportGeneration -v
+pytest tests/e2e/test_compliance_e2e.py::TestGDPRExport -v
+pytest tests/e2e/test_compliance_e2e.py::TestRightToBeForgotten -v
+```
+
+Coverage includes:
+- SOC 2 report generation
+- GDPR data export (Article 15)
+- Right-to-be-Forgotten (Article 17) with grace periods
+- Audit log query and export
+- Audit integrity verification
+
+### Privacy E2E Tests
+
+**Location:** `tests/e2e/test_privacy_e2e.py`
+
+Tests consent management, data retention, and anonymization:
+
+```bash
+# Run privacy E2E tests
+pytest tests/e2e/test_privacy_e2e.py -v
+
+# Run specific privacy area
+pytest tests/e2e/test_privacy_e2e.py::TestConsentFlow -v
+pytest tests/e2e/test_privacy_e2e.py::TestDataRetention -v
+pytest tests/e2e/test_privacy_e2e.py::TestAnonymization -v
+```
+
+Coverage includes:
+- Consent lifecycle (grant, check, revoke)
+- Data retention policies (delete, archive, anonymize)
+- HIPAA anonymization (redaction, hashing)
+- K-anonymity verification
+- Differential privacy validation
+
+### DSAR/ABAC E2E Tests
+
+**Location:** `tests/e2e/test_dsar_abac_lifecycle.py`
+
+Tests Data Subject Access Requests and Attribute-Based Access Control:
+
+```bash
+# Run DSAR/ABAC tests
+pytest tests/e2e/test_dsar_abac_lifecycle.py -v
+
+# Run specific areas
+pytest tests/e2e/test_dsar_abac_lifecycle.py::TestGDPRArticle15Export -v
+pytest tests/e2e/test_dsar_abac_lifecycle.py::TestABACTimeConditions -v
+pytest tests/e2e/test_dsar_abac_lifecycle.py::TestABACIPConditions -v
+```
+
+Coverage includes:
+- GDPR Article 15 data export workflow
+- RTBF lifecycle (grace periods, legal holds, cancellation)
+- Data portability (machine-readable format)
+- Multi-tenant data isolation
+- Time-based access control (business hours, date ranges)
+- IP-based restrictions (allowlist, CIDR, blocklist)
+- Resource ownership conditions
+- Tag-based access control
+- Combined ABAC conditions
+
+### Secrets Rotation E2E Tests
+
+**Location:** `tests/e2e/test_secrets_rotation_lifecycle.py`
+
+Tests secrets management and rotation for SOC 2 CC6.2 compliance:
+
+```bash
+# Run secrets rotation tests
+pytest tests/e2e/test_secrets_rotation_lifecycle.py -v
+
+# Run specific areas
+pytest tests/e2e/test_secrets_rotation_lifecycle.py::TestSecretRotation -v
+pytest tests/e2e/test_secrets_rotation_lifecycle.py::TestVerificationAndRollback -v
+pytest tests/e2e/test_secrets_rotation_lifecycle.py::TestComplianceReporting -v
+```
+
+Coverage includes:
+- Secret registration (API keys, JWT, database, OAuth, encryption keys)
+- Full rotation lifecycle (rotate, verify, complete)
+- Grace period handling
+- Verification and rollback scenarios
+- Custom rotation handlers
+- Compliance reporting
+- Due secrets detection and processing
+
+### Audit Retention E2E Tests
+
+**Location:** `tests/e2e/test_audit_retention_lifecycle.py`
+
+Tests audit log retention and compliance export for SOC 2 CC6.3 and CC7.1:
+
+```bash
+# Run audit retention tests
+pytest tests/e2e/test_audit_retention_lifecycle.py -v
+
+# Run specific areas
+pytest tests/e2e/test_audit_retention_lifecycle.py::TestRetentionEnforcement -v
+pytest tests/e2e/test_audit_retention_lifecycle.py::TestComplianceExport -v
+pytest tests/e2e/test_audit_retention_lifecycle.py::TestIntegrityVerification -v
+```
+
+Coverage includes:
+- Audit entry creation and hash computation
+- Retention policy management (90-day, 7-year SOC 2)
+- Retention enforcement (removal of expired entries)
+- Compliance export (SOC 2 Type II, ISO 27001, Syslog)
+- Audit query and filtering (action, actor, time range)
+- Hash chain integrity verification (tamper detection)
+- Sequence number continuity checks
+
+### SOC 2 Test Organization
+
+Domain E2E tests map to SOC 2 controls:
+
+| Control | Test File | Key Areas |
+|---------|-----------|-----------|
+| CC6.2 Credential Management | `test_secrets_rotation_lifecycle.py` | Key rotation, grace periods |
+| CC6.3 Change Management | `test_audit_retention_lifecycle.py` | Config change audit trails |
+| CC7.1 System Monitoring | `test_audit_retention_lifecycle.py` | Audit retention, integrity |
+| CC7.2 Security Monitoring | `test_compliance_e2e.py` | Audit logs, SOC 2 reports |
+| P1-02 Data Subject Rights | `test_dsar_abac_lifecycle.py` | DSAR export, RTBF |
+| CC6.1 Access Control | `test_dsar_abac_lifecycle.py` | ABAC conditions |
+| P3-01 Privacy Notices | `test_privacy_e2e.py` | Consent management |
+
+### Running All Domain E2E Tests
+
+```bash
+# Run all domain-specific E2E tests
+pytest tests/e2e/test_compliance_e2e.py tests/e2e/test_privacy_e2e.py \
+       tests/e2e/test_dsar_abac_lifecycle.py tests/e2e/test_secrets_rotation_lifecycle.py \
+       tests/e2e/test_audit_retention_lifecycle.py -v
+
+# Quick compliance validation
+pytest tests/e2e/ -k "compliance or privacy or dsar or secrets or audit" -v --tb=short
+
+# Full E2E suite (system + domain)
+pytest tests/e2e/ -v
+```
 
 ## Troubleshooting
 

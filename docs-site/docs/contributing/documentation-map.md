@@ -49,6 +49,7 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 
 - [ARCHITECTURE.md](../core-concepts/architecture)
 - [DEBATE_INTERNALS.md](../core-concepts/debate-internals)
+- [HOOKS.md](HOOKS.md)
 - [WORKFLOW_ENGINE.md](../core-concepts/workflow-engine)
 - [TEMPLATES.md](../guides/templates)
 - [KNOWLEDGE_MOUND.md](../core-concepts/knowledge-mound)
@@ -56,6 +57,7 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 - [MEMORY.md](../core-concepts/memory-overview)
 - [DOCUMENTS.md](../guides/documents)
 - [AGENTS.md](../core-concepts/agents)
+- [SKILLS.md](SKILLS.md)
 
 ### Channels & Inbox
 
@@ -79,6 +81,7 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 ### API & SDK
 
 - [API_REFERENCE.md](../api/reference)
+- [ADMIN_API_REFERENCE.md](ADMIN_API_REFERENCE.md)
 - [API_ENDPOINTS.md](../api/endpoints) (auto-generated)
 - [API_EXAMPLES.md](../api/examples)
 - [API_VERSIONING.md](../api/versioning)
@@ -100,6 +103,7 @@ documents are archived in [deprecated/README.md](../analysis/adr).
 
 - [SECURITY.md](../security/overview)
 - [AUTH_GUIDE.md](../security/authentication)
+- [security/rbac-abac-strategy.md](security/rbac-abac-strategy.md)
 - [COMPLIANCE.md](../enterprise/compliance)
 - [DATA_CLASSIFICATION.md](../security/data-classification)
 - [PRIVACY_POLICY.md](../security/privacy-policy)
@@ -155,4 +159,4 @@ replacement docs. See [deprecated/README.md](../analysis/adr).
 - API endpoint list: `python scripts/generate_api_docs.py --output docs/API_ENDPOINTS.md`
 - OpenAPI export: `python scripts/export_openapi.py --output-dir docs/api`
 
-Last updated: 2026-01-23
+Last updated: 2026-01-27

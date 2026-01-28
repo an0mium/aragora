@@ -122,6 +122,97 @@ The router extracts:
 
 ---
 
+## Normalized Messages & Channel Docks
+
+Outbound results are normalized into a platform‑independent message format
+before being adapted by channel‑specific docks.
+
+**Normalized message model:** `aragora/channels/normalized.py`
+**Dock interface:** `aragora/channels/dock.py`
+
+```python
+from aragora.channels.normalized import NormalizedMessage, MessageFormat
+
+message = NormalizedMessage(
+    content="Decision complete ✅",
+    format=MessageFormat.MARKDOWN,
+).with_button("View receipt", "https://aragora.ai/receipts/abc123")
+```
+
+Each platform implements a `ChannelDock` that declares capabilities
+(buttons, threads, files, voice) and renders the normalized message into the
+platform’s native format.
+
+### Dock Registry
+
+Use the dock registry to discover and initialize platform docks:
+
+```python
+from aragora.channels.registry import get_dock_registry
+from aragora.channels.docks.slack import SlackDock
+
+registry = get_dock_registry()
+registry.register(SlackDock)
+
+dock = await registry.get_initialized_dock("slack")
+await dock.send_message("C123456", message)
+```
+
+---
+
+## Agent Channels (Peer Messaging)
+
+Debates can enable peer‑to‑peer messaging between agents using `AgentChannel`.
+This enables proposals, critiques, and direct questions to flow alongside the
+main debate loop.
+
+**Integration helper:** `aragora/debate/channel_integration.py`
+
+**Protocol flags:**
+- `enable_agent_channels` (default: true)
+- `agent_channel_max_history` (default: 100)
+
+```python
+from aragora.debate.channel_integration import ChannelIntegration
+
+integration = ChannelIntegration(
+    debate_id="debate-123",
+    agents=agents,
+    protocol=protocol,
+)
+await integration.setup()
+
+context = integration.get_context_for_prompt(limit=5)
+await integration.broadcast_proposal(
+    agent_name="proposer",
+    proposal_content="We should rate-limit by org tier.",
+    round_number=1,
+)
+```
+
+---
+
+## Message Bindings API
+
+Bindings map incoming messages to routing targets (provider, account, pattern).
+
+**Endpoints:**
+- `GET /api/bindings` – list all bindings
+- `GET /api/bindings/\{provider\}` – list provider bindings
+- `POST /api/bindings` – create binding
+- `PUT /api/bindings/\{id\}` – update binding
+- `DELETE /api/bindings/\{id\}` – remove binding
+- `POST /api/bindings/resolve` – resolve binding for a message
+- `GET /api/bindings/stats` – router statistics
+
+**RBAC permissions:**
+- `bindings.read`
+- `bindings.create`
+- `bindings.update`
+- `bindings.delete`
+
+---
+
 ## Voice Integration
 
 Aragora supports bidirectional voice I/O over WebSocket:

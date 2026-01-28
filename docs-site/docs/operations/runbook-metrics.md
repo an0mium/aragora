@@ -81,6 +81,10 @@ sum(rate(aragora_connector_syncs_total{status="success"}[1h])) by (connector_typ
 | `aragora_requests_total` | Counter | HTTP requests | By status |
 | `aragora_request_latency_seconds` | Histogram | Request latency | p99 < 2s |
 | `aragora_agent_calls_total` | Counter | Agent API calls | >95% success |
+| `aragora_agent_latency_seconds` | Histogram | Agent response latency | p99 < 30s |
+| `aragora_fallback_activations_total` | Counter | Fallback activations | Low, stable |
+| `aragora_fallback_success_total` | Counter | Fallback outcomes | >95% success |
+| `aragora_fallback_latency_seconds` | Histogram | Fallback latency | p99 < 30s |
 | `aragora_active_debates` | Gauge | Concurrent debates | Stable |
 
 ### Notifications

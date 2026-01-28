@@ -5,9 +5,146 @@ description: Aragora Project Status
 
 # Aragora Project Status
 
-*Last updated: January 23, 2026*
+*Last updated: January 27, 2026*
 
 ## Current Release
+
+### v2.4.0 - Python SDK Expansion & Knowledge Mound Integration (January 2026)
+
+**Production Ready** - Aragora 2.4.0 expands Python SDK coverage with 10+ new resource namespaces, improves CDC → Knowledge Mound integration, and aligns all package versions.
+
+#### Key Highlights
+- **Python SDK expansion** - Added orgs, tenants, policies, codebase, costs, decisions, onboarding, notifications, gmail, explainability resources
+- **Knowledge Mound integration** - CDC integration coverage with search parameter alignment
+- **Bot client improvements** - Deferred API base validation to runtime initialization
+- **Control plane hardening** - Improved error handling for agent/task retrieval
+- **Package alignment** - All packages aligned to v2.4.0
+- **Lines of Code**: 695,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.4.0
+
+**Python SDK Resource Expansion** (FEATURE)
+- **SDK Resources** (`aragora-py/src/aragora_client/`)
+  - Organizations namespace for org management
+  - Tenants namespace for multi-tenancy
+  - Policies namespace for policy configuration
+  - Codebase namespace for code analysis
+  - Costs namespace for usage tracking
+  - Decisions namespace for decision management
+  - Onboarding namespace for user onboarding
+  - Notifications namespace for alert management
+  - Gmail namespace for email integration
+  - Explainability namespace for decision explanations
+
+**CDC → Knowledge Mound Integration** (FEATURE)
+- **Integration Tests** (`tests/knowledge/`)
+  - Comprehensive CDC to Knowledge Mound flow testing
+  - Search parameter alignment (`q` key)
+  - Real-time knowledge sync validation
+
+**Bot Client Improvements** (FEATURE)
+- **Bot Runtime** (`aragora/bots/`)
+  - Deferred API base validation to runtime
+  - Better initialization error handling
+  - Improved session management
+
+**Bug Fixes** (BUG)
+- Fixed Python SDK payloads for billing + RBAC endpoints
+- Aligned knowledge search parameter key to `q`
+- Preserved legacy Sunset header behavior for normalized paths
+- Fixed per-debate cost tracking reset during initialization
+
+---
+
+### v2.2.0 - CLI Setup Wizard & Decision Routing (January 2026)
+
+**Production Ready** - Aragora 2.2.0 introduces a guided CLI setup wizard for self-hosted deployments and enhanced decision inbox with deep links.
+
+#### Key Highlights
+- **CLI setup wizard** - Guided `aragora setup` command for self-hosted configuration
+- **Decision Inbox** - Filters and receipt deep links for better navigation
+- **Slack/Teams routing** - Receipt links routed to UI when `ARAGORA_PUBLIC_URL` is set
+- **Cost dashboard** - Components wired to backend API
+- **Lines of Code**: 693,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.2.0
+
+**CLI Setup Wizard** (FEATURE)
+- **Setup Command** (`aragora/cli/setup.py`)
+  - Interactive configuration wizard
+  - Database connection setup
+  - API key configuration
+  - Environment file generation
+  - Self-hosted deployment guidance
+
+**Decision Inbox Enhancements** (FEATURE)
+- **Inbox Filters** (`aragora/live/components/inbox/`)
+  - Filter by status, date, priority
+  - Receipt deep links for direct navigation
+  - Improved search functionality
+
+**Slack/Teams Receipt Routing** (FEATURE)
+- **Receipt Router** (`aragora/integrations/`)
+  - Routes receipt links to UI when `ARAGORA_PUBLIC_URL` configured
+  - Supports Slack and Teams platforms
+  - Deep link generation for decision receipts
+
+**Cost Dashboard Wiring** (FEATURE)
+- **Dashboard Components** (`aragora/live/components/costs/`)
+  - Backend API integration
+  - Real-time cost display
+  - Usage breakdown visualization
+
+---
+
+### v2.1.15 - Connector Hardening & CI Validation (January 2026)
+
+**Production Ready** - Aragora 2.1.15 hardens connector implementations with abstract property enforcement and adds CI version alignment validation.
+
+#### Key Highlights
+- **Connector hardening** - Abstract property pattern enforcement for connector identification
+- **AuthContext improvements** - Better error handling and session management
+- **Playwright configuration** - Production-ready E2E test setup
+- **CI validation** - Version alignment validation job added to CI
+- **Q1 2026 planning** - 60+ issues across 6 sprints documented
+- **Lines of Code**: 692,000+ LOC
+- **0 production blockers**
+
+#### What's New in 2.1.15
+
+**Connector Hardening** (FEATURE)
+- **Abstract Properties** (`aragora/connectors/`)
+  - Enforced abstract property pattern for connector identification
+  - Removed class-level defaults that shadowed abstract properties
+  - Improved connector type safety
+
+**AuthContext Improvements** (FEATURE)
+- **Session Management** (`aragora/auth/`)
+  - Better error handling for auth failures
+  - Improved session lifecycle management
+  - Enhanced security logging
+
+**Playwright E2E Configuration** (FEATURE)
+- **Test Setup** (`aragora/live/playwright.config.ts`)
+  - Production-ready Playwright configuration
+  - Multi-browser test support
+  - CI-optimized test runner
+
+**CI Version Alignment** (CI/CD)
+- **Validation Job** (`.github/workflows/`)
+  - Cross-package version validation
+  - `check_version_alignment.py` script
+  - Prevents version drift between packages
+
+**Bug Fixes** (BUG)
+- Fixed flaky timing test with tolerance for CI variability
+- Fixed circuit breaker test with explicit threshold configuration
+- Fixed router path handling for unified inbox
+- Fixed SDK version mismatch (2.2.0 → 2.1.15)
+
+---
 
 ### v2.1.14 - Infrastructure Improvements Release (January 2026)
 
@@ -1577,6 +1714,36 @@ All stabilization items addressed:
 | `qwen-max` | qwen/qwen-max | OpenRouter |
 | `kimi` | moonshot-v1-8k | Moonshot |
 
+### Recent Changes (2026-01-27)
+- **RBAC Permission Compatibility**:
+  - Added dot/colon notation compatibility layer (`debate.create` == `debate:create`)
+  - Wildcard support for both formats (`debate.*` and `debate:*`)
+  - Updated middleware to warn on legacy format usage
+  - Added 3 new compatibility tests
+- **WebSocket Health Endpoint**:
+  - Added `/api/health/ws` and `/api/v1/health/ws` endpoints
+  - Reports WebSocket manager availability and client count
+  - Added to public routes (no auth required)
+  - Added 3 new health tests
+- **GitHub App Webhooks**:
+  - Added GitHub App webhook handler (`/api/v1/webhooks/github`)
+  - HMAC-SHA256 signature verification
+  - Auto-triggers code review debates on PR events
+  - Supports PR, issues, push, and installation events
+  - Added 20 webhook handler tests
+- **Backup Monitoring**:
+  - Added Prometheus metrics for backup operations
+  - RPO/RTO compliance tracking per SLA tier
+  - Added backup verification CI workflow (weekly)
+  - Added 18 backup monitoring tests
+- **OpenAPI → SDK Gating**:
+  - Added CI gate to verify SDK types match OpenAPI spec
+  - Fails PR if generated types are out of sync
+- **Documentation Updates**:
+  - Updated RBAC_GUIDE.md with permission format compatibility
+  - Updated OPERATIONS.md with WebSocket health endpoint
+  - Updated GITHUB_PR_REVIEW.md with webhook integration
+
 ### Recent Changes (2026-01-10)
 - **Mistral API Integration**:
   - Added `MistralAPIAgent` for direct Mistral API access
@@ -2074,26 +2241,25 @@ All stabilization items addressed:
 ### Summary
 | Channel | Readiness | Key Gaps |
 |---------|-----------|----------|
-| **Slack** | 85% ✅ | Missing retry logic |
-| **Discord** | 75% ⚠️ | Missing retry logic, timeouts |
-| **Teams** | 70% ⚠️ | ~~Missing rate limiting~~ **FIXED**, missing timeouts |
+| **Slack** | 95% ✅ | ~~Missing retry logic~~ **FIXED** - exponential backoff with 429 handling |
+| **Discord** | 90% ✅ | ~~Missing retry logic~~ **FIXED** (had retry, added 5xx handling), ~~missing timeouts~~ **FIXED** (30s) |
+| **Teams** | 90% ✅ | ~~Missing rate limiting~~ **FIXED**, ~~missing timeouts~~ **FIXED** (10s), ~~missing retry~~ **FIXED** |
 | **Email** | 50% ❌ | Global state, missing rate limiting, OAuth refresh |
 
 ### Production-Ready Features
-- **Slack**: Signature verification (HMAC-SHA256), rate limiting (30/60/100 RPM), comprehensive error handling
-- **Discord**: Ed25519 signature verification, rate limiting (30 RPM), good error handling
-- **Teams**: Bot Framework SDK auth, rate limiting (30/60 RPM) **ADDED**
+- **Slack**: Signature verification (HMAC-SHA256), rate limiting (30/60/100 RPM), comprehensive error handling, **retry logic with exponential backoff**
+- **Discord**: Ed25519 signature verification, rate limiting (30 RPM), **retry logic with 429/5xx handling**, **30s timeout**
+- **Teams**: Bot Framework SDK auth, rate limiting (30/60 RPM), **retry logic with exponential backoff**, **10s timeout**
 - **Email**: Gmail OAuth integration (experimental)
 
 ### Remaining Gaps (P0/P1)
-1. **No retry logic** - Failed API calls go directly to user-facing errors (all channels)
+1. ~~**No retry logic**~~ - **FIXED for Slack/Teams/Discord** (exponential backoff with 429 rate limit handling)
 2. **No circuit breaker** - Cascading failures possible (module exists at `/aragora/resilience.py` but unused)
-3. **Missing timeouts** - Teams/Email/Discord requests can hang indefinitely
+3. ~~**Missing timeouts**~~ - **FIXED for all channels** (Slack/Teams 10s, Discord 30s), Email still needs work
 4. **Email global state** - Not thread-safe for multi-worker deployment
 
 ### Recommendation
-- **Slack/Discord**: Safe for production with monitoring
-- **Teams**: Safe with monitoring after timeout addition
+- **Slack/Teams/Discord**: Safe for production with monitoring
 - **Email**: Experimental only - requires persistence layer for OAuth tokens
 
 ## Recommendations

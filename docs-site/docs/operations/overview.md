@@ -51,6 +51,14 @@ curl http://localhost:8080/api/health
 # Expected response:
 # {"status": "healthy", "version": "1.0.0", "uptime": 3600}
 
+# WebSocket health check (public endpoint, no auth required)
+curl http://localhost:8080/api/health/ws
+
+# Expected response:
+# {"status": "healthy", "clients": 5}
+# or when unavailable:
+# {"status": "unavailable", "clients": 0, "message": "WebSocket manager not configured"}
+
 # WebSocket connectivity test
 wscat -c ws://localhost:8765/ws
 ```
@@ -171,9 +179,12 @@ Key metrics:
 |--------|------|-------------|
 | `aragora_debates_total` | Counter | Total debates started |
 | `aragora_debates_completed` | Counter | Completed debates |
-| `aragora_agent_response_seconds` | Histogram | Agent response latency |
-| `aragora_tokens_used_total` | Counter | Total tokens consumed |
-| `aragora_ws_connections_active` | Gauge | Active WebSocket connections |
+| `aragora_agent_latency_seconds` | Histogram | Agent response latency |
+| `aragora_agent_tokens_total` | Counter | Total tokens consumed |
+| `aragora_fallback_activations_total` | Counter | Fallback activations |
+| `aragora_fallback_success_total` | Counter | Fallback outcomes |
+| `aragora_fallback_latency_seconds` | Histogram | Fallback latency |
+| `aragora_websocket_connections` | Gauge | Active WebSocket connections |
 | `aragora_circuit_breaker_state` | Gauge | Circuit breaker status per agent |
 
 ### Grafana Dashboard
@@ -672,6 +683,53 @@ To analyze storage usage without cleaning:
 ```bash
 python scripts/cleanup_nomic_state.py --analyze-only
 ```
+
+### Decision Receipt Retention
+
+Decision receipts (cryptographic audit trails for debates) are automatically cleaned up by the Receipt Retention Scheduler. This runs as a background async task.
+
+#### Configuration
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `ARAGORA_RECEIPT_RETENTION_DAYS` | 2555 (~7 years) | How long to keep receipts |
+| `ARAGORA_RECEIPT_CLEANUP_INTERVAL_HOURS` | 24 | How often to run cleanup |
+
+#### Monitoring
+
+Check scheduler status via the API:
+
+```bash
+curl -s http://localhost:8080/api/admin/schedulers/receipt-retention/status | jq .
+
+# Expected response:
+# {
+#   "running": true,
+#   "interval_hours": 24,
+#   "retention_days": 2555,
+#   "stats": {
+#     "total_runs": 5,
+#     "total_receipts_deleted": 0,
+#     "failures": 0,
+#     "success_rate": 1.0
+#   }
+# }
+```
+
+#### Manual Cleanup
+
+Trigger immediate cleanup (for maintenance or testing):
+
+```bash
+curl -X POST http://localhost:8080/api/admin/schedulers/receipt-retention/cleanup
+```
+
+#### Prometheus Metrics
+
+The scheduler exposes these metrics:
+- `aragora_receipt_cleanup_total` - Total cleanup operations
+- `aragora_receipt_cleanup_duration_seconds` - Cleanup duration histogram
+- `aragora_receipts_deleted_total` - Total receipts deleted
 
 ---
 

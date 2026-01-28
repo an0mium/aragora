@@ -32,6 +32,22 @@ Memory defaults to local persistence for development. Production deployments
 should use durable backends (PostgreSQL/Redis/Weaviate) via Knowledge Mound
 configuration for multi-instance consistency.
 
+## Hybrid Memory Search
+
+ContinuumMemory supports **hybrid search** that fuses vector similarity and
+keyword matches using Reciprocal Rank Fusion (RRF). The keyword index is backed
+by SQLite FTS5 in the same memory database.
+
+```python
+from aragora.memory import get_hybrid_memory_search
+
+search = get_hybrid_memory_search(memory)
+results = await search.search("circuit breaker pattern", limit=10)
+```
+
+Use `KeywordIndex.rebuild_index()` to (re)populate the FTS index after large
+ingestion batches or migrations.
+
 ## Related Documentation
 
 - [Memory tiers](./memory)

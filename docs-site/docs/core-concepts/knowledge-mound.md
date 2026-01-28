@@ -880,13 +880,22 @@ for region in status.regions:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/knowledge/mound/federation/regions` | Register region (admin) |
-| GET | `/api/knowledge/mound/federation/regions` | List federated regions |
-| POST | `/api/knowledge/mound/federation/sync/push` | Push to region |
-| POST | `/api/knowledge/mound/federation/sync/pull` | Pull from region |
-| GET | `/api/knowledge/mound/federation/status` | Federation health status |
-| PUT | `/api/knowledge/mound/federation/regions/:id` | Update region settings |
-| DELETE | `/api/knowledge/mound/federation/regions/:id` | Remove region |
+| POST | `/api/v1/knowledge/mound/federation/regions` | Register region (admin) |
+| GET | `/api/v1/knowledge/mound/federation/regions` | List federated regions |
+| POST | `/api/v1/knowledge/mound/federation/sync/push` | Push to region |
+| POST | `/api/v1/knowledge/mound/federation/sync/pull` | Pull from region |
+| POST | `/api/v1/knowledge/mound/federation/sync/all` | Sync all regions |
+| GET | `/api/v1/knowledge/mound/federation/status` | Federation health status |
+| DELETE | `/api/v1/knowledge/mound/federation/regions/:id` | Remove region |
+
+### API Endpoints for Deduplication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/knowledge/mound/dedup/clusters` | Find duplicate clusters |
+| GET | `/api/v1/knowledge/mound/dedup/report` | Generate dedup report |
+| POST | `/api/v1/knowledge/mound/dedup/merge` | Merge a duplicate cluster |
+| POST | `/api/v1/knowledge/mound/dedup/auto-merge` | Auto-merge exact duplicates |
 
 ---
 

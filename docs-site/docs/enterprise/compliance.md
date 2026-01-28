@@ -146,6 +146,7 @@ consent_record = {
 |-----------|------------------|-------------|
 | User accounts | Until deletion | Consent |
 | Debate content | Indefinite (anonymizable) | Legitimate interest |
+| Decision receipts | 7 years (configurable) | Financial audit compliance |
 | Audit logs | 1 year | Legal obligation |
 | Access logs | 90 days | Security |
 | Backup data | 14 days | Legitimate interest |

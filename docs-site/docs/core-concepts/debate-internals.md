@@ -102,6 +102,15 @@ ratings = await loaders.elo.load_many(["anthropic-api", "openai-api"])
 stats = await loaders.stats.load_many(["anthropic-api", "openai-api"])
 ```
 
+### Agent Failure Tracking
+
+Debate execution records per-agent failures (timeouts, empty responses, and
+exceptions). These are stored in `DebateContext.agent_failures` and persisted
+to the final `DebateResult.agent_failures`.
+
+When streaming events, failure summaries can surface in the `consensus` event
+(`status`, `agent_failures`) and as individual `agent_error` events.
+
 ## Phase System
 
 Debates progress through configurable phases.
@@ -146,6 +155,99 @@ class CustomPhase(BasePhase):
 Opening → Argumentation (rounds) → Rebuttal → Synthesis → Voting → Verdict
               ↑                        ↓
               └──────── Repeat ────────┘
+```
+
+## Debate Interventions
+
+Aragora supports mid‑debate controls for pausing, resuming, injecting user input,
+and adjusting consensus parameters. Interventions are audited and can be
+consumed by orchestration layers to alter the next round.
+
+**REST Endpoints:**
+- `POST /api/debates/\{debate_id\}/intervention/pause`
+- `POST /api/debates/\{debate_id\}/intervention/resume`
+- `POST /api/debates/\{debate_id\}/intervention/inject`
+- `POST /api/debates/\{debate_id\}/intervention/weights`
+- `POST /api/debates/\{debate_id\}/intervention/threshold`
+- `GET  /api/debates/\{debate_id\}/intervention/state`
+- `GET  /api/debates/\{debate_id\}/intervention/log`
+
+**Note:** The default handler stores intervention state in memory for simplicity.
+Production deployments should back this with Redis or a database to preserve
+state across restarts and allow horizontal scaling.
+
+## Agent Channel Integration
+
+When enabled in the debate protocol, agents can send peer‑to‑peer messages
+alongside the standard debate loop. This is useful for proposals, critiques,
+and direct questions between agents.
+
+**Integration helper:** `aragora/debate/channel_integration.py`
+**Protocol flags:** `enable_agent_channels` (default: true), `agent_channel_max_history` (default: 100)
+
+```python
+from aragora.debate.channel_integration import ChannelIntegration
+
+integration = ChannelIntegration(debate_id, agents, protocol)
+await integration.setup()
+context = integration.get_context_for_prompt(limit=5)
+```
+
+## Declarative Hooks
+
+Aragora supports YAML-defined hooks that attach automation to debate and audit
+events. Hooks are loaded via `HookConfigLoader` and applied to the
+`HookManager` used by the arena runtime.
+
+See [HOOKS.md](HOOKS.md) for the YAML schema, trigger list, and built-in actions.
+
+## Hook Tracking (GUPP Recovery)
+
+When enabled in the debate protocol, the orchestrator records hook events and
+creates a **pending bead** at debate start. This supports GUPP‑style recovery
+(Guaranteed Unconditional Processing Priority) so incomplete debates can be
+recovered after crashes.
+
+**Protocol Flags:**
+- `enable_bead_tracking` – persist final decisions as beads
+- `enable_hook_tracking` – record hook queues and create pending beads
+- `hook_max_recovery_age_hours` – cap recovery window
+**Defaults:** `enable_bead_tracking=true`, `enable_hook_tracking=true`
+
+**Storage:** Hook queues and beads are stored in the `.beads/` directory when
+the Nomic bead store is available.
+
+## Checkpoint Bridge
+
+`CheckpointBridge` unifies molecule tracking and checkpoint persistence. It
+captures molecule progress, message history, and optional channel history in a
+single recovery structure.
+
+**Location:** `aragora/debate/checkpoint_bridge.py`
+
+```python
+from aragora.debate.checkpoint_bridge import CheckpointBridge
+
+bridge = CheckpointBridge(molecule_orchestrator, checkpoint_manager)
+state = await bridge.save_checkpoint(
+    debate_id="deb-123",
+    current_round=2,
+    phase="voting",
+)
+```
+
+## Propulsion Engine (Gastown Pattern)
+
+Aragora includes a propulsion engine for push‑based work assignment between
+stages. Propulsion handlers register for event types and the engine retries
+failed tasks with backoff.
+
+```python
+from aragora.debate.propulsion import propulsion_handler, PropulsionPayload
+
+@propulsion_handler("proposals_ready")
+async def on_proposals(payload: PropulsionPayload) -> None:
+    ...
 ```
 
 ## Consensus Detection

@@ -5,7 +5,7 @@ description: Environment Variable Reference
 
 # Environment Variable Reference
 
-> **Last Updated:** 2026-01-25
+> **Last Updated:** 2026-01-27
 
 
 Complete reference for all environment variables used by Aragora.
@@ -74,6 +74,7 @@ At least one AI provider key is required.
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key (Large, Codestral) | - |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter for multi-model access | - |
 | `DEEPSEEK_API_KEY` | Optional | DeepSeek CLI key (for `deepseek-cli`) | - |
+| `ARAGORA_OPENROUTER_FALLBACK_ENABLED` | Optional | Enable OpenRouter fallback for supported providers | `false` |
 
 **Note:** Never commit your `.env` file. It's gitignored for security.
 
@@ -266,6 +267,61 @@ Use `DATABASE_URL` for managed Postgres, or set backend-specific settings for lo
 | `ARAGORA_REQUIRE_DISTRIBUTED` | Optional | Fail closed when stores fall back to local (prod default) | `auto` |
 | `ARAGORA_STORAGE_MODE` | Optional | Force storage mode: `postgres`, `redis`, `sqlite`, `file` | `auto` |
 
+## Control Plane Watchdog
+
+Three-tier monitoring system for agent health and SLA compliance. See [WATCHDOG.md](./WATCHDOG.md) for architecture details.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `CP_ENABLE_WATCHDOG` | Optional | Enable the three-tier watchdog system | `true` |
+| `CP_WATCHDOG_CHECK_INTERVAL` | Optional | Tier check interval (seconds) | `5` |
+| `CP_WATCHDOG_HEARTBEAT_TIMEOUT` | Optional | Agent heartbeat timeout (seconds) | `30` |
+| `CP_WATCHDOG_AUTO_ESCALATE` | Optional | Auto-escalate issues to higher tiers | `true` |
+| `CP_WATCHDOG_ESCALATION_THRESHOLD` | Optional | Issues before escalating | `3` |
+| `CP_WATCHDOG_MEMORY_WARNING_MB` | Optional | Memory usage warning threshold (MB) | `1024` |
+| `CP_WATCHDOG_MEMORY_CRITICAL_MB` | Optional | Memory usage critical threshold (MB) | `2048` |
+| `CP_WATCHDOG_LATENCY_WARNING_MS` | Optional | Latency warning threshold (ms) | `5000` |
+| `CP_WATCHDOG_LATENCY_CRITICAL_MS` | Optional | Latency critical threshold (ms) | `15000` |
+| `CP_WATCHDOG_ERROR_RATE_WARNING` | Optional | Error rate warning threshold (0.0-1.0) | `0.1` |
+| `CP_WATCHDOG_ERROR_RATE_CRITICAL` | Optional | Error rate critical threshold (0.0-1.0) | `0.3` |
+| `CP_WATCHDOG_SLA_AVAILABILITY_PCT` | Optional | SLA availability target (percent) | `99.0` |
+| `CP_WATCHDOG_SLA_RESPONSE_TIME_MS` | Optional | SLA response time target (ms) | `10000` |
+
+**Example Configuration:**
+```bash
+# Production: strict monitoring
+CP_ENABLE_WATCHDOG=true
+CP_WATCHDOG_CHECK_INTERVAL=2
+CP_WATCHDOG_HEARTBEAT_TIMEOUT=10
+CP_WATCHDOG_AUTO_ESCALATE=true
+CP_WATCHDOG_SLA_AVAILABILITY_PCT=99.9
+
+# Development: relaxed monitoring
+CP_ENABLE_WATCHDOG=true
+CP_WATCHDOG_CHECK_INTERVAL=30
+CP_WATCHDOG_HEARTBEAT_TIMEOUT=120
+CP_WATCHDOG_AUTO_ESCALATE=false
+```
+
+## Skills System
+
+Skills provide specialized capabilities to agents during debates. See [SKILLS.md](./SKILLS.md) for usage.
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_SKILLS_ENABLED` | Optional | Enable the skills system | `true` |
+| `ARAGORA_SKILLS_RATE_LIMIT` | Optional | Skills API rate limit (req/min) | `30` |
+| `ARAGORA_SKILLS_TIMEOUT` | Optional | Default skill invocation timeout (seconds) | `30` |
+| `ARAGORA_SKILLS_MAX_TIMEOUT` | Optional | Maximum allowed skill timeout (seconds) | `60` |
+| `ARAGORA_MARKETPLACE_DB` | Optional | SQLite path for the skills marketplace | `:memory:` |
+| `GOOGLE_SEARCH_API_KEY` | Optional | Google Custom Search API key | - |
+| `GOOGLE_SEARCH_CX` | Optional | Google Custom Search engine ID | - |
+
+**Notes:**
+- `TAVILY_API_KEY` (documented in Web Research section) is used by web search skills
+- `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_CX` enable Google search skills
+- Skills can define their own API key requirements
+
 **\*Auto-detect Behavior:**
 - If `DATABASE_URL` or `ARAGORA_POSTGRES_DSN` is set → uses PostgreSQL
 - Otherwise → uses SQLite for local development
@@ -429,6 +485,17 @@ If you ran Aragora in the repo root, stray `.db` files may land there. Move them
 ```bash
 scripts/cleanup_runtime_artifacts.sh
 ```
+
+## Receipt Retention
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `ARAGORA_RECEIPT_RETENTION_DAYS` | Optional | How long to keep decision receipts | `2555` (~7 years) |
+| `ARAGORA_RECEIPT_CLEANUP_INTERVAL_HOURS` | Optional | How often to run receipt cleanup | `24` |
+
+Decision receipts are cryptographic audit trails for debates. They're automatically cleaned up by a background scheduler.
+
+**Compliance note:** The default 7-year retention aligns with financial audit requirements. Adjust based on your regulatory requirements.
 
 ## CORS Configuration
 
@@ -1094,6 +1161,8 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 - `ARAGORA_ENCRYPTION_REQUIRED` is automatically enabled when `ARAGORA_ENV=production`
 - `ARAGORA_ALLOW_UNVERIFIED_WEBHOOKS` should **never** be set in production - webhooks will fail-closed if verification is unavailable
 - Webhook verification requires: Slack (signing secret), Discord (PyNaCl + public key), Teams/Google Chat (PyJWT)
+- When `AWS_REGION`/`AWS_DEFAULT_REGION` is set, Secrets Manager is enabled by default and
+  `ARAGORA_SECRET_NAME` falls back to `aragora/production` if not provided.
 
 ## Knowledge System
 
@@ -1141,6 +1210,7 @@ See [BOT_INTEGRATIONS.md](../guides/bot-integrations) for detailed setup guides.
 |----------|----------|-------------|---------|
 | `ARAGORA_BASELINE_PARALLEL` | Optional | Parallel workers for baseline runner | `auto` |
 | `ARAGORA_BASELINE_TIMEOUT` | Optional | Timeout seconds for baseline runner | `60` |
+| `ARAGORA_TEST_REAL_AUTH` | Optional | Enable real auth checks in tests | - |
 
 ## Legacy Database Aliases
 
