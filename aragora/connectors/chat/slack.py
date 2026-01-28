@@ -1034,94 +1034,62 @@ class SlackConnector(ChatPlatformConnector):
     # ==========================================================================
 
     async def get_channel_info(self, channel_id: str, **kwargs: Any) -> Optional[ChatChannel]:
-        """Get channel information from Slack."""
-        if not HTTPX_AVAILABLE:
-            return None
+        """Get channel information from Slack with retry and circuit breaker."""
+        success, data, error = await self._slack_api_request(
+            "conversations.info",
+            operation="get_channel_info",
+            method="GET",
+            params={"channel": channel_id},
+        )
 
-        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
-            return None
+        if success and data:
+            channel_data = data.get("channel", {})
+            return ChatChannel(
+                id=channel_id,
+                platform=self.platform_name,
+                name=channel_data.get("name"),
+                team_id=channel_data.get("context_team_id"),
+                is_private=channel_data.get("is_private", False),
+                metadata={
+                    "topic": channel_data.get("topic", {}).get("value", ""),
+                    "purpose": channel_data.get("purpose", {}).get("value", ""),
+                    "num_members": channel_data.get("num_members", 0),
+                },
+            )
 
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get(
-                    f"{SLACK_API_BASE}/conversations.info",
-                    headers=self._get_headers(),
-                    params={"channel": channel_id},
-                )
-                data = response.json()
-
-                if data.get("ok"):
-                    if self._circuit_breaker:
-                        self._circuit_breaker.record_success()
-                    channel_data = data.get("channel", {})
-                    return ChatChannel(
-                        id=channel_id,
-                        platform=self.platform_name,
-                        name=channel_data.get("name"),
-                        team_id=channel_data.get("context_team_id"),
-                        is_private=channel_data.get("is_private", False),
-                        metadata={
-                            "topic": channel_data.get("topic", {}).get("value", ""),
-                            "purpose": channel_data.get("purpose", {}).get("value", ""),
-                            "num_members": channel_data.get("num_members", 0),
-                        },
-                    )
-
-                if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
-                return None
-
-        except Exception as e:
-            logger.error(f"Slack get_channel_info error: {e}")
-            if self._circuit_breaker:
-                self._circuit_breaker.record_failure()
-            return None
+        if error:
+            logger.debug(f"get_channel_info failed: {error}")
+        return None
 
     async def get_user_info(self, user_id: str, **kwargs: Any) -> Optional[ChatUser]:
-        """Get user information from Slack."""
-        if not HTTPX_AVAILABLE:
-            return None
+        """Get user information from Slack with retry and circuit breaker."""
+        success, data, error = await self._slack_api_request(
+            "users.info",
+            operation="get_user_info",
+            method="GET",
+            params={"user": user_id},
+        )
 
-        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
-            return None
+        if success and data:
+            user_data = data.get("user", {})
+            profile = user_data.get("profile", {})
+            return ChatUser(
+                id=user_id,
+                platform=self.platform_name,
+                username=user_data.get("name"),
+                display_name=profile.get("display_name") or profile.get("real_name"),
+                email=profile.get("email"),
+                is_bot=user_data.get("is_bot", False),
+                metadata={
+                    "title": profile.get("title", ""),
+                    "team_id": user_data.get("team_id"),
+                    "tz": user_data.get("tz"),
+                },
+            )
 
-        try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
-                response = await client.get(
-                    f"{SLACK_API_BASE}/users.info",
-                    headers=self._get_headers(),
-                    params={"user": user_id},
-                )
-                data = response.json()
-
-                if data.get("ok"):
-                    if self._circuit_breaker:
-                        self._circuit_breaker.record_success()
-                    user_data = data.get("user", {})
-                    profile = user_data.get("profile", {})
-                    return ChatUser(
-                        id=user_id,
-                        platform=self.platform_name,
-                        username=user_data.get("name"),
-                        display_name=profile.get("display_name") or profile.get("real_name"),
-                        email=profile.get("email"),
-                        is_bot=user_data.get("is_bot", False),
-                        metadata={
-                            "title": profile.get("title", ""),
-                            "team_id": user_data.get("team_id"),
-                            "tz": user_data.get("tz"),
-                        },
-                    )
-
-                if self._circuit_breaker:
-                    self._circuit_breaker.record_failure()
-                return None
-
-        except Exception as e:
-            logger.error(f"Slack get_user_info error: {e}")
-            if self._circuit_breaker:
-                self._circuit_breaker.record_failure()
-            return None
+        if error:
+            logger.debug(f"get_user_info failed: {error}")
+        return None
 
     def format_blocks(
         self,

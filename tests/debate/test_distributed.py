@@ -339,48 +339,74 @@ class TestDistributedDebateResult:
         """Test creating a debate result."""
         result = DistributedDebateResult(
             debate_id="debate-123",
+            task="What database should we use?",
             consensus_reached=True,
             final_answer="Use PostgreSQL",
+            winning_agent="claude-3",
             confidence=0.92,
             rounds_completed=3,
-            participating_agents=["claude-3", "gpt-4"],
             participating_instances=["instance-1", "instance-2"],
+            participating_agents=["claude-3", "gpt-4"],
+            duration_seconds=45.5,
+            proposals=[{"agent_id": "claude-3", "content": "PostgreSQL"}],
+            votes=[{"agent_id": "gpt-4", "vote": "support"}],
         )
 
         assert result.debate_id == "debate-123"
+        assert result.task == "What database should we use?"
         assert result.consensus_reached is True
         assert result.final_answer == "Use PostgreSQL"
+        assert result.winning_agent == "claude-3"
         assert result.confidence == 0.92
         assert result.rounds_completed == 3
         assert len(result.participating_agents) == 2
+        assert len(result.participating_instances) == 2
+        assert result.duration_seconds == 45.5
 
     def test_result_no_consensus(self):
         """Test result when no consensus reached."""
         result = DistributedDebateResult(
             debate_id="debate-456",
+            task="Architecture decision",
             consensus_reached=False,
             final_answer=None,
+            winning_agent=None,
             confidence=0.0,
             rounds_completed=5,
+            participating_instances=["instance-1"],
+            participating_agents=["claude-3", "gpt-4"],
+            duration_seconds=120.0,
+            proposals=[],
+            votes=[],
         )
 
         assert result.consensus_reached is False
         assert result.final_answer is None
+        assert result.winning_agent is None
         assert result.confidence == 0.0
 
     def test_result_to_dict(self):
         """Test result serialization."""
         result = DistributedDebateResult(
             debate_id="debate-789",
+            task="Service architecture",
             consensus_reached=True,
             final_answer="Microservices",
+            winning_agent="gpt-4",
             confidence=0.88,
             rounds_completed=4,
+            participating_instances=["instance-1"],
+            participating_agents=["gpt-4"],
+            duration_seconds=60.0,
+            proposals=[{"agent_id": "gpt-4", "content": "Microservices"}],
+            votes=[],
         )
 
         data = result.to_dict()
 
         assert data["debate_id"] == "debate-789"
+        assert data["task"] == "Service architecture"
         assert data["consensus_reached"] is True
         assert data["final_answer"] == "Microservices"
         assert data["confidence"] == 0.88
+        assert data["winning_agent"] == "gpt-4"

@@ -73,6 +73,7 @@ class RetryConfig:
     max_delay: float = 10.0  # seconds
     strategy: RetryStrategy = RetryStrategy.EXPONENTIAL
     jitter: bool = True  # Add randomness to prevent thundering herd
+    timeout_seconds: Optional[float] = None  # Per-attempt timeout
     retryable_exceptions: tuple[type[Exception], ...] = (
         ConnectionError,
         TimeoutError,
