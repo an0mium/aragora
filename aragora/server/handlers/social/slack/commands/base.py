@@ -123,12 +123,12 @@ class CommandsMixin:
                 )
 
             # Sort by ELO
-            sorted_agents = sorted(agents, key=lambda x: x.rating, reverse=True)
+            sorted_agents = sorted(agents, key=lambda x: x.elo, reverse=True)
 
             # Build agent list
             agent_lines = []
             for i, agent in enumerate(sorted_agents[:10], 1):
-                line = f"{i}. *{agent.agent_id}*: {agent.rating:.0f} ELO"
+                line = f"{i}. *{agent.agent_name}*: {agent.elo:.0f} ELO"
                 agent_lines.append(line)
 
             blocks: List[Dict[str, Any]] = [
@@ -202,14 +202,14 @@ class CommandsMixin:
                 )
 
             # Sort by ELO
-            sorted_agents = sorted(agents, key=lambda x: x.rating, reverse=True)
+            sorted_agents = sorted(agents, key=lambda x: x.elo, reverse=True)
 
             # Build leaderboard
             lines = []
             medals = ["Gold", "Silver", "Bronze"]
             for i, agent in enumerate(sorted_agents[:10], 1):
                 medal = medals[i - 1] if i <= 3 else str(i)
-                line = f"{medal}. *{agent.agent_id}*: {agent.rating:.0f} ELO ({agent.wins}W/{agent.losses}L)"
+                line = f"{medal}. *{agent.agent_name}*: {agent.elo:.0f} ELO ({agent.wins}W/{agent.losses}L)"
                 lines.append(line)
 
             blocks: List[Dict[str, Any]] = [

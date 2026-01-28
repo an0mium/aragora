@@ -264,11 +264,9 @@ class ZapierConnector(AutomationConnector):
             },
         }
 
-        return samples.get(
-            event_type,
-            {
-                "event_type": event_type.value,
-                "sample": True,
-                "message": f"Sample payload for {event_type.value}",
-            },
-        )
+        default: Dict[str, Any] = {
+            "event_type": event_type.value,
+            "sample": True,
+            "message": f"Sample payload for {event_type.value}",
+        }
+        return samples.get(event_type, default)
