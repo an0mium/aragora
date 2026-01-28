@@ -288,10 +288,12 @@ class AragoraAsyncClient:
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
         from .namespaces.audit import AsyncAuditAPI
+        from .namespaces.auth import AsyncAuthAPI
         from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.debates import AsyncDebatesAPI
         from .namespaces.explainability import AsyncExplainabilityAPI
         from .namespaces.gauntlet import AsyncGauntletAPI
+        from .namespaces.health import AsyncHealthAPI
         from .namespaces.knowledge import AsyncKnowledgeAPI
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
@@ -306,10 +308,12 @@ class AragoraAsyncClient:
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
         self.audit = AsyncAuditAPI(self)
+        self.auth = AsyncAuthAPI(self)
         self.consensus = AsyncConsensusAPI(self)
         self.debates = AsyncDebatesAPI(self)
         self.explainability = AsyncExplainabilityAPI(self)
         self.gauntlet = AsyncGauntletAPI(self)
+        self.health = AsyncHealthAPI(self)
         self.knowledge = AsyncKnowledgeAPI(self)
         self.memory = AsyncMemoryAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)

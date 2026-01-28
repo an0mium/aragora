@@ -16,7 +16,10 @@ from .gauntlet import AsyncGauntletAPI, GauntletAPI
 from .health import AsyncHealthAPI, HealthAPI
 from .knowledge import AsyncKnowledgeAPI, KnowledgeAPI
 from .memory import AsyncMemoryAPI, MemoryAPI
+from .notifications import AsyncNotificationsAPI, NotificationsAPI
 from .onboarding import AsyncOnboardingAPI, OnboardingAPI
+from .pulse import AsyncPulseAPI, PulseAPI
+from .ranking import AsyncRankingAPI, RankingAPI
 from .rbac import RBACAPI, AsyncRBACAPI
 from .receipts import AsyncReceiptsAPI, ReceiptsAPI
 from .usage import AsyncUsageAPI, UsageAPI
@@ -49,8 +52,14 @@ __all__ = [
     "AsyncKnowledgeAPI",
     "MemoryAPI",
     "AsyncMemoryAPI",
+    "NotificationsAPI",
+    "AsyncNotificationsAPI",
     "OnboardingAPI",
     "AsyncOnboardingAPI",
+    "PulseAPI",
+    "AsyncPulseAPI",
+    "RankingAPI",
+    "AsyncRankingAPI",
     "RBACAPI",
     "AsyncRBACAPI",
     "ReceiptsAPI",
