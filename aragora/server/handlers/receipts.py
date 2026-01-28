@@ -722,6 +722,40 @@ class ReceiptsHandler(BaseHandler):
             logger.exception(f"Failed to format receipt: {e}")
             return error_response(f"Formatting failed: {str(e)}", 500)
 
+    @require_permission("receipts:read")
+    async def _get_retention_status(self) -> HandlerResult:
+        """Get retention status for GDPR compliance. Endpoint: GET /api/v2/receipts/retention-status"""
+        store = self._get_store()
+        status = store.get_retention_status()
+        return json_response(status)
+
+    @require_permission("receipts:read")
+    async def _get_dsar(self, user_id: str, query_params: Dict[str, str]) -> HandlerResult:
+        """Handle GDPR DSAR. Endpoint: GET /api/v2/receipts/dsar/{user_id}"""
+        if not user_id or len(user_id) < 3:
+            return error_response("Valid user_id required (minimum 3 characters)", 400)
+
+        store = self._get_store()
+        limit = min(int(query_params.get("limit", "100")), 1000)
+        offset = int(query_params.get("offset", "0"))
+
+        receipts, total = store.get_by_user(user_id=user_id, limit=limit, offset=offset)
+        receipt_data = [r.to_full_dict() for r in receipts]
+
+        return json_response(
+            {
+                "dsar_request": {
+                    "user_id": user_id,
+                    "request_type": "data_subject_access_request",
+                    "gdpr_article": "Article 15 - Right of access",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                },
+                "receipts": receipt_data,
+                "pagination": {"limit": limit, "offset": offset, "total": total},
+                "summary": {"total_receipts": total, "returned_receipts": len(receipts)},
+            }
+        )
+
     def _parse_timestamp(self, value: Optional[str]) -> Optional[float]:
         """Parse timestamp from string (ISO date or unix timestamp)."""
         if not value:
