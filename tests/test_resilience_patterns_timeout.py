@@ -244,3 +244,54 @@ class TestTimeoutEdgeCases:
 
         with pytest.raises((asyncio.TimeoutError, PatternTimeoutError, asyncio.CancelledError)):
             await with_cleanup()
+
+
+class TestTimeoutContextManagers:
+    """Tests for timeout context managers."""
+
+    @pytest.mark.asyncio
+    async def test_timeout_context_success(self):
+        """Test async context manager with successful operation."""
+        from aragora.resilience_patterns.timeout import timeout_context
+
+        async with timeout_context(1.0, context_name="test"):
+            await asyncio.sleep(0.01)
+        # Should complete without exception
+
+    @pytest.mark.asyncio
+    async def test_timeout_context_timeout(self):
+        """Test async context manager with timeout."""
+        from aragora.resilience_patterns.timeout import timeout_context
+
+        with pytest.raises((asyncio.TimeoutError, PatternTimeoutError)):
+            async with timeout_context(0.1, context_name="slow_op"):
+                await asyncio.sleep(1.0)
+
+    @pytest.mark.asyncio
+    async def test_timeout_context_callback(self):
+        """Test callback invocation on timeout."""
+        from aragora.resilience_patterns.timeout import timeout_context
+
+        callback_called = False
+
+        def on_timeout(name):
+            nonlocal callback_called
+            callback_called = True
+
+        with pytest.raises((asyncio.TimeoutError, PatternTimeoutError)):
+            async with timeout_context(0.1, on_timeout=on_timeout, context_name="test_callback"):
+                await asyncio.sleep(1.0)
+
+        assert callback_called is True
+
+    @pytest.mark.asyncio
+    async def test_timeout_context_preserves_return(self):
+        """Test that context manager preserves operations correctly."""
+        from aragora.resilience_patterns.timeout import timeout_context
+
+        result = None
+        async with timeout_context(1.0):
+            result = "success"
+            await asyncio.sleep(0.01)
+
+        assert result == "success"

@@ -250,6 +250,165 @@ class TestAuditEvents:
         assert result.status_code == 200
 
 
+class TestGDPRDeletion:
+    """Test GDPR deletion endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_right_to_be_forgotten(self, handler):
+        """Test GDPR right to be forgotten endpoint."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/right-to-be-forgotten",
+            body={"user_id": "user-001", "reason": "User request"},
+        )
+        # May return 200 or 202 (accepted for async processing)
+        assert result.status_code in (200, 202)
+
+    @pytest.mark.asyncio
+    async def test_right_to_be_forgotten_requires_user_id(self, handler):
+        """Test GDPR deletion requires user_id."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/right-to-be-forgotten",
+            body={},
+        )
+        assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_list_deletions(self, handler):
+        """Test listing GDPR deletion requests."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr/deletions",
+            query_params={"status": "pending"},
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_get_deletion_status(self, handler):
+        """Test getting deletion request status."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr/deletions/del-001",
+        )
+        # Returns 200 if found, 404 if not
+        assert result.status_code in (200, 404)
+
+    @pytest.mark.asyncio
+    async def test_cancel_deletion(self, handler):
+        """Test cancelling a deletion request."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/deletions/del-001/cancel",
+            body={"reason": "Legal hold applied"},
+        )
+        # Returns 200 if cancelled, 404 if not found
+        assert result.status_code in (200, 404)
+
+
+class TestGDPRLegalHolds:
+    """Test GDPR legal hold endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_list_legal_holds(self, handler):
+        """Test listing legal holds."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr/legal-holds",
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_create_legal_hold(self, handler):
+        """Test creating a legal hold."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/legal-holds",
+            body={
+                "user_id": "user-001",
+                "reason": "Litigation pending",
+                "case_id": "case-001",
+            },
+        )
+        assert result.status_code in (200, 201)
+
+    @pytest.mark.asyncio
+    async def test_release_legal_hold(self, handler):
+        """Test releasing a legal hold."""
+        result = await handler.handle(
+            "DELETE",
+            "/api/v2/compliance/gdpr/legal-holds/hold-001",
+        )
+        # Returns 200/204 if released, 404 if not found
+        assert result.status_code in (200, 204, 404)
+
+
+class TestGDPRCoordinatedDeletion:
+    """Test GDPR coordinated deletion endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_coordinated_deletion(self, handler):
+        """Test backup-aware coordinated deletion."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/coordinated-deletion",
+            body={"user_id": "user-001"},
+        )
+        assert result.status_code in (200, 202)
+
+    @pytest.mark.asyncio
+    async def test_execute_pending_deletions(self, handler):
+        """Test executing pending deletions."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/execute-pending",
+        )
+        assert result.status_code in (200, 202)
+
+    @pytest.mark.asyncio
+    async def test_list_backup_exclusions(self, handler):
+        """Test listing backup exclusions."""
+        result = await handler.handle(
+            "GET",
+            "/api/v2/compliance/gdpr/backup-exclusions",
+        )
+        assert result.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_add_backup_exclusion(self, handler):
+        """Test adding a backup exclusion."""
+        result = await handler.handle(
+            "POST",
+            "/api/v2/compliance/gdpr/backup-exclusions",
+            body={"user_id": "user-001", "reason": "GDPR deletion request"},
+        )
+        assert result.status_code in (200, 201)
+
+
+class TestComplianceHandlerRouting_Extended:
+    """Extended routing tests for GDPR endpoints."""
+
+    def test_can_handle_gdpr_deletion_paths(self, handler):
+        """Test handler recognizes GDPR deletion paths."""
+        assert handler.can_handle("/api/v2/compliance/gdpr/right-to-be-forgotten", "POST")
+        assert handler.can_handle("/api/v2/compliance/gdpr/deletions", "GET")
+        assert handler.can_handle("/api/v2/compliance/gdpr/deletions/del-001", "GET")
+        assert handler.can_handle("/api/v2/compliance/gdpr/deletions/del-001/cancel", "POST")
+
+    def test_can_handle_legal_hold_paths(self, handler):
+        """Test handler recognizes legal hold paths."""
+        assert handler.can_handle("/api/v2/compliance/gdpr/legal-holds", "GET")
+        assert handler.can_handle("/api/v2/compliance/gdpr/legal-holds", "POST")
+        assert handler.can_handle("/api/v2/compliance/gdpr/legal-holds/hold-001", "DELETE")
+
+    def test_can_handle_coordinated_deletion_paths(self, handler):
+        """Test handler recognizes coordinated deletion paths."""
+        assert handler.can_handle("/api/v2/compliance/gdpr/coordinated-deletion", "POST")
+        assert handler.can_handle("/api/v2/compliance/gdpr/execute-pending", "POST")
+        assert handler.can_handle("/api/v2/compliance/gdpr/backup-exclusions", "GET")
+        assert handler.can_handle("/api/v2/compliance/gdpr/backup-exclusions", "POST")
+
+
 class TestFactoryFunction:
     """Test handler factory function."""
 

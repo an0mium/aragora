@@ -228,7 +228,7 @@ class TeamsIntegrationHandler(BaseHandler):
             logger.exception(f"Teams interactive error: {e}")
             return error_response(f"Error: {str(e)[:100]}", 500)
 
-    def _handle_notify(self, handler: Any) -> HandlerResult:
+    async def _handle_notify(self, handler: Any) -> HandlerResult:
         """Send notification to a Teams channel/conversation."""
         try:
             body = self._read_json_body(handler)
@@ -247,21 +247,12 @@ class TeamsIntegrationHandler(BaseHandler):
             if not connector:
                 return error_response("Teams integration not configured", 503)
 
-            # Send message asynchronously
-            async def send():
-                return await connector.send_message(
-                    channel_id=conversation_id,
-                    text=message,
-                    blocks=blocks,
-                    service_url=service_url,
-                )
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(send())
-            finally:
-                loop.close()
+            result = await connector.send_message(
+                channel_id=conversation_id,
+                text=message,
+                blocks=blocks,
+                service_url=service_url,
+            )
 
             return json_response(
                 {

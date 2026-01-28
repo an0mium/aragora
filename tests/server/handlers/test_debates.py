@@ -513,8 +513,7 @@ class TestDebatesHandlerEdgeCases:
 class TestDecisionRouterIntegration:
     """Tests for DecisionRouter integration in debate creation."""
 
-    @pytest.mark.asyncio
-    async def test_create_debate_uses_direct_controller(self, handler, mock_http_handler):
+    def test_create_debate_uses_direct_controller(self, handler, mock_http_handler):
         """Test that _create_debate uses direct controller for immediate response.
 
         The direct controller path is preferred over DecisionRouter because:
@@ -530,18 +529,19 @@ class TestDecisionRouterIntegration:
 
             # Mock other dependencies
             with patch.object(handler, "read_json_body", return_value={"question": "Test?"}):
-                with patch(
-                    "aragora.server.handlers.debates.handler.validate_against_schema"
-                ) as mock_validate:
-                    mock_validate.return_value = MagicMock(is_valid=True)
+                with patch.object(handler, "_check_spam_content", return_value=None):
+                    with patch(
+                        "aragora.server.handlers.debates.handler.validate_against_schema"
+                    ) as mock_validate:
+                        mock_validate.return_value = MagicMock(is_valid=True)
 
-                    mock_http_handler._check_rate_limit = MagicMock(return_value=True)
-                    mock_http_handler._check_tier_rate_limit = MagicMock(return_value=True)
-                    mock_http_handler.stream_emitter = MagicMock()
-                    mock_http_handler.headers = {}
+                        mock_http_handler._check_rate_limit = MagicMock(return_value=True)
+                        mock_http_handler._check_tier_rate_limit = MagicMock(return_value=True)
+                        mock_http_handler.stream_emitter = MagicMock()
+                        mock_http_handler.headers = {}
 
-                    # Call _create_debate
-                    result = await handler._create_debate(mock_http_handler)
+                        # Call _create_debate (sync method)
+                        result = handler._create_debate(mock_http_handler)
 
             # Verify direct controller was used
             mock_direct.assert_called_once()

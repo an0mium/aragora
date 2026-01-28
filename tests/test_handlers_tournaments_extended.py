@@ -239,7 +239,6 @@ class TestTournamentRateLimiting:
 class TestTournamentResponseFormat:
     """Test response JSON structure and field types."""
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_list_response_structure(self, tournament_ctx, mock_handler_factory):
         """List tournaments response has correct structure."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -267,7 +266,6 @@ class TestTournamentResponseFormat:
             assert isinstance(body["tournaments"], list)
             assert isinstance(body["count"], int)
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_list_tournament_item_fields(self, tournament_ctx, mock_handler_factory):
         """Tournament list items have expected fields."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -301,7 +299,6 @@ class TestTournamentResponseFormat:
             assert t["participants"] == 2
             assert t["top_agent"] == "claude"
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_standings_response_structure(self, tournament_ctx, mock_handler_factory):
         """Standings response has correct structure."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -331,7 +328,6 @@ class TestTournamentResponseFormat:
             assert isinstance(body["standings"], list)
             assert body["count"] == 1
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_standing_item_fields(self, tournament_ctx, mock_handler_factory):
         """Standing items have expected fields with correct types."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -372,7 +368,6 @@ class TestTournamentResponseFormat:
             assert isinstance(standing["total_score"], (int, float))
             assert isinstance(standing["win_rate"], (int, float))
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_error_response_format(self, tournament_ctx, mock_handler_factory):
         """Error responses have consistent format."""
         handler = TournamentHandler(tournament_ctx)
@@ -397,7 +392,6 @@ class TestTournamentResponseFormat:
 class TestTournamentEdgeCases:
     """Test edge cases and boundary conditions."""
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_empty_standings(self, tournament_ctx, mock_handler_factory):
         """Handle tournament with no participants."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -420,7 +414,6 @@ class TestTournamentEdgeCases:
             assert body["standings"] == []
             assert body["count"] == 0
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_list_with_empty_tournament(self, tournament_ctx, mock_handler_factory):
         """List includes empty tournaments correctly."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -445,7 +438,6 @@ class TestTournamentEdgeCases:
             assert t["total_matches"] == 0
             assert t["top_agent"] is None
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_max_tournaments_limit(self, tournament_ctx, mock_handler_factory):
         """List tournaments respects MAX_TOURNAMENTS_TO_LIST."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -472,7 +464,6 @@ class TestTournamentEdgeCases:
             # Should be capped at MAX_TOURNAMENTS_TO_LIST
             assert body["count"] <= MAX_TOURNAMENTS_TO_LIST
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_large_standings_list(self, tournament_ctx, mock_handler_factory):
         """Handle tournament with many participants."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -498,7 +489,6 @@ class TestTournamentEdgeCases:
             assert body["count"] == 500
             assert len(body["standings"]) == 500
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_tournaments_dir_not_exists(self, tmp_path, mock_handler_factory):
         """Handle missing tournaments directory."""
         ctx = {"nomic_dir": tmp_path, "storage": None}
@@ -516,7 +506,6 @@ class TestTournamentEdgeCases:
         assert body["tournaments"] == []
         assert body["count"] == 0
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_corrupted_tournament_skipped(self, tournament_ctx, mock_handler_factory):
         """Corrupted tournament files are skipped in list."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -547,7 +536,6 @@ class TestTournamentEdgeCases:
             assert body["count"] == 1
             assert body["tournaments"][0]["tournament_id"] == "good"
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_no_nomic_dir_list(self, mock_handler_factory):
         """Returns 503 when nomic_dir not configured for list."""
         ctx = {"nomic_dir": None, "storage": None}
@@ -562,7 +550,6 @@ class TestTournamentEdgeCases:
         body = json.loads(result.body)
         assert "not configured" in body["error"].lower()
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_no_nomic_dir_standings(self, mock_handler_factory):
         """Returns 503 when nomic_dir not configured for standings."""
         ctx = {"nomic_dir": None, "storage": None}
@@ -583,7 +570,6 @@ class TestTournamentEdgeCases:
 class TestTournamentDataParsing:
     """Test parsing of tournament data and calculations."""
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_total_matches_calculation(self, tournament_ctx, mock_handler_factory):
         """Total matches calculated correctly from standings."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -611,7 +597,6 @@ class TestTournamentDataParsing:
             # (3+2+1) + (2+3+1) = 12, divided by 2 = 6
             assert t["total_matches"] == 6
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_top_agent_selection(self, tournament_ctx, mock_handler_factory):
         """Top agent is first in standings list."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -637,7 +622,6 @@ class TestTournamentDataParsing:
 
             assert body["tournaments"][0]["top_agent"] == "gpt4"
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_win_rate_in_standings(self, tournament_ctx, mock_handler_factory):
         """Win rate is correctly included in standings."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -661,7 +645,6 @@ class TestTournamentDataParsing:
             standing = body["standings"][0]
             assert standing["win_rate"] == 0.5
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_points_calculation_in_standings(self, tournament_ctx, mock_handler_factory):
         """Points are correctly passed through."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -686,7 +669,6 @@ class TestTournamentDataParsing:
             standing = body["standings"][0]
             assert standing["points"] == 17
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_multiple_tournaments_different_data(self, tournament_ctx, mock_handler_factory):
         """Multiple tournaments have independent data."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -795,7 +777,6 @@ class TestTournamentInputValidation:
 class TestTournamentConcurrency:
     """Test concurrent request handling."""
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_concurrent_list_requests(self, tournament_ctx, mock_handler_factory):
         """Multiple concurrent list requests handled correctly."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"
@@ -835,7 +816,6 @@ class TestTournamentConcurrency:
             assert r is not None
             assert r.status_code == 200
 
-    @pytest.mark.skipif(not TOURNAMENT_AVAILABLE, reason="TournamentManager not available")
     def test_concurrent_standings_requests(self, tournament_ctx, mock_handler_factory):
         """Multiple concurrent standings requests handled correctly."""
         tournaments_dir = Path(tournament_ctx["nomic_dir"]) / "tournaments"

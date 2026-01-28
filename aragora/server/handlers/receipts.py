@@ -925,10 +925,11 @@ class ReceiptsHandler(BaseHandler):
                 HMACSigner,
                 ReceiptSigner,
                 RSASigner,
+                SigningBackend,
             )
 
             # Create backend based on algorithm
-            backend = None
+            backend: SigningBackend
             if algorithm == "rsa-sha256":
                 backend = RSASigner.generate_keypair()
             elif algorithm == "ed25519":
