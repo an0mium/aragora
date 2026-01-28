@@ -252,7 +252,7 @@ class TestDRHandlerRBACEnforcement:
 
         # With correct permission
         ctx = AuthorizationContext(
-            user_id="admin_123",
+            user_id="dr_admin_with_perm",
             permissions={"dr.read"},
         )
         result = protected_func(ctx)
@@ -260,10 +260,10 @@ class TestDRHandlerRBACEnforcement:
 
         # Without permission
         ctx_no_perms = AuthorizationContext(
-            user_id="user_123",
+            user_id="dr_user_no_perm",
             permissions={"backup.read"},  # Wrong permission
         )
-        with pytest.raises(Exception):  # PermissionDenied
+        with pytest.raises(PermissionDeniedError):
             protected_func(ctx_no_perms)
 
     def test_dr_drill_requires_write_permission(self):
@@ -276,7 +276,7 @@ class TestDRHandlerRBACEnforcement:
 
         # With correct permission
         ctx = AuthorizationContext(
-            user_id="admin_123",
+            user_id="dr_drill_admin",
             permissions={"dr.write"},
         )
         result = run_drill(ctx)
@@ -284,10 +284,10 @@ class TestDRHandlerRBACEnforcement:
 
         # Read-only should fail
         ctx_readonly = AuthorizationContext(
-            user_id="user_123",
+            user_id="dr_drill_readonly",
             permissions={"dr.read"},  # Only read, not write
         )
-        with pytest.raises(Exception):  # PermissionDenied
+        with pytest.raises(PermissionDeniedError):
             run_drill(ctx_readonly)
 
 
@@ -304,7 +304,7 @@ class TestComplianceHandlerRBACEnforcement:
 
         # With correct permission
         ctx = AuthorizationContext(
-            user_id="auditor_123",
+            user_id="compliance_auditor",
             permissions={"compliance.read"},
         )
         result = get_soc2_report(ctx)
@@ -320,7 +320,7 @@ class TestComplianceHandlerRBACEnforcement:
 
         # With correct permission
         ctx = AuthorizationContext(
-            user_id="admin_123",
+            user_id="compliance_export_admin",
             permissions={"compliance.export"},
         )
         result = export_gdpr_data(ctx, "target_user")
@@ -340,7 +340,7 @@ class TestReceiptsHandlerRBACEnforcement:
 
         # With correct permission
         ctx = AuthorizationContext(
-            user_id="user_123",
+            user_id="receipts_user_with_perm",
             permissions={"receipts.read"},
         )
         result = get_receipt(ctx, "dec_123")
@@ -348,8 +348,8 @@ class TestReceiptsHandlerRBACEnforcement:
 
         # Without permission
         ctx_no_perms = AuthorizationContext(
-            user_id="guest_123",
+            user_id="receipts_guest_no_perm",
             permissions=set(),
         )
-        with pytest.raises(Exception):
+        with pytest.raises(PermissionDeniedError):
             get_receipt(ctx_no_perms, "dec_123")

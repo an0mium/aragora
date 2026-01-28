@@ -33,18 +33,35 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from .exceptions import (
+    RLMCircuitOpenError,
+    RLMContentNotFoundError,
+    RLMProviderError,
+    RLMTimeoutError,
+)
 from .types import RLMResult
 
 if TYPE_CHECKING:
+    from aragora.resilience import CircuitBreaker
+
     from .compressor import HierarchicalCompressor
 
 logger = logging.getLogger(__name__)
+
+# Default timeout for async operations (seconds)
+DEFAULT_TIMEOUT_SECONDS = 30.0
+
+# Circuit breaker configuration
+DEFAULT_FAILURE_THRESHOLD = 5
+DEFAULT_COOLDOWN_SECONDS = 60.0
 
 
 @dataclass
@@ -96,6 +113,10 @@ class RLMContextAdapter:
         self,
         compressor: Optional["HierarchicalCompressor"] = None,
         agent_call: Optional[Callable[[str, str], Any]] = None,
+        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        enable_circuit_breaker: bool = True,
+        failure_threshold: int = DEFAULT_FAILURE_THRESHOLD,
+        cooldown_seconds: float = DEFAULT_COOLDOWN_SECONDS,
     ):
         """
         Initialize the adapter.
@@ -103,10 +124,29 @@ class RLMContextAdapter:
         Args:
             compressor: Optional compressor for fallback compression
             agent_call: Optional LLM call function for queries
+            timeout_seconds: Timeout for async operations (default: 30s)
+            enable_circuit_breaker: Whether to use circuit breaker (default: True)
+            failure_threshold: Failures before opening circuit (default: 5)
+            cooldown_seconds: Seconds before circuit recovery attempt (default: 60)
         """
         self._compressor = compressor
         self._agent_call = agent_call
         self._registry: dict[str, RegisteredContent] = {}
+        self._timeout_seconds = timeout_seconds
+
+        # Circuit breaker for resilience
+        self._circuit_breaker: Optional["CircuitBreaker"] = None
+        if enable_circuit_breaker:
+            try:
+                from aragora.resilience import CircuitBreaker
+
+                self._circuit_breaker = CircuitBreaker(
+                    name="rlm_adapter",
+                    failure_threshold=failure_threshold,
+                    cooldown_seconds=cooldown_seconds,
+                )
+            except ImportError:
+                logger.debug("CircuitBreaker not available, proceeding without")
 
     # =========================================================================
     # External Environment: Register and Access Content
@@ -254,6 +294,7 @@ class RLMContextAdapter:
         content_id: str,
         question: str,
         max_response_chars: int = 500,
+        timeout_seconds: float | None = None,
     ) -> RLMResult:
         """
         Query registered content with a question.
@@ -265,16 +306,23 @@ class RLMContextAdapter:
             content_id: ID of registered content
             question: Question to answer about the content
             max_response_chars: Maximum response length
+            timeout_seconds: Override default timeout (optional)
 
         Returns:
             RLMResult with answer and provenance
+
+        Raises:
+            RLMContentNotFoundError: If content_id not in registry
+            RLMCircuitOpenError: If circuit breaker is open
+            RLMTimeoutError: If operation times out
+            RLMProviderError: If LLM provider fails
         """
         registered = self._registry.get(content_id)
         if not registered:
-            return RLMResult(
-                answer="Content not found",
-                ready=True,
-                confidence=0.0,
+            raise RLMContentNotFoundError(
+                f"Content not found: {content_id}",
+                operation="query",
+                content_id=content_id,
             )
 
         if not self._agent_call:
@@ -287,6 +335,15 @@ class RLMContextAdapter:
                 nodes_examined=[content_id],
             )
 
+        # Check circuit breaker
+        if self._circuit_breaker and not self._circuit_breaker.can_proceed():
+            raise RLMCircuitOpenError(
+                "Circuit breaker is open due to repeated failures",
+                cooldown_remaining=self._circuit_breaker.cooldown_seconds,
+                operation="query",
+                content_id=content_id,
+            )
+
         # Build query prompt
         prompt = f"""Based on the following content, answer the question concisely.
 
@@ -297,16 +354,52 @@ Question: {question}
 
 Answer (be specific and cite relevant parts):"""
 
+        timeout = timeout_seconds or self._timeout_seconds
+        start_time = time.monotonic()
+
         try:
-            response = await self._agent_call(prompt, "sub_model")
+            async with asyncio.timeout(timeout):
+                response = await self._agent_call(prompt, "sub_model")
+
+            # Record success
+            if self._circuit_breaker:
+                self._circuit_breaker.record_success()
+
             return RLMResult(
                 answer=str(response)[:max_response_chars],
                 ready=True,
                 confidence=0.8,
                 nodes_examined=[content_id],
             )
+
+        except asyncio.TimeoutError:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+            elapsed = time.monotonic() - start_time
+            logger.warning(f"adapter_query_timeout elapsed={elapsed:.2f}s timeout={timeout}s")
+            raise RLMTimeoutError(
+                f"Query timed out after {elapsed:.2f}s",
+                timeout_seconds=timeout,
+                operation="query",
+                content_id=content_id,
+            )
+
+        except ConnectionError as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
+            logger.warning(f"adapter_query_connection_error error={e}")
+            raise RLMProviderError(
+                f"Provider connection failed: {e}",
+                is_transient=True,
+                operation="query",
+                content_id=content_id,
+            ) from e
+
         except Exception as e:
+            if self._circuit_breaker:
+                self._circuit_breaker.record_failure()
             logger.warning(f"adapter_query_failed error={e}")
+            # Return degraded result instead of raising
             return RLMResult(
                 answer=self._search_content(registered.full_content, question, max_response_chars),
                 ready=True,
@@ -449,6 +542,7 @@ Answer (be specific and cite relevant parts):"""
         self,
         content_id: str,
         max_chars: Optional[int] = None,
+        timeout_seconds: float | None = None,
     ) -> str:
         """
         Generate summary using TRUE RLM pattern.
@@ -461,9 +555,14 @@ Answer (be specific and cite relevant parts):"""
         Args:
             content_id: ID of registered content
             max_chars: Optional character limit
+            timeout_seconds: Override default timeout (optional)
 
         Returns:
             Summary (LLM > compression > truncation fallback)
+
+        Note:
+            This method gracefully degrades on failures - it will always
+            return a summary (even if just truncation) unless content not found.
         """
         registered = self._registry.get(content_id)
         if not registered:
@@ -473,35 +572,66 @@ Answer (be specific and cite relevant parts):"""
         if len(registered.full_content) <= 200:
             return registered.summary or registered.full_content
 
+        timeout = timeout_seconds or self._timeout_seconds
+
         # PRIORITY 1: TRUE RLM - Use LLM to generate summary
         if self._agent_call:
-            try:
-                prompt = f"""Summarize this {registered.content_type} in 2-3 concise sentences.
+            # Check circuit breaker (but don't fail - just skip to fallback)
+            circuit_open = self._circuit_breaker and not self._circuit_breaker.can_proceed()
+            if circuit_open:
+                logger.debug("adapter_summary circuit_open, skipping LLM")
+            else:
+                try:
+                    prompt = f"""Summarize this {registered.content_type} in 2-3 concise sentences.
 Focus on the key points and conclusions.
 
 Content:
 {registered.full_content[:4000]}
 
 Summary:"""
-                response = await self._agent_call(prompt, "sub_model")
-                summary = str(response).strip()
+                    async with asyncio.timeout(timeout):
+                        response = await self._agent_call(prompt, "sub_model")
 
-                # Cache the LLM-generated summary
-                registered.summary = summary
+                    # Record success
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_success()
 
-                if max_chars and len(summary) > max_chars:
-                    summary = self._smart_truncate(summary, max_chars)
-                return summary
-            except Exception as e:
-                logger.warning(f"adapter_llm_summary_failed error={e}, trying compression")
+                    summary = str(response).strip()
+
+                    # Cache the LLM-generated summary
+                    registered.summary = summary
+
+                    if max_chars and len(summary) > max_chars:
+                        summary = self._smart_truncate(summary, max_chars)
+                    return summary
+
+                except asyncio.TimeoutError:
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_failure()
+                    logger.warning(
+                        f"adapter_llm_summary_timeout timeout={timeout}s, trying compression"
+                    )
+
+                except ConnectionError as e:
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_failure()
+                    logger.warning(
+                        f"adapter_llm_summary_connection_error error={e}, trying compression"
+                    )
+
+                except Exception as e:
+                    if self._circuit_breaker:
+                        self._circuit_breaker.record_failure()
+                    logger.warning(f"adapter_llm_summary_failed error={e}, trying compression")
 
         # PRIORITY 2: COMPRESSION - Use compressor if available
         if self._compressor:
             try:
-                result = await self._compressor.compress(
-                    registered.full_content,
-                    source_type=registered.content_type,
-                )
+                async with asyncio.timeout(timeout):
+                    result = await self._compressor.compress(
+                        registered.full_content,
+                        source_type=registered.content_type,
+                    )
                 summary = (
                     result.context.get_at_level(  # type: ignore[attr-defined,union-attr]
                         result.context.abstraction_levels.get("summary", "SUMMARY")  # type: ignore[attr-defined]
@@ -514,6 +644,10 @@ Summary:"""
                 if max_chars and len(summary) > max_chars:
                     summary = self._smart_truncate(summary, max_chars)
                 return summary
+
+            except asyncio.TimeoutError:
+                logger.warning(f"adapter_compress_timeout timeout={timeout}s, using truncation")
+
             except Exception as e:
                 logger.warning(f"adapter_compress_failed error={e}, using truncation")
 

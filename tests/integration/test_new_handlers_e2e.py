@@ -57,14 +57,14 @@ from aragora.server.handlers.features.marketplace import (
 @pytest.fixture(autouse=True)
 def mock_auth():
     """Mock authentication and RBAC checks for all integration tests."""
-    from aragora.auth.models import AuthorizationContext
+    from aragora.rbac.models import AuthorizationContext
 
     # Create a mock auth context with full permissions
     mock_context = AuthorizationContext(
         user_id="test_user_123",
-        tenant_id="test_tenant",
-        permissions=["*"],  # All permissions
-        roles=["admin"],
+        org_id="test_tenant",
+        permissions={"*"},  # All permissions (set not list)
+        roles={"admin"},  # Roles as set
     )
 
     async def mock_get_auth_context(*args, **kwargs):

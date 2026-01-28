@@ -101,6 +101,15 @@ from .adapter import (
     get_adapter,
     get_repl_adapter,
 )
+from .exceptions import (
+    RLMError,
+    RLMTimeoutError,
+    RLMContextOverflowError,
+    RLMProviderError,
+    RLMCircuitOpenError,
+    RLMContentNotFoundError,
+    RLMREPLError,
+)
 from .debate_helpers import (
     DebateREPLContext,
     load_debate_context,
@@ -229,4 +238,12 @@ __all__ = [
     "create_training_hook",
     # Hierarchy cache (Phase 24 extraction)
     "RLMHierarchyCache",
+    # Exceptions (robust error handling)
+    "RLMError",
+    "RLMTimeoutError",
+    "RLMContextOverflowError",
+    "RLMProviderError",
+    "RLMCircuitOpenError",
+    "RLMContentNotFoundError",
+    "RLMREPLError",
 ]
