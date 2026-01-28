@@ -205,7 +205,7 @@ class TestStatusEndpoint:
 class TestCommandEndpoint:
     """Tests for POST /api/integrations/teams/commands."""
 
-    def test_help_command(self, handler, mock_teams_connector):
+    async def test_help_command(self, handler, mock_teams_connector):
         """Help command should return help text."""
         body = {
             "text": "help",
@@ -220,12 +220,12 @@ class TestCommandEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 200
 
-    def test_status_command_no_debate(self, handler):
+    async def test_status_command_no_debate(self, handler):
         """Status command with no active debate."""
         body = {
             "text": "status",
@@ -236,13 +236,13 @@ class TestCommandEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
 
-        result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         response_body = get_json(result)
         assert response_body.get("active") is False
 
-    def test_status_command_with_debate(self, handler):
+    async def test_status_command_with_debate(self, handler):
         """Status command with active debate."""
         # Add an active debate
         handler._active_debates["conv123"] = {
@@ -259,14 +259,14 @@ class TestCommandEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
 
-        result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         response_body = get_json(result)
         assert response_body.get("active") is True
         assert response_body.get("topic") == "Test topic"
 
-    def test_cancel_command_with_debate(self, handler):
+    async def test_cancel_command_with_debate(self, handler):
         """Cancel command should remove active debate."""
         # Add an active debate
         handler._active_debates["conv123"] = {
@@ -283,12 +283,12 @@ class TestCommandEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
 
-        result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         assert "conv123" not in handler._active_debates
 
-    def test_cancel_command_no_debate(self, handler):
+    async def test_cancel_command_no_debate(self, handler):
         """Cancel command with no active debate."""
         body = {
             "text": "cancel",
@@ -299,12 +299,12 @@ class TestCommandEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
 
-        result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         # Should handle gracefully
 
-    def test_debate_command_no_topic(self, handler, mock_teams_connector):
+    async def test_debate_command_no_topic(self, handler, mock_teams_connector):
         """Debate command without topic should show error."""
         body = {
             "text": "debate",
@@ -319,12 +319,12 @@ class TestCommandEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         # Should request topic
 
-    def test_debate_command_with_topic(self, handler, mock_teams_connector):
+    async def test_debate_command_with_topic(self, handler, mock_teams_connector):
         """Debate command with topic should start debate."""
         body = {
             "text": "debate Should AI be regulated?",
@@ -342,14 +342,14 @@ class TestCommandEndpoint:
             ),
             patch("aragora.server.handlers.social.teams.create_tracked_task"),
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         response_body = get_json(result)
         assert response_body.get("success") is True
         assert "conv123" in handler._active_debates
 
-    def test_debate_command_already_running(self, handler, mock_teams_connector):
+    async def test_debate_command_already_running(self, handler, mock_teams_connector):
         """Debate command when one is already running should error."""
         # Add an active debate
         handler._active_debates["conv123"] = {
@@ -370,12 +370,12 @@ class TestCommandEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         # Should indicate debate already running
 
-    def test_unknown_command(self, handler, mock_teams_connector):
+    async def test_unknown_command(self, handler, mock_teams_connector):
         """Unknown command should return help or error."""
         body = {
             "text": "foobar",
@@ -390,11 +390,11 @@ class TestCommandEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
 
-    def test_command_with_at_mention_removed(self, handler, mock_teams_connector):
+    async def test_command_with_at_mention_removed(self, handler, mock_teams_connector):
         """Bot @mention should be stripped from command."""
         body = {
             "text": "<at>Aragora</at> help",
@@ -409,12 +409,12 @@ class TestCommandEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 200
 
-    def test_invalid_json_body(self, handler):
+    async def test_invalid_json_body(self, handler):
         """Invalid JSON should return 400."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json", "Content-Length": "12"},
@@ -423,7 +423,7 @@ class TestCommandEndpoint:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 400
@@ -437,7 +437,7 @@ class TestCommandEndpoint:
 class TestInteractiveEndpoint:
     """Tests for POST /api/integrations/teams/interactive."""
 
-    def test_vote_action(self, handler):
+    async def test_vote_action(self, handler):
         """Vote action should be processed."""
         body = {
             "value": {"action": "vote", "debate_id": "debate123", "choice": "for"},
@@ -448,11 +448,11 @@ class TestInteractiveEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/interactive")
 
-        result = handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
 
         assert result is not None
 
-    def test_cancel_debate_action(self, handler):
+    async def test_cancel_debate_action(self, handler):
         """Cancel debate action should remove debate."""
         # Add an active debate
         handler._active_debates["conv123"] = {
@@ -468,12 +468,12 @@ class TestInteractiveEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/interactive")
 
-        result = handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
 
         assert result is not None
         assert "conv123" not in handler._active_debates
 
-    def test_view_receipt_action(self, handler):
+    async def test_view_receipt_action(self, handler):
         """View receipt action should be handled."""
         body = {
             "value": {"action": "view_receipt", "receipt_id": "receipt123"},
@@ -483,11 +483,11 @@ class TestInteractiveEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/interactive")
 
-        result = handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
 
         assert result is not None
 
-    def test_unknown_action(self, handler):
+    async def test_unknown_action(self, handler):
         """Unknown action should be logged but not fail."""
         body = {
             "value": {"action": "unknown_action"},
@@ -497,13 +497,13 @@ class TestInteractiveEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/interactive")
 
-        result = handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
 
         assert result is not None
         response_body = get_json(result)
         assert response_body.get("status") == "unknown_action"
 
-    def test_invalid_body(self, handler):
+    async def test_invalid_body(self, handler):
         """Invalid body should return 400."""
         mock_http = MockHandler(
             headers={"Content-Type": "application/json", "Content-Length": "5"},
@@ -512,7 +512,7 @@ class TestInteractiveEndpoint:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 400
@@ -526,7 +526,7 @@ class TestInteractiveEndpoint:
 class TestNotifyEndpoint:
     """Tests for POST /api/integrations/teams/notify."""
 
-    def test_notify_success(self, handler, mock_teams_connector):
+    async def test_notify_success(self, handler, mock_teams_connector):
         """Notify with valid params should send message."""
         body = {
             "conversation_id": "conv123",
@@ -540,13 +540,13 @@ class TestNotifyEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
 
         assert result is not None
         response_body = get_json(result)
         assert response_body.get("success") is True
 
-    def test_notify_missing_conversation_id(self, handler):
+    async def test_notify_missing_conversation_id(self, handler):
         """Notify without conversation_id should fail."""
         body = {
             "service_url": "https://smba.trafficmanager.net/amer/",
@@ -555,12 +555,12 @@ class TestNotifyEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/notify")
 
-        result = handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 400
 
-    def test_notify_missing_service_url(self, handler):
+    async def test_notify_missing_service_url(self, handler):
         """Notify without service_url should fail."""
         body = {
             "conversation_id": "conv123",
@@ -569,12 +569,12 @@ class TestNotifyEndpoint:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/notify")
 
-        result = handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+        result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 400
 
-    def test_notify_connector_not_configured(self, handler):
+    async def test_notify_connector_not_configured(self, handler):
         """Notify without connector should return 503."""
         body = {
             "conversation_id": "conv123",
@@ -588,12 +588,12 @@ class TestNotifyEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=None,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 503
 
-    def test_notify_with_blocks(self, handler, mock_teams_connector):
+    async def test_notify_with_blocks(self, handler, mock_teams_connector):
         """Notify with blocks should include them."""
         blocks = [{"type": "TextBlock", "text": "Test block"}]
         body = {
@@ -609,7 +609,7 @@ class TestNotifyEndpoint:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
 
         assert result is not None
         mock_teams_connector.send_message.assert_called_once()
@@ -664,7 +664,7 @@ class TestTeamsConnector:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_command_exception_handled(self, handler):
+    async def test_command_exception_handled(self, handler):
         """Exceptions in command handling should be caught."""
         body = {
             "text": "debate Test topic",
@@ -677,12 +677,12 @@ class TestErrorHandling:
 
         with patch("aragora.server.handlers.social.teams.get_teams_connector") as mock_connector:
             mock_connector.side_effect = Exception("Test error")
-            result = handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 500
 
-    def test_interactive_exception_handled(self, handler):
+    async def test_interactive_exception_handled(self, handler):
         """Exceptions in interactive handling should be caught."""
         body = {
             "value": {"action": "vote"},
@@ -692,12 +692,14 @@ class TestErrorHandling:
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/interactive")
 
         with patch.object(handler, "_handle_vote", side_effect=Exception("Test error")):
-            result = handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+            result = await handler.handle_post(
+                "/api/v1/integrations/teams/interactive", {}, mock_http
+            )
 
         assert result is not None
         assert get_status_code(result) == 500
 
-    def test_notify_exception_handled(self, handler, mock_teams_connector):
+    async def test_notify_exception_handled(self, handler, mock_teams_connector):
         """Exceptions in notify should be caught."""
         body = {
             "conversation_id": "conv123",
@@ -713,7 +715,7 @@ class TestErrorHandling:
             "aragora.server.handlers.social.teams.get_teams_connector",
             return_value=mock_teams_connector,
         ):
-            result = handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+            result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
 
         assert result is not None
         assert get_status_code(result) == 500
@@ -732,7 +734,7 @@ class TestActiveDebatesState:
         assert hasattr(handler, "_active_debates")
         assert isinstance(handler._active_debates, dict)
 
-    def test_debate_added_on_start(self, handler, mock_teams_connector):
+    async def test_debate_added_on_start(self, handler, mock_teams_connector):
         """Starting a debate should add to active debates."""
         assert "conv456" not in handler._active_debates
 
@@ -752,12 +754,12 @@ class TestActiveDebatesState:
             ),
             patch("aragora.server.handlers.social.teams.create_tracked_task"),
         ):
-            handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+            await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert "conv456" in handler._active_debates
         assert handler._active_debates["conv456"]["topic"] == "New topic here"
 
-    def test_debate_removed_on_cancel(self, handler):
+    async def test_debate_removed_on_cancel(self, handler):
         """Cancelling a debate should remove from active debates."""
         handler._active_debates["conv789"] = {"topic": "Will be cancelled"}
 
@@ -770,6 +772,6 @@ class TestActiveDebatesState:
 
         mock_http = MockHandler.with_json_body(body, path="/api/v1/integrations/teams/commands")
 
-        handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+        await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
 
         assert "conv789" not in handler._active_debates
