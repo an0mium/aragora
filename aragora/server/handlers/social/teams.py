@@ -517,9 +517,21 @@ class TeamsIntegrationHandler(BaseHandler):
             from aragora.ranking.elo import get_elo_store
 
             store = get_elo_store()
-            rankings = store.get_leaderboard(limit=10) if store else []
+            raw_rankings = store.get_leaderboard(limit=10) if store else []
 
-            if not rankings:
+            # Convert to dicts for consistent handling
+            rankings: List[Dict[str, Any]] = []
+            if raw_rankings:
+                for r in raw_rankings:
+                    rankings.append(
+                        {
+                            "agent": getattr(r, "agent_name", "Unknown"),
+                            "elo": getattr(r, "elo", 0),
+                            "wins": getattr(r, "wins", 0),
+                            "losses": getattr(r, "losses", 0),
+                        }
+                    )
+            else:
                 # Return sample rankings if store is empty
                 rankings = [
                     {"agent": "anthropic-api", "elo": 1650, "wins": 42, "losses": 18},
@@ -550,18 +562,26 @@ class TeamsIntegrationHandler(BaseHandler):
     ) -> HandlerResult:
         """List available AI agents."""
         try:
-            from aragora.agents import get_available_agents
+            from aragora.agents import list_available_agents
 
-            agents = get_available_agents()
-            agent_list = (
-                [{"name": a.name, "model": getattr(a, "model", "unknown")} for a in agents[:10]]
-                if agents
-                else [
+            agents_dict = list_available_agents()
+            agent_list: List[Dict[str, Any]] = []
+            if agents_dict:
+                for name, info in list(agents_dict.items())[:10]:
+                    agent_list.append(
+                        {
+                            "name": name,
+                            "model": info.get("model", "unknown")
+                            if isinstance(info, dict)
+                            else "unknown",
+                        }
+                    )
+            if not agent_list:
+                agent_list = [
                     {"name": "anthropic-api", "model": "claude-3"},
                     {"name": "openai-api", "model": "gpt-4"},
                     {"name": "gemini", "model": "gemini-pro"},
                 ]
-            )
 
             connector = get_teams_connector()
             if connector:
@@ -589,9 +609,20 @@ class TeamsIntegrationHandler(BaseHandler):
             from aragora.server.storage import get_debates_db
 
             db = get_debates_db()
-            debates = db.list_recent(limit=5) if db else []
+            raw_debates = db.list_recent(limit=5) if db else []
 
-            if not debates:
+            # Convert to dicts for consistent handling
+            debates: List[Dict[str, Any]] = []
+            if raw_debates:
+                for d in raw_debates:
+                    debates.append(
+                        {
+                            "id": getattr(d, "id", str(d) if d else "unknown"),
+                            "topic": getattr(d, "topic", getattr(d, "task", "Unknown")),
+                            "status": getattr(d, "status", "completed"),
+                        }
+                    )
+            else:
                 debates = [{"id": "none", "topic": "No recent debates", "status": "N/A"}]
 
             connector = get_teams_connector()
@@ -628,7 +659,18 @@ class TeamsIntegrationHandler(BaseHandler):
             from aragora.server.storage import get_debates_db
 
             db = get_debates_db()
-            results = db.search(query, limit=5) if db else []
+            raw_results = db.search(query, limit=5) if db else []
+
+            # Convert to dicts for consistent handling
+            results: List[Dict[str, Any]] = []
+            for r in raw_results:
+                results.append(
+                    {
+                        "id": getattr(r, "id", str(r) if r else "unknown"),
+                        "topic": getattr(r, "topic", getattr(r, "task", "Unknown")),
+                        "status": getattr(r, "status", "completed"),
+                    }
+                )
 
             connector = get_teams_connector()
             if connector:
