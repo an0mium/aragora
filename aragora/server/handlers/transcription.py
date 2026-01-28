@@ -11,7 +11,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import tempfile
 import uuid
@@ -290,7 +289,7 @@ class TranscriptionHandler(BaseHandler):
             }
         )
 
-    def _handle_audio_transcription(self, handler) -> HandlerResult:
+    async def _handle_audio_transcription(self, handler) -> HandlerResult:
         """Handle audio file transcription."""
         available, error = _check_transcription_available()
         if not available:
@@ -335,19 +334,12 @@ class TranscriptionHandler(BaseHandler):
                     },
                 )
 
-                # Run transcription (synchronous for now, can be made async with job queue)
+                # Run transcription asynchronously
                 from aragora.transcription import transcribe_audio
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    language = params.get("language")
-                    backend = params.get("backend")
-                    result = loop.run_until_complete(
-                        transcribe_audio(temp_path, language=language, backend=backend)
-                    )
-                finally:
-                    loop.close()
+                language = params.get("language")
+                backend = params.get("backend")
+                result = await transcribe_audio(temp_path, language=language, backend=backend)
 
                 _save_job(
                     job_id,

@@ -263,12 +263,13 @@ class TestAudioTranscription:
             mock_backend.transcribe = AsyncMock(return_value=MockTranscriptionResult())
             mock_get.return_value = mock_backend
 
-            result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
+            result = await handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
             # Should return result or error
             assert result is not None
 
-    def test_audio_missing_file(self, handler, mock_transcription_available):
+    @pytest.mark.asyncio
+    async def test_audio_missing_file(self, handler, mock_transcription_available):
         """Test error when no file provided."""
         mock_http = MockHandler(
             headers={
@@ -279,13 +280,14 @@ class TestAudioTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
+        result = await handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
         assert result is not None
         # May return 503 (no backend) or 400 (bad request)
         assert result.status_code in (400, 503)
 
-    def test_audio_unsupported_format(self, handler, mock_transcription_available):
+    @pytest.mark.asyncio
+    async def test_audio_unsupported_format(self, handler, mock_transcription_available):
         """Test error for unsupported audio format."""
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         body_data = (
@@ -305,7 +307,7 @@ class TestAudioTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
+        result = await handler.handle_post("/api/v1/transcription/audio", {}, mock_http)
 
         assert result is not None
         # Should reject unsupported format or return 503 if no backend
@@ -320,7 +322,8 @@ class TestAudioTranscription:
 class TestYouTubeTranscription:
     """Tests for POST /api/transcription/youtube."""
 
-    def test_youtube_requires_url(self, handler, mock_transcription_available):
+    @pytest.mark.asyncio
+    async def test_youtube_requires_url(self, handler, mock_transcription_available):
         """Test youtube endpoint requires URL in body."""
         mock_http = MockHandler(
             headers={
@@ -331,13 +334,14 @@ class TestYouTubeTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
+        result = await handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
 
         assert result is not None
         # May return 503 (no backend) or 400 (bad request)
         assert result.status_code in (400, 503)
 
-    def test_youtube_invalid_url(self, handler, mock_transcription_available):
+    @pytest.mark.asyncio
+    async def test_youtube_invalid_url(self, handler, mock_transcription_available):
         """Test error for invalid YouTube URL."""
         body_data = json.dumps({"url": "https://example.com/video"}).encode()
 
@@ -350,7 +354,7 @@ class TestYouTubeTranscription:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
+        result = await handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
 
         assert result is not None
         # May return 503 (no backend) or 400 (bad request)
@@ -382,7 +386,7 @@ class TestYouTubeTranscription:
                 mock_backend.transcribe = AsyncMock(return_value=MockTranscriptionResult())
                 mock_get.return_value = mock_backend
 
-                result = handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
+                result = await handler.handle_post("/api/v1/transcription/youtube", {}, mock_http)
 
                 # Should return result
                 assert result is not None
@@ -396,7 +400,8 @@ class TestYouTubeTranscription:
 class TestYouTubeInfoEndpoint:
     """Tests for POST /api/transcription/youtube/info."""
 
-    def test_youtube_info_requires_url(self, handler):
+    @pytest.mark.asyncio
+    async def test_youtube_info_requires_url(self, handler):
         """Test youtube info requires URL."""
         mock_http = MockHandler(
             headers={
@@ -407,7 +412,7 @@ class TestYouTubeInfoEndpoint:
             method="POST",
         )
 
-        result = handler.handle_post("/api/v1/transcription/youtube/info", {}, mock_http)
+        result = await handler.handle_post("/api/v1/transcription/youtube/info", {}, mock_http)
 
         assert result is not None
         assert result.status_code == 400

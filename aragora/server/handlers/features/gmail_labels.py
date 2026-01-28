@@ -86,10 +86,10 @@ class GmailLabelsHandler(SecureHandler):
             return error_response("Not connected - please authenticate first", 401)
 
         if path == "/api/v1/gmail/labels":
-            return self._list_labels(state)
+            return await self._list_labels(state)
 
         if path == "/api/v1/gmail/filters":
-            return self._list_filters(state)
+            return await self._list_filters(state)
 
         return error_response("Not found", 404)
 
@@ -117,11 +117,11 @@ class GmailLabelsHandler(SecureHandler):
 
         # Label creation
         if path == "/api/v1/gmail/labels":
-            return self._create_label(state, body)
+            return await self._create_label(state, body)
 
         # Filter creation
         if path == "/api/v1/gmail/filters":
-            return self._create_filter(state, body)
+            return await self._create_filter(state, body)
 
         # Message modifications
         if path.startswith("/api/v1/gmail/messages/"):
@@ -131,15 +131,15 @@ class GmailLabelsHandler(SecureHandler):
                 action = parts[5] if len(parts) > 5 else ""
 
                 if action == "labels":
-                    return self._modify_message_labels(state, message_id, body)
+                    return await self._modify_message_labels(state, message_id, body)
                 elif action == "read":
-                    return self._mark_read(state, message_id, body)
+                    return await self._mark_read(state, message_id, body)
                 elif action == "star":
-                    return self._star_message(state, message_id, body)
+                    return await self._star_message(state, message_id, body)
                 elif action == "archive":
-                    return self._archive_message(state, message_id)
+                    return await self._archive_message(state, message_id)
                 elif action == "trash":
-                    return self._trash_message(state, message_id, body)
+                    return await self._trash_message(state, message_id, body)
 
         return error_response("Not found", 404)
 
