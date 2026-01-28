@@ -7,10 +7,12 @@ This guide documents the feature parity between the Python and TypeScript SDKs f
 | Metric | Python SDK | TypeScript SDK |
 |--------|------------|----------------|
 | Package | `aragora` | `@aragora/sdk` |
-| Overall Parity | 100% | ~80% |
+| Overall Parity | 100% | **100%** |
 | Type Definitions | N/A (dynamic) | 3,169+ types |
-| Namespace Modules | 25+ | 25 |
+| Namespace Modules | 56+ | 85 |
 | WebSocket Events | 18 | 18 |
+
+> **Note**: As of January 2026, TypeScript SDK has achieved full parity with Python SDK for all documented APIs. TypeScript SDK actually has MORE namespaces (85 vs 56) due to additional enterprise features.
 
 ## Feature Comparison
 
@@ -85,9 +87,11 @@ This guide documents the feature parity between the Python and TypeScript SDKs f
 | Assign role | `client.assign_role()` | `client.rbac.assignRole()` |
 | Check permission | `client.check_permission()` | `client.rbac.checkPermission()` |
 
-## Features with Gaps
+## Previously Identified Gaps (Now Resolved)
 
-### Marketplace (Partial Parity)
+All previously documented gaps have been resolved. The following features now have full parity:
+
+### Marketplace (Full Parity)
 
 | Feature | Python | TypeScript | Status |
 |---------|--------|------------|--------|
@@ -95,31 +99,38 @@ This guide documents the feature parity between the Python and TypeScript SDKs f
 | Get template | Yes | Yes | Parity |
 | Import | Yes | Yes | Parity |
 | Featured | Yes | Yes | Parity |
-| **Publish** | Yes | **No** | Missing |
-| **Rate** | Yes | **No** | Missing |
-| **Review** | Yes | **No** | Missing |
+| Publish | Yes | Yes | Parity |
+| Rate | Yes | Yes | Parity |
+| Review | Yes | Yes | Parity |
+| Update | Yes | Yes | Parity |
+| Unpublish | Yes | Yes | Parity |
 
-### Batch Operations (Partial Parity)
+### Batch Operations (Full Parity)
 
 | Feature | Python | TypeScript | Status |
 |---------|--------|------------|--------|
-| Batch explanations | Yes | Types only | Missing methods |
-| Batch status | Yes | Types only | Missing methods |
-| Batch results | Yes | Types only | Missing methods |
+| Batch submit | Yes | Yes | Parity |
+| Batch status | Yes | Yes | Parity |
+| Batch results | Yes | Yes | Parity |
+| Batch explanations | Yes | Yes | Parity |
 
-### Codebase Analysis (Not in TypeScript)
+### Codebase Analysis (Full Parity)
 
-| Feature | Python | TypeScript |
-|---------|--------|------------|
-| Analyze codebase | Yes | No |
-| Security scan | Yes | No |
-| SBOM generation | Yes | No |
-| Vulnerability scan | Yes | No |
-| Dependency analysis | Yes | No |
-| Secret detection | Yes | No |
-| SAST analysis | Yes | No |
+| Feature | Python | TypeScript | Status |
+|---------|--------|------------|--------|
+| Analyze codebase | Yes | Yes | Parity |
+| Security scan | Yes | Yes | Parity |
+| SBOM generation | Yes | Yes | Parity |
+| Vulnerability scan | Yes | Yes | Parity |
+| Dependency analysis | Yes | Yes | Parity |
+| Secret detection | Yes | Yes | Parity |
+| SAST analysis | Yes | Yes | Parity |
+| Code metrics | Yes | Yes | Parity |
+| Dead code detection | Yes | Yes | Parity |
+| Call graph analysis | Yes | Yes | Parity |
+| Impact analysis | Yes | Yes | Parity |
 
-### Gauntlet (Partial Parity)
+### Gauntlet (Full Parity)
 
 | Feature | Python | TypeScript | Status |
 |---------|--------|------------|--------|
@@ -127,7 +138,9 @@ This guide documents the feature parity between the Python and TypeScript SDKs f
 | Get status | Yes | Yes | Parity |
 | List receipts | Yes | Yes | Parity |
 | Get receipt | Yes | Yes | Parity |
-| **Compare runs** | Yes | Types only | Missing methods |
+| Compare runs | Yes | Yes | Parity |
+| Heatmap visualization | Yes | Yes | Parity |
+| Export reports | Yes | Yes | Parity |
 
 ## WebSocket Events (Full Parity)
 
@@ -204,12 +217,18 @@ const debate = await client.debates.create({
 
 ## Roadmap
 
-The following features are planned for TypeScript SDK parity:
+All previously planned parity features have been implemented:
 
-1. **Q1**: Marketplace publish/rate/review methods
-2. **Q1**: Batch explainability methods
-3. **Q2**: Gauntlet comparison methods
-4. **Q2**: Codebase analysis namespace (partial)
+- [x] **Q1 2026**: Marketplace publish/rate/review methods ✅
+- [x] **Q1 2026**: Batch explainability methods ✅
+- [x] **Q1 2026**: Gauntlet comparison methods ✅
+- [x] **Q1 2026**: Codebase analysis namespace (full) ✅
+
+### Future Enhancements
+
+1. **v3.0.0 SDK Consolidation**: Merge `@aragora/sdk` and `@aragora/client` into a single unified package
+2. **Performance**: Optimize bundle size with tree-shaking improvements
+3. **Developer Experience**: Enhanced TypeScript IntelliSense with JSDoc examples
 
 ## Contributing
 
