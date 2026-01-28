@@ -686,14 +686,13 @@ class TestSAMLSecurityWarnings:
     """Test SAML security warnings for production mode."""
 
     def test_warning_logged_without_saml_lib(self):
-        """Test that a warning is logged when python3-saml is not available."""
-        import logging
-        from aragora.auth.saml import SAMLProvider, SAMLConfig, HAS_SAML_LIB
+        """Test that a warning is logged when python3-saml is not available.
+
+        Note: This test uses mocking since python3-saml is now always installed.
+        """
+        from aragora.auth.saml import SAMLProvider, SAMLConfig
         from aragora.auth.sso import SSOProviderType
 
-        if HAS_SAML_LIB:
-            pytest.skip("python3-saml is installed, skipping warning test")
-
         config = SAMLConfig(
             provider_type=SSOProviderType.SAML,
             enabled=True,
@@ -704,20 +703,22 @@ class TestSAMLSecurityWarnings:
             idp_certificate="-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
         )
 
-        with patch("aragora.auth.saml.logger") as mock_logger:
-            SAMLProvider(config)
-            mock_logger.warning.assert_called()
-            warning_msg = mock_logger.warning.call_args[0][0]
-            assert "SECURITY WARNING" in warning_msg
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            with patch.dict("os.environ", {"ARAGORA_ENV": "development"}):
+                with patch("aragora.auth.saml.logger") as mock_logger:
+                    SAMLProvider(config)
+                    mock_logger.warning.assert_called()
+                    warning_msg = mock_logger.warning.call_args[0][0]
+                    assert "SECURITY WARNING" in warning_msg
 
     def test_production_mode_requires_saml_lib(self):
-        """Test that production mode requires python3-saml."""
-        import os
-        from aragora.auth.saml import SAMLProvider, SAMLConfig, HAS_SAML_LIB
-        from aragora.auth.sso import SSOProviderType, SSOConfigurationError
+        """Test that production mode requires python3-saml.
 
-        if HAS_SAML_LIB:
-            pytest.skip("python3-saml is installed, skipping production check")
+        Note: This test uses mocking since python3-saml is now always installed.
+        """
+        import os
+        from aragora.auth.saml import SAMLProvider, SAMLConfig
+        from aragora.auth.sso import SSOProviderType, SSOConfigurationError
 
         config = SAMLConfig(
             provider_type=SSOProviderType.SAML,
@@ -729,13 +730,14 @@ class TestSAMLSecurityWarnings:
             idp_certificate="-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
         )
 
-        os.environ["ARAGORA_ENV"] = "production"
-        try:
-            with pytest.raises(SSOConfigurationError) as exc:
-                SAMLProvider(config)
-            assert "python3-saml required for SAML in production" in str(exc.value)
-        finally:
-            os.environ.pop("ARAGORA_ENV", None)
+        with patch("aragora.auth.saml.HAS_SAML_LIB", False):
+            os.environ["ARAGORA_ENV"] = "production"
+            try:
+                with pytest.raises(SSOConfigurationError) as exc:
+                    SAMLProvider(config)
+                assert "python3-saml required for SAML in production" in str(exc.value)
+            finally:
+                os.environ.pop("ARAGORA_ENV", None)
 
 
 class TestHTTPSEnforcement:
