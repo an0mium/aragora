@@ -882,12 +882,12 @@ class MemoryAPI:
 
     async def tier_stats(self, tier: str) -> MemoryTierStats:
         """Get stats for a specific memory tier."""
-        data = await self._client._get(f"/api/v1/memory/tiers/{tier}")
+        data = await self._client._get(f"/api/v1/memory/analytics/tier/{tier}")
         return MemoryTierStats.model_validate(data)
 
     async def snapshot(self) -> dict[str, Any]:
         """Take a manual memory snapshot."""
-        return await self._client._post("/api/v1/memory/snapshot", {})
+        return await self._client._post("/api/v1/memory/analytics/snapshot", {})
 
 
 class SelectionAPI:
