@@ -1378,6 +1378,54 @@ export interface KnowledgeStoreResult {
   topics_extracted?: string[];
 }
 
+export interface KnowledgeFact {
+  id: string;
+  statement: string;
+  workspace_id?: string;
+  confidence?: number;
+  validation_status?: string;
+  topics?: string[];
+  evidence_ids?: string[];
+  source_documents?: string[];
+  metadata?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface KnowledgeFactList {
+  facts?: KnowledgeFact[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface KnowledgeSearchResult {
+  id?: string;
+  content?: string;
+  score?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface KnowledgeSearchResponse {
+  query?: string;
+  workspace_id?: string;
+  results?: KnowledgeSearchResult[];
+  count?: number;
+}
+
+export interface KnowledgeStats {
+  workspace_id?: string;
+  total_facts?: number;
+  total_entries?: number;
+  sources?: Record<string, any>;
+  categories?: Record<string, any>;
+  avg_confidence?: number;
+  last_updated?: string;
+}
+
+export interface KnowledgeQueryResponse {
+}
+
 export interface AgentRegistration {
   agent_id: string;
   name: string;
