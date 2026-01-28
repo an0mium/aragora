@@ -31,7 +31,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Iterator, Optional
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -60,22 +60,22 @@ class UserStore:
 
     # Explicit columns for SELECT queries - prevents SELECT * data exposure
     # Note: api_key is included for legacy support (plaintext -> hash migration)
-    _USER_COLUMNS = (
+    _USER_COLUMNS: ClassVar[str] = (
         "id, email, password_hash, password_salt, name, org_id, role, "
         "is_active, email_verified, api_key, api_key_hash, api_key_prefix, "
         "api_key_created_at, api_key_expires_at, created_at, updated_at, "
         "last_login_at, mfa_secret, mfa_enabled, mfa_backup_codes, token_version"
     )
-    _ORG_COLUMNS = (
+    _ORG_COLUMNS: ClassVar[str] = (
         "id, name, slug, tier, owner_id, stripe_customer_id, "
         "stripe_subscription_id, debates_used_this_month, billing_cycle_start, "
         "settings, created_at, updated_at"
     )
-    _INVITATION_COLUMNS = (
+    _INVITATION_COLUMNS: ClassVar[str] = (
         "id, org_id, email, role, token, invited_by, status, "
         "created_at, expires_at, accepted_by, accepted_at"
     )
-    _AUDIT_LOG_COLUMNS = (
+    _AUDIT_LOG_COLUMNS: ClassVar[str] = (
         "id, timestamp, user_id, org_id, action, resource_type, "
         "resource_id, old_value, new_value, metadata, ip_address, user_agent"
     )
@@ -1796,7 +1796,7 @@ class PostgresUserStore:
         offset: int = 0,
     ) -> list[dict]:
         """Query audit log entries asynchronously."""
-        query = f"SELECT {self._AUDIT_LOG_COLUMNS} FROM audit_log WHERE 1=1"  # type: ignore[attr-defined]
+        query = f"SELECT {self._AUDIT_LOG_COLUMNS} FROM audit_log WHERE 1=1"
         params: list[Any] = []
         param_idx = 1
 
@@ -1936,7 +1936,7 @@ class PostgresUserStore:
         """Get invitation by ID asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = $1",  # type: ignore[attr-defined]
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE id = $1",
                 invitation_id,
             )
             if row:
@@ -1953,7 +1953,7 @@ class PostgresUserStore:
         """Get invitation by token asynchronously."""
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = $1",  # type: ignore[attr-defined]
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE token = $1",
                 token,
             )
             if row:
@@ -1971,9 +1971,9 @@ class PostgresUserStore:
     ) -> Optional[OrganizationInvitation]:
         """Get pending invitation asynchronously."""
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(  # type: ignore[attr-defined]
+            row = await conn.fetchrow(
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",  # type: ignore[attr-defined]
+                   WHERE org_id = $1 AND email = $2 AND status = 'pending'""",
                 org_id,
                 email,
             )
@@ -1991,7 +1991,7 @@ class PostgresUserStore:
         """Get all invitations for an organization asynchronously."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC",  # type: ignore[attr-defined]
+                f"SELECT {self._INVITATION_COLUMNS} FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC",
                 org_id,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -2007,9 +2007,9 @@ class PostgresUserStore:
     ) -> list[OrganizationInvitation]:
         """Get all pending invitations asynchronously."""
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(  # type: ignore[attr-defined]
+            rows = await conn.fetch(
                 f"""SELECT {self._INVITATION_COLUMNS} FROM org_invitations
-                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",  # type: ignore[attr-defined]
+                   WHERE email = $1 AND status = 'pending' ORDER BY created_at DESC""",
                 email,
             )
             return [self._row_to_invitation(row) for row in rows]
@@ -2228,18 +2228,18 @@ class PostgresUserStore:
                 total_row = await conn.fetchrow(
                     "SELECT COUNT(*) FROM organizations WHERE tier = $1", tier_filter
                 )
-                rows = await conn.fetch(  # type: ignore[attr-defined]
+                rows = await conn.fetch(
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations WHERE tier = $1
-                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",  # type: ignore[attr-defined]
+                       ORDER BY created_at DESC LIMIT $2 OFFSET $3""",
                     tier_filter,
                     limit,
                     offset,
                 )
             else:
                 total_row = await conn.fetchrow("SELECT COUNT(*) FROM organizations")
-                rows = await conn.fetch(  # type: ignore[attr-defined]
+                rows = await conn.fetch(
                     f"""SELECT {self._ORG_COLUMNS} FROM organizations
-                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",  # type: ignore[attr-defined]
+                       ORDER BY created_at DESC LIMIT $1 OFFSET $2""",
                     limit,
                     offset,
                 )
@@ -2269,7 +2269,7 @@ class PostgresUserStore:
         active_only: bool = False,
     ) -> tuple[list[User], int]:
         """List all users asynchronously."""
-        query = f"SELECT {self._USER_COLUMNS} FROM users WHERE 1=1"  # type: ignore[attr-defined]
+        query = f"SELECT {self._USER_COLUMNS} FROM users WHERE 1=1"
         count_query = "SELECT COUNT(*) FROM users WHERE 1=1"
         params: list[Any] = []
         param_idx = 1
