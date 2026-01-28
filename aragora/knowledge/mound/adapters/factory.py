@@ -64,7 +64,8 @@ def _init_specs() -> None:
     from .evidence_adapter import EvidenceAdapter
     from .belief_adapter import BeliefAdapter
     from .insights_adapter import InsightsAdapter
-    from .performance_adapter import EloAdapter
+    from .elo_adapter import EloAdapter
+    from .performance_adapter import PerformanceAdapter
     from .pulse_adapter import PulseAdapter
     from .cost_adapter import CostAdapter
     from .provenance_adapter import ProvenanceAdapter
@@ -152,6 +153,19 @@ def _init_specs() -> None:
             reverse_method="sync_km_to_elo",
             priority=40,
             config_key="km_elo_bridge",
+        )
+    )
+
+    register_adapter_spec(
+        AdapterSpec(
+            name="performance",
+            adapter_class=PerformanceAdapter,
+            required_deps=["elo_system"],
+            forward_method="store_match",
+            reverse_method="sync_km_to_elo",
+            priority=45,
+            enabled_by_default=False,  # Avoid double-writes with EloAdapter unless explicitly enabled
+            config_key="km_performance_adapter",
         )
     )
 
