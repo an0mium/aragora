@@ -83,17 +83,37 @@ class AragoraClient:
         from .namespaces.admin import AdminAPI
         from .namespaces.agents import AgentsAPI
         from .namespaces.analytics import AnalyticsAPI
+        from .namespaces.audit import AuditAPI
+        from .namespaces.consensus import ConsensusAPI
         from .namespaces.debates import DebatesAPI
+        from .namespaces.explainability import ExplainabilityAPI
+        from .namespaces.gauntlet import GauntletAPI
+        from .namespaces.knowledge import KnowledgeAPI
+        from .namespaces.memory import MemoryAPI
         from .namespaces.onboarding import OnboardingAPI
+        from .namespaces.rbac import RBACAPI
+        from .namespaces.receipts import ReceiptsAPI
         from .namespaces.usage import UsageAPI
+        from .namespaces.verification import VerificationAPI
+        from .namespaces.webhooks import WebhooksAPI
         from .namespaces.workflows import WorkflowsAPI
 
         self.admin = AdminAPI(self)
         self.agents = AgentsAPI(self)
         self.analytics = AnalyticsAPI(self)
+        self.audit = AuditAPI(self)
+        self.consensus = ConsensusAPI(self)
         self.debates = DebatesAPI(self)
+        self.explainability = ExplainabilityAPI(self)
+        self.gauntlet = GauntletAPI(self)
+        self.knowledge = KnowledgeAPI(self)
+        self.memory = MemoryAPI(self)
         self.onboarding = OnboardingAPI(self)
+        self.rbac = RBACAPI(self)
+        self.receipts = ReceiptsAPI(self)
         self.usage = UsageAPI(self)
+        self.verification = VerificationAPI(self)
+        self.webhooks = WebhooksAPI(self)
         self.workflows = WorkflowsAPI(self)
 
     def request(
@@ -263,17 +283,37 @@ class AragoraAsyncClient:
         from .namespaces.admin import AsyncAdminAPI
         from .namespaces.agents import AsyncAgentsAPI
         from .namespaces.analytics import AsyncAnalyticsAPI
+        from .namespaces.audit import AsyncAuditAPI
+        from .namespaces.consensus import AsyncConsensusAPI
         from .namespaces.debates import AsyncDebatesAPI
+        from .namespaces.explainability import AsyncExplainabilityAPI
+        from .namespaces.gauntlet import AsyncGauntletAPI
+        from .namespaces.knowledge import AsyncKnowledgeAPI
+        from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
+        from .namespaces.rbac import AsyncRBACAPI
+        from .namespaces.receipts import AsyncReceiptsAPI
         from .namespaces.usage import AsyncUsageAPI
+        from .namespaces.verification import AsyncVerificationAPI
+        from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
 
         self.admin = AsyncAdminAPI(self)
         self.agents = AsyncAgentsAPI(self)
         self.analytics = AsyncAnalyticsAPI(self)
+        self.audit = AsyncAuditAPI(self)
+        self.consensus = AsyncConsensusAPI(self)
         self.debates = AsyncDebatesAPI(self)
+        self.explainability = AsyncExplainabilityAPI(self)
+        self.gauntlet = AsyncGauntletAPI(self)
+        self.knowledge = AsyncKnowledgeAPI(self)
+        self.memory = AsyncMemoryAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
+        self.rbac = AsyncRBACAPI(self)
+        self.receipts = AsyncReceiptsAPI(self)
         self.usage = AsyncUsageAPI(self)
+        self.verification = AsyncVerificationAPI(self)
+        self.webhooks = AsyncWebhooksAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
 
     async def request(
