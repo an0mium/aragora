@@ -375,9 +375,9 @@ class TestMCPServerTools:
 class TestMCPAvailability:
     """Tests for MCP package availability detection."""
 
-    def test_mcp_available_is_boolean(self):
-        """Test MCP_AVAILABLE is a boolean."""
-        assert isinstance(MCP_AVAILABLE, bool)
+    def test_mcp_available_is_true(self):
+        """Test MCP_AVAILABLE is True since MCP is now always installed."""
+        assert MCP_AVAILABLE is True
 
 
 class TestRedisRateLimiter:

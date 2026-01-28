@@ -446,6 +446,293 @@ def reset_sso_provider() -> None:
     _sso_initialized = False
 
 
+# =============================================================================
+# SSO Utilities
+# =============================================================================
+
+
+class SSOGroupMapper:
+    """Maps IdP groups to Aragora roles.
+
+    Usage:
+        mapper = SSOGroupMapper({
+            "Aragora-Admins": "admin",
+            "Engineering": "developer",
+        })
+        roles = mapper.map_groups(["Aragora-Admins", "Engineering", "Other"])
+    """
+
+    def __init__(
+        self,
+        mappings: Dict[str, str],
+        default_role: Optional[str] = None,
+    ):
+        """Initialize the group mapper.
+
+        Args:
+            mappings: Dictionary mapping IdP group names to Aragora roles
+            default_role: Role to assign when no groups match
+        """
+        self.mappings = mappings
+        self.default_role = default_role
+
+    def map_groups(self, groups: List[str]) -> List[str]:
+        """Map a list of IdP groups to Aragora roles.
+
+        Args:
+            groups: List of IdP group names
+
+        Returns:
+            List of mapped Aragora roles (deduplicated)
+        """
+        roles = set()
+        for group in groups:
+            if group in self.mappings:
+                roles.add(self.mappings[group])
+
+        # Add default role if no groups matched
+        if not roles and self.default_role:
+            roles.add(self.default_role)
+
+        return list(roles)
+
+
+@dataclass
+class SSOSession:
+    """An active SSO session."""
+
+    session_id: str
+    user_id: str
+    email: str
+    org_id: Optional[str] = None
+    created_at: float = field(default_factory=time.time)
+    expires_at: float = field(default_factory=lambda: time.time() + 3600 * 8)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class SSOSessionManager:
+    """Manages SSO sessions.
+
+    In-memory implementation for testing. Production should use Redis or database.
+
+    Usage:
+        manager = SSOSessionManager()
+        session = await manager.create_session(user)
+        await manager.get_session(session.session_id)
+        await manager.logout(session.session_id)
+    """
+
+    def __init__(self, session_duration: int = 3600 * 8):
+        """Initialize the session manager.
+
+        Args:
+            session_duration: Session duration in seconds (default: 8 hours)
+        """
+        self.session_duration = session_duration
+        self._sessions: Dict[str, SSOSession] = {}
+
+    async def create_session(self, user: SSOUser) -> SSOSession:
+        """Create a new session for a user.
+
+        Args:
+            user: The authenticated SSO user
+
+        Returns:
+            The created session
+        """
+        session_id = secrets.token_urlsafe(32)
+        session = SSOSession(
+            session_id=session_id,
+            user_id=user.id,
+            email=user.email,
+            org_id=user.organization_id or user.tenant_id,
+            expires_at=time.time() + self.session_duration,
+        )
+        self._sessions[session_id] = session
+        logger.info(f"Created SSO session for user {user.email}")
+        return session
+
+    async def get_session(self, session_id: str) -> SSOSession:
+        """Get a session by ID.
+
+        Args:
+            session_id: The session ID
+
+        Returns:
+            The session
+
+        Raises:
+            KeyError: If session not found or expired
+        """
+        session = self._sessions.get(session_id)
+        if not session:
+            raise KeyError(f"Session not found: {session_id}")
+        if session.expires_at < time.time():
+            del self._sessions[session_id]
+            raise KeyError(f"Session expired: {session_id}")
+        return session
+
+    async def refresh_session(self, session_id: str) -> SSOSession:
+        """Refresh a session's expiration time.
+
+        Args:
+            session_id: The session ID
+
+        Returns:
+            The updated session
+        """
+        session = await self.get_session(session_id)
+        session.expires_at = time.time() + self.session_duration
+        return session
+
+    async def logout(self, session_id: str) -> None:
+        """Invalidate a session.
+
+        Args:
+            session_id: The session ID
+        """
+        if session_id in self._sessions:
+            del self._sessions[session_id]
+            logger.info(f"Logged out session: {session_id}")
+
+
+@dataclass
+class SSOAuditEntry:
+    """An SSO audit log entry."""
+
+    timestamp: float
+    event_type: str
+    user_id: str
+    email: Optional[str] = None
+    provider: Optional[str] = None
+    tenant_id: Optional[str] = None
+    session_id: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    reason: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class SSOAuditLogger:
+    """Logs SSO authentication events for compliance.
+
+    In-memory implementation for testing. Production should use database.
+
+    Usage:
+        logger = SSOAuditLogger()
+        await logger.log_login(user_id="...", email="...", provider="azure_ad")
+        logs = await logger.get_logs(user_id="...")
+    """
+
+    def __init__(self):
+        """Initialize the audit logger."""
+        self._logs: List[SSOAuditEntry] = []
+
+    async def log_login(
+        self,
+        user_id: str,
+        email: str,
+        provider: str,
+        tenant_id: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        **metadata: Any,
+    ) -> None:
+        """Log a successful SSO login.
+
+        Args:
+            user_id: The user's ID
+            email: The user's email
+            provider: SSO provider name (e.g., "azure_ad", "okta")
+            tenant_id: Tenant ID if applicable
+            ip_address: Client IP address
+            user_agent: Client user agent
+            **metadata: Additional metadata
+        """
+        entry = SSOAuditEntry(
+            timestamp=time.time(),
+            event_type="sso_login",
+            user_id=user_id,
+            email=email,
+            provider=provider,
+            tenant_id=tenant_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            metadata=metadata,
+        )
+        self._logs.append(entry)
+        logger.info(f"SSO login: user={user_id} provider={provider}")
+
+    async def log_logout(
+        self,
+        user_id: str,
+        session_id: Optional[str] = None,
+        reason: str = "user_initiated",
+        **metadata: Any,
+    ) -> None:
+        """Log an SSO logout.
+
+        Args:
+            user_id: The user's ID
+            session_id: The session ID
+            reason: Reason for logout
+            **metadata: Additional metadata
+        """
+        entry = SSOAuditEntry(
+            timestamp=time.time(),
+            event_type="sso_logout",
+            user_id=user_id,
+            session_id=session_id,
+            reason=reason,
+            metadata=metadata,
+        )
+        self._logs.append(entry)
+        logger.info(f"SSO logout: user={user_id} reason={reason}")
+
+    async def get_logs(
+        self,
+        user_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Get audit log entries.
+
+        Args:
+            user_id: Filter by user ID
+            event_type: Filter by event type
+            limit: Maximum entries to return
+
+        Returns:
+            List of log entries as dictionaries
+        """
+        entries = self._logs
+
+        if user_id:
+            entries = [e for e in entries if e.user_id == user_id]
+        if event_type:
+            entries = [e for e in entries if e.event_type == event_type]
+
+        # Return most recent entries
+        entries = entries[-limit:]
+
+        return [
+            {
+                "timestamp": e.timestamp,
+                "event_type": e.event_type,
+                "user_id": e.user_id,
+                "email": e.email,
+                "provider": e.provider,
+                "tenant_id": e.tenant_id,
+                "session_id": e.session_id,
+                "ip_address": e.ip_address,
+                "user_agent": e.user_agent,
+                "reason": e.reason,
+                **e.metadata,
+            }
+            for e in entries
+        ]
+
+
 __all__ = [
     "SSOProviderType",
     "SSOError",
@@ -454,6 +741,11 @@ __all__ = [
     "SSOUser",
     "SSOConfig",
     "SSOProvider",
+    "SSOGroupMapper",
+    "SSOSession",
+    "SSOSessionManager",
+    "SSOAuditEntry",
+    "SSOAuditLogger",
     "get_sso_provider",
     "reset_sso_provider",
 ]
