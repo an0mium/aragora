@@ -31,6 +31,13 @@ from aragora.bots.base import (
     Platform,
 )
 from aragora.bots.commands import get_default_registry
+from aragora.server.handlers.bots.teams_cards import (
+    create_debate_card,
+    create_consensus_card,
+    create_leaderboard_card,
+    create_help_card,
+    create_error_card,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -332,53 +339,49 @@ class AragoraTeamsBot:
         result: CommandResult,
         command: str,
     ) -> Optional[Dict[str, Any]]:
-        """Convert CommandResult to Teams adaptive card."""
+        """Convert CommandResult to Teams adaptive card using template functions."""
         if not result.success:
-            return None
+            return create_error_card(
+                title="Command Failed",
+                message=result.error or "An unexpected error occurred",
+                retry_action={"action": "retry", "command": command},
+            )
 
         if command == "debate" and result.data:
             debate_id = result.data.get("debate_id", "")
-            return {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [
-                    {
-                        "type": "TextBlock",
-                        "text": "Debate Started",
-                        "weight": "bolder",
-                        "size": "large",
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": result.message or "Debate in progress...",
-                        "wrap": True,
-                    },
-                    {
-                        "type": "FactSet",
-                        "facts": [
-                            {"title": "Debate ID", "value": debate_id},
-                        ],
-                    },
-                ],
-                "actions": [
-                    {
-                        "type": "Action.Submit",
-                        "title": "Agree",
-                        "data": {"action": f"vote_{debate_id}_agree"},
-                    },
-                    {
-                        "type": "Action.Submit",
-                        "title": "Disagree",
-                        "data": {"action": f"vote_{debate_id}_disagree"},
-                    },
-                ],
-            }
+            topic = result.data.get("topic", result.message or "Debate in progress")
+            agents = result.data.get("agents", ["claude", "gpt-4", "gemini"])
+            return create_debate_card(
+                debate_id=debate_id,
+                topic=topic,
+                agents=agents,
+                progress=0,
+                current_round=1,
+                total_rounds=result.data.get("rounds", 3),
+                status="in_progress",
+            )
+
+        if command == "consensus" and result.data:
+            return create_consensus_card(
+                debate_id=result.data.get("debate_id", ""),
+                topic=result.data.get("topic", ""),
+                consensus_type=result.data.get("consensus_type", "majority"),
+                final_answer=result.data.get("final_answer", result.message or ""),
+                confidence=result.data.get("confidence", 0.8),
+                supporting_agents=result.data.get("supporting_agents", []),
+                dissenting_agents=result.data.get("dissenting_agents"),
+                key_points=result.data.get("key_points"),
+            )
+
+        if command == "leaderboard" and result.data:
+            standings = result.data.get("standings", [])
+            period = result.data.get("period", "all_time")
+            return create_leaderboard_card(standings=standings, period=period)
 
         if command == "gauntlet" and result.data:
             passed = result.data.get("passed", False)
             score = result.data.get("score", 0)
-            color = "good" if passed else "attention"
+            color = "Good" if passed else "Attention"
 
             return {
                 "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -388,8 +391,8 @@ class AragoraTeamsBot:
                     {
                         "type": "TextBlock",
                         "text": "Gauntlet Results",
-                        "weight": "bolder",
-                        "size": "large",
+                        "weight": "Bolder",
+                        "size": "Large",
                         "color": color,
                     },
                     {
@@ -408,24 +411,7 @@ class AragoraTeamsBot:
             }
 
         if command == "help":
-            return {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [
-                    {
-                        "type": "TextBlock",
-                        "text": "Aragora Commands",
-                        "weight": "bolder",
-                        "size": "large",
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": result.message or "Available commands",
-                        "wrap": True,
-                    },
-                ],
-            }
+            return create_help_card()
 
         return None
 
