@@ -89,6 +89,11 @@ from .receipt_adapter import (
     ReceiptNotFoundError,
     ReceiptIngestionResult,
 )
+from .calibration_fusion_adapter import (
+    CalibrationFusionAdapter,
+    CalibrationSearchResult,
+    CalibrationSyncResult,
+)
 
 # Factory for auto-creating adapters from Arena subsystems
 from .factory import AdapterFactory, AdapterSpec, CreatedAdapter, ADAPTER_SPECS
@@ -155,6 +160,10 @@ __all__ = [
     "ReceiptAdapterError",
     "ReceiptNotFoundError",
     "ReceiptIngestionResult",
+    # Calibration fusion adapter (Phase A3)
+    "CalibrationFusionAdapter",
+    "CalibrationSearchResult",
+    "CalibrationSyncResult",
     # Factory for auto-creating adapters
     "AdapterFactory",
     "AdapterSpec",

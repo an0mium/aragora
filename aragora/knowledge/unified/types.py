@@ -43,6 +43,7 @@ class KnowledgeSource(str, Enum):
     RANKING = "ranking"  # Agent domain expertise profiles
     RLM = "rlm"  # RLM compression patterns
     EXTRACTION = "extraction"  # Extracted content from documents
+    CALIBRATION = "calibration"  # Multi-party calibration fusion consensus
 
 
 class RelationshipType(str, Enum):

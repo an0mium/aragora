@@ -38,6 +38,12 @@ KM_SEMANTIC_SEARCH_TOTAL: Any = None
 KM_VALIDATION_FEEDBACK_TOTAL: Any = None
 KM_CROSS_DEBATE_REUSE_TOTAL: Any = None
 
+# Calibration fusion metrics (Phase A3)
+KM_CALIBRATION_FUSIONS_TOTAL: Any = None
+KM_CALIBRATION_CONSENSUS_STRENGTH: Any = None
+KM_CALIBRATION_AGREEMENT_RATIO: Any = None
+KM_CALIBRATION_OUTLIERS_DETECTED: Any = None
+
 _initialized = False
 
 
@@ -56,6 +62,9 @@ def init_km_metrics() -> None:
     global KM_FORWARD_SYNC_LATENCY, KM_REVERSE_QUERY_LATENCY
     global KM_SEMANTIC_SEARCH_TOTAL, KM_VALIDATION_FEEDBACK_TOTAL
     global KM_CROSS_DEBATE_REUSE_TOTAL
+    # Calibration fusion metrics
+    global KM_CALIBRATION_FUSIONS_TOTAL, KM_CALIBRATION_CONSENSUS_STRENGTH
+    global KM_CALIBRATION_AGREEMENT_RATIO, KM_CALIBRATION_OUTLIERS_DETECTED
 
     if _initialized:
         return
@@ -179,6 +188,30 @@ def init_km_metrics() -> None:
             ["source_type"],
         )
 
+        # Calibration fusion metrics (Phase A3)
+        KM_CALIBRATION_FUSIONS_TOTAL = Counter(
+            "aragora_km_calibration_fusions_total",
+            "Total calibration fusion operations",
+            ["strategy", "status"],
+        )
+
+        KM_CALIBRATION_CONSENSUS_STRENGTH = Histogram(
+            "aragora_km_calibration_consensus_strength",
+            "Distribution of calibration consensus strength",
+            buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        )
+
+        KM_CALIBRATION_AGREEMENT_RATIO = Histogram(
+            "aragora_km_calibration_agreement_ratio",
+            "Distribution of calibration agreement ratios",
+            buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        )
+
+        KM_CALIBRATION_OUTLIERS_DETECTED = Counter(
+            "aragora_km_calibration_outliers_detected_total",
+            "Total outliers detected in calibration fusions",
+        )
+
         _initialized = True
         logger.debug("Knowledge Mound metrics initialized")
 
@@ -201,6 +234,9 @@ def _init_noop_metrics() -> None:
     global KM_FORWARD_SYNC_LATENCY, KM_REVERSE_QUERY_LATENCY
     global KM_SEMANTIC_SEARCH_TOTAL, KM_VALIDATION_FEEDBACK_TOTAL
     global KM_CROSS_DEBATE_REUSE_TOTAL
+    # Calibration fusion metrics
+    global KM_CALIBRATION_FUSIONS_TOTAL, KM_CALIBRATION_CONSENSUS_STRENGTH
+    global KM_CALIBRATION_AGREEMENT_RATIO, KM_CALIBRATION_OUTLIERS_DETECTED
 
     KM_OPERATIONS_TOTAL = NoOpMetric()
     KM_OPERATION_LATENCY = NoOpMetric()
@@ -222,6 +258,11 @@ def _init_noop_metrics() -> None:
     KM_SEMANTIC_SEARCH_TOTAL = NoOpMetric()
     KM_VALIDATION_FEEDBACK_TOTAL = NoOpMetric()
     KM_CROSS_DEBATE_REUSE_TOTAL = NoOpMetric()
+    # Calibration fusion metrics
+    KM_CALIBRATION_FUSIONS_TOTAL = NoOpMetric()
+    KM_CALIBRATION_CONSENSUS_STRENGTH = NoOpMetric()
+    KM_CALIBRATION_AGREEMENT_RATIO = NoOpMetric()
+    KM_CALIBRATION_OUTLIERS_DETECTED = NoOpMetric()
 
 
 def _ensure_init() -> None:
@@ -425,6 +466,37 @@ def record_cross_debate_reuse(source_type: str) -> None:
     KM_CROSS_DEBATE_REUSE_TOTAL.labels(source_type=source_type).inc()
 
 
+# =============================================================================
+# Calibration Fusion Recording Functions (Phase A3)
+# =============================================================================
+
+
+def record_calibration_fusion(
+    strategy: str,
+    success: bool,
+    consensus_strength: float,
+    agreement_ratio: float,
+    outlier_count: int,
+) -> None:
+    """Record a calibration fusion operation with metrics.
+
+    Args:
+        strategy: Fusion strategy used (weighted_average, median, etc.)
+        success: Whether the fusion succeeded
+        consensus_strength: Consensus strength (0-1)
+        agreement_ratio: Agent agreement ratio (0-1)
+        outlier_count: Number of outliers detected
+    """
+    _ensure_init()
+    status = "success" if success else "error"
+    KM_CALIBRATION_FUSIONS_TOTAL.labels(strategy=strategy, status=status).inc()
+    KM_CALIBRATION_CONSENSUS_STRENGTH.observe(consensus_strength)
+    KM_CALIBRATION_AGREEMENT_RATIO.observe(agreement_ratio)
+    if outlier_count > 0:
+        for _ in range(outlier_count):
+            KM_CALIBRATION_OUTLIERS_DETECTED.inc()
+
+
 def sync_km_metrics_to_prometheus() -> None:
     """Sync KMMetrics to Prometheus metrics.
 
@@ -480,6 +552,11 @@ __all__ = [
     "KM_SEMANTIC_SEARCH_TOTAL",
     "KM_VALIDATION_FEEDBACK_TOTAL",
     "KM_CROSS_DEBATE_REUSE_TOTAL",
+    # Calibration Fusion Metrics (Phase A3)
+    "KM_CALIBRATION_FUSIONS_TOTAL",
+    "KM_CALIBRATION_CONSENSUS_STRENGTH",
+    "KM_CALIBRATION_AGREEMENT_RATIO",
+    "KM_CALIBRATION_OUTLIERS_DETECTED",
     # Core Recording Functions
     "record_km_operation",
     "record_km_cache_access",
@@ -501,4 +578,6 @@ __all__ = [
     "record_semantic_search",
     "record_validation_feedback",
     "record_cross_debate_reuse",
+    # Calibration Fusion Recording Functions
+    "record_calibration_fusion",
 ]
