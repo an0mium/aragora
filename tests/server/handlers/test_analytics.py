@@ -22,8 +22,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-pytestmark = pytest.mark.asyncio
-
 
 class MockHandler:
     """Mock HTTP handler for testing."""

@@ -15,8 +15,6 @@ from unittest.mock import MagicMock, patch
 
 from aragora.server.handlers.admin.health import HealthHandler
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture(autouse=True)
 def clear_health_cache():

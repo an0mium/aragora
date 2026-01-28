@@ -152,6 +152,9 @@ class DebateProtocol:
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
     require_reasoning: bool = True
+    # Participation quorum: minimum fraction/count of agents that must vote
+    min_participation_ratio: float = 0.5
+    min_participation_count: int = 2
 
     # Role assignments
     proposer_count: int = -1  # -1 means all agents propose (default for 9-round format)

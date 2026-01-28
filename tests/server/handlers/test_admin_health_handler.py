@@ -20,9 +20,6 @@ import pytest
 
 from aragora.server.handlers.admin.health import HealthHandler
 
-# Mark all tests in this module as async
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture
 def mock_server_context():

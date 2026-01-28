@@ -17,8 +17,6 @@ import pytest
 
 from aragora.server.handlers.analytics import AnalyticsHandler
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture
 def analytics_handler():

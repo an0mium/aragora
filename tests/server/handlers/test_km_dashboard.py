@@ -21,8 +21,6 @@ import pytest
 
 from aragora.server.handlers.base import HandlerResult
 
-pytestmark = pytest.mark.asyncio
-
 
 # ===========================================================================
 # Mock Classes

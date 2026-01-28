@@ -227,14 +227,20 @@ def record_deliberation_complete(
         agent_count: Number of participating agents
     """
     consensus_str = "yes" if consensus_reached else "no"
+    if status == "completed":
+        outcome = "consensus" if consensus_reached else "no_consensus"
+    elif status in {"failed", "timeout"}:
+        outcome = status
+    else:
+        outcome = status
     if PROMETHEUS_AVAILABLE:
         DELIBERATION_DURATION.labels(status=status, consensus_reached=consensus_str).observe(
             duration_seconds
         )
         DELIBERATION_CONSENSUS_CONFIDENCE.observe(confidence)
-        DELIBERATION_ROUNDS.labels(status=status).observe(round_count)
+        DELIBERATION_ROUNDS.labels(outcome=outcome).observe(round_count)
         DELIBERATION_AGENTS.observe(agent_count)
-        DELIBERATION_TOTAL.labels(status=status, consensus_reached=consensus_str).inc()
+        DELIBERATION_TOTAL.labels(outcome=outcome).inc()
     else:
         _simple_metrics.observe_histogram(
             "aragora_deliberation_duration_seconds",
@@ -248,7 +254,7 @@ def record_deliberation_complete(
         _simple_metrics.observe_histogram(
             "aragora_deliberation_rounds",
             round_count,
-            {"status": status},
+            {"outcome": outcome},
         )
         _simple_metrics.observe_histogram(
             "aragora_deliberation_agents",
@@ -256,7 +262,7 @@ def record_deliberation_complete(
         )
         _simple_metrics.inc_counter(
             "aragora_deliberation_total",
-            {"status": status, "consensus_reached": consensus_str},
+            {"outcome": outcome},
         )
 
 

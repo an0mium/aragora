@@ -21,8 +21,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.server.handlers.nomic import NomicHandler
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture
 def nomic_handler():

@@ -779,6 +779,18 @@ def init_background_tasks(nomic_dir: Optional[Path]) -> bool:
     Returns:
         True if background tasks were started, False otherwise
     """
+    import os
+
+    if os.environ.get("ARAGORA_DISABLE_BACKGROUND_TASKS") == "1":
+        logger.info("Background tasks disabled via ARAGORA_DISABLE_BACKGROUND_TASKS")
+        return False
+
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
+        "ARAGORA_TEST_ENABLE_BACKGROUND_TASKS"
+    ):
+        logger.info("Background tasks disabled during pytest run")
+        return False
+
     try:
         from aragora.server.background import get_background_manager, setup_default_tasks
 

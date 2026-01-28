@@ -19,8 +19,6 @@ from unittest.mock import patch
 
 import pytest
 
-pytestmark = pytest.mark.asyncio
-
 
 # ===========================================================================
 # Response Helpers

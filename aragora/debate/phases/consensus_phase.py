@@ -25,6 +25,7 @@ __all__ = [
 
 import asyncio
 import logging
+import math
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -521,6 +522,8 @@ class ConsensusPhase:
 
         # Cast votes from all agents
         votes = await self._collect_votes(ctx)
+        if not self._ensure_quorum(ctx, len(votes)):
+            return
 
         # Apply calibration adjustments to vote confidences
         votes = self._apply_calibration_to_votes(votes, ctx)
@@ -586,6 +589,8 @@ class ConsensusPhase:
         proposals = ctx.proposals
 
         votes, voting_errors = await self._collect_votes_with_errors(ctx)
+        if not self._ensure_quorum(ctx, len(votes)):
+            return
         votes = self._apply_calibration_to_votes(votes, ctx)
         result.votes.extend(votes)
 
@@ -1083,6 +1088,41 @@ class ConsensusPhase:
             return calculator.compute_weights_with_context(ctx.agents, votes, ctx.proposals)
 
         return calculator.compute_weights(ctx.agents)
+
+    def _required_participation(self, total_agents: int) -> int:
+        """Compute minimum required votes to proceed with consensus."""
+        min_ratio = getattr(self.protocol, "min_participation_ratio", 0.5)
+        min_count = getattr(self.protocol, "min_participation_count", 2)
+        return max(min_count, math.ceil(total_agents * min_ratio))
+
+    def _ensure_quorum(self, ctx: "DebateContext", vote_count: int) -> bool:
+        """Ensure enough agents participated to make consensus meaningful."""
+        total_agents = len(ctx.agents)
+        required = self._required_participation(total_agents)
+        if vote_count >= required:
+            return True
+
+        result = ctx.result
+        result.final_answer = list(ctx.proposals.values())[0] if ctx.proposals else ""
+        result.consensus_reached = False
+        result.confidence = 0.0
+        result.status = "insufficient_participation"
+
+        logger.warning(
+            "consensus_insufficient_participation votes=%d required=%d total_agents=%d",
+            vote_count,
+            required,
+            total_agents,
+        )
+
+        if self._notify_spectator:
+            self._notify_spectator(
+                "consensus",
+                details=f"Insufficient participation ({vote_count}/{total_agents} votes)",
+                metric=0.0,
+            )
+
+        return False
 
     def _apply_calibration_to_votes(
         self,
