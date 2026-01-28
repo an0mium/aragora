@@ -86,7 +86,7 @@ interface TeamsClientInterface {
   request<T = unknown>(
     method: string,
     path: string,
-    options?: { params?: Record<string, string | number | boolean | undefined>; body?: unknown }
+    options?: { params?: Record<string, unknown>; body?: unknown }
   ): Promise<T>;
   getBaseUrl(): string;
 }
@@ -179,7 +179,7 @@ export class TeamsAPI {
     state?: string;
   }): Promise<TeamsInstallResponse> {
     return this.client.request('GET', '/api/integrations/teams/install', {
-      params: options as Record<string, string | number | boolean | undefined>,
+      params: options as Record<string, unknown>,
     });
   }
 
@@ -365,7 +365,7 @@ export class TeamsAPI {
     const response = await this.client.request<{ messages: TeamsDebateMessage[] }>(
       'GET',
       '/api/v1/teams/debates',
-      { params: options as Record<string, string | number | boolean | undefined> }
+      { params: options as Record<string, unknown> }
     );
     return response.messages;
   }
