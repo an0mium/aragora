@@ -259,7 +259,7 @@ class TestGDPRDeletion:
         result = await handler.handle(
             "POST",
             "/api/v2/compliance/gdpr/right-to-be-forgotten",
-            body={"user_id": "user-001", "reason": "User request"},
+            body={"user_id": "user-rtbf-001", "reason": "User request"},
         )
         # May return 200 or 202 (accepted for async processing)
         assert result.status_code in (200, 202)
