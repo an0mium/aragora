@@ -123,16 +123,16 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         return None
 
     @rate_limit(rpm=30)
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/bots/discord/interactions":
-            return self._handle_interactions(handler)
+            return await self._handle_interactions(handler)
 
         return None
 
-    def _handle_interactions(self, handler: Any) -> HandlerResult:
+    async def _handle_interactions(self, handler: Any) -> HandlerResult:
         """Handle Discord interaction webhooks.
 
         This endpoint receives interactions from Discord when using the
@@ -166,7 +166,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
 
             # Handle APPLICATION_COMMAND (type 2)
             if interaction_type == 2:
-                return self._handle_application_command(interaction)
+                return await self._handle_application_command(interaction)
 
             # Handle MESSAGE_COMPONENT (type 3) - buttons, selects, etc.
             if interaction_type == 3:
@@ -214,7 +214,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 }
             )
 
-    def _handle_application_command(self, interaction: Dict[str, Any]) -> HandlerResult:
+    async def _handle_application_command(self, interaction: Dict[str, Any]) -> HandlerResult:
         """Handle slash command interactions."""
         data = interaction.get("data", {})
         command_name = data.get("name", "")
@@ -235,18 +235,18 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         if command_name == "aragora":
             subcommand = args.get("command", "help")
             subargs = args.get("args", "")
-            return self._execute_command(subcommand, subargs, user_id, interaction)
+            return await self._execute_command(subcommand, subargs, user_id, interaction)
 
         if command_name == "debate":
             topic = args.get("topic", "")
-            return self._execute_command("debate", topic, user_id, interaction)
+            return await self._execute_command("debate", topic, user_id, interaction)
 
         if command_name == "gauntlet":
             statement = args.get("statement", "")
-            return self._execute_command("gauntlet", statement, user_id, interaction)
+            return await self._execute_command("gauntlet", statement, user_id, interaction)
 
         if command_name == "status":
-            return self._execute_command("status", "", user_id, interaction)
+            return await self._execute_command("status", "", user_id, interaction)
 
         # Unknown command
         return json_response(
@@ -259,7 +259,7 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             }
         )
 
-    def _execute_command(
+    async def _execute_command(
         self,
         command: str,
         args: str,
@@ -267,7 +267,6 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
         interaction: Dict[str, Any],
     ) -> HandlerResult:
         """Execute a command and return Discord response."""
-        import asyncio
         from datetime import datetime, timezone
         from aragora.bots.base import (
             BotChannel,
@@ -317,13 +316,8 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             },
         )
 
-        # Execute command (run async in sync context)
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(registry.execute(ctx))
-        finally:
-            loop.close()
+        # Execute command
+        result = await registry.execute(ctx)
 
         # Build response
         if result.success:

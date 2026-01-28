@@ -17,7 +17,6 @@ Environment Variables:
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -129,16 +128,16 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
         return None
 
     @rate_limit(rpm=30)
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: Dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests."""
         if path == "/api/v1/bots/zoom/events":
-            return self._handle_events(handler)
+            return await self._handle_events(handler)
 
         return None
 
-    def _handle_events(self, handler: Any) -> HandlerResult:
+    async def _handle_events(self, handler: Any) -> HandlerResult:
         """Handle incoming Zoom webhook events.
 
         This endpoint receives events from Zoom including:
@@ -207,14 +206,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                     status=503,
                 )
 
-            # Process event asynchronously
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(bot.handle_event(event))
-            finally:
-                loop.close()
-
+            # Process event
+            result = await bot.handle_event(event)
             return json_response(result)
 
         except Exception as e:

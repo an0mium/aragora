@@ -22,6 +22,7 @@ from aragora.resilience_patterns import (
     with_retry_sync,
     calculate_backoff_delay,
 )
+from aragora.resilience_patterns.retry import JitterMode
 
 
 class TestRetryConfig:
@@ -30,20 +31,20 @@ class TestRetryConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = RetryConfig()
-        assert config.max_attempts == 3
-        assert config.base_delay == 1.0
-        assert config.max_delay == 60.0
+        assert config.max_retries == 3
+        assert config.base_delay == 0.1
+        assert config.max_delay == 30.0
         assert config.strategy == RetryStrategy.EXPONENTIAL
 
     def test_custom_config(self):
         """Test custom configuration."""
         config = RetryConfig(
-            max_attempts=5,
+            max_retries=5,
             base_delay=2.0,
             max_delay=120.0,
             strategy=RetryStrategy.LINEAR,
         )
-        assert config.max_attempts == 5
+        assert config.max_retries == 5
         assert config.base_delay == 2.0
         assert config.max_delay == 120.0
         assert config.strategy == RetryStrategy.LINEAR
@@ -55,47 +56,52 @@ class TestCalculateBackoffDelay:
     def test_exponential_backoff(self):
         """Test exponential backoff strategy."""
         # attempt 0: 1.0 * 2^0 = 1.0
-        delay = calculate_backoff_delay(0, 1.0, 60.0, RetryStrategy.EXPONENTIAL)
+        delay = calculate_backoff_delay(0, 1.0, 60.0, RetryStrategy.EXPONENTIAL, JitterMode.NONE)
         assert delay == 1.0
 
         # attempt 1: 1.0 * 2^1 = 2.0
-        delay = calculate_backoff_delay(1, 1.0, 60.0, RetryStrategy.EXPONENTIAL)
+        delay = calculate_backoff_delay(1, 1.0, 60.0, RetryStrategy.EXPONENTIAL, JitterMode.NONE)
         assert delay == 2.0
 
         # attempt 2: 1.0 * 2^2 = 4.0
-        delay = calculate_backoff_delay(2, 1.0, 60.0, RetryStrategy.EXPONENTIAL)
+        delay = calculate_backoff_delay(2, 1.0, 60.0, RetryStrategy.EXPONENTIAL, JitterMode.NONE)
         assert delay == 4.0
 
     def test_linear_backoff(self):
         """Test linear backoff strategy."""
         # attempt 0: 1.0 * 1 = 1.0
-        delay = calculate_backoff_delay(0, 1.0, 60.0, RetryStrategy.LINEAR)
+        delay = calculate_backoff_delay(0, 1.0, 60.0, RetryStrategy.LINEAR, JitterMode.NONE)
         assert delay == 1.0
 
         # attempt 1: 1.0 * 2 = 2.0
-        delay = calculate_backoff_delay(1, 1.0, 60.0, RetryStrategy.LINEAR)
+        delay = calculate_backoff_delay(1, 1.0, 60.0, RetryStrategy.LINEAR, JitterMode.NONE)
         assert delay == 2.0
 
         # attempt 5: 1.0 * 6 = 6.0
-        delay = calculate_backoff_delay(5, 1.0, 60.0, RetryStrategy.LINEAR)
+        delay = calculate_backoff_delay(5, 1.0, 60.0, RetryStrategy.LINEAR, JitterMode.NONE)
         assert delay == 6.0
 
     def test_fibonacci_backoff(self):
         """Test fibonacci backoff strategy."""
-        delays = [calculate_backoff_delay(i, 1.0, 60.0, RetryStrategy.FIBONACCI) for i in range(6)]
-        # Fibonacci: 1, 1, 2, 3, 5, 8
-        assert delays == [1.0, 1.0, 2.0, 3.0, 5.0, 8.0]
+        delays = [
+            calculate_backoff_delay(i, 1.0, 60.0, RetryStrategy.FIBONACCI, JitterMode.NONE)
+            for i in range(6)
+        ]
+        # Implementation uses fib(attempt+2): fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5, fib(6)=8, fib(7)=13
+        assert delays == [1.0, 2.0, 3.0, 5.0, 8.0, 13.0]
 
     def test_constant_backoff(self):
         """Test constant backoff strategy."""
         for attempt in range(5):
-            delay = calculate_backoff_delay(attempt, 2.0, 60.0, RetryStrategy.CONSTANT)
+            delay = calculate_backoff_delay(
+                attempt, 2.0, 60.0, RetryStrategy.CONSTANT, JitterMode.NONE
+            )
             assert delay == 2.0
 
     def test_max_delay_cap(self):
         """Test that delay is capped at max_delay."""
         # Very high attempt with exponential should be capped
-        delay = calculate_backoff_delay(20, 1.0, 60.0, RetryStrategy.EXPONENTIAL)
+        delay = calculate_backoff_delay(20, 1.0, 60.0, RetryStrategy.EXPONENTIAL, JitterMode.NONE)
         assert delay == 60.0
 
 
@@ -104,7 +110,7 @@ class TestExponentialBackoff:
 
     def test_iteration(self):
         """Test iteration through backoff delays."""
-        backoff = ExponentialBackoff(base=1.0, max_delay=60.0, max_attempts=5)
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=60.0, max_retries=5, jitter=False)
         delays = list(backoff)
         assert len(delays) == 5
         assert delays[0] == 1.0
@@ -113,7 +119,7 @@ class TestExponentialBackoff:
 
     def test_reset(self):
         """Test reset functionality."""
-        backoff = ExponentialBackoff(base=1.0, max_delay=60.0, max_attempts=3)
+        backoff = ExponentialBackoff(base_delay=1.0, max_delay=60.0, max_retries=3, jitter=False)
         list(backoff)  # Exhaust iterator
         backoff.reset()
         delays = list(backoff)
@@ -128,7 +134,7 @@ class TestWithRetryAsync:
         """Test successful call without retries."""
         call_count = 0
 
-        @with_retry(RetryConfig(max_attempts=3))
+        @with_retry(RetryConfig(max_retries=3))
         async def success():
             nonlocal call_count
             call_count += 1
@@ -143,7 +149,7 @@ class TestWithRetryAsync:
         """Test retry on transient failure."""
         call_count = 0
 
-        @with_retry(RetryConfig(max_attempts=3, base_delay=0.01))
+        @with_retry(RetryConfig(max_retries=3, base_delay=0.01))
         async def fail_twice():
             nonlocal call_count
             call_count += 1
@@ -156,11 +162,11 @@ class TestWithRetryAsync:
         assert call_count == 3
 
     @pytest.mark.asyncio
-    async def test_max_attempts_exceeded(self):
+    async def test_max_retries_exceeded(self):
         """Test exception when max attempts exceeded."""
         call_count = 0
 
-        @with_retry(RetryConfig(max_attempts=3, base_delay=0.01))
+        @with_retry(RetryConfig(max_retries=3, base_delay=0.01))
         async def always_fail():
             nonlocal call_count
             call_count += 1
@@ -168,14 +174,15 @@ class TestWithRetryAsync:
 
         with pytest.raises(ConnectionError, match="Permanent failure"):
             await always_fail()
-        assert call_count == 3
+        # max_retries=3 means 4 total attempts (initial + 3 retries)
+        assert call_count == 4
 
     @pytest.mark.asyncio
     async def test_non_retryable_exception(self):
         """Test that non-retryable exceptions are not retried."""
         call_count = 0
 
-        @with_retry(RetryConfig(max_attempts=3, retryable_exceptions=(ConnectionError,)))
+        @with_retry(RetryConfig(max_retries=3, retryable_exceptions=(ConnectionError,)))
         async def value_error():
             nonlocal call_count
             call_count += 1
@@ -193,7 +200,7 @@ class TestWithRetryAsync:
         def on_retry(attempt, exc, delay):
             callback_calls.append((attempt, str(exc), delay))
 
-        @with_retry(RetryConfig(max_attempts=3, base_delay=0.01, on_retry=on_retry))
+        @with_retry(RetryConfig(max_retries=3, base_delay=0.01, on_retry=on_retry))
         async def fail_once():
             if len(callback_calls) == 0:
                 raise ConnectionError("First failure")
@@ -202,7 +209,7 @@ class TestWithRetryAsync:
         result = await fail_once()
         assert result == "success"
         assert len(callback_calls) == 1
-        assert callback_calls[0][0] == 1  # Attempt number
+        assert callback_calls[0][0] == 0  # Attempt number (0-indexed)
         assert "First failure" in callback_calls[0][1]
 
 
@@ -213,7 +220,7 @@ class TestWithRetrySync:
         """Test successful call without retries."""
         call_count = 0
 
-        @with_retry_sync(RetryConfig(max_attempts=3))
+        @with_retry_sync(RetryConfig(max_retries=3))
         def success():
             nonlocal call_count
             call_count += 1
@@ -227,7 +234,7 @@ class TestWithRetrySync:
         """Test retry on transient failure."""
         call_count = 0
 
-        @with_retry_sync(RetryConfig(max_attempts=3, base_delay=0.01))
+        @with_retry_sync(RetryConfig(max_retries=3, base_delay=0.01))
         def fail_twice():
             nonlocal call_count
             call_count += 1
@@ -239,11 +246,11 @@ class TestWithRetrySync:
         assert result == "success"
         assert call_count == 3
 
-    def test_max_attempts_exceeded(self):
+    def test_max_retries_exceeded(self):
         """Test exception when max attempts exceeded."""
         call_count = 0
 
-        @with_retry_sync(RetryConfig(max_attempts=2, base_delay=0.01))
+        @with_retry_sync(RetryConfig(max_retries=2, base_delay=0.01))
         def always_fail():
             nonlocal call_count
             call_count += 1
@@ -251,7 +258,8 @@ class TestWithRetrySync:
 
         with pytest.raises(TimeoutError, match="Permanent failure"):
             always_fail()
-        assert call_count == 2
+        # max_retries=2 means 3 total attempts (initial + 2 retries)
+        assert call_count == 3
 
 
 class TestRetryStrategy:
@@ -285,7 +293,7 @@ class TestRetryWithDifferentStrategies:
 
         @with_retry(
             RetryConfig(
-                max_attempts=4,
+                max_retries=4,
                 base_delay=1.0,
                 strategy=RetryStrategy.LINEAR,
                 on_retry=capture_delay,
@@ -297,8 +305,8 @@ class TestRetryWithDifferentStrategies:
         with pytest.raises(ConnectionError):
             await always_fail()
 
-        # Linear: 1, 2, 3 delays before max_attempts exceeded
-        assert len(delays) == 3
+        # max_retries=4 means 5 attempts with 4 callbacks before exhaustion
+        assert len(delays) == 4
         # Delays should increase linearly (with potential jitter)
         assert all(d > 0 for d in delays)
 
@@ -312,7 +320,7 @@ class TestRetryWithDifferentStrategies:
 
         @with_retry(
             RetryConfig(
-                max_attempts=4,
+                max_retries=4,
                 base_delay=0.5,
                 strategy=RetryStrategy.CONSTANT,
                 on_retry=capture_delay,
@@ -325,6 +333,6 @@ class TestRetryWithDifferentStrategies:
         with pytest.raises(ConnectionError):
             await always_fail()
 
-        # All delays should be constant
-        assert len(delays) == 3
+        # max_retries=4 means 5 attempts with 4 callbacks before exhaustion
+        assert len(delays) == 4
         assert all(d == 0.5 for d in delays)
