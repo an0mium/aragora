@@ -254,6 +254,150 @@ class ReceiptsAPI:
         """
         return self._client.request("GET", f"/api/v2/receipts/dsar/{user_id}")
 
+    # =========================================================================
+    # Gauntlet Receipts
+    # =========================================================================
+
+    def list_gauntlet(
+        self,
+        verdict: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        List gauntlet receipts (from attack/defend stress tests).
+
+        Args:
+            verdict: Filter by verdict
+            limit: Maximum results
+            offset: Pagination offset
+
+        Returns:
+            List of gauntlet receipts
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if verdict:
+            params["verdict"] = verdict
+        return self._client.request("GET", "/api/v2/gauntlet/receipts", params=params)
+
+    def get_gauntlet(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Get a gauntlet receipt by ID.
+
+        Args:
+            receipt_id: Receipt ID
+
+        Returns:
+            Gauntlet receipt details
+        """
+        return self._client.request("GET", f"/api/v2/gauntlet/receipts/{receipt_id}")
+
+    def verify_gauntlet(self, receipt_id: str) -> dict[str, Any]:
+        """
+        Verify a gauntlet receipt's integrity.
+
+        Args:
+            receipt_id: Receipt ID
+
+        Returns:
+            Verification result
+        """
+        return self._client.request("POST", f"/api/v2/gauntlet/receipts/{receipt_id}/verify")
+
+    def export_gauntlet(
+        self,
+        receipt_id: str,
+        format: Literal["json", "html", "markdown", "sarif"] = "json",
+    ) -> dict[str, Any]:
+        """
+        Export a gauntlet receipt.
+
+        Args:
+            receipt_id: Receipt ID
+            format: Export format (json, html, markdown, sarif)
+
+        Returns:
+            Exported receipt data
+        """
+        return self._client.request(
+            "GET",
+            f"/api/v2/gauntlet/receipts/{receipt_id}/export",
+            params={"format": format},
+        )
+
+    def sign_batch(self, receipt_ids: list[str]) -> dict[str, Any]:
+        """
+        Sign multiple receipts in batch.
+
+        Args:
+            receipt_ids: List of receipt IDs (max 100)
+
+        Returns:
+            Batch signing results
+        """
+        return self._client.request(
+            "POST",
+            "/api/v2/receipts/sign-batch",
+            json={"receipt_ids": receipt_ids},
+        )
+
+    def batch_export(
+        self,
+        receipt_ids: list[str],
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """
+        Export multiple receipts as a ZIP archive.
+
+        Args:
+            receipt_ids: List of receipt IDs
+            format: Export format for each receipt
+
+        Returns:
+            ZIP download URL or binary data
+        """
+        return self._client.request(
+            "POST",
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": receipt_ids, "format": format},
+        )
+
+    # =========================================================================
+    # Helper Methods
+    # =========================================================================
+
+    @staticmethod
+    def has_dissent(receipt: dict[str, Any]) -> bool:
+        """
+        Check if a receipt has any dissenting views.
+
+        Args:
+            receipt: Receipt data
+
+        Returns:
+            True if there are dissenting agents
+        """
+        dissenting = receipt.get("dissenting_agents", [])
+        return len(dissenting) > 0
+
+    @staticmethod
+    def get_consensus_status(receipt: dict[str, Any]) -> dict[str, Any]:
+        """
+        Get the consensus status from a receipt.
+
+        Args:
+            receipt: Receipt data
+
+        Returns:
+            Consensus status with reached, confidence, and agent counts
+        """
+        return {
+            "reached": receipt.get("consensus_reached", False),
+            "confidence": receipt.get("confidence", 0.0),
+            "participating_agents": len(receipt.get("participating_agents", [])),
+            "dissenting_agents": len(receipt.get("dissenting_agents", [])),
+        }
+
 
 class AsyncReceiptsAPI:
     """
@@ -381,3 +525,59 @@ class AsyncReceiptsAPI:
     async def get_dsar(self, user_id: str) -> dict[str, Any]:
         """Get receipts for a user (GDPR DSAR)."""
         return await self._client.request("GET", f"/api/v2/receipts/dsar/{user_id}")
+
+    # =========================================================================
+    # Gauntlet Receipts
+    # =========================================================================
+
+    async def list_gauntlet(
+        self,
+        verdict: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List gauntlet receipts (from attack/defend stress tests)."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if verdict:
+            params["verdict"] = verdict
+        return await self._client.request("GET", "/api/v2/gauntlet/receipts", params=params)
+
+    async def get_gauntlet(self, receipt_id: str) -> dict[str, Any]:
+        """Get a gauntlet receipt by ID."""
+        return await self._client.request("GET", f"/api/v2/gauntlet/receipts/{receipt_id}")
+
+    async def verify_gauntlet(self, receipt_id: str) -> dict[str, Any]:
+        """Verify a gauntlet receipt's integrity."""
+        return await self._client.request("POST", f"/api/v2/gauntlet/receipts/{receipt_id}/verify")
+
+    async def export_gauntlet(
+        self,
+        receipt_id: str,
+        format: Literal["json", "html", "markdown", "sarif"] = "json",
+    ) -> dict[str, Any]:
+        """Export a gauntlet receipt."""
+        return await self._client.request(
+            "GET",
+            f"/api/v2/gauntlet/receipts/{receipt_id}/export",
+            params={"format": format},
+        )
+
+    async def sign_batch(self, receipt_ids: list[str]) -> dict[str, Any]:
+        """Sign multiple receipts in batch."""
+        return await self._client.request(
+            "POST",
+            "/api/v2/receipts/sign-batch",
+            json={"receipt_ids": receipt_ids},
+        )
+
+    async def batch_export(
+        self,
+        receipt_ids: list[str],
+        format: ExportFormat = "json",
+    ) -> dict[str, Any]:
+        """Export multiple receipts as a ZIP archive."""
+        return await self._client.request(
+            "POST",
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": receipt_ids, "format": format},
+        )
