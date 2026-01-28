@@ -188,9 +188,6 @@ class TestInputValidation:
     @pytest.fixture
     def server(self):
         """Create server instance for testing."""
-        if not MCP_AVAILABLE:
-            pytest.skip("MCP package not installed")
-
         from aragora.mcp.server import AragoraMCPServer
 
         with patch("aragora.mcp.server.Server"):
