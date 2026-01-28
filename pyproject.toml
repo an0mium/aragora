@@ -186,7 +186,7 @@ rlm = [
     # "rlm @ git+https://github.com/alexzhang13/rlm.git@v1.0.0",
 ]
 control-plane = [
-    "redis>=5.0.0,<6.0",
+    "redis>=5.0.0,<8.0",
     "networkx>=3.0,<4.0",  # DAG workflow representation
 ]
 code-intel = [
