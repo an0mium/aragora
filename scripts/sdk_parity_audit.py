@@ -111,8 +111,15 @@ def parse_ts_client(paths: Iterable[Path]) -> set[Endpoint]:
     return endpoints
 
 
-PY_CALL_RE = re.compile(
+# Pattern for _client._get("path") style (legacy)
+PY_CALL_LEGACY_RE = re.compile(
     r"\b_client\._(?P<method>get|post|put|patch|delete)\(\s*(?P<path>f?\"[^\"]+\"|f?'[^']+')",
+    re.MULTILINE,
+)
+
+# Pattern for _client.request("GET", "path") style (current)
+PY_CALL_RE = re.compile(
+    r"\b_client\.request\(\s*['\"](?P<method>GET|POST|PUT|PATCH|DELETE)['\"][,\s]*(?P<path>f?\"[^\"]+\"|f?'[^']+')",
     re.MULTILINE,
 )
 
@@ -121,14 +128,16 @@ def parse_python_sdk(paths: Iterable[Path]) -> set[Endpoint]:
     endpoints: set[Endpoint] = set()
     for path in paths:
         text = path.read_text()
-        for match in PY_CALL_RE.finditer(text):
-            method = match.group("method").upper()
-            raw = match.group("path")
-            literal = raw[1:-1]
-            if raw.startswith("f"):
-                literal = re.sub(r"{[^}]+}", "{param}", literal)
-            literal = normalize_path(literal)
-            endpoints.add(Endpoint(method, literal).normalized())
+        # Match both legacy (_client._get) and current (_client.request) patterns
+        for pattern in [PY_CALL_RE, PY_CALL_LEGACY_RE]:
+            for match in pattern.finditer(text):
+                method = match.group("method").upper()
+                raw = match.group("path")
+                literal = raw[1:-1]
+                if raw.startswith("f"):
+                    literal = re.sub(r"{[^}]+}", "{param}", literal)
+                literal = normalize_path(literal)
+                endpoints.add(Endpoint(method, literal).normalized())
     return endpoints
 
 
@@ -282,7 +291,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate SDK parity report")
     parser.add_argument("--openapi", default="docs/api/openapi.json")
     parser.add_argument("--ts-sdk", default="sdk/typescript/src")
-    parser.add_argument("--py-sdk", default="aragora-py/aragora_client")
+    parser.add_argument("--py-sdk", default="sdk/python/aragora/namespaces")
     parser.add_argument("--ts-client", default="aragora-js/src")
     parser.add_argument("--output", help="Write report to file")
     args = parser.parse_args()
