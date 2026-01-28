@@ -3,8 +3,8 @@
 Generated: 2026-01-28
 
 ## Summary
-- SDK TS endpoints not implemented by handlers: 759
-- SDK PY endpoints not implemented by handlers: 689
+- SDK TS endpoints not implemented by handlers: 701
+- SDK PY endpoints not implemented by handlers: 646
 
 These endpoints likely represent stale SDK methods or legacy routes. They should be removed,
 deprecated, or reintroduced in the server if still required.
@@ -26,20 +26,6 @@ DELETE /api/v1/audit/sessions/{param}
 DELETE /api/v1/bindings
 DELETE /api/v1/bindings/resolve
 DELETE /api/v1/bindings/stats
-DELETE /api/v1/email/categories
-DELETE /api/v1/email/categories/learn
-DELETE /api/v1/email/followups/auto-detect
-DELETE /api/v1/email/followups/check-replies
-DELETE /api/v1/email/followups/mark
-DELETE /api/v1/email/followups/pending
-DELETE /api/v1/email/followups/{param}
-DELETE /api/v1/email/snooze/process-due
-DELETE /api/v1/email/snoozed
-DELETE /api/v1/email/{param}
-DELETE /api/v1/email/{param}/snooze
-DELETE /api/v1/gmail/drafts/{param}
-DELETE /api/v1/gmail/filters/{param}
-DELETE /api/v1/gmail/labels/{param}
 DELETE /api/v1/integrations/make/connections/{param}
 DELETE /api/v1/integrations/make/webhooks/{param}
 DELETE /api/v1/integrations/n8n/credentials/{param}
@@ -224,17 +210,6 @@ GET /api/v1/deliberations/stats
 GET /api/v1/deliberations/stream
 GET /api/v1/deliberations/{param}
 GET /api/v1/devices
-GET /api/v1/email/categories
-GET /api/v1/email/categories/learn
-GET /api/v1/email/followups/auto-detect
-GET /api/v1/email/followups/check-replies
-GET /api/v1/email/followups/mark
-GET /api/v1/email/followups/pending
-GET /api/v1/email/followups/{param}
-GET /api/v1/email/snooze/process-due
-GET /api/v1/email/snoozed
-GET /api/v1/email/{param}
-GET /api/v1/email/{param}/snooze-suggestions
 GET /api/v1/explain
 GET /api/v1/explainability/batch/{param}/results
 GET /api/v1/explainability/batch/{param}/status
@@ -246,13 +221,6 @@ GET /api/v1/genesis/debates/{param}/tree
 GET /api/v1/genesis/descendants
 GET /api/v1/genesis/lineage
 GET /api/v1/genesis/tree
-GET /api/v1/gmail/drafts
-GET /api/v1/gmail/drafts/{param}
-GET /api/v1/gmail/filters
-GET /api/v1/gmail/labels
-GET /api/v1/gmail/messages/{param}/attachments/{param}
-GET /api/v1/gmail/threads
-GET /api/v1/gmail/threads/{param}
 GET /api/v1/graph-debates
 GET /api/v1/graph-debates/{param}
 GET /api/v1/graph-debates/{param}/branches
@@ -482,7 +450,6 @@ GET /threat/hash/{param}
 GET /threat/ip/{param}
 GET /threat/status
 PATCH /api/v1/admin/organizations/{param}
-PATCH /api/v1/gmail/labels/{param}
 PATCH /api/v1/integrations/{param}
 PATCH /api/v1/knowledge/mound/share
 PATCH /api/v1/knowledge/{param}
@@ -583,33 +550,9 @@ POST /api/v1/documents/compare
 POST /api/v1/documents/extract
 POST /api/v1/documents/query
 POST /api/v1/documents/summarize
-POST /api/v1/email/categories
-POST /api/v1/email/categories/learn
-POST /api/v1/email/followups/auto-detect
-POST /api/v1/email/followups/check-replies
-POST /api/v1/email/followups/mark
-POST /api/v1/email/followups/pending
-POST /api/v1/email/followups/{param}
-POST /api/v1/email/followups/{param}/resolve
-POST /api/v1/email/snooze/process-due
-POST /api/v1/email/snoozed
-POST /api/v1/email/{param}
-POST /api/v1/email/{param}/snooze
 POST /api/v1/feedback/general
 POST /api/v1/feedback/nps
 POST /api/v1/findings/batch-evidence
-POST /api/v1/gmail/drafts
-POST /api/v1/gmail/drafts/{param}/send
-POST /api/v1/gmail/filters
-POST /api/v1/gmail/labels
-POST /api/v1/gmail/messages/{param}/archive
-POST /api/v1/gmail/messages/{param}/labels
-POST /api/v1/gmail/messages/{param}/read
-POST /api/v1/gmail/messages/{param}/star
-POST /api/v1/gmail/messages/{param}/trash
-POST /api/v1/gmail/threads/{param}/archive
-POST /api/v1/gmail/threads/{param}/labels
-POST /api/v1/gmail/threads/{param}/trash
 POST /api/v1/graph-debates
 POST /api/v1/graph-debates/{param}/branches
 POST /api/v1/integrations
@@ -759,7 +702,6 @@ PUT /api/v1/accounting/expenses/pending
 PUT /api/v1/accounting/expenses/stats
 PUT /api/v1/accounting/expenses/sync
 PUT /api/v1/accounting/expenses/upload
-PUT /api/v1/gmail/drafts/{param}
 PUT /api/v1/integrations/{param}
 PUT /api/v1/knowledge/facts/{param}
 PUT /api/v1/knowledge/mound/nodes/{param}/visibility
@@ -793,20 +735,6 @@ DELETE /api/v1/bindings/resolve
 DELETE /api/v1/bindings/stats
 DELETE /api/v1/cross-pollination/subscribers/{param}
 DELETE /api/v1/documents/{param}
-DELETE /api/v1/email/categories
-DELETE /api/v1/email/categories/learn
-DELETE /api/v1/email/followups/auto-detect
-DELETE /api/v1/email/followups/check-replies
-DELETE /api/v1/email/followups/mark
-DELETE /api/v1/email/followups/pending
-DELETE /api/v1/email/followups/{param}
-DELETE /api/v1/email/snooze/process-due
-DELETE /api/v1/email/snoozed
-DELETE /api/v1/email/{param}
-DELETE /api/v1/email/{param}/snooze
-DELETE /api/v1/gmail/messages/{param}/labels
-DELETE /api/v1/gmail/messages/{param}/read
-DELETE /api/v1/gmail/messages/{param}/star
 DELETE /api/v1/integrations/{param}
 DELETE /api/v1/knowledge/facts/{param}
 DELETE /api/v1/knowledge/mound/federation/regions/{param}
@@ -975,17 +903,6 @@ GET /api/v1/documents/search
 GET /api/v1/documents/{param}
 GET /api/v1/documents/{param}/chunks
 GET /api/v1/documents/{param}/download
-GET /api/v1/email/categories
-GET /api/v1/email/categories/learn
-GET /api/v1/email/followups/auto-detect
-GET /api/v1/email/followups/check-replies
-GET /api/v1/email/followups/mark
-GET /api/v1/email/followups/pending
-GET /api/v1/email/followups/{param}
-GET /api/v1/email/snooze/process-due
-GET /api/v1/email/snoozed
-GET /api/v1/email/{param}
-GET /api/v1/email/{param}/snooze-suggestions
 GET /api/v1/explain
 GET /api/v1/explainability/batch/{param}/results
 GET /api/v1/explainability/batch/{param}/status
@@ -1003,7 +920,6 @@ GET /api/v1/gauntlet
 GET /api/v1/genesis/descendants
 GET /api/v1/genesis/lineage
 GET /api/v1/genesis/tree
-GET /api/v1/gmail/messages/{param}/attachments/{param}
 GET /api/v1/health/components/{param}
 GET /api/v1/health/liveness
 GET /api/v1/health/metrics
@@ -1309,26 +1225,9 @@ POST /api/v1/documents/extract
 POST /api/v1/documents/query
 POST /api/v1/documents/summarize
 POST /api/v1/documents/{param}/reprocess
-POST /api/v1/email/categories
-POST /api/v1/email/categories/learn
-POST /api/v1/email/followups/auto-detect
-POST /api/v1/email/followups/check-replies
-POST /api/v1/email/followups/mark
-POST /api/v1/email/followups/pending
-POST /api/v1/email/followups/{param}
-POST /api/v1/email/followups/{param}/resolve
-POST /api/v1/email/snooze/process-due
-POST /api/v1/email/snoozed
-POST /api/v1/email/{param}
-POST /api/v1/email/{param}/snooze
 POST /api/v1/feedback/general
 POST /api/v1/feedback/nps
 POST /api/v1/findings/batch-evidence
-POST /api/v1/gmail/messages/{param}/archive
-POST /api/v1/gmail/messages/{param}/labels
-POST /api/v1/gmail/messages/{param}/read
-POST /api/v1/gmail/messages/{param}/star
-POST /api/v1/gmail/messages/{param}/trash
 POST /api/v1/integrations/{param}/test
 POST /api/v1/invitations/{param}/accept
 POST /api/v1/knowledge/facts/relations
