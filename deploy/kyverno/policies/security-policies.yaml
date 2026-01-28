@@ -1,0 +1,400 @@
+# Kyverno Security Policies for Aragora
+# These policies enforce security best practices in the Kubernetes cluster
+
+---
+# Policy: Require non-root containers
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-run-as-non-root
+  annotations:
+    policies.kyverno.io/title: Require Run As Non-Root
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Containers must run as a non-root user to reduce security risks.
+      This policy ensures runAsNonRoot is set to true.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Containers must run as non-root. Set securityContext.runAsNonRoot to true."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+
+---
+# Policy: Disallow privileged containers
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-privileged-containers
+  annotations:
+    policies.kyverno.io/title: Disallow Privileged Containers
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Privileged containers have full access to the host.
+      This policy ensures no container runs in privileged mode.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: deny-privileged
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Privileged containers are not allowed."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  privileged: "false"
+
+---
+# Policy: Require resource limits
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/title: Require Resource Limits
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      All containers must have CPU and memory limits defined
+      to prevent resource exhaustion and ensure fair scheduling.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "CPU and memory limits are required for all containers."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  limits:
+                    memory: "?*"
+                    cpu: "?*"
+
+---
+# Policy: Require resource requests
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-requests
+  annotations:
+    policies.kyverno.io/title: Require Resource Requests
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      All containers must have CPU and memory requests defined
+      for proper scheduling and resource allocation.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-requests
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "CPU and memory requests are required for all containers."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    memory: "?*"
+                    cpu: "?*"
+
+---
+# Policy: Disallow latest tag
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: Disallow Latest Tag
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Using the 'latest' tag is discouraged as it is mutable and
+      can lead to unpredictable deployments. Use specific version tags.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: disallow-latest
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Using 'latest' tag is not allowed. Specify a version tag."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+
+---
+# Policy: Require probes
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-probes
+  annotations:
+    policies.kyverno.io/title: Require Liveness and Readiness Probes
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Liveness and readiness probes are required for proper
+      health monitoring and traffic management.
+spec:
+  validationFailureAction: Audit  # Audit first, then enforce
+  background: true
+  rules:
+    - name: require-probes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+      exclude:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              selector:
+                matchLabels:
+                  app.kubernetes.io/component: migration  # Exclude migration jobs
+      validate:
+        message: "Liveness and readiness probes are required."
+        pattern:
+          spec:
+            containers:
+              - livenessProbe:
+                  httpGet:
+                    path: "?*"
+                    port: "?*"
+                readinessProbe:
+                  httpGet:
+                    path: "?*"
+                    port: "?*"
+
+---
+# Policy: Require labels
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Standard Labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod, Deployment
+    policies.kyverno.io/description: >-
+      All resources must have standard Kubernetes labels for
+      proper resource management and identification.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-app-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Required labels: app.kubernetes.io/name, app.kubernetes.io/version"
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"
+              app.kubernetes.io/version: "?*"
+
+---
+# Policy: Disallow host network
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-network
+  annotations:
+    policies.kyverno.io/title: Disallow Host Network
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Host networking allows containers to use the host's network namespace.
+      This should be disallowed for security reasons.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: deny-host-network
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Host network is not allowed."
+        pattern:
+          spec:
+            hostNetwork: "false"
+
+---
+# Policy: Disallow host PID
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-host-pid
+  annotations:
+    policies.kyverno.io/title: Disallow Host PID
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Sharing the host's PID namespace allows container processes to see
+      all host processes. This should be disallowed.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: deny-host-pid
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Host PID namespace is not allowed."
+        pattern:
+          spec:
+            hostPID: "false"
+
+---
+# Policy: Restrict volume types
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-volume-types
+  annotations:
+    policies.kyverno.io/title: Restrict Volume Types
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Only allow specific volume types that are considered safe.
+      HostPath and other dangerous volume types are blocked.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: restrict-volumes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+                - aragora-staging
+      validate:
+        message: "Only configMap, emptyDir, persistentVolumeClaim, projected, and secret volumes are allowed."
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.volumes[].hostPath | length(@) }}"
+                operator: GreaterThan
+                value: 0
+
+---
+# Policy: Require read-only root filesystem
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-ro-rootfs
+  annotations:
+    policies.kyverno.io/title: Require Read-Only Root Filesystem
+    policies.kyverno.io/category: Pod Security Standards (Restricted)
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Containers should use a read-only root filesystem to prevent
+      runtime modifications to the container image.
+spec:
+  validationFailureAction: Audit  # Audit first due to compatibility concerns
+  background: true
+  rules:
+    - name: readonly-rootfs
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+      validate:
+        message: "Containers should use read-only root filesystem. Set securityContext.readOnlyRootFilesystem to true."
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  readOnlyRootFilesystem: true

@@ -1,0 +1,355 @@
+# Kyverno Operational Policies for Aragora
+# These policies automate common operational tasks
+
+---
+# Policy: Auto-add labels
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-labels
+  annotations:
+    policies.kyverno.io/title: Add Default Labels
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod, Deployment
+    policies.kyverno.io/description: >-
+      Automatically adds standard labels to resources if not present.
+spec:
+  background: true
+  rules:
+    - name: add-managed-by
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Service
+              namespaces:
+                - aragora
+                - aragora-staging
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              +(app.kubernetes.io/managed-by): argocd
+              +(aragora.ai/environment): "{{request.namespace}}"
+
+---
+# Policy: Auto-add pod disruption budget
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-pdb
+  annotations:
+    policies.kyverno.io/title: Generate Pod Disruption Budget
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Deployment
+    policies.kyverno.io/description: >-
+      Automatically creates a PodDisruptionBudget for deployments
+      with more than 2 replicas to ensure high availability.
+spec:
+  background: true
+  rules:
+    - name: create-pdb
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+              namespaces:
+                - aragora
+      preconditions:
+        all:
+          - key: "{{request.object.spec.replicas}}"
+            operator: GreaterThanOrEquals
+            value: 2
+      generate:
+        apiVersion: policy/v1
+        kind: PodDisruptionBudget
+        name: "{{request.object.metadata.name}}-pdb"
+        namespace: "{{request.object.metadata.namespace}}"
+        synchronize: true
+        data:
+          spec:
+            minAvailable: 1
+            selector:
+              matchLabels:
+                app.kubernetes.io/name: "{{request.object.metadata.labels.\"app.kubernetes.io/name\"}}"
+
+---
+# Policy: Auto-add network policy
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-network-policy
+  annotations:
+    policies.kyverno.io/title: Generate Default Network Policy
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Automatically creates a default deny network policy when
+      the aragora namespace is created.
+spec:
+  background: true
+  rules:
+    - name: default-deny
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - aragora
+                - aragora-staging
+      generate:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-ingress
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        data:
+          spec:
+            podSelector: {}
+            policyTypes:
+              - Ingress
+
+---
+# Policy: Add Prometheus annotations
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-prometheus-annotations
+  annotations:
+    policies.kyverno.io/title: Add Prometheus Scrape Annotations
+    policies.kyverno.io/category: Observability
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Service
+    policies.kyverno.io/description: >-
+      Automatically adds Prometheus scrape annotations to services
+      that expose a metrics port.
+spec:
+  background: true
+  rules:
+    - name: add-scrape-annotations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Service
+              namespaces:
+                - aragora
+                - aragora-staging
+      preconditions:
+        all:
+          - key: "{{request.object.spec.ports[?(@.name=='metrics')] | length(@)}}"
+            operator: GreaterThan
+            value: 0
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              +(prometheus.io/scrape): "true"
+              +(prometheus.io/port): "{{request.object.spec.ports[?(@.name=='metrics')].port | @[0]}}"
+              +(prometheus.io/path): "/metrics"
+
+---
+# Policy: Enforce image pull policy
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-image-pull-policy
+  annotations:
+    policies.kyverno.io/title: Enforce Image Pull Policy
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Ensures imagePullPolicy is set to Always for production
+      to guarantee fresh images are pulled.
+spec:
+  background: true
+  rules:
+    - name: set-pull-policy
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+      mutate:
+        patchStrategicMerge:
+          spec:
+            containers:
+              - (name): "*"
+                imagePullPolicy: Always
+
+---
+# Policy: Add default tolerations for spot instances
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-spot-tolerations
+  annotations:
+    policies.kyverno.io/title: Add Spot Instance Tolerations
+    policies.kyverno.io/category: Cost Optimization
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Adds tolerations for spot instances to allow workloads
+      to be scheduled on cost-effective spot nodes.
+spec:
+  background: true
+  rules:
+    - name: add-tolerations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - aragora
+              selector:
+                matchLabels:
+                  aragora.ai/spot-eligible: "true"
+      mutate:
+        patchStrategicMerge:
+          spec:
+            tolerations:
+              - key: "kubernetes.azure.com/scalesetpriority"
+                operator: "Equal"
+                value: "spot"
+                effect: "NoSchedule"
+              - key: "node.kubernetes.io/spot"
+                operator: "Exists"
+                effect: "NoSchedule"
+
+---
+# Policy: Require annotations for external services
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-external-annotations
+  annotations:
+    policies.kyverno.io/title: Require External Service Annotations
+    policies.kyverno.io/category: Documentation
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Service
+    policies.kyverno.io/description: >-
+      Services of type LoadBalancer must have documentation annotations.
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-lb-annotations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Service
+              namespaces:
+                - aragora
+      preconditions:
+        all:
+          - key: "{{request.object.spec.type}}"
+            operator: Equals
+            value: LoadBalancer
+      validate:
+        message: "LoadBalancer services must have aragora.ai/owner and aragora.ai/purpose annotations."
+        pattern:
+          metadata:
+            annotations:
+              aragora.ai/owner: "?*"
+              aragora.ai/purpose: "?*"
+
+---
+# Policy: Generate resource quota for new namespaces
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-resource-quota
+  annotations:
+    policies.kyverno.io/title: Generate Resource Quota
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Automatically creates resource quotas for aragora namespaces.
+spec:
+  background: true
+  rules:
+    - name: create-quota
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "aragora-*"
+      generate:
+        apiVersion: v1
+        kind: ResourceQuota
+        name: default-quota
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        data:
+          spec:
+            hard:
+              requests.cpu: "10"
+              requests.memory: "20Gi"
+              limits.cpu: "20"
+              limits.memory: "40Gi"
+              persistentvolumeclaims: "10"
+              services.loadbalancers: "2"
+
+---
+# Policy: Generate limit range
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-limit-range
+  annotations:
+    policies.kyverno.io/title: Generate Limit Range
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Automatically creates limit ranges for aragora namespaces
+      to set default and max resource limits.
+spec:
+  background: true
+  rules:
+    - name: create-limit-range
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+              names:
+                - "aragora-*"
+      generate:
+        apiVersion: v1
+        kind: LimitRange
+        name: default-limits
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        data:
+          spec:
+            limits:
+              - type: Container
+                default:
+                  cpu: "500m"
+                  memory: "512Mi"
+                defaultRequest:
+                  cpu: "100m"
+                  memory: "128Mi"
+                max:
+                  cpu: "4"
+                  memory: "8Gi"
+              - type: PersistentVolumeClaim
+                max:
+                  storage: "100Gi"

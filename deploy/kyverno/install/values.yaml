@@ -1,0 +1,160 @@
+# Kyverno Helm Values for Aragora
+# Install: helm install kyverno kyverno/kyverno -n kyverno --create-namespace -f values.yaml
+
+# High availability mode for production
+replicaCount: 3
+
+# Admission controller configuration
+admissionController:
+  replicas: 3
+
+  # Resource limits
+  resources:
+    limits:
+      memory: 512Mi
+      cpu: 500m
+    requests:
+      memory: 256Mi
+      cpu: 100m
+
+  # Container security context
+  container:
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+
+# Background controller for policy reports
+backgroundController:
+  replicas: 2
+
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 200m
+    requests:
+      memory: 128Mi
+      cpu: 50m
+
+# Cleanup controller
+cleanupController:
+  replicas: 1
+
+  resources:
+    limits:
+      memory: 128Mi
+      cpu: 100m
+    requests:
+      memory: 64Mi
+      cpu: 25m
+
+# Reports controller
+reportsController:
+  replicas: 1
+
+  resources:
+    limits:
+      memory: 256Mi
+      cpu: 200m
+    requests:
+      memory: 128Mi
+      cpu: 50m
+
+# Webhook configuration
+webhooks:
+  # Fail-open to prevent blocking cluster operations
+  failurePolicy: Fail
+
+  # Timeout for webhook calls
+  timeoutSeconds: 10
+
+# Metrics configuration
+metricsConfig:
+  metricsExposure:
+    enabled: true
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Anti-affinity for HA
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/instance: kyverno
+
+# Features configuration
+features:
+  # Enable policy exceptions
+  policyExceptions:
+    enabled: true
+    namespace: kyverno
+
+  # Enable background scan
+  backgroundScan:
+    enabled: true
+    backgroundScanInterval: 1h
+
+  # Generate events
+  logging:
+    format: json
+    verbosity: 2
+
+# Cleanup configuration
+cleanupJobs:
+  # Clean up admission reports
+  admissionReports:
+    enabled: true
+    schedule: "*/10 * * * *"
+    threshold: 10000
+
+  # Clean up cluster admission reports
+  clusterAdmissionReports:
+    enabled: true
+    schedule: "*/10 * * * *"
+    threshold: 10000
+
+# Exception namespaces (policies don't apply)
+config:
+  # Exclude system namespaces from policy enforcement
+  excludeGroups:
+    - system:masters
+    - system:serviceaccounts:kube-system
+
+  webhooks:
+    - namespaceSelector:
+        matchExpressions:
+          - key: kubernetes.io/metadata.name
+            operator: NotIn
+            values:
+              - kube-system
+              - kube-public
+              - kube-node-lease
+              - kyverno
+              - argocd
+              - cert-manager
+              - external-secrets
+              - monitoring
+
+# Resource filters (exclude certain resources)
+resourceFilters:
+  - apiGroups:
+      - ""
+    resources:
+      - events
+  - apiGroups:
+      - "events.k8s.io"
+    resources:
+      - events
