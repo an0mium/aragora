@@ -191,6 +191,228 @@ class KnowledgeAPI:
             params["workspace_id"] = workspace_id
         return self._client.request("GET", "/api/v1/knowledge/mound/stats", params=params)
 
+    # ========== Knowledge Mound Node Operations ==========
+
+    def mound_query(
+        self,
+        query: str,
+        workspace_id: str | None = None,
+        limit: int = 10,
+    ) -> dict[str, Any]:
+        """Semantic query against Knowledge Mound."""
+        payload: dict[str, Any] = {"query": query, "limit": limit}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/knowledge/mound/query", json=payload)
+
+    def add_node(
+        self,
+        content: str,
+        node_type: str = "fact",
+        metadata: dict[str, Any] | None = None,
+        workspace_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Add a knowledge node to the mound."""
+        payload: dict[str, Any] = {"content": content, "node_type": node_type}
+        if metadata:
+            payload["metadata"] = metadata
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/knowledge/mound/nodes", json=payload)
+
+    def get_node(self, node_id: str) -> dict[str, Any]:
+        """Get a specific knowledge node."""
+        return self._client.request("GET", f"/api/knowledge/mound/nodes/{node_id}")
+
+    def list_nodes(
+        self,
+        workspace_id: str | None = None,
+        node_type: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List knowledge nodes with filtering."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        if node_type:
+            params["node_type"] = node_type
+        return self._client.request("GET", "/api/knowledge/mound/nodes", params=params)
+
+    def get_node_relationships(self, node_id: str) -> dict[str, Any]:
+        """Get relationships for a knowledge node."""
+        return self._client.request("GET", f"/api/knowledge/mound/nodes/{node_id}/relationships")
+
+    def add_relationship(
+        self,
+        source_id: str,
+        target_id: str,
+        relation_type: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Add a relationship between nodes."""
+        payload: dict[str, Any] = {
+            "source_id": source_id,
+            "target_id": target_id,
+            "relation_type": relation_type,
+        }
+        if metadata:
+            payload["metadata"] = metadata
+        return self._client.request("POST", "/api/knowledge/mound/relationships", json=payload)
+
+    # ========== Graph Operations ==========
+
+    def get_graph(
+        self,
+        node_id: str,
+        depth: int = 2,
+        include_types: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Get graph traversal from a node."""
+        params: dict[str, Any] = {"depth": depth}
+        if include_types:
+            params["include_types"] = ",".join(include_types)
+        return self._client.request("GET", f"/api/knowledge/mound/graph/{node_id}", params=params)
+
+    def get_lineage(self, node_id: str) -> dict[str, Any]:
+        """Get lineage (provenance chain) for a node."""
+        return self._client.request("GET", f"/api/knowledge/mound/graph/{node_id}/lineage")
+
+    def get_related(
+        self,
+        node_id: str,
+        limit: int = 10,
+    ) -> dict[str, Any]:
+        """Get semantically related nodes."""
+        params: dict[str, Any] = {"limit": limit}
+        return self._client.request(
+            "GET", f"/api/knowledge/mound/graph/{node_id}/related", params=params
+        )
+
+    # ========== Sync Operations ==========
+
+    def sync_continuum(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Sync knowledge from ContinuumMemory."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/knowledge/mound/sync/continuum", json=payload)
+
+    def sync_consensus(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Sync knowledge from ConsensusMemory."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/knowledge/mound/sync/consensus", json=payload)
+
+    def sync_facts(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Sync knowledge from FactStore."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request("POST", "/api/knowledge/mound/sync/facts", json=payload)
+
+    # ========== Federation Operations ==========
+
+    def register_region(
+        self,
+        region_id: str,
+        endpoint: str,
+        api_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Register a federated region."""
+        payload: dict[str, Any] = {"region_id": region_id, "endpoint": endpoint}
+        if api_key:
+            payload["api_key"] = api_key
+        return self._client.request("POST", "/api/knowledge/mound/federation/regions", json=payload)
+
+    def list_regions(self) -> dict[str, Any]:
+        """List all federated regions."""
+        return self._client.request("GET", "/api/knowledge/mound/federation/regions")
+
+    def unregister_region(self, region_id: str) -> dict[str, Any]:
+        """Unregister a federated region."""
+        return self._client.request(
+            "DELETE", f"/api/knowledge/mound/federation/regions/{region_id}"
+        )
+
+    def federation_sync_push(self, region_id: str) -> dict[str, Any]:
+        """Push sync to a specific region."""
+        return self._client.request(
+            "POST", "/api/knowledge/mound/federation/sync/push", json={"region_id": region_id}
+        )
+
+    def federation_sync_pull(self, region_id: str) -> dict[str, Any]:
+        """Pull sync from a specific region."""
+        return self._client.request(
+            "POST", "/api/knowledge/mound/federation/sync/pull", json={"region_id": region_id}
+        )
+
+    def federation_sync_all(self) -> dict[str, Any]:
+        """Sync with all federated regions."""
+        return self._client.request("POST", "/api/knowledge/mound/federation/sync/all", json={})
+
+    def federation_status(self) -> dict[str, Any]:
+        """Get federation status."""
+        return self._client.request("GET", "/api/knowledge/mound/federation/status")
+
+    # ========== Export Operations ==========
+
+    def export_d3(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Export knowledge graph as D3 JSON."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/knowledge/mound/export/d3", params=params)
+
+    def export_graphml(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Export knowledge graph as GraphML."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/knowledge/mound/export/graphml", params=params)
+
+    # ========== Contradiction Detection ==========
+
+    def detect_contradictions(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Trigger contradiction detection scan."""
+        payload: dict[str, Any] = {}
+        if workspace_id:
+            payload["workspace_id"] = workspace_id
+        return self._client.request(
+            "POST", "/api/knowledge/mound/contradictions/detect", json=payload
+        )
+
+    def list_mound_contradictions(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """List unresolved contradictions in the mound."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request("GET", "/api/knowledge/mound/contradictions", params=params)
+
+    def resolve_contradiction(
+        self,
+        contradiction_id: str,
+        resolution: str,
+        keep_node_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Resolve a contradiction."""
+        payload: dict[str, Any] = {"resolution": resolution}
+        if keep_node_id:
+            payload["keep_node_id"] = keep_node_id
+        return self._client.request(
+            "POST", f"/api/knowledge/mound/contradictions/{contradiction_id}/resolve", json=payload
+        )
+
+    def contradiction_stats(self, workspace_id: str | None = None) -> dict[str, Any]:
+        """Get contradiction statistics."""
+        params: dict[str, Any] = {}
+        if workspace_id:
+            params["workspace_id"] = workspace_id
+        return self._client.request(
+            "GET", "/api/knowledge/mound/contradictions/stats", params=params
+        )
+
 
 class AsyncKnowledgeAPI:
     """Asynchronous Knowledge Base API."""

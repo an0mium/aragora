@@ -241,10 +241,10 @@ class TestQuery:
 
     @pytest.mark.asyncio
     async def test_query_not_found(self):
-        """Test query for non-existent content."""
-        adapter = RLMContextAdapter()
-        result = await adapter.query("nonexistent", "Question?")
-        assert result.confidence == 0.0
+        """Test query for non-existent content raises RLMContentNotFoundError."""
+        adapter = RLMContextAdapter(enable_circuit_breaker=False)
+        with pytest.raises(RLMContentNotFoundError):
+            await adapter.query("nonexistent", "Question?")
 
     @pytest.mark.asyncio
     async def test_query_with_llm(self):
@@ -624,3 +624,362 @@ class TestRegisteredContentDataclass:
         assert rc.summary == "Summary"
         assert rc.sections["intro"] == "Intro text"
         assert rc.metadata["source"] == "test"
+
+
+class TestRobustnessInitialization:
+    """Tests for robustness initialization options."""
+
+    def test_init_with_timeout(self):
+        """Test initialization with custom timeout."""
+        adapter = RLMContextAdapter(timeout_seconds=60.0)
+        assert adapter._timeout_seconds == 60.0
+
+    def test_init_default_timeout(self):
+        """Test default timeout is set."""
+        adapter = RLMContextAdapter()
+        assert adapter._timeout_seconds == 30.0  # DEFAULT_TIMEOUT_SECONDS
+
+    def test_init_with_circuit_breaker_enabled(self):
+        """Test circuit breaker is created by default."""
+        adapter = RLMContextAdapter(enable_circuit_breaker=True)
+        assert adapter._circuit_breaker is not None
+
+    def test_init_with_circuit_breaker_disabled(self):
+        """Test circuit breaker can be disabled."""
+        adapter = RLMContextAdapter(enable_circuit_breaker=False)
+        assert adapter._circuit_breaker is None
+
+    def test_init_with_custom_circuit_breaker_config(self):
+        """Test custom circuit breaker configuration."""
+        adapter = RLMContextAdapter(
+            enable_circuit_breaker=True,
+            failure_threshold=10,
+            cooldown_seconds=120.0,
+        )
+        assert adapter._circuit_breaker is not None
+        assert adapter._circuit_breaker.failure_threshold == 10
+        assert adapter._circuit_breaker.cooldown_seconds == 120.0
+
+
+class TestExceptions:
+    """Tests for RLM exceptions."""
+
+    def test_rlm_error_basic(self):
+        """Test basic RLMError creation."""
+        err = RLMError("Something went wrong")
+        assert str(err) == "Something went wrong"
+        assert err.message == "Something went wrong"
+        assert err.operation is None
+        assert err.content_id is None
+
+    def test_rlm_error_with_context(self):
+        """Test RLMError with operation and content_id."""
+        err = RLMError("Failed", operation="query", content_id="test123")
+        assert "[query]" in str(err)
+        assert "test123" in str(err)
+
+    def test_rlm_timeout_error(self):
+        """Test RLMTimeoutError creation."""
+        err = RLMTimeoutError("Timed out", timeout_seconds=30.0, operation="query")
+        assert err.timeout_seconds == 30.0
+        assert "30.0s" in str(err)
+
+    def test_rlm_circuit_open_error(self):
+        """Test RLMCircuitOpenError creation."""
+        err = RLMCircuitOpenError("Circuit open", cooldown_remaining=45.0, operation="query")
+        assert err.cooldown_remaining == 45.0
+        assert "45.0s" in str(err)
+
+    def test_rlm_content_not_found_error(self):
+        """Test RLMContentNotFoundError creation."""
+        err = RLMContentNotFoundError("Not found", content_id="missing")
+        assert err.content_id == "missing"
+
+    def test_rlm_provider_error(self):
+        """Test RLMProviderError creation."""
+        err = RLMProviderError(
+            "API error",
+            provider="openai",
+            status_code=429,
+            is_transient=True,
+        )
+        assert err.provider == "openai"
+        assert err.status_code == 429
+        assert err.is_transient
+
+
+class TestQueryRobustness:
+    """Tests for query method robustness features."""
+
+    @pytest.mark.asyncio
+    async def test_query_content_not_found_raises(self):
+        """Test that query raises RLMContentNotFoundError for missing content."""
+        adapter = RLMContextAdapter(enable_circuit_breaker=False)
+        with pytest.raises(RLMContentNotFoundError) as exc_info:
+            await adapter.query("nonexistent", "Question?")
+        assert exc_info.value.content_id == "nonexistent"
+
+    @pytest.mark.asyncio
+    async def test_query_circuit_breaker_open_raises(self):
+        """Test that query raises when circuit breaker is open."""
+        adapter = RLMContextAdapter(
+            agent_call=AsyncMock(),
+            enable_circuit_breaker=True,
+            failure_threshold=1,
+        )
+        adapter.register_content("test", "Content")
+
+        # Force circuit open
+        adapter._circuit_breaker.is_open = True
+
+        with pytest.raises(RLMCircuitOpenError):
+            await adapter.query("test", "Question?")
+
+    @pytest.mark.asyncio
+    async def test_query_timeout_raises(self):
+        """Test that query raises RLMTimeoutError on timeout."""
+
+        async def slow_agent(*args):
+            await asyncio.sleep(10)
+            return "Never returned"
+
+        adapter = RLMContextAdapter(
+            agent_call=slow_agent,
+            timeout_seconds=0.01,  # Very short timeout
+            enable_circuit_breaker=False,
+        )
+        adapter.register_content("test", "Content")
+
+        with pytest.raises(RLMTimeoutError) as exc_info:
+            await adapter.query("test", "Question?")
+        assert exc_info.value.operation == "query"
+
+    @pytest.mark.asyncio
+    async def test_query_connection_error_raises(self):
+        """Test that query raises RLMProviderError on connection error."""
+
+        async def failing_agent(*args):
+            raise ConnectionError("Network unreachable")
+
+        adapter = RLMContextAdapter(
+            agent_call=failing_agent,
+            enable_circuit_breaker=False,
+        )
+        adapter.register_content("test", "Content")
+
+        with pytest.raises(RLMProviderError) as exc_info:
+            await adapter.query("test", "Question?")
+        assert exc_info.value.is_transient
+
+    @pytest.mark.asyncio
+    async def test_query_records_success(self):
+        """Test that query records success with circuit breaker."""
+        adapter = RLMContextAdapter(
+            agent_call=AsyncMock(return_value="Answer"),
+            enable_circuit_breaker=True,
+        )
+        adapter.register_content("test", "Content")
+
+        # Trigger some failures first
+        adapter._circuit_breaker._single_failures = 2
+
+        await adapter.query("test", "Question?")
+
+        # Success should reset failures
+        assert adapter._circuit_breaker._single_failures == 0
+
+    @pytest.mark.asyncio
+    async def test_query_records_failure(self):
+        """Test that query records failure with circuit breaker on timeout."""
+
+        async def slow_agent(*args):
+            await asyncio.sleep(10)
+            return "Never returned"
+
+        adapter = RLMContextAdapter(
+            agent_call=slow_agent,
+            timeout_seconds=0.01,
+            enable_circuit_breaker=True,
+        )
+        adapter.register_content("test", "Content")
+
+        try:
+            await adapter.query("test", "Question?")
+        except RLMTimeoutError:
+            pass
+
+        # Failure should be recorded
+        assert adapter._circuit_breaker._single_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_query_custom_timeout_override(self):
+        """Test that custom timeout can be passed to query."""
+
+        async def medium_agent(*args):
+            await asyncio.sleep(0.05)
+            return "Answer"
+
+        adapter = RLMContextAdapter(
+            agent_call=medium_agent,
+            timeout_seconds=0.01,  # Default would timeout
+            enable_circuit_breaker=False,
+        )
+        adapter.register_content("test", "Content")
+
+        # Should succeed with longer timeout override
+        result = await adapter.query("test", "Question?", timeout_seconds=1.0)
+        assert result.answer == "Answer"
+
+
+class TestGenerateSummaryRobustness:
+    """Tests for generate_summary_async robustness features."""
+
+    @pytest.mark.asyncio
+    async def test_summary_timeout_falls_back_to_compression(self):
+        """Test that timeout falls back to compression."""
+
+        async def slow_agent(*args):
+            await asyncio.sleep(10)
+            return "Never returned"
+
+        mock_compressor = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.context.get_at_level.return_value = "Compressed summary"
+        mock_compressor.compress.return_value = mock_result
+
+        adapter = RLMContextAdapter(
+            agent_call=slow_agent,
+            compressor=mock_compressor,
+            timeout_seconds=0.01,
+            enable_circuit_breaker=False,
+        )
+        long_content = "Long content. " * 50
+        adapter.register_content("test", long_content)
+
+        summary = await adapter.generate_summary_async("test")
+
+        # Should fall back to compression
+        mock_compressor.compress.assert_called_once()
+        assert summary == "Compressed summary"
+
+    @pytest.mark.asyncio
+    async def test_summary_circuit_open_skips_to_fallback(self):
+        """Test that open circuit skips LLM and uses fallback."""
+        mock_agent = AsyncMock(return_value="LLM summary")
+        adapter = RLMContextAdapter(
+            agent_call=mock_agent,
+            enable_circuit_breaker=True,
+        )
+        long_content = "Long content. " * 50
+        adapter.register_content("test", long_content)
+
+        # Force circuit open
+        adapter._circuit_breaker.is_open = True
+
+        summary = await adapter.generate_summary_async("test")
+
+        # LLM should NOT be called when circuit is open
+        mock_agent.assert_not_called()
+        # Should still have a summary (from heuristic)
+        assert summary
+
+    @pytest.mark.asyncio
+    async def test_summary_records_success_on_circuit_breaker(self):
+        """Test that successful summary records success."""
+        mock_agent = AsyncMock(return_value="LLM summary")
+        adapter = RLMContextAdapter(
+            agent_call=mock_agent,
+            enable_circuit_breaker=True,
+        )
+        long_content = "Long content. " * 50
+        adapter.register_content("test", long_content)
+
+        # Add some failures
+        adapter._circuit_breaker._single_failures = 2
+
+        await adapter.generate_summary_async("test")
+
+        # Success should reset failures
+        assert adapter._circuit_breaker._single_failures == 0
+
+    @pytest.mark.asyncio
+    async def test_summary_records_failure_on_timeout(self):
+        """Test that timeout records failure with circuit breaker."""
+
+        async def slow_agent(*args):
+            await asyncio.sleep(10)
+            return "Never returned"
+
+        adapter = RLMContextAdapter(
+            agent_call=slow_agent,
+            timeout_seconds=0.01,
+            enable_circuit_breaker=True,
+        )
+        long_content = "Long content. " * 50
+        adapter.register_content("test", long_content)
+
+        # Should not raise - falls back to heuristic
+        await adapter.generate_summary_async("test")
+
+        # But failure should be recorded
+        assert adapter._circuit_breaker._single_failures == 1
+
+    @pytest.mark.asyncio
+    async def test_summary_custom_timeout(self):
+        """Test custom timeout for generate_summary_async."""
+
+        async def medium_agent(*args):
+            await asyncio.sleep(0.05)
+            return "LLM summary"
+
+        adapter = RLMContextAdapter(
+            agent_call=medium_agent,
+            timeout_seconds=0.01,  # Would timeout with default
+            enable_circuit_breaker=False,
+        )
+        long_content = "Long content. " * 50
+        adapter.register_content("test", long_content)
+
+        # Should succeed with longer timeout
+        summary = await adapter.generate_summary_async("test", timeout_seconds=1.0)
+        assert summary == "LLM summary"
+
+
+class TestCircuitBreakerIntegration:
+    """Tests for circuit breaker integration."""
+
+    @pytest.mark.asyncio
+    async def test_circuit_opens_after_threshold_failures(self):
+        """Test that circuit opens after threshold failures."""
+        call_count = 0
+
+        async def failing_agent(*args):
+            nonlocal call_count
+            call_count += 1
+            raise ConnectionError("Always fails")
+
+        adapter = RLMContextAdapter(
+            agent_call=failing_agent,
+            enable_circuit_breaker=True,
+            failure_threshold=3,
+        )
+        adapter.register_content("test", "Content")
+
+        # Make failures up to threshold
+        for _ in range(3):
+            try:
+                await adapter.query("test", "Question?")
+            except RLMProviderError:
+                pass
+
+        # Circuit should now be open
+        with pytest.raises(RLMCircuitOpenError):
+            await adapter.query("test", "Question?")
+
+        # Verify agent was only called 3 times (not on the 4th due to open circuit)
+        assert call_count == 3
+
+    def test_circuit_breaker_name(self):
+        """Test circuit breaker has correct name."""
+        adapter = RLMContextAdapter(enable_circuit_breaker=True)
+        assert adapter._circuit_breaker.name == "rlm_adapter"
