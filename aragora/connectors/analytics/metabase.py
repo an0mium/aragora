@@ -406,7 +406,7 @@ class MetabaseConnector:
         """Get a single database."""
         params = {"include": "tables"} if include_tables else {}
         data = await self._request("GET", f"/database/{database_id}", params=params)
-        return Database.from_api(data)  # type: ignore[return-value]
+        return Database.from_api(data)  # type: ignore[arg-type]
 
     async def get_database_metadata(self, database_id: int) -> dict[str, Any]:
         """Get database metadata including tables and fields."""
@@ -430,7 +430,7 @@ class MetabaseConnector:
     async def get_card(self, card_id: int) -> Card:
         """Get a single card."""
         data = await self._request("GET", f"/card/{card_id}")
-        return Card.from_api(data)  # type: ignore[return-value]
+        return Card.from_api(data)  # type: ignore[arg-type]
 
     async def create_card(
         self,
@@ -461,7 +461,7 @@ class MetabaseConnector:
             card_data["description"] = description
 
         data = await self._request("POST", "/card", json_data=card_data)
-        return Card.from_api(data)  # type: ignore[return-value]
+        return Card.from_api(data)  # type: ignore[arg-type]
 
     async def update_card(
         self,
@@ -483,7 +483,7 @@ class MetabaseConnector:
             card_data["visualization_settings"] = visualization_settings
 
         data = await self._request("PUT", f"/card/{card_id}", json_data=card_data)
-        return Card.from_api(data)  # type: ignore[return-value]
+        return Card.from_api(data)  # type: ignore[arg-type]
 
     async def execute_card(
         self,
@@ -493,7 +493,7 @@ class MetabaseConnector:
         """Execute a card query and get results."""
         json_data = {"parameters": parameters} if parameters else {}
         data = await self._request("POST", f"/card/{card_id}/query", json_data=json_data)
-        return QueryResult.from_api(data)  # type: ignore[return-value]
+        return QueryResult.from_api(data)  # type: ignore[arg-type]
 
     async def archive_card(self, card_id: int) -> bool:
         """Archive a card."""
@@ -513,7 +513,7 @@ class MetabaseConnector:
     async def get_dashboard(self, dashboard_id: int) -> Dashboard:
         """Get a single dashboard with all cards."""
         data = await self._request("GET", f"/dashboard/{dashboard_id}")
-        return Dashboard.from_api(data)  # type: ignore[return-value]
+        return Dashboard.from_api(data)  # type: ignore[arg-type]
 
     async def create_dashboard(
         self,
@@ -532,7 +532,7 @@ class MetabaseConnector:
             dashboard_data["parameters"] = parameters
 
         data = await self._request("POST", "/dashboard", json_data=dashboard_data)
-        return Dashboard.from_api(data)  # type: ignore[return-value]
+        return Dashboard.from_api(data)  # type: ignore[arg-type]
 
     async def add_card_to_dashboard(
         self,
@@ -555,7 +555,7 @@ class MetabaseConnector:
                 "size_y": size_y,
             },
         )
-        return DashCard.from_api(data)  # type: ignore[return-value]
+        return DashCard.from_api(data)  # type: ignore[arg-type]
 
     # =========================================================================
     # Collections
@@ -571,7 +571,7 @@ class MetabaseConnector:
     async def get_collection(self, collection_id: int | str) -> Collection:
         """Get a single collection."""
         data = await self._request("GET", f"/collection/{collection_id}")
-        return Collection.from_api(data)  # type: ignore[return-value]
+        return Collection.from_api(data)  # type: ignore[arg-type]
 
     async def create_collection(
         self,
@@ -590,7 +590,7 @@ class MetabaseConnector:
             coll_data["color"] = color
 
         data = await self._request("POST", "/collection", json_data=coll_data)
-        return Collection.from_api(data)  # type: ignore[return-value]
+        return Collection.from_api(data)  # type: ignore[arg-type]
 
     async def get_collection_items(
         self,
@@ -630,7 +630,7 @@ class MetabaseConnector:
             "/dataset",
             json_data={"database": database_id, "query": dataset_query},
         )
-        return QueryResult.from_api(data)  # type: ignore[return-value]
+        return QueryResult.from_api(data)  # type: ignore[arg-type]
 
     # =========================================================================
     # Cleanup

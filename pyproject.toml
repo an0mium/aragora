@@ -55,6 +55,7 @@ dependencies = [
     "numpy>=2.0,<3.0",  # Required by debate/cache/embeddings_lru.py
     "watchfiles>=0.21,<2.0",  # Required by sync/watcher.py for directory watching
     "boto3>=1.34,<2.0",  # AWS Secrets Manager for production secrets
+    "PyJWT>=2.8,<3.0",  # JWT verification for auth, OIDC, and chat webhooks
 ]
 
 [project.optional-dependencies]
@@ -84,8 +85,7 @@ test = [
     "supabase>=2.0,<3.0",  # Supabase client tests
     "redis>=5.0.0,<8.0",  # Redis store tests
     "asyncpg>=0.29.0,<1.0",  # Async PostgreSQL for persistence tests
-    # Auth and security
-    "PyJWT>=2.8,<3.0",  # JWT verification tests
+    # Auth and security (PyJWT now in base dependencies)
     # Transcription and media
     "yt-dlp>=2024.1,<2027.0",  # YouTube transcription tests
     "tiktoken>=0.5,<1.0",  # Token counter tests
