@@ -92,7 +92,10 @@ class AragoraClient:
         from .namespaces.health import HealthAPI
         from .namespaces.knowledge import KnowledgeAPI
         from .namespaces.memory import MemoryAPI
+        from .namespaces.notifications import NotificationsAPI
         from .namespaces.onboarding import OnboardingAPI
+        from .namespaces.pulse import PulseAPI
+        from .namespaces.ranking import RankingAPI
         from .namespaces.rbac import RBACAPI
         from .namespaces.receipts import ReceiptsAPI
         from .namespaces.usage import UsageAPI
@@ -112,7 +115,10 @@ class AragoraClient:
         self.health = HealthAPI(self)
         self.knowledge = KnowledgeAPI(self)
         self.memory = MemoryAPI(self)
+        self.notifications = NotificationsAPI(self)
         self.onboarding = OnboardingAPI(self)
+        self.pulse = PulseAPI(self)
+        self.ranking = RankingAPI(self)
         self.rbac = RBACAPI(self)
         self.receipts = ReceiptsAPI(self)
         self.usage = UsageAPI(self)
@@ -296,7 +302,10 @@ class AragoraAsyncClient:
         from .namespaces.health import AsyncHealthAPI
         from .namespaces.knowledge import AsyncKnowledgeAPI
         from .namespaces.memory import AsyncMemoryAPI
+        from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
+        from .namespaces.pulse import AsyncPulseAPI
+        from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
         from .namespaces.receipts import AsyncReceiptsAPI
         from .namespaces.usage import AsyncUsageAPI
@@ -316,7 +325,10 @@ class AragoraAsyncClient:
         self.health = AsyncHealthAPI(self)
         self.knowledge = AsyncKnowledgeAPI(self)
         self.memory = AsyncMemoryAPI(self)
+        self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
+        self.pulse = AsyncPulseAPI(self)
+        self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
         self.receipts = AsyncReceiptsAPI(self)
         self.usage = AsyncUsageAPI(self)
