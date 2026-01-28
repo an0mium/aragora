@@ -476,8 +476,9 @@ class TestControlPlaneHandlerHeartbeat:
 class TestControlPlaneHandlerSubmitTask:
     """Test POST /api/control-plane/tasks endpoint."""
 
+    @pytest.mark.asyncio
     @pytest.mark.no_auto_auth
-    def test_submit_task_requires_auth(self, control_plane_handler, mock_coordinator):
+    async def test_submit_task_requires_auth(self, control_plane_handler, mock_coordinator):
         """Test submitting task requires authentication."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_request_body(
@@ -487,12 +488,13 @@ class TestControlPlaneHandlerSubmitTask:
             }
         )
 
-        result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
+        result = await control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
 
         assert result is not None
         assert result.status_code == 401
 
-    def test_submit_task_missing_type(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_task_missing_type(self, control_plane_handler, mock_coordinator):
         """Test submitting task without type returns error."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -504,7 +506,9 @@ class TestControlPlaneHandlerSubmitTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
+            result = await control_plane_handler.handle_post(
+                "/api/v1/control-plane/tasks", {}, handler
+            )
 
         assert result is not None
         assert result.status_code == 400
@@ -533,7 +537,8 @@ class TestControlPlaneHandlerSubmitTask:
         body = json.loads(result.body)
         assert "task_id" in body
 
-    def test_submit_task_invalid_priority(self, control_plane_handler, mock_coordinator):
+    @pytest.mark.asyncio
+    async def test_submit_task_invalid_priority(self, control_plane_handler, mock_coordinator):
         """Test submitting task with invalid priority."""
         ControlPlaneHandler.coordinator = mock_coordinator
         handler = create_auth_request_body(
@@ -546,7 +551,9 @@ class TestControlPlaneHandlerSubmitTask:
         with patch.object(
             control_plane_handler, "require_auth_or_error", return_value=(create_admin_user(), None)
         ):
-            result = control_plane_handler.handle_post("/api/v1/control-plane/tasks", {}, handler)
+            result = await control_plane_handler.handle_post(
+                "/api/v1/control-plane/tasks", {}, handler
+            )
 
         assert result is not None
         assert result.status_code == 400

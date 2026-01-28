@@ -445,7 +445,8 @@ class TestAgentUnregistration:
 class TestCoordinatorNotInitialized:
     """Tests for when coordinator is not available."""
 
-    def test_register_returns_503_without_coordinator(
+    @pytest.mark.asyncio
+    async def test_register_returns_503_without_coordinator(
         self, handler, mock_http_handler, mock_admin_user
     ):
         """Should return 503 when coordinator not initialized."""
@@ -460,7 +461,7 @@ class TestCoordinatorNotInitialized:
                     "read_json_body_validated",
                     return_value=({"agent_id": "agent-1"}, None),
                 ):
-                    result = handler.handle_post(
+                    result = await handler.handle_post(
                         "/api/v1/control-plane/agents", {}, mock_http_handler
                     )
 
