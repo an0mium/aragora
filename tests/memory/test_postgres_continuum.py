@@ -11,13 +11,7 @@ from contextlib import asynccontextmanager
 import json
 
 
-# Check if asyncpg is available
-try:
-    import asyncpg
-
-    ASYNCPG_AVAILABLE = True
-except ImportError:
-    ASYNCPG_AVAILABLE = False
+import asyncpg
 
 
 # Tests that don't require asyncpg
@@ -84,7 +78,6 @@ class TestPostgresContinuumSchema:
 
 
 # Skip remaining tests if asyncpg not available
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresContinuumMemory:
     """Tests for PostgresContinuumMemory class."""
 
@@ -361,7 +354,6 @@ class TestPostgresContinuumMemory:
         assert "tier = $1" in call_args[0][0]
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestPostgresContinuumTierOperations:
     """Tests for tier promotion/demotion operations."""
 

@@ -294,7 +294,6 @@ class TestValueConversion:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestGetPgColumns:
     """Tests for _get_pg_columns method."""
 
@@ -342,7 +341,6 @@ class TestGetPgColumns:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrateTable:
     """Tests for migrate_table method."""
 
@@ -442,7 +440,6 @@ class TestMigrateTable:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestMigrateAll:
     """Tests for migrate_all method."""
 
@@ -473,7 +470,6 @@ class TestMigrateAll:
 # ===========================================================================
 
 
-@pytest.mark.skipif(not ASYNCPG_AVAILABLE, reason="asyncpg required")
 class TestClose:
     """Tests for close method."""
 

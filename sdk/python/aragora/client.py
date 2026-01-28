@@ -308,6 +308,7 @@ class AragoraAsyncClient:
         from .namespaces.memory import AsyncMemoryAPI
         from .namespaces.notifications import AsyncNotificationsAPI
         from .namespaces.onboarding import AsyncOnboardingAPI
+        from .namespaces.organizations import AsyncOrganizationsAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.ranking import AsyncRankingAPI
         from .namespaces.rbac import AsyncRBACAPI
@@ -316,6 +317,7 @@ class AragoraAsyncClient:
         from .namespaces.verification import AsyncVerificationAPI
         from .namespaces.webhooks import AsyncWebhooksAPI
         from .namespaces.workflows import AsyncWorkflowsAPI
+        from .namespaces.workspaces import AsyncWorkspacesAPI
 
         self.admin = AsyncAdminAPI(self)
         self.agents = AsyncAgentsAPI(self)
@@ -331,6 +333,7 @@ class AragoraAsyncClient:
         self.memory = AsyncMemoryAPI(self)
         self.notifications = AsyncNotificationsAPI(self)
         self.onboarding = AsyncOnboardingAPI(self)
+        self.organizations = AsyncOrganizationsAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.ranking = AsyncRankingAPI(self)
         self.rbac = AsyncRBACAPI(self)
@@ -339,6 +342,7 @@ class AragoraAsyncClient:
         self.verification = AsyncVerificationAPI(self)
         self.webhooks = AsyncWebhooksAPI(self)
         self.workflows = AsyncWorkflowsAPI(self)
+        self.workspaces = AsyncWorkspacesAPI(self)
 
     async def request(
         self,

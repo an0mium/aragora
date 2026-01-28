@@ -27,6 +27,7 @@ from .usage import AsyncUsageAPI, UsageAPI
 from .verification import AsyncVerificationAPI, VerificationAPI
 from .webhooks import AsyncWebhooksAPI, WebhooksAPI
 from .workflows import AsyncWorkflowsAPI, WorkflowsAPI
+from .workspaces import AsyncWorkspacesAPI, WorkspacesAPI
 
 __all__ = [
     "AdminAPI",
@@ -75,4 +76,6 @@ __all__ = [
     "AsyncWebhooksAPI",
     "WorkflowsAPI",
     "AsyncWorkflowsAPI",
+    "WorkspacesAPI",
+    "AsyncWorkspacesAPI",
 ]

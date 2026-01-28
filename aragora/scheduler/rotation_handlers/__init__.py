@@ -9,11 +9,17 @@ Each handler implements the rotation lifecycle:
 4. Revoke old credentials (with grace period)
 """
 
+from .api_key import APIKeyRotationHandler
 from .base import RotationError, RotationHandler, RotationResult, RotationStatus
 from .database import DatabaseRotationHandler
+from .encryption import EncryptionKeyRotationHandler
+from .oauth import OAuthRotationHandler
 
 __all__ = [
+    "APIKeyRotationHandler",
     "DatabaseRotationHandler",
+    "EncryptionKeyRotationHandler",
+    "OAuthRotationHandler",
     "RotationError",
     "RotationHandler",
     "RotationResult",
