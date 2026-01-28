@@ -154,10 +154,10 @@ class CacheInvalidationBus:
     coordinated cache updates across the system.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_log_size: int = 1000) -> None:
         self._subscribers: list[Callable[[CacheInvalidationEvent], Awaitable[None]]] = []
         self._event_log: list[CacheInvalidationEvent] = []
-        self._max_log_size = 1000
+        self._max_log_size = max_log_size
 
     def subscribe(
         self, callback: Callable[[CacheInvalidationEvent], Awaitable[None]]
