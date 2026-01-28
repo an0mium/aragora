@@ -1,0 +1,198 @@
+name: Generate SBOM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.2.3)'
+        required: false
+        default: 'latest'
+
+permissions:
+  contents: write
+
+jobs:
+  generate-python-sbom:
+    name: Generate Python SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install cyclonedx-bom pip-tools
+          pip install -e .
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          VERSION="${{ github.event.release.tag_name || github.event.inputs.version || 'latest' }}"
+          cyclonedx-py environment \
+            --output-format json \
+            --output-file aragora-python-sbom-${VERSION}.json
+          cyclonedx-py environment \
+            --output-format xml \
+            --output-file aragora-python-sbom-${VERSION}.xml
+
+      - name: Upload Python SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-sbom
+          path: |
+            aragora-python-sbom-*.json
+            aragora-python-sbom-*.xml
+
+      - name: Attach SBOM to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            aragora-python-sbom-*.json
+            aragora-python-sbom-*.xml
+
+  generate-node-sbom:
+    name: Generate Node.js SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        package:
+          - path: sdk/typescript
+            name: aragora-sdk
+          - path: aragora/live
+            name: aragora-live
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.package.path }}
+        run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+
+      - name: Generate CycloneDX SBOM
+        working-directory: ${{ matrix.package.path }}
+        run: |
+          npx @cyclonedx/cyclonedx-npm --output-format JSON --output-file ../../${{ matrix.package.name }}-sbom.json
+          npx @cyclonedx/cyclonedx-npm --output-format XML --output-file ../../${{ matrix.package.name }}-sbom.xml
+
+      - name: Upload Node.js SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package.name }}-sbom
+          path: |
+            ${{ matrix.package.name }}-sbom.json
+            ${{ matrix.package.name }}-sbom.xml
+
+      - name: Attach SBOM to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ matrix.package.name }}-sbom.json
+            ${{ matrix.package.name }}-sbom.xml
+
+  generate-container-sbom:
+    name: Generate Container SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'release'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build container image
+        run: |
+          docker build -t aragora:latest .
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate Container SBOM
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          syft aragora:latest -o cyclonedx-json > aragora-container-sbom-${VERSION}.json
+          syft aragora:latest -o spdx-json > aragora-container-sbom-${VERSION}.spdx.json
+
+      - name: Upload Container SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-sbom
+          path: |
+            aragora-container-sbom-*.json
+            aragora-container-sbom-*.spdx.json
+
+      - name: Attach Container SBOM to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            aragora-container-sbom-*.json
+            aragora-container-sbom-*.spdx.json
+
+  vulnerability-scan:
+    name: SBOM Vulnerability Scan
+    runs-on: ubuntu-latest
+    needs: [generate-python-sbom, generate-node-sbom]
+    timeout-minutes: 15
+
+    steps:
+      - name: Download Python SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: python-sbom
+          path: sboms/
+
+      - name: Download SDK SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: aragora-sdk-sbom
+          path: sboms/
+
+      - name: Install Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Scan SBOMs for vulnerabilities
+        run: |
+          echo "## SBOM Vulnerability Report" > vulnerability-report.md
+          echo "" >> vulnerability-report.md
+          for sbom in sboms/*.json; do
+            echo "### $(basename $sbom)" >> vulnerability-report.md
+            echo '```' >> vulnerability-report.md
+            grype sbom:$sbom --fail-on critical || true
+            grype sbom:$sbom >> vulnerability-report.md 2>&1 || true
+            echo '```' >> vulnerability-report.md
+            echo "" >> vulnerability-report.md
+          done
+
+      - name: Upload Vulnerability Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-report
+          path: vulnerability-report.md
+
+      - name: Add Report to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vulnerability-report.md
