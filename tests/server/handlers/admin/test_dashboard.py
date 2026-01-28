@@ -491,6 +491,241 @@ class TestSystemHealth:
 
         assert result["prometheus_available"] is False
 
+    def test_get_system_health_includes_connector_health(self, handler):
+        """System health includes connector_health section."""
+        with patch(
+            "aragora.server.prometheus.is_prometheus_available",
+            return_value=False,
+        ):
+            with patch.object(handler, "_get_connector_health") as mock_conn:
+                mock_conn.return_value = {"summary": {}, "connectors": []}
+                result = handler._get_system_health()
+
+        assert "connector_health" in result
+        mock_conn.assert_called_once()
+
+
+# =============================================================================
+# Connector Health Tests
+# =============================================================================
+
+
+class TestConnectorHealth:
+    """Tests for connector health metrics."""
+
+    def test_connector_health_no_scheduler(self, handler):
+        """Connector health returns empty when scheduler unavailable."""
+        with patch(
+            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            side_effect=ImportError("No scheduler"),
+        ):
+            result = handler._get_connector_health()
+
+        assert result["summary"]["total_connectors"] == 0
+        assert result["summary"]["healthy"] == 0
+        assert result["summary"]["health_score"] == 100
+        assert result["connectors"] == []
+
+    def test_connector_health_with_jobs(self, handler):
+        """Connector health returns correct data for registered jobs."""
+        mock_scheduler = MagicMock()
+        mock_scheduler._scheduler_task = MagicMock()  # Running
+        mock_scheduler.get_stats.return_value = {
+            "total_jobs": 2,
+            "running_syncs": 1,
+            "success_rate": 0.95,
+        }
+
+        # Create mock jobs
+        mock_job1 = MagicMock()
+        mock_job1.id = "job_1"
+        mock_job1.connector_id = "github_corp"
+        mock_job1.consecutive_failures = 0
+        mock_job1.current_run_id = None
+        mock_job1.schedule = MagicMock(enabled=True)
+        mock_job1.last_run = datetime(2026, 1, 27, 10, 0, 0, tzinfo=timezone.utc)
+        mock_job1.next_run = datetime(2026, 1, 27, 11, 0, 0, tzinfo=timezone.utc)
+        mock_job1.connector = MagicMock(name="GitHub Corporate")
+        mock_job1.connector.config = {"type": "github"}
+
+        mock_job2 = MagicMock()
+        mock_job2.id = "job_2"
+        mock_job2.connector_id = "slack_main"
+        mock_job2.consecutive_failures = 2
+        mock_job2.current_run_id = "run_123"  # Currently syncing
+        mock_job2.schedule = MagicMock(enabled=True)
+        mock_job2.last_run = datetime(2026, 1, 27, 9, 30, 0, tzinfo=timezone.utc)
+        mock_job2.next_run = datetime(2026, 1, 27, 10, 30, 0, tzinfo=timezone.utc)
+        mock_job2.connector = MagicMock(name="Slack Main")
+        mock_job2.connector.config = {"type": "slack"}
+
+        mock_scheduler.list_jobs.return_value = [mock_job1, mock_job2]
+
+        # Mock history for each job
+        mock_history1 = MagicMock()
+        mock_history1.status = MagicMock(value="completed")
+        mock_history1.duration_seconds = 30.0
+        mock_history1.items_synced = 100
+
+        mock_history2 = MagicMock()
+        mock_history2.status = MagicMock(value="failed")
+        mock_history2.duration_seconds = 5.0
+        mock_history2.items_synced = 0
+
+        mock_scheduler.get_history.side_effect = [[mock_history1], [mock_history2]]
+
+        with patch(
+            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            return_value=mock_scheduler,
+        ):
+            result = handler._get_connector_health()
+
+        assert result["summary"]["total_connectors"] == 2
+        assert result["summary"]["scheduler_running"] is True
+        assert result["summary"]["running_syncs"] == 1
+        assert result["summary"]["success_rate"] == 0.95
+
+        # Check connectors list
+        assert len(result["connectors"]) == 2
+
+        # First connector should be healthy (0 failures)
+        conn1 = next(c for c in result["connectors"] if c["connector_id"] == "github_corp")
+        assert conn1["health"] == "healthy"
+        assert conn1["status"] == "connected"
+        assert conn1["items_synced"] == 100
+
+        # Second connector should be degraded (2 failures) and syncing
+        conn2 = next(c for c in result["connectors"] if c["connector_id"] == "slack_main")
+        assert conn2["health"] == "degraded"
+        assert conn2["status"] == "syncing"
+
+    def test_connector_health_score_calculation(self, handler):
+        """Health score reflects ratio of healthy connectors correctly."""
+        mock_scheduler = MagicMock()
+        mock_scheduler._scheduler_task = MagicMock()
+        mock_scheduler.get_stats.return_value = {
+            "total_jobs": 4,
+            "running_syncs": 0,
+            "success_rate": 0.8,
+        }
+
+        # Create jobs with different health states
+        jobs = []
+        for i, failures in enumerate([0, 0, 1, 3]):  # 2 healthy, 1 degraded, 1 unhealthy
+            job = MagicMock()
+            job.id = f"job_{i}"
+            job.connector_id = f"conn_{i}"
+            job.consecutive_failures = failures
+            job.current_run_id = None
+            job.schedule = MagicMock(enabled=True)
+            job.last_run = None
+            job.next_run = None
+            job.connector = None
+            jobs.append(job)
+
+        mock_scheduler.list_jobs.return_value = jobs
+        mock_scheduler.get_history.return_value = []
+
+        with patch(
+            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            return_value=mock_scheduler,
+        ):
+            result = handler._get_connector_health()
+
+        # 2 healthy out of 4 = 50%
+        assert result["summary"]["healthy"] == 2
+        assert result["summary"]["degraded"] == 1
+        assert result["summary"]["unhealthy"] == 1
+        assert result["summary"]["health_score"] == 50
+
+    def test_connector_health_status_derivation(self, handler):
+        """Connector status correctly derived from state."""
+        mock_scheduler = MagicMock()
+        mock_scheduler._scheduler_task = MagicMock()
+        mock_scheduler.get_stats.return_value = {
+            "total_jobs": 4,
+            "running_syncs": 0,
+            "success_rate": 1.0,
+        }
+
+        # Create jobs with different states
+        # 1. Currently syncing
+        job_syncing = MagicMock()
+        job_syncing.id = "syncing"
+        job_syncing.connector_id = "syncing"
+        job_syncing.consecutive_failures = 0
+        job_syncing.current_run_id = "run_1"  # Syncing
+        job_syncing.schedule = MagicMock(enabled=True)
+        job_syncing.last_run = None
+        job_syncing.next_run = None
+        job_syncing.connector = None
+
+        # 2. Error state (3+ failures)
+        job_error = MagicMock()
+        job_error.id = "error"
+        job_error.connector_id = "error"
+        job_error.consecutive_failures = 3
+        job_error.current_run_id = None
+        job_error.schedule = MagicMock(enabled=True)
+        job_error.last_run = None
+        job_error.next_run = None
+        job_error.connector = None
+
+        # 3. Disconnected (disabled)
+        job_disconnected = MagicMock()
+        job_disconnected.id = "disconnected"
+        job_disconnected.connector_id = "disconnected"
+        job_disconnected.consecutive_failures = 0
+        job_disconnected.current_run_id = None
+        job_disconnected.schedule = MagicMock(enabled=False)  # Disabled
+        job_disconnected.last_run = None
+        job_disconnected.next_run = None
+        job_disconnected.connector = None
+
+        # 4. Connected (normal)
+        job_connected = MagicMock()
+        job_connected.id = "connected"
+        job_connected.connector_id = "connected"
+        job_connected.consecutive_failures = 0
+        job_connected.current_run_id = None
+        job_connected.schedule = MagicMock(enabled=True)
+        job_connected.last_run = None
+        job_connected.next_run = None
+        job_connected.connector = None
+
+        mock_scheduler.list_jobs.return_value = [
+            job_syncing,
+            job_error,
+            job_disconnected,
+            job_connected,
+        ]
+        mock_scheduler.get_history.return_value = []
+
+        with patch(
+            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            return_value=mock_scheduler,
+        ):
+            result = handler._get_connector_health()
+
+        connectors = {c["connector_id"]: c for c in result["connectors"]}
+
+        assert connectors["syncing"]["status"] == "syncing"
+        assert connectors["error"]["status"] == "error"
+        assert connectors["disconnected"]["status"] == "disconnected"
+        assert connectors["connected"]["status"] == "connected"
+
+    def test_connector_health_handles_exception(self, handler):
+        """Connector health returns empty on exception."""
+        with patch(
+            "aragora.server.handlers.admin.dashboard.get_scheduler",
+        ) as mock_get:
+            mock_get.side_effect = RuntimeError("Scheduler crash")
+            result = handler._get_connector_health()
+
+        # Should return default empty structure
+        assert result["summary"]["total_connectors"] == 0
+        assert result["connectors"] == []
+
 
 # =============================================================================
 # Calibration Metrics Tests
