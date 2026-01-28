@@ -104,6 +104,16 @@ def clear_signup_state():
         _onboarding_status.clear()
 
 
+@pytest.fixture(autouse=True)
+def mock_rbac_check():
+    """Mock RBAC checks to allow all operations in tests."""
+    with patch(
+        "aragora.server.handlers.auth.signup_handlers._check_permission",
+        return_value=None,  # None means permission granted
+    ):
+        yield
+
+
 @pytest.fixture
 def valid_signup_data() -> Dict[str, Any]:
     """Valid signup request data."""
