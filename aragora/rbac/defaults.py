@@ -1258,6 +1258,10 @@ SYSTEM_PERMISSIONS: dict[str, Permission] = {
         PERM_KNOWLEDGE_UPDATE,
         PERM_CULTURE_READ,
         PERM_CULTURE_WRITE,
+        # Provenance
+        PERM_PROVENANCE_READ,
+        PERM_PROVENANCE_VERIFY,
+        PERM_PROVENANCE_EXPORT,
         # Inbox
         PERM_INBOX_READ,
         PERM_INBOX_UPDATE,

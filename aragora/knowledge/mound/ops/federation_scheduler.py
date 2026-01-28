@@ -36,7 +36,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -241,7 +241,7 @@ class CronParser:
         return result
 
     @staticmethod
-    def _parse_field(field_str: str, value_range: tuple) -> List[int]:
+    def _parse_field(field_str: str, value_range: Tuple[int, int]) -> List[int]:
         """Parse a single cron field."""
         min_val, max_val = value_range
 
