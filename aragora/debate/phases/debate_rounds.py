@@ -359,6 +359,24 @@ class DebateRoundsPhase:
 
                 raise DebateCancelled(ctx.cancellation_token.reason)
 
+            # Check budget before each round (allows graceful pause on budget exceeded)
+            if ctx.budget_check_callback:
+                try:
+                    allowed, reason = ctx.budget_check_callback(round_num)
+                    if not allowed:
+                        logger.warning(f"budget_exceeded_pause round={round_num} reason={reason}")
+                        # Store reason in result metadata for transparency
+                        if ctx.result and hasattr(ctx.result, "metadata"):
+                            if ctx.result.metadata is None:
+                                ctx.result.metadata = {}
+                            ctx.result.metadata["budget_pause_reason"] = reason
+                            ctx.result.metadata["budget_pause_round"] = round_num
+                        # Exit round loop gracefully (don't raise exception)
+                        break
+                except Exception as e:
+                    # Budget check failure should not stop the debate
+                    logger.debug(f"Budget check error (continuing): {e}")
+
             logger.info(f"round_start round={round_num}")
 
             # Track round with performance monitor for detailed phase metrics
