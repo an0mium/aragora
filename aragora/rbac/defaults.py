@@ -189,6 +189,26 @@ PERM_KNOWLEDGE_UPDATE = _permission(
     "Modify knowledge base curation and settings",
 )
 
+# Provenance permissions
+PERM_PROVENANCE_READ = _permission(
+    ResourceType.PROVENANCE,
+    Action.READ,
+    "View Provenance",
+    "View decision provenance and audit trails",
+)
+PERM_PROVENANCE_VERIFY = _permission(
+    ResourceType.PROVENANCE,
+    Action.VERIFY,
+    "Verify Provenance",
+    "Verify integrity of provenance chains",
+)
+PERM_PROVENANCE_EXPORT = _permission(
+    ResourceType.PROVENANCE,
+    Action.EXPORT_DATA,
+    "Export Provenance",
+    "Export provenance reports for compliance",
+)
+
 # Inbox permissions
 PERM_INBOX_READ = _permission(
     ResourceType.INBOX,
