@@ -48,6 +48,7 @@ from aragora.knowledge.mound.adapters._reverse_flow_base import (
     ReverseFlowMixin,
     ValidationSyncResult,
 )
+from aragora.knowledge.mound.adapters._fusion_mixin import FusionMixin
 
 
 @dataclass
@@ -63,7 +64,7 @@ class ConsensusSearchResult:
             self.dissents = []
 
 
-class ConsensusAdapter(ReverseFlowMixin, SemanticSearchMixin):
+class ConsensusAdapter(FusionMixin, ReverseFlowMixin, SemanticSearchMixin):
     """
     Adapter that bridges ConsensusMemory to the Knowledge Mound.
 

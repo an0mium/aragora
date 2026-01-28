@@ -41,6 +41,7 @@ from aragora.server.validation.schema import (
     validate_against_schema,
 )
 from aragora.server.http_utils import run_async
+from aragora.resilience_patterns import with_timeout
 
 from ..base import (
     BaseHandler,
@@ -983,6 +984,7 @@ class DebatesHandler(
 
         return None
 
+    @with_timeout(120.0)
     @user_rate_limit(action="debate_create")
     @rate_limit(rpm=5, limiter_name="debates_create")
     @require_quota("debate")

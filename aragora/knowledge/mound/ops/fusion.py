@@ -604,6 +604,7 @@ class FusionCoordinator:
             strategy_used=self.config.default_strategy,
             source_validations=[],
             outcome=FusionOutcome.INSUFFICIENT_DATA,
+            conflict_detected=False,  # Explicit: no data = no conflict detection
         )
 
     def _insufficient_data_result(
@@ -623,6 +624,7 @@ class FusionCoordinator:
                 strategy_used=self.config.default_strategy,
                 source_validations=validations,
                 outcome=FusionOutcome.INSUFFICIENT_DATA,
+                conflict_detected=False,  # Explicit: single source = no conflict possible
                 participating_adapters=[v.adapter_name],
                 metadata={"reason": "Single adapter validation, no fusion performed"},
             )
@@ -634,6 +636,7 @@ class FusionCoordinator:
             strategy_used=self.config.default_strategy,
             source_validations=validations,
             outcome=FusionOutcome.INSUFFICIENT_DATA,
+            conflict_detected=False,  # Explicit: insufficient data = no conflict detection
             participating_adapters=[v.adapter_name for v in validations],
             metadata={
                 "reason": f"Need {self.config.min_adapters_for_fusion} adapters, got {len(validations)}"

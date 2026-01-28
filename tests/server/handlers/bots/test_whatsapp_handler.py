@@ -208,7 +208,8 @@ class TestWhatsAppWebhook:
 
         with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_APP_SECRET", ""):
             with patch("aragora.server.handlers.bots.whatsapp.WHATSAPP_ACCESS_TOKEN", ""):
-                result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
+                with patch.object(handler, "_start_debate_async", return_value="debate-123"):
+                    result = handler.handle_post("/api/v1/bots/whatsapp/webhook", {}, mock_request)
 
         assert result is not None
         assert result.status_code == 200

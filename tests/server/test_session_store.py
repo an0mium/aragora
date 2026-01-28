@@ -8,7 +8,6 @@ Tests cover:
 """
 
 import pytest
-import time
 import threading
 from unittest.mock import patch, MagicMock
 
@@ -220,14 +219,17 @@ class TestInMemorySessionStore:
         assert len(received) == 1
 
     # Cleanup tests
-    def test_cleanup_expired(self, store):
+    def test_cleanup_expired(self, store, monkeypatch):
         """Cleans up expired entries."""
+        now = 1_000_000.0
+        monkeypatch.setattr("aragora.server.session_store.time.time", lambda: now)
+
         store.set_debate_state("loop-1", {"status": "old"})
         store.set_active_loop("loop-1", {"phase": "old"})
         store.set_auth_state("conn-1", {"user_id": "old"})
 
-        # Wait for TTL to expire (TTL is 1 second)
-        time.sleep(1.1)
+        # Advance time beyond TTL (TTL is 1 second)
+        now += 2.0
 
         counts = store.cleanup_expired()
 

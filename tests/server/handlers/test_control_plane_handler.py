@@ -1103,7 +1103,18 @@ class TestControlPlaneStartupWiring:
         """Test that run_startup_sequence includes control_plane_coordinator."""
         from aragora.server.startup import run_startup_sequence
 
-        status = await run_startup_sequence(nomic_dir=None, stream_emitter=None)
+        with patch(
+            "aragora.server.startup.validate_backend_connectivity",
+            new=AsyncMock(
+                return_value={
+                    "valid": True,
+                    "redis": {"connected": True, "message": "mock"},
+                    "database": {"connected": True, "message": "mock"},
+                    "errors": [],
+                }
+            ),
+        ):
+            status = await run_startup_sequence(nomic_dir=None, stream_emitter=None)
 
         # Should include control_plane_coordinator key
         assert "control_plane_coordinator" in status
