@@ -282,8 +282,161 @@ When a workflow targets the `production` environment:
 - **Enable wait timer** for automatic rollback capability
 - **Review staging results** before approving production
 
+## CI Testing with AWS Secrets Manager
+
+Integration tests require API keys (Anthropic, OpenAI, etc.) to run agent-based tests. These credentials are stored in AWS Secrets Manager and accessed via OIDC authentication.
+
+### Setup for CI Secrets Access
+
+#### 1. Create CI Secret in AWS Secrets Manager
+
+```bash
+# Create the secret with API keys for CI testing
+aws secretsmanager create-secret \
+  --name aragora/ci \
+  --description "API keys for Aragora CI tests" \
+  --secret-string '{
+    "ANTHROPIC_API_KEY": "sk-ant-...",
+    "OPENAI_API_KEY": "sk-...",
+    "GEMINI_API_KEY": "...",
+    "OPENROUTER_API_KEY": "sk-or-...",
+    "MISTRAL_API_KEY": "...",
+    "XAI_API_KEY": "..."
+  }'
+```
+
+#### 2. Create IAM Role for CI
+
+Create a separate role with minimal permissions (read-only access to CI secret):
+
+```bash
+# Create trust policy for CI
+cat > /tmp/ci-trust-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/aragora:*"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+# Create the role
+aws iam create-role \
+  --role-name GitHubActionsCIRole \
+  --assume-role-policy-document file:///tmp/ci-trust-policy.json
+
+# Create permissions policy (read-only for CI secret)
+cat > /tmp/ci-permissions.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-2:ACCOUNT_ID:secret:aragora/ci-*"
+    }
+  ]
+}
+EOF
+
+# Attach permissions
+aws iam put-role-policy \
+  --role-name GitHubActionsCIRole \
+  --policy-name CISecretsReadOnly \
+  --policy-document file:///tmp/ci-permissions.json
+```
+
+**Important:** Replace `ACCOUNT_ID` and `YOUR_ORG/aragora` with your values.
+
+#### 3. Configure GitHub Repository
+
+Add secrets and variables in **Settings > Secrets and variables > Actions**:
+
+**Secrets:**
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `AWS_ACCOUNT_ID` | Your AWS account ID | `123456789012` |
+| `AWS_CI_ROLE_NAME` | IAM role for CI | `GitHubActionsCIRole` |
+| `ARAGORA_CI_SECRET_NAME` | Secret name in AWS | `aragora/ci` (optional, defaults to `aragora/ci`) |
+
+**Variables:**
+| Variable | Description | Value |
+|----------|-------------|-------|
+| `AWS_CI_ENABLED` | Enable AWS secrets fetching | `true` |
+
+The `AWS_CI_ENABLED` variable acts as a feature flag. Set it to `true` to enable AWS Secrets Manager integration in CI tests.
+
+#### 4. How It Works
+
+The `integration.yml` workflow:
+1. Checks if `AWS_CI_ENABLED` variable is `true`
+2. Authenticates with AWS via OIDC (no stored credentials)
+3. Fetches API keys from AWS Secrets Manager
+4. Exports them as masked environment variables
+5. Runs tests with access to real AI APIs
+
+```yaml
+- name: Configure AWS credentials via OIDC
+  if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+  uses: aws-actions/configure-aws-credentials@v4
+  with:
+    role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_CI_ROLE_NAME }}
+    aws-region: us-east-2
+
+- name: Fetch secrets from AWS Secrets Manager
+  if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+  run: |
+    SECRETS=$(aws secretsmanager get-secret-value --secret-id aragora/ci --query SecretString --output text)
+    echo "ANTHROPIC_API_KEY=$(echo $SECRETS | jq -r '.ANTHROPIC_API_KEY')" >> $GITHUB_ENV
+    # ... other keys
+```
+
+### Security Considerations
+
+1. **Separate CI secret** from production secrets
+2. **Use test/dev API keys** with lower rate limits when possible
+3. **Read-only permissions** for CI role (no write access to secrets)
+4. **Masked values** in GitHub Actions logs
+5. **Short credential lifetime** via OIDC (no persistent credentials)
+
+### Troubleshooting CI Secrets
+
+**Tests fail with "API key not found":**
+1. Check `AWS_CI_ENABLED` variable is set to `true`
+2. Verify the CI role has `secretsmanager:GetSecretValue` permission
+3. Ensure the secret exists in the correct region (us-east-2)
+
+**"Could not assume role" errors:**
+1. Verify the trust policy has correct repository name
+2. Check OIDC provider exists in your AWS account
+3. Ensure workflow has `id-token: write` permission
+
+**View secret access in CloudTrail:**
+```bash
+aws cloudtrail lookup-events \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=GetSecretValue \
+  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)
+```
+
 ## References
 
 - [GitHub OIDC with AWS](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 - [AWS SSM Run Command](https://docs.aws.amazon.com/systems-manager/latest/userguide/execute-remote-commands.html)
 - [IAM Roles for OIDC](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
+- [AWS Secrets Manager](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html)

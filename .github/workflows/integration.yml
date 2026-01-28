@@ -19,8 +19,14 @@ on:
       - 'setup.py'
   workflow_dispatch:
 
+# OIDC permissions for AWS Secrets Manager access
+permissions:
+  id-token: write   # Required for OIDC authentication with AWS
+  contents: read
+
 env:
   PYTHON_VERSION: '3.11'
+  AWS_REGION: 'us-east-2'
 
 jobs:
   e2e-harness:
@@ -42,6 +48,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_CI_ROLE_NAME }}
+          role-session-name: github-actions-e2e-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from AWS Secrets Manager
+        if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+        run: |
+          SECRET_NAME="${{ secrets.ARAGORA_CI_SECRET_NAME || 'aragora/ci' }}"
+          echo "Fetching secrets from $SECRET_NAME..."
+
+          SECRETS=$(aws secretsmanager get-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --query SecretString \
+            --output text)
+
+          # Export API keys as environment variables
+          # Using mask to hide values in logs
+          for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
+            value=$(echo "$SECRETS" | jq -r ".$key // empty")
+            if [ -n "$value" ]; then
+              echo "::add-mask::$value"
+              echo "$key=$value" >> $GITHUB_ENV
+              echo "Loaded $key"
+            fi
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -115,6 +151,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_CI_ROLE_NAME }}
+          role-session-name: github-actions-integration-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from AWS Secrets Manager
+        if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+        run: |
+          SECRET_NAME="${{ secrets.ARAGORA_CI_SECRET_NAME || 'aragora/ci' }}"
+          echo "Fetching secrets from $SECRET_NAME..."
+
+          SECRETS=$(aws secretsmanager get-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --query SecretString \
+            --output text)
+
+          # Export API keys as environment variables
+          for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
+            value=$(echo "$SECRETS" | jq -r ".$key // empty")
+            if [ -n "$value" ]; then
+              echo "::add-mask::$value"
+              echo "$key=$value" >> $GITHUB_ENV
+              echo "Loaded $key"
+            fi
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -190,6 +255,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_CI_ROLE_NAME }}
+          role-session-name: github-actions-control-plane-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from AWS Secrets Manager
+        if: ${{ vars.AWS_CI_ENABLED == 'true' }}
+        run: |
+          SECRET_NAME="${{ secrets.ARAGORA_CI_SECRET_NAME || 'aragora/ci' }}"
+          echo "Fetching secrets from $SECRET_NAME..."
+
+          SECRETS=$(aws secretsmanager get-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --query SecretString \
+            --output text)
+
+          # Export API keys as environment variables
+          for key in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY XAI_API_KEY OPENROUTER_API_KEY MISTRAL_API_KEY; do
+            value=$(echo "$SECRETS" | jq -r ".$key // empty")
+            if [ -n "$value" ]; then
+              echo "::add-mask::$value"
+              echo "$key=$value" >> $GITHUB_ENV
+              echo "Loaded $key"
+            fi
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v5
