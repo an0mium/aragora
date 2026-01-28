@@ -1066,7 +1066,9 @@ class DebatesHandler(
         # - Internal orchestration where blocking is acceptable
         return self._create_debate_direct(handler, body)
 
-    def _route_through_decision_router(self, handler, body: dict, headers: dict) -> HandlerResult:
+    async def _route_through_decision_router(
+        self, handler, body: dict, headers: dict
+    ) -> HandlerResult:
         """Route debate creation through DecisionRouter.
 
         This provides unified handling including:
@@ -1075,7 +1077,6 @@ class DebatesHandler(
         - Origin registration for bidirectional routing
         - Unified metrics and tracing
         """
-        import asyncio
         from aragora.core.decision import (
             DecisionRequest,
             DecisionType,
@@ -1100,23 +1101,7 @@ class DebatesHandler(
 
         # Route through DecisionRouter
         router = get_decision_router()
-
-        # Run async routing
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Create new event loop for sync context
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    result = new_loop.run_until_complete(router.route(request))
-                finally:
-                    new_loop.close()
-            else:
-                result = asyncio.run(router.route(request))
-        except RuntimeError:
-            # No event loop - create one
-            result = asyncio.run(router.route(request))
+        result = await router.route(request)
 
         logger.info(
             f"DecisionRouter completed debate {request.request_id} "

@@ -243,7 +243,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
         return None
 
     @require_permission("evidence:create")
-    def handle_post(
+    async def handle_post(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> Optional[HandlerResult]:
         """Handle POST requests for evidence endpoints."""
@@ -265,7 +265,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             body, err = self.read_json_body_validated(handler)
             if err:
                 return err
-            return self._handle_collect(body)
+            return await self._handle_collect(body)
 
         # POST /api/v1/evidence/debate/:debate_id
         # Path: /api/v1/evidence/debate/{debate_id}
@@ -427,7 +427,7 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
             }
         )
 
-    def _handle_collect(self, body: dict) -> HandlerResult:
+    async def _handle_collect(self, body: dict) -> HandlerResult:
         """Handle POST /api/evidence/collect - collect evidence for topic."""
         task = body.get("task", "").strip()
         if not task:
@@ -439,19 +439,8 @@ class EvidenceHandler(BaseHandler, PaginatedHandlerMixin):
 
         collector = self._get_evidence_collector()
 
-        # Run collection asynchronously
-        import asyncio
-
         try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-        try:
-            evidence_pack = loop.run_until_complete(
-                collector.collect_evidence(task, enabled_connectors)
-            )
+            evidence_pack = await collector.collect_evidence(task, enabled_connectors)
         except (ValueError, TypeError) as e:
             logger.warning(f"Evidence collection failed (invalid params): {e}")
             return error_response(safe_error_message(e, "Evidence collection"), 400)
