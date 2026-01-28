@@ -132,9 +132,86 @@ class OIDCConfig(SSOConfig):
         }
     )
 
+    # Azure AD specific
+    tenant_id: str = ""
+
+    # Google specific (hosted domain)
+    hd: str = ""
+
     def __post_init__(self):
         if not self.provider_type:
             self.provider_type = SSOProviderType.OIDC
+
+    @classmethod
+    def for_azure_ad(
+        cls,
+        tenant_id: str,
+        client_id: str,
+        client_secret: str,
+        callback_url: str,
+        **kwargs,
+    ) -> "OIDCConfig":
+        """Create configuration for Azure AD / Microsoft Entra ID."""
+        return cls(
+            provider_type=SSOProviderType.AZURE_AD,
+            entity_id=client_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            callback_url=callback_url,
+            issuer_url=f"https://login.microsoftonline.com/{tenant_id}/v2.0",
+            tenant_id=tenant_id,
+            scopes=["openid", "email", "profile", "User.Read"],
+            **kwargs,
+        )
+
+    @classmethod
+    def for_okta(
+        cls,
+        org_url: str,
+        client_id: str,
+        client_secret: str,
+        callback_url: str,
+        **kwargs,
+    ) -> "OIDCConfig":
+        """Create configuration for Okta."""
+        # Normalize org_url (remove trailing slash)
+        org_url = org_url.rstrip("/")
+        return cls(
+            provider_type=SSOProviderType.OKTA,
+            entity_id=client_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            callback_url=callback_url,
+            issuer_url=org_url,
+            scopes=["openid", "email", "profile", "groups"],
+            **kwargs,
+        )
+
+    @classmethod
+    def for_google(
+        cls,
+        client_id: str,
+        client_secret: str,
+        callback_url: str,
+        hd: str = "",
+        **kwargs,
+    ) -> "OIDCConfig":
+        """Create configuration for Google Workspace.
+
+        Args:
+            hd: Hosted domain restriction (e.g., "example.com")
+        """
+        return cls(
+            provider_type=SSOProviderType.GOOGLE,
+            entity_id=client_id,
+            client_id=client_id,
+            client_secret=client_secret,
+            callback_url=callback_url,
+            issuer_url="https://accounts.google.com",
+            hd=hd,
+            scopes=["openid", "email", "profile"],
+            **kwargs,
+        )
 
     def validate(self) -> List[str]:
         """Validate OIDC configuration."""
