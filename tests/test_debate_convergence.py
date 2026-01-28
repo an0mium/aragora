@@ -15,6 +15,9 @@ from __future__ import annotations
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 
+# Import centralized skip markers
+from tests.conftest import requires_sklearn, REQUIRES_SKLEARN
+
 from aragora.debate.convergence import (
     SimilarityBackend,
     JaccardBackend,
@@ -171,18 +174,16 @@ class TestJaccardBackend:
 # ============================================================================
 
 
+@pytest.mark.skipif(requires_sklearn, reason=REQUIRES_SKLEARN)
 class TestTFIDFBackend:
     """Tests for TFIDFBackend."""
 
     @pytest.fixture
     def tfidf_backend(self):
         """Create TF-IDF backend for testing."""
-        try:
-            backend = TFIDFBackend()
-            TFIDFBackend.clear_cache()
-            return backend
-        except ImportError:
-            pytest.skip("scikit-learn not available")
+        backend = TFIDFBackend()
+        TFIDFBackend.clear_cache()
+        return backend
 
     def test_identical_texts(self, tfidf_backend):
         """Test identical texts return high similarity."""

@@ -578,3 +578,94 @@ def ensure_tenant_scope(func: Callable[..., T]) -> Callable[..., T]:
     if asyncio.iscoroutinefunction(func):
         return async_wrapper
     return wrapper
+
+
+class TenantIsolationEnforcer:
+    """
+    Enforces cross-tenant access restrictions.
+
+    Usage:
+        enforcer = TenantIsolationEnforcer()
+        await enforcer.verify_access(
+            requesting_tenant="tenant-1",
+            resource_tenant="tenant-2",
+            resource_id="debate-123",
+        )  # Raises PermissionError
+    """
+
+    def __init__(self, config: Optional[TenantIsolationConfig] = None):
+        """Initialize the enforcer.
+
+        Args:
+            config: Isolation configuration
+        """
+        self.config = config or TenantIsolationConfig()
+        self._isolation = TenantDataIsolation(self.config)
+
+    async def verify_access(
+        self,
+        requesting_tenant: str,
+        resource_tenant: str,
+        resource_id: str,
+    ) -> bool:
+        """Verify that a tenant can access a resource.
+
+        Args:
+            requesting_tenant: ID of tenant requesting access
+            resource_tenant: ID of tenant that owns the resource
+            resource_id: ID of the resource being accessed
+
+        Returns:
+            True if access is allowed
+
+        Raises:
+            PermissionError: If cross-tenant access is attempted
+        """
+        if self.config.level == IsolationLevel.NONE:
+            return True
+
+        if requesting_tenant != resource_tenant:
+            logger.warning(
+                f"Cross-tenant access denied: {requesting_tenant} -> "
+                f"{resource_tenant}/{resource_id}"
+            )
+            raise PermissionError(
+                f"Cross-tenant access denied: tenant {requesting_tenant} "
+                f"cannot access resource {resource_id} owned by {resource_tenant}"
+            )
+
+        return True
+
+
+class TenantDataFilter:
+    """
+    Filters data by tenant ID.
+
+    Usage:
+        filter = TenantDataFilter()
+        filtered = filter.filter_by_tenant(data_list, "tenant-1")
+    """
+
+    def __init__(self, tenant_field: str = "tenant_id"):
+        """Initialize the filter.
+
+        Args:
+            tenant_field: Name of the tenant ID field in data objects
+        """
+        self.tenant_field = tenant_field
+
+    def filter_by_tenant(
+        self,
+        data: list[dict[str, Any]],
+        tenant_id: str,
+    ) -> list[dict[str, Any]]:
+        """Filter a list of data objects by tenant ID.
+
+        Args:
+            data: List of data dictionaries
+            tenant_id: Tenant ID to filter by
+
+        Returns:
+            Filtered list containing only items matching the tenant
+        """
+        return [item for item in data if item.get(self.tenant_field) == tenant_id]
