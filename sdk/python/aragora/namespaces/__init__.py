@@ -16,6 +16,7 @@ from .budgets import AsyncBudgetsAPI, BudgetsAPI
 from .codebase import AsyncCodebaseAPI, CodebaseAPI
 from .consensus import AsyncConsensusAPI, ConsensusAPI
 from .control_plane import AsyncControlPlaneAPI, ControlPlaneAPI
+from .critiques import AsyncCritiquesAPI, CritiquesAPI
 from .debates import AsyncDebatesAPI, DebatesAPI
 from .decisions import AsyncDecisionsAPI, DecisionsAPI
 from .documents import AsyncDocumentsAPI, DocumentsAPI
@@ -79,6 +80,8 @@ __all__ = [
     "AsyncConsensusAPI",
     "ControlPlaneAPI",
     "AsyncControlPlaneAPI",
+    "CritiquesAPI",
+    "AsyncCritiquesAPI",
     "DebatesAPI",
     "AsyncDebatesAPI",
     "DecisionsAPI",
