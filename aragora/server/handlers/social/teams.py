@@ -266,7 +266,7 @@ class TeamsIntegrationHandler(BaseHandler):
             logger.exception(f"Teams notify error: {e}")
             return error_response(f"Error: {str(e)[:100]}", 500)
 
-    def _start_debate(
+    async def _start_debate(
         self,
         topic: str,
         conversation: Dict[str, Any],
@@ -275,7 +275,7 @@ class TeamsIntegrationHandler(BaseHandler):
     ) -> HandlerResult:
         """Start a new debate in the conversation."""
         if not topic:
-            return self._send_error(
+            return await self._send_error(
                 "Please provide a topic for the debate.", conversation, service_url
             )
 
@@ -283,7 +283,7 @@ class TeamsIntegrationHandler(BaseHandler):
 
         # Check if debate already running
         if conv_id in self._active_debates:
-            return self._send_error(
+            return await self._send_error(
                 "A debate is already running in this channel. Use `@aragora cancel` to cancel it.",
                 conversation,
                 service_url,
@@ -296,20 +296,12 @@ class TeamsIntegrationHandler(BaseHandler):
         # Send initial acknowledgment
         ack_blocks = self._build_starting_blocks(topic, user.get("name", "Unknown"))
 
-        async def send_ack():
-            return await connector.send_message(
-                channel_id=conv_id,
-                text=f"Starting debate on: {topic}",
-                blocks=ack_blocks,
-                service_url=service_url,
-            )
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            ack_result = loop.run_until_complete(send_ack())
-        finally:
-            loop.close()
+        ack_result = await connector.send_message(
+            channel_id=conv_id,
+            text=f"Starting debate on: {topic}",
+            blocks=ack_blocks,
+            service_url=service_url,
+        )
 
         if not ack_result.success:
             return error_response(f"Failed to send message: {ack_result.error}", 500)

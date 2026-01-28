@@ -328,3 +328,116 @@ class TestHealthCheckerIntegration:
         assert report.overall_healthy is False
         unhealthy = [name for name, status in report.components.items() if not status.healthy]
         assert len(unhealthy) == 1
+
+
+class TestHealthRegistry:
+    """Tests for HealthRegistry class."""
+
+    def test_register_component(self):
+        """Test registering a health checker."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+        checker = registry.register("database")
+
+        assert checker.name == "database"
+        assert registry.get("database") is checker
+
+    def test_get_registered(self):
+        """Test getting a registered checker."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+        registry.register("cache")
+
+        checker = registry.get("cache")
+        assert checker is not None
+        assert checker.name == "cache"
+
+    def test_get_unregistered(self):
+        """Test getting an unregistered checker."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+        assert registry.get("nonexistent") is None
+
+    def test_get_or_create(self):
+        """Test get_or_create functionality."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+
+        checker1 = registry.get_or_create("service")
+        checker2 = registry.get_or_create("service")
+
+        assert checker1 is checker2
+
+    def test_unregister(self):
+        """Test unregistering a component."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+        registry.register("temp")
+
+        assert registry.unregister("temp") is True
+        assert registry.get("temp") is None
+        assert registry.unregister("temp") is False
+
+    def test_get_report(self):
+        """Test aggregate health report."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+
+        db = registry.register("database")
+        cache = registry.register("cache", failure_threshold=3)
+
+        db.record_success(latency_ms=5.0)
+        cache.record_failure("Connection refused")
+        cache.record_failure("Connection refused")
+        cache.record_failure("Connection refused")
+
+        report = registry.get_report()
+
+        assert report.overall_healthy is False
+        assert len(report.components) == 2
+        assert "database" in report.components
+        assert "cache" in report.components
+
+    def test_register_same_name_returns_existing(self):
+        """Test that registering the same name returns existing checker."""
+        from aragora.resilience_patterns.health import HealthRegistry
+
+        registry = HealthRegistry()
+        checker1 = registry.register("service")
+        checker2 = registry.register("service")
+
+        assert checker1 is checker2
+
+
+class TestGlobalRegistry:
+    """Tests for global health registry singleton."""
+
+    def test_singleton(self):
+        """Test global registry is a singleton."""
+        from aragora.resilience_patterns.health import get_global_health_registry
+
+        reg1 = get_global_health_registry()
+        reg2 = get_global_health_registry()
+        assert reg1 is reg2
+
+    def test_thread_safety(self):
+        """Test thread-safe initialization."""
+        import concurrent.futures
+        from aragora.resilience_patterns.health import get_global_health_registry
+
+        registries = []
+
+        def get_registry():
+            return get_global_health_registry()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(get_registry) for _ in range(20)]
+            registries = [f.result() for f in futures]
+
+        assert all(r is registries[0] for r in registries)
