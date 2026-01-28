@@ -516,7 +516,7 @@ class TestConnectorHealth:
     def test_connector_health_no_scheduler(self, handler):
         """Connector health returns empty when scheduler unavailable."""
         with patch(
-            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            "aragora.server.handlers.connectors.get_scheduler",
             side_effect=ImportError("No scheduler"),
         ):
             result = handler._get_connector_health()
@@ -575,7 +575,7 @@ class TestConnectorHealth:
         mock_scheduler.get_history.side_effect = [[mock_history1], [mock_history2]]
 
         with patch(
-            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            "aragora.server.handlers.connectors.get_scheduler",
             return_value=mock_scheduler,
         ):
             result = handler._get_connector_health()
@@ -627,7 +627,7 @@ class TestConnectorHealth:
         mock_scheduler.get_history.return_value = []
 
         with patch(
-            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            "aragora.server.handlers.connectors.get_scheduler",
             return_value=mock_scheduler,
         ):
             result = handler._get_connector_health()
@@ -702,7 +702,7 @@ class TestConnectorHealth:
         mock_scheduler.get_history.return_value = []
 
         with patch(
-            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            "aragora.server.handlers.connectors.get_scheduler",
             return_value=mock_scheduler,
         ):
             result = handler._get_connector_health()
@@ -717,7 +717,7 @@ class TestConnectorHealth:
     def test_connector_health_handles_exception(self, handler):
         """Connector health returns empty on exception."""
         with patch(
-            "aragora.server.handlers.admin.dashboard.get_scheduler",
+            "aragora.server.handlers.connectors.get_scheduler",
         ) as mock_get:
             mock_get.side_effect = RuntimeError("Scheduler crash")
             result = handler._get_connector_health()

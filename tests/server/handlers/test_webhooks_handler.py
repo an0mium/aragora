@@ -825,30 +825,45 @@ class TestWebhookRBAC:
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
-    def test_delete_webhook_rbac_denied(self, handler):
+    def test_delete_webhook_rbac_denied(self, handler, server_context):
         """Delete webhook should deny when RBAC denies."""
+        # First create a webhook so it exists
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
         mock_http = MockHandler(headers={})
 
         with patch.object(handler, "get_current_user", return_value=MockUser()):
-            result = handler._handle_delete_webhook("webhook-123", mock_http)
+            result = handler._handle_delete_webhook(webhook.id, mock_http)
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
-    def test_update_webhook_rbac_denied(self, handler):
+    def test_update_webhook_rbac_denied(self, handler, server_context):
         """Update webhook should deny when RBAC denies."""
+        # First create a webhook so it exists
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
         mock_http = MockHandler(headers={})
 
         with patch.object(handler, "get_current_user", return_value=MockUser()):
-            result = handler._handle_update_webhook("webhook-123", {}, mock_http)
+            result = handler._handle_update_webhook(webhook.id, {}, mock_http)
             assert result.status_code == 403
 
     @patch("aragora.server.handlers.webhooks.RBAC_AVAILABLE", True)
     @patch("aragora.server.handlers.webhooks.check_permission", mock_check_permission_denied)
-    def test_test_webhook_rbac_denied(self, handler):
+    def test_test_webhook_rbac_denied(self, handler, server_context):
         """Test webhook should deny when RBAC denies."""
+        # First create a webhook so it exists
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
         mock_http = MockHandler(headers={})
 
         with patch.object(handler, "get_current_user", return_value=MockUser()):
-            result = handler._handle_test_webhook("webhook-123", mock_http)
+            result = handler._handle_test_webhook(webhook.id, mock_http)
             assert result.status_code == 403
