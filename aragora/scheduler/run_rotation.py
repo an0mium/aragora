@@ -341,7 +341,7 @@ async def main(args: argparse.Namespace) -> int:
             "would_rotate": "[DRY]",
         }.get(result["status"], "[?]")
 
-        print(f"{status_icon} {result['secret_id']}: {result['message']}")
+        logger.info("%s %s: %s", status_icon, result["secret_id"], result["message"])
 
     # Return non-zero if any failures and notify requested
     if failed_count > 0:
