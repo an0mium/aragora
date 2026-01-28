@@ -442,41 +442,30 @@ class TeamsConnector(ChatPlatformConnector):
         """
         Delete a Teams message.
 
-        Includes circuit breaker protection for fault tolerance.
+        Uses _http_request for retry logic and circuit breaker protection.
         """
         if not HTTPX_AVAILABLE:
-            return False
-
-        # Check circuit breaker before making request
-        can_proceed, cb_error = self._check_circuit_breaker()
-        if not can_proceed:
-            logger.warning(f"Teams delete_message blocked by circuit breaker: {cb_error}")
             return False
 
         try:
             token = await self._get_access_token()
             base_url = service_url or BOT_FRAMEWORK_API_BASE
 
-            async with httpx.AsyncClient(timeout=self._request_timeout) as client:
-                response = await client.delete(
-                    f"{base_url}/v3/conversations/{channel_id}/activities/{message_id}",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
+            # Use _http_request which handles circuit breaker, retries, and backoff
+            success, _, error = await self._http_request(
+                method="DELETE",
+                url=f"{base_url}/v3/conversations/{channel_id}/activities/{message_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                operation="delete_message",
+            )
 
-                # Check for rate limiting or service unavailable
-                if response.status_code in (429, 503):
-                    self._record_failure(Exception(f"HTTP {response.status_code}"))
-                    return False
+            if not success:
+                logger.warning(f"Teams delete_message failed: {error}")
 
-                if response.status_code in (200, 204):
-                    self._record_success()
-                    return True
-
-                return False
+            return success
 
         except Exception as e:
             logger.error(f"Teams delete_message error: {e}")
-            self._record_failure(e)
             return False
 
     async def send_typing_indicator(
