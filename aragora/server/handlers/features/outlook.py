@@ -203,6 +203,7 @@ async def handle_oauth_callback(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:read")
 async def handle_list_folders(
     workspace_id: str,
     user_id: str,
@@ -240,6 +241,7 @@ async def handle_list_folders(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:read")
 async def handle_list_messages(
     workspace_id: str,
     user_id: str,
@@ -413,6 +415,7 @@ async def handle_get_conversation(
         return {"success": False, "error": str(e)}
 
 
+@require_permission("connectors:write")
 async def handle_send_message(
     workspace_id: str,
     user_id: str,
