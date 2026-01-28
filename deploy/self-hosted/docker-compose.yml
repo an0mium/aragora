@@ -34,21 +34,52 @@ services:
     restart: unless-stopped
     networks:
       - aragora-net
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   redis:
     image: redis:7-alpine
     container_name: aragora-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-aragora_redis_pass}
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+      --maxmemory 512mb
+      --maxmemory-policy volatile-lru
+      --tcp-keepalive 300
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-aragora_redis_pass}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
     restart: unless-stopped
     networks:
       - aragora-net
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=64M
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.1'
+          memory: 128M
 
   aragora:
     image: ${ARAGORA_IMAGE:-ghcr.io/an0mium/aragora:latest}
@@ -102,6 +133,19 @@ services:
     labels:
       - "prometheus.scrape=true"
       - "prometheus.port=9090"
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=256M
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   # =============================================================================
   # Queue Workers (--profile workers)
@@ -121,13 +165,25 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-aragora_redis_pass}@redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - DATABASE_URL=postgresql://${POSTGRES_USER:-aragora}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aragora}
     volumes:
       - aragora-data:/app/data
     restart: unless-stopped
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777,size=128M
     deploy:
       replicas: ${WORKER_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     profiles:
       - workers
     networks:
@@ -155,15 +211,26 @@ services:
       - monitoring
     networks:
       - aragora-net
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"  # nobody user
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
 
   grafana:
     image: grafana/grafana:10.2.0
     container_name: aragora-grafana
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD required}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost:3001}
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -177,6 +244,14 @@ services:
       - monitoring
     networks:
       - aragora-net
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
 
   # =============================================================================
   # Backup Service (optional)
