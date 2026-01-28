@@ -359,22 +359,24 @@ class TestGUPPHookRecovery:
         except ImportError:
             pytest.skip("Bead/HookQueue modules not available")
 
-        # Create bead store and debate bead
+        # Create bead store and initialize
         bead_store = BeadStore(bead_dir=Path(temp_bead_dir), git_enabled=False)
+        await bead_store.initialize()
 
-        bead = Bead(
-            id=str(uuid.uuid4()),
-            type=BeadType.DEBATE_DECISION,
-            status=BeadStatus.PENDING,
+        # Create debate bead using the factory method
+        bead = Bead.create(
+            bead_type=BeadType.DEBATE_DECISION,
+            title="Test Debate Decision",
+            description="Test bead for hook recovery",
             metadata={"debate_id": "test-debate-123"},
         )
-        bead_store.save(bead)
+        await bead_store.create(bead)
 
         # Create hook queue and push bead
         hook_queue = HookQueue(
             agent_id="claude",
             bead_store=bead_store,
-            storage_dir=str(temp_bead_dir / "hooks"),
+            hooks_dir=Path(temp_bead_dir / "hooks"),
         )
         hook_queue.push(bead)
 
@@ -394,21 +396,24 @@ class TestGUPPHookRecovery:
         except ImportError:
             pytest.skip("Bead/HookQueue modules not available")
 
+        # Create bead store and initialize
         bead_store = BeadStore(bead_dir=Path(temp_bead_dir), git_enabled=False)
+        await bead_store.initialize()
 
-        # Create completed bead
-        bead = Bead(
-            id=str(uuid.uuid4()),
-            type=BeadType.DEBATE_DECISION,
-            status=BeadStatus.COMPLETED,  # Already completed
+        # Create a bead and then mark it completed
+        bead = Bead.create(
+            bead_type=BeadType.DEBATE_DECISION,
+            title="Completed Debate Decision",
+            description="Test bead that is already completed",
             metadata={"debate_id": "test-debate-456"},
         )
-        bead_store.save(bead)
+        bead.status = BeadStatus.COMPLETED  # Mark as completed before saving
+        await bead_store.create(bead)
 
         hook_queue = HookQueue(
             agent_id="claude",
             bead_store=bead_store,
-            storage_dir=str(temp_bead_dir / "hooks"),
+            hooks_dir=Path(temp_bead_dir / "hooks"),
         )
 
         # Try to push completed bead - should be rejected or filtered
