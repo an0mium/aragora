@@ -19,6 +19,7 @@ from aragora.connectors.enterprise.base import SyncState, SyncStatus
 from aragora.connectors.enterprise.database.sqlserver import (
     DEFAULT_TIMESTAMP_COLUMNS,
     SQLServerConnector,
+    _validate_sql_identifier,
 )
 
 
@@ -519,3 +520,68 @@ class TestConstants:
         """Test default timestamp column names."""
         assert "updated_at" in DEFAULT_TIMESTAMP_COLUMNS
         assert "modified_at" in DEFAULT_TIMESTAMP_COLUMNS
+
+
+# =============================================================================
+# SQL Identifier Validation Tests
+# =============================================================================
+
+
+class TestSQLIdentifierValidation:
+    """Test SQL identifier validation for injection prevention."""
+
+    def test_valid_identifiers(self):
+        """Test valid SQL identifiers are accepted."""
+        assert _validate_sql_identifier("users", "table") == "users"
+        assert _validate_sql_identifier("dbo", "schema") == "dbo"
+        assert _validate_sql_identifier("updated_at", "column") == "updated_at"
+        assert _validate_sql_identifier("Table1", "table") == "Table1"
+        assert _validate_sql_identifier("_internal", "table") == "_internal"
+        assert _validate_sql_identifier("user-data", "table") == "user-data"
+
+    def test_empty_identifier_rejected(self):
+        """Test empty identifiers are rejected."""
+        with pytest.raises(ValueError, match="cannot be empty"):
+            _validate_sql_identifier("", "table")
+
+    def test_sql_injection_patterns_rejected(self):
+        """Test SQL injection patterns are rejected."""
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("users; DROP TABLE users;--", "table")
+
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("users'", "table")
+
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("users OR 1=1", "table")
+
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("users/**/", "table")
+
+    def test_special_characters_rejected(self):
+        """Test special characters are rejected."""
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("table;name", "table")
+
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("table.name", "table")
+
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("table()", "table")
+
+    def test_identifier_starting_with_number_rejected(self):
+        """Test identifiers starting with numbers are rejected."""
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("1users", "table")
+
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            _validate_sql_identifier("123", "table")
+
+    def test_max_length_128_for_sqlserver(self):
+        """Test SQL Server max identifier length is 128."""
+        # 128 chars should be valid
+        assert _validate_sql_identifier("a" * 128, "table") == "a" * 128
+
+        # 129 chars should fail
+        with pytest.raises(ValueError, match="too long"):
+            _validate_sql_identifier("a" * 129, "table")
