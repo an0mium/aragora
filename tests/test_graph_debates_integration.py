@@ -12,35 +12,17 @@ import json
 import pytest
 from unittest.mock import Mock, MagicMock, AsyncMock, patch
 
-# Check if graph debate modules are available at module level
-try:
-    from aragora.debate.graph_orchestrator import (
-        GraphDebateOrchestrator,
-        BranchPolicy,
-        MergeStrategy,
-        GraphNode,
-        GraphBranch,
-        DebateGraph,
-    )
-    from aragora.debate.graph import NodeType
-    from aragora.server.handlers.debates import GraphDebatesHandler
-
-    HAS_GRAPH_DEBATES = True
-except ImportError:
-    HAS_GRAPH_DEBATES = False
-    GraphDebateOrchestrator = None  # type: ignore
-    BranchPolicy = None  # type: ignore
-    MergeStrategy = None  # type: ignore
-    GraphNode = None  # type: ignore
-    GraphBranch = None  # type: ignore
-    DebateGraph = None  # type: ignore
-    NodeType = None  # type: ignore
-    GraphDebatesHandler = None  # type: ignore
-
-# Reusable skipif marker
-requires_graph_debates = pytest.mark.skipif(
-    not HAS_GRAPH_DEBATES, reason="Graph debate modules not available (see #137)"
+# Import graph debate modules directly since they're now available
+from aragora.debate.graph_orchestrator import (
+    GraphDebateOrchestrator,
+    BranchPolicy,
+    MergeStrategy,
+    GraphNode,
+    GraphBranch,
+    DebateGraph,
 )
+from aragora.debate.graph import NodeType
+from aragora.server.handlers.debates import GraphDebatesHandler
 
 
 # ============================================================================
@@ -88,7 +70,6 @@ def mock_handler(mock_storage):
 # ============================================================================
 
 
-@requires_graph_debates
 class TestGraphDebateStructure:
     """Tests for graph debate data structures."""
 
@@ -124,7 +105,6 @@ class TestGraphDebateStructure:
 # ============================================================================
 
 
-@requires_graph_debates
 class TestBranchCreation:
     """Tests for debate branch creation."""
 
@@ -175,7 +155,6 @@ class TestBranchCreation:
 # ============================================================================
 
 
-@requires_graph_debates
 class TestMergeOperations:
     """Tests for branch merge operations."""
 
@@ -226,7 +205,6 @@ class TestMergeOperations:
 # ============================================================================
 
 
-@requires_graph_debates
 class TestGraphDebatesHandlerIntegration:
     """Integration tests for GraphDebatesHandler."""
 
@@ -263,7 +241,6 @@ class TestGraphDebatesHandlerIntegration:
 # ============================================================================
 
 
-@requires_graph_debates
 class TestGraphEventEmission:
     """Tests for graph debate event emission."""
 
@@ -296,7 +273,6 @@ class TestGraphEventEmission:
 # ============================================================================
 
 
-@requires_graph_debates
 class TestGraphSerialization:
     """Tests for graph debate serialization."""
 
