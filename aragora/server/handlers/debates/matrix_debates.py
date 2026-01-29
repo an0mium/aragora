@@ -130,19 +130,19 @@ class MatrixDebatesHandler(SecureHandler):
         normalized = strip_version_prefix(path)
         if normalized.startswith("/api/matrix-debates"):
             normalized = normalized.replace("/api/matrix-debates", "/api/debates/matrix", 1)
-        parts = normalized.rstrip("/").split("/")
+        segments = normalized.strip("/").split("/")
 
-        # GET /api/v1/debates/matrix/{id}
-        # Path structure: ['', 'api', 'v1', 'debates', 'matrix', '{id}', ...]
-        if len(parts) >= 6 and parts[4] == "matrix":
-            matrix_id = parts[5]
+        # GET /api/debates/matrix/{id}
+        # Path structure: ['api', 'debates', 'matrix', '{id}', ...]
+        if len(segments) >= 4 and segments[2] == "matrix":
+            matrix_id = segments[3]
 
-            # GET /api/v1/debates/matrix/{id}/scenarios
-            if len(parts) >= 7 and parts[6] == "scenarios":
+            # GET /api/debates/matrix/{id}/scenarios
+            if len(segments) >= 5 and segments[4] == "scenarios":
                 return await self._get_scenarios(handler, matrix_id)
 
-            # GET /api/v1/debates/matrix/{id}/conclusions
-            if len(parts) >= 7 and parts[6] == "conclusions":
+            # GET /api/debates/matrix/{id}/conclusions
+            if len(segments) >= 5 and segments[4] == "conclusions":
                 return await self._get_conclusions(handler, matrix_id)
 
             return await self._get_matrix_debate(handler, matrix_id)

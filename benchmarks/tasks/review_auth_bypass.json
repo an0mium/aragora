@@ -1,0 +1,13 @@
+{
+  "id": "review_auth_bypass",
+  "kind": "review",
+  "title": "Authorization bypass diff",
+  "input": "diff --git a/app/admin.py b/app/admin.py\nindex 1c2d3e4..9f8e7d6 100644\n--- a/app/admin.py\n+++ b/app/admin.py\n@@ -2,6 +2,12 @@\n def list_users(request):\n     return db.fetch_all(\"SELECT id, email FROM users\")\n+\n+def delete_user(request):\n+    # TODO: add auth checks\n+    user_id = request.get(\"user_id\")\n+    db.execute(\"DELETE FROM users WHERE id = %s\" % user_id)\n+    return {\"status\": \"ok\"}\n",
+  "expected_keywords": [
+    "authorization",
+    "auth",
+    "permission",
+    "rbac"
+  ],
+  "tags": ["code", "security"]
+}

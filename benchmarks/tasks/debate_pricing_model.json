@@ -1,0 +1,15 @@
+{
+  "id": "debate_pricing_model",
+  "kind": "debate",
+  "title": "Pricing model decision",
+  "input": "Choose a pricing model for an AI decision platform for SMBs. Compare per-seat, usage-based, and hybrid. Recommend a path with risk mitigation.",
+  "expected_keywords": [
+    "usage",
+    "tier",
+    "margin",
+    "value",
+    "predictable",
+    "overage"
+  ],
+  "tags": ["business", "pricing"]
+}

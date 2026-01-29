@@ -76,6 +76,11 @@ jobs:
       - name: Generate Python SDK types
         run: python scripts/generate_python_sdk_types.py --openapi docs/api/openapi_generated.json
 
+      - name: Generate Live API types
+        run: |
+          npm --prefix aragora/live ci
+          npm --prefix aragora/live run generate:types
+
       - name: Compare with existing spec
         id: compare
         run: |
@@ -140,6 +145,7 @@ jobs:
             docs/api/openapi_generated.yaml
             sdk/typescript/src/openapi-types.ts
             sdk/python/aragora/generated_types.py
+            aragora/live/src/types/api.generated.ts
           retention-days: 14
 
       - name: Comment on PR (if spec changed)
@@ -182,7 +188,8 @@ jobs:
           cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
           cp /tmp/openapi-spec/openapi-types.ts sdk/typescript/src/openapi-types.ts 2>/dev/null || true
           cp /tmp/openapi-spec/generated_types.py sdk/python/aragora/generated_types.py 2>/dev/null || true
-          git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py || echo "changes=true" >> $GITHUB_OUTPUT
+          cp /tmp/openapi-spec/aragora/live/src/types/api.generated.ts aragora/live/src/types/api.generated.ts 2>/dev/null || true
+          git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts || echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Commit updated spec
         if: steps.changes.outputs.changes == 'true'
@@ -204,15 +211,16 @@ jobs:
             cp /tmp/openapi-spec/openapi_generated.yaml docs/api/openapi.yaml 2>/dev/null || true
             cp /tmp/openapi-spec/openapi-types.ts sdk/typescript/src/openapi-types.ts 2>/dev/null || true
             cp /tmp/openapi-spec/generated_types.py sdk/python/aragora/generated_types.py 2>/dev/null || true
+            cp /tmp/openapi-spec/aragora/live/src/types/api.generated.ts aragora/live/src/types/api.generated.ts 2>/dev/null || true
 
             # Check if there are actual changes
-            if git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py 2>/dev/null; then
+            if git diff --quiet docs/api/ sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts 2>/dev/null; then
               echo "No changes to commit"
               exit 0
             fi
 
             # Stage and commit
-            git add docs/api/openapi.json docs/api/openapi.yaml sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py
+            git add docs/api/openapi.json docs/api/openapi.yaml sdk/typescript/src/openapi-types.ts sdk/python/aragora/generated_types.py aragora/live/src/types/api.generated.ts
             git commit -m "chore(api): auto-update OpenAPI spec and SDK types [skip ci]" || true
 
             # Try to push

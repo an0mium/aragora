@@ -1,0 +1,15 @@
+{
+  "id": "debate_orchestration_value",
+  "kind": "debate",
+  "title": "Multi-agent orchestration value",
+  "input": "We want to orchestrate multiple AI agents in parallel for strategic decisions. What are the key benefits and tradeoffs versus a single model? Provide a recommendation and guardrails.",
+  "expected_keywords": [
+    "parallel",
+    "cost",
+    "latency",
+    "audit",
+    "dissent",
+    "bias"
+  ],
+  "tags": ["strategy", "governance"]
+}

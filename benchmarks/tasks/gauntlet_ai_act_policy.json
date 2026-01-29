@@ -1,0 +1,16 @@
+{
+  "id": "gauntlet_ai_act_policy",
+  "kind": "gauntlet",
+  "title": "AI Act policy draft",
+  "input": "# AI System Policy (Draft)\n\nWe deploy AI systems to assist hiring decisions. The system provides recommendations that may be used without human review.\n\nWe have no documented risk classification, transparency disclosures, or monitoring plan.\n",
+  "expected_keywords": [
+    "risk",
+    "transparency",
+    "human",
+    "oversight",
+    "documentation"
+  ],
+  "attack_categories": ["compliance", "ai_act"],
+  "probe_categories": ["contradiction"],
+  "tags": ["policy", "compliance"]
+}

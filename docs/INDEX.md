@@ -104,6 +104,7 @@ Use this index for fast navigation. For a fuller map, see
 - Handler development: [HANDLER_DEVELOPMENT.md](HANDLER_DEVELOPMENT.md)
 - Testing: [TESTING.md](TESTING.md)
 - Deprecation policy: [DEPRECATION_POLICY.md](DEPRECATION_POLICY.md)
+- Parity backlog: [PARITY_BACKLOG.md](PARITY_BACKLOG.md)
 
 ## Coding & Review
 

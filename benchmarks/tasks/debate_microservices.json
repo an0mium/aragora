@@ -1,0 +1,15 @@
+{
+  "id": "debate_microservices",
+  "kind": "debate",
+  "title": "Microservices vs Monolith",
+  "input": "We are a 4-person team building a B2B SaaS. Should we adopt microservices now or start with a monolith? Provide a decision with risks, migration path, and cost considerations.",
+  "expected_keywords": [
+    "complexity",
+    "latency",
+    "deployment",
+    "ownership",
+    "migration",
+    "operational"
+  ],
+  "tags": ["architecture", "strategy"]
+}

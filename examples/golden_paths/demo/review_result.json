@@ -1,0 +1,83 @@
+{
+  "findings": {
+    "agent_alignment": {
+      "demo_performance_reviewer": 0.0,
+      "demo_security_reviewer": 0.0
+    },
+    "agents_used": [
+      "demo_security_reviewer",
+      "demo_performance_reviewer"
+    ],
+    "agreement_score": 1.0,
+    "critical_issues": [],
+    "final_summary": "## Final Synthesis\n\n**Question:** You are reviewing a pull request. Analyze the diff carefully and identify issues.\n\n## Review Focus\n\n**Security** - Look for:\n- SQL/NoSQL injection, XSS, CSRF\n- Authentication/authorization bypass\n- Secrets/credentials in code\n- Insecure deserialization\n- Path traversal\n\n**Performance** - Look for:\n- N+1 query patterns\n- O(n^2) or worse algorithms\n- Memory leaks, unbounded collections\n- Missing pagination\n- Blocking operations in async code\n\n**Code Quality** - Look for:\n- Missing error handling\n- Edge cases not covered\n- Unclear or complex logic\n- Missing input validation\n- Resource cleanup issues\n\n## Diff to Review\n```diff\ndiff --git a/app/users.py b/app/users.py\nindex 5a1c2b3..9d8e7f6 100644\n--- a/app/users.py\n+++ b/app/users.py\n@@ -14,7 +14,10 @@ def search_users(query):\n-    sql = f\"SELECT * FROM users WHERE name = '{query}'\"\n-    return db.execute(sql)\n+    # TODO: switch to parameterized queries\n+    sql = \"SELECT * FROM users WHERE name = '%s'\" % query\n+    return db.execute(sql)\n\n```\n\n## Response Format\nFor each issue found, specify:\n1. **Category**: Security, Performance, or Quality\n2. **Severity**: CRITICAL, HIGH, MEDIUM, or LOW\n3. **Location**: File and line number if identifiable\n4. **Issue**: Clear description of the problem\n5. **Suggestion**: How to fix it\n\nIf no issues found in a category, say \"No issues found.\"\n\nBe thorough but avoid false positives. Focus on real, actionable issues.\n\n### Winning Position (demo_security_reviewer)\n\nDemo critique for: You are reviewing a pull request. Analyze the diff carefully and identify issues.\n\nIssues:\n- Success metrics are underspecified.\n- Failure modes and rollback paths are missing.\n- Operational ownership and runbooks are unclear.\n\nSuggestions:\n- Define measurable SLOs and acceptance criteria.\n- Add a staged rollout with automated rollback checks.\n- Clarify on-call ownership and escalation paths.\nSeverity: 0.4\n\n### Other Perspectives\n\n",
+    "high_issues": [],
+    "low_issues": [],
+    "medium_issues": [
+      {
+        "agent": "demo_performance_reviewer",
+        "issue": "Success metrics are underspecified.",
+        "suggestions": [
+          "Define measurable SLOs and acceptance criteria.",
+          "Add a staged rollout with automated rollback checks.",
+          "Clarify on-call ownership and escalation paths."
+        ],
+        "target": "demo_security_reviewer"
+      },
+      {
+        "agent": "demo_performance_reviewer",
+        "issue": "Failure modes and rollback paths are missing.",
+        "suggestions": [
+          "Define measurable SLOs and acceptance criteria.",
+          "Add a staged rollout with automated rollback checks.",
+          "Clarify on-call ownership and escalation paths."
+        ],
+        "target": "demo_security_reviewer"
+      },
+      {
+        "agent": "demo_performance_reviewer",
+        "issue": "Operational ownership and runbooks are unclear.",
+        "suggestions": [
+          "Define measurable SLOs and acceptance criteria.",
+          "Add a staged rollout with automated rollback checks.",
+          "Clarify on-call ownership and escalation paths."
+        ],
+        "target": "demo_security_reviewer"
+      },
+      {
+        "agent": "demo_performance_reviewer",
+        "issue": "Success metrics are underspecified.",
+        "suggestions": [
+          "Define measurable SLOs and acceptance criteria.",
+          "Add a staged rollout with automated rollback checks.",
+          "Clarify on-call ownership and escalation paths."
+        ],
+        "target": "demo_security_reviewer"
+      },
+      {
+        "agent": "demo_performance_reviewer",
+        "issue": "Failure modes and rollback paths are missing.",
+        "suggestions": [
+          "Define measurable SLOs and acceptance criteria.",
+          "Add a staged rollout with automated rollback checks.",
+          "Clarify on-call ownership and escalation paths."
+        ],
+        "target": "demo_security_reviewer"
+      },
+      {
+        "agent": "demo_performance_reviewer",
+        "issue": "Operational ownership and runbooks are unclear.",
+        "suggestions": [
+          "Define measurable SLOs and acceptance criteria.",
+          "Add a staged rollout with automated rollback checks.",
+          "Clarify on-call ownership and escalation paths."
+        ],
+        "target": "demo_security_reviewer"
+      }
+    ],
+    "risk_areas": [],
+    "split_opinions": [],
+    "unanimous_critiques": []
+  },
+  "summary": "## Final Synthesis\n\n**Question:** You are reviewing a pull request. Analyze the diff carefully and identify issues.\n\n## Review Focus\n\n**Security** - Look for:\n- SQL/NoSQL injection, XSS, CSRF\n- Authentication/authorization bypass\n- Secrets/credentials in code\n- Insecure deserialization\n- Path traversal\n\n**Performance** - Look for:\n- N+1 query patterns\n- O(n^2) or worse algorithms\n- Memory leaks, unbounded collections\n- Missing pagination\n- Blocking operations in async code\n\n**Code Quality** - Look for:\n- Missing error handling\n- Edge cases not covered\n- Unclear or complex logic\n- Missing input validation\n- Resource cleanup issues\n\n## Diff to Review\n```diff\ndiff --git a/app/users.py b/app/users.py\nindex 5a1c2b3..9d8e7f6 100644\n--- a/app/users.py\n+++ b/app/users.py\n@@ -14,7 +14,10 @@ def search_users(query):\n-    sql = f\"SELECT * FROM users WHERE name = '{query}'\"\n-    return db.execute(sql)\n+    # TODO: switch to parameterized queries\n+    sql = \"SELECT * FROM users WHERE name = '%s'\" % query\n+    return db.execute(sql)\n\n```\n\n## Response Format\nFor each issue found, specify:\n1. **Category**: Security, Performance, or Quality\n2. **Severity**: CRITICAL, HIGH, MEDIUM, or LOW\n3. **Location**: File and line number if identifiable\n4. **Issue**: Clear description of the problem\n5. **Suggestion**: How to fix it\n\nIf no issues found in a category, say \"No issues found.\"\n\nBe thorough but avoid false positives. Focus on real, actionable issues.\n\n### Winning Position (demo_security_reviewer)\n\nDemo critique for: You are reviewing a pull request. Analyze the diff carefully and identify issues.\n\nIssues:\n- Success metrics are underspecified.\n- Failure modes and rollback paths are missing.\n- Operational ownership and runbooks are unclear.\n\nSuggestions:\n- Define measurable SLOs and acceptance criteria.\n- Add a staged rollout with automated rollback checks.\n- Clarify on-call ownership and escalation paths.\nSeverity: 0.4\n\n### Other Perspectives\n\n"
+}

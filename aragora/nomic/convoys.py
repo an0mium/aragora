@@ -116,11 +116,12 @@ class Convoy:
         parent_id: Optional[str] = None,
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        convoy_id: Optional[str] = None,
     ) -> "Convoy":
-        """Create a new convoy with generated ID and timestamps."""
+        """Create a new convoy with optional custom ID and timestamps."""
         now = datetime.now(timezone.utc)
         return cls(
-            id=str(uuid.uuid4()),
+            id=convoy_id or str(uuid.uuid4()),
             title=title,
             description=description,
             bead_ids=bead_ids,
@@ -266,6 +267,7 @@ class ConvoyManager:
         dependencies: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        convoy_id: Optional[str] = None,
     ) -> Convoy:
         """
         Create a new convoy from existing beads.
@@ -297,6 +299,7 @@ class ConvoyManager:
                 dependencies=dependencies,
                 tags=tags,
                 metadata=metadata,
+                convoy_id=convoy_id,
             )
 
             self._convoys[convoy.id] = convoy
@@ -310,6 +313,7 @@ class ConvoyManager:
         title: str,
         subtasks: List[Dict[str, Any]],
         priority: ConvoyPriority = ConvoyPriority.NORMAL,
+        convoy_id: Optional[str] = None,
     ) -> Convoy:
         """
         Create a convoy by first creating beads from subtask definitions.
@@ -357,6 +361,7 @@ class ConvoyManager:
                 title=title,
                 bead_ids=bead_ids,
                 priority=priority,
+                convoy_id=convoy_id,
             )
 
             self._convoys[convoy.id] = convoy
@@ -368,6 +373,54 @@ class ConvoyManager:
     async def get_convoy(self, convoy_id: str) -> Optional[Convoy]:
         """Get a convoy by ID."""
         return self._convoys.get(convoy_id)
+
+    async def update_convoy(
+        self,
+        convoy_id: str,
+        *,
+        status: Optional[ConvoyStatus] = None,
+        metadata_updates: Optional[Dict[str, Any]] = None,
+        assigned_to: Optional[List[str]] = None,
+        bead_ids: Optional[List[str]] = None,
+        started_at: Optional[datetime] = None,
+        completed_at: Optional[datetime] = None,
+        error_message: Optional[str] = None,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+    ) -> Convoy:
+        """
+        Update convoy fields and persist changes.
+
+        This is a lightweight mutation helper for adapter layers that
+        need to synchronize external state into Convoy metadata.
+        """
+        async with self._lock:
+            convoy = self._convoys.get(convoy_id)
+            if not convoy:
+                raise ValueError(f"Convoy {convoy_id} not found")
+
+            if status is not None:
+                convoy.status = status
+            if metadata_updates:
+                convoy.metadata.update(metadata_updates)
+            if assigned_to is not None:
+                convoy.assigned_to = assigned_to
+            if bead_ids is not None:
+                convoy.bead_ids = bead_ids
+            if started_at is not None:
+                convoy.started_at = started_at
+            if completed_at is not None:
+                convoy.completed_at = completed_at
+            if error_message is not None:
+                convoy.error_message = error_message
+            if title is not None:
+                convoy.title = title
+            if description is not None:
+                convoy.description = description
+
+            convoy.updated_at = datetime.now(timezone.utc)
+            await self._save_convoy(convoy)
+            return convoy
 
     async def assign_convoy(
         self,

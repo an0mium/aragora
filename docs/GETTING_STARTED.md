@@ -91,6 +91,12 @@ Environment:
 Status: Ready
 ```
 
+Optional: run the golden-path harness (offline, demo agents).
+
+```bash
+python scripts/golden_paths.py --mode fast
+```
+
 ### 4. Run Your First Stress-Test
 
 ```bash

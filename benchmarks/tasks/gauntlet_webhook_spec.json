@@ -1,0 +1,16 @@
+{
+  "id": "gauntlet_webhook_spec",
+  "kind": "gauntlet",
+  "title": "Payment webhook spec",
+  "input": "# Payment Webhook Service\n\n## Goals\n- Accept webhooks from multiple providers\n- Normalize events and write to a ledger\n- Expose an API for finance to query status\n\n## Constraints\n- Must be idempotent\n- Handle spikes (10k events/min)\n\n## Open Questions\n- Signature validation strategy is not defined\n- Retry/backoff behavior is unclear\n",
+  "expected_keywords": [
+    "signature",
+    "verification",
+    "replay",
+    "idempotent",
+    "retry"
+  ],
+  "attack_categories": ["security", "logic"],
+  "probe_categories": ["contradiction"],
+  "tags": ["security", "payments"]
+}

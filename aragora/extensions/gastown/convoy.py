@@ -9,9 +9,16 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from aragora.nomic.beads import BeadStore as NomicBeadStore
+from aragora.nomic.convoys import (
+    Convoy as NomicConvoy,
+    ConvoyManager as NomicConvoyManager,
+    ConvoyStatus as NomicConvoyStatus,
+)
 
 from .models import (
     Convoy,
@@ -30,7 +37,11 @@ class ConvoyTracker:
     collecting artifacts and tracking state across agent handoffs.
     """
 
-    def __init__(self, storage_path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        storage_path: str | Path | None = None,
+        use_nomic_store: bool | None = None,
+    ) -> None:
         """
         Initialize the convoy tracker.
 
@@ -41,9 +52,103 @@ class ConvoyTracker:
         self._convoys: dict[str, Convoy] = {}
         self._artifacts: dict[str, ConvoyArtifact] = {}
         self._lock = asyncio.Lock()
+        self._use_nomic_store = (
+            use_nomic_store if use_nomic_store is not None else bool(storage_path)
+        )
+        self._bead_store: NomicBeadStore | None = None
+        self._nomic_manager: NomicConvoyManager | None = None
+        self._nomic_initialized = False
 
         if self._storage_path:
             self._storage_path.mkdir(parents=True, exist_ok=True)
+            if self._use_nomic_store:
+                self._bead_store = NomicBeadStore(
+                    self._storage_path,
+                    git_enabled=False,
+                    auto_commit=False,
+                )
+                self._nomic_manager = NomicConvoyManager(self._bead_store)
+
+    async def _ensure_nomic_manager(self) -> None:
+        if self._nomic_manager and not self._nomic_initialized:
+            await self._bead_store.initialize()
+            await self._nomic_manager.initialize()
+            self._nomic_initialized = True
+
+    def _to_nomic_status(self, status: ConvoyStatus) -> NomicConvoyStatus:
+        return {
+            ConvoyStatus.PENDING: NomicConvoyStatus.PENDING,
+            ConvoyStatus.IN_PROGRESS: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.BLOCKED: NomicConvoyStatus.PENDING,
+            ConvoyStatus.REVIEW: NomicConvoyStatus.ACTIVE,
+            ConvoyStatus.COMPLETED: NomicConvoyStatus.COMPLETED,
+            ConvoyStatus.CANCELLED: NomicConvoyStatus.CANCELLED,
+        }.get(status, NomicConvoyStatus.PENDING)
+
+    def _from_nomic_status(
+        self, status: NomicConvoyStatus, metadata: dict[str, Any]
+    ) -> ConvoyStatus:
+        stored = metadata.get("gastown_status")
+        if isinstance(stored, str):
+            try:
+                return ConvoyStatus(stored)
+            except ValueError:
+                pass
+        return {
+            NomicConvoyStatus.PENDING: ConvoyStatus.PENDING,
+            NomicConvoyStatus.ACTIVE: ConvoyStatus.IN_PROGRESS,
+            NomicConvoyStatus.COMPLETED: ConvoyStatus.COMPLETED,
+            NomicConvoyStatus.FAILED: ConvoyStatus.BLOCKED,
+            NomicConvoyStatus.CANCELLED: ConvoyStatus.CANCELLED,
+            NomicConvoyStatus.PARTIAL: ConvoyStatus.REVIEW,
+        }.get(status, ConvoyStatus.PENDING)
+
+    def _to_nomic_metadata(
+        self,
+        convoy: Convoy,
+    ) -> dict[str, Any]:
+        return {
+            "rig_id": convoy.rig_id,
+            "issue_ref": convoy.issue_ref,
+            "parent_convoy": convoy.parent_convoy,
+            "priority": convoy.priority,
+            "tags": list(convoy.tags),
+            "metadata": dict(convoy.metadata),
+            "assigned_agents": list(convoy.assigned_agents),
+            "current_agent": convoy.current_agent,
+            "handoff_count": convoy.handoff_count,
+            "artifacts": list(convoy.artifacts),
+            "gastown_status": convoy.status.value,
+            "error": convoy.error,
+            "result": convoy.result,
+        }
+
+    def _from_nomic_convoy(self, convoy: NomicConvoy) -> Convoy:
+        metadata = convoy.metadata or {}
+        status = self._from_nomic_status(convoy.status, metadata)
+        return Convoy(
+            id=convoy.id,
+            rig_id=metadata.get("rig_id", ""),
+            title=convoy.title,
+            description=convoy.description,
+            status=status,
+            created_at=convoy.created_at,
+            updated_at=convoy.updated_at,
+            started_at=convoy.started_at,
+            completed_at=convoy.completed_at,
+            issue_ref=metadata.get("issue_ref"),
+            parent_convoy=metadata.get("parent_convoy"),
+            depends_on=list(convoy.dependencies),
+            assigned_agents=list(convoy.assigned_to),
+            current_agent=metadata.get("current_agent"),
+            handoff_count=int(metadata.get("handoff_count", 0)),
+            artifacts=list(metadata.get("artifacts", [])),
+            result=metadata.get("result", {}),
+            error=metadata.get("error"),
+            priority=int(metadata.get("priority", 0)),
+            tags=list(metadata.get("tags", convoy.tags or [])),
+            metadata=dict(metadata.get("metadata", {})),
+        )
 
     async def create_convoy(
         self,
@@ -87,13 +192,30 @@ class ConvoyTracker:
                 metadata=metadata or {},
             )
 
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                nomic_convoy = await self._nomic_manager.create_convoy(
+                    title=title,
+                    bead_ids=[],
+                    description=description,
+                    tags=tags or [],
+                    metadata=metadata,
+                    convoy_id=convoy_id,
+                )
+                logger.info(f"Created convoy {title} ({convoy_id})")
+                return self._from_nomic_convoy(nomic_convoy)
+
             self._convoys[convoy_id] = convoy
             logger.info(f"Created convoy {title} ({convoy_id})")
-
             return convoy
 
     async def get_convoy(self, convoy_id: str) -> Convoy | None:
         """Get a convoy by ID."""
+        if self._use_nomic_store and self._nomic_manager:
+            await self._ensure_nomic_manager()
+            nomic_convoy = await self._nomic_manager.get_convoy(convoy_id)
+            return self._from_nomic_convoy(nomic_convoy) if nomic_convoy else None
         return self._convoys.get(convoy_id)
 
     async def list_convoys(
@@ -103,7 +225,11 @@ class ConvoyTracker:
         agent_id: str | None = None,
     ) -> list[Convoy]:
         """List convoys with optional filters."""
-        convoys = list(self._convoys.values())
+        if self._use_nomic_store and self._nomic_manager:
+            await self._ensure_nomic_manager()
+            convoys = [self._from_nomic_convoy(c) for c in await self._nomic_manager.list_convoys()]
+        else:
+            convoys = list(self._convoys.values())
 
         if rig_id:
             convoys = [c for c in convoys if c.rig_id == rig_id]
@@ -126,7 +252,7 @@ class ConvoyTracker:
             Updated convoy or None if not found
         """
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -139,6 +265,19 @@ class ConvoyTracker:
             if agent_id not in convoy.assigned_agents:
                 convoy.assigned_agents.append(agent_id)
             convoy.updated_at = datetime.utcnow()
+
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    status=self._to_nomic_status(convoy.status),
+                    metadata_updates=metadata,
+                    assigned_to=convoy.assigned_agents,
+                    started_at=convoy.started_at.replace(tzinfo=timezone.utc),
+                )
+            else:
+                self._convoys[convoy_id] = convoy
 
             logger.info(f"Started convoy {convoy_id} with agent {agent_id}")
             return convoy
@@ -163,7 +302,7 @@ class ConvoyTracker:
             Updated convoy or None if not found
         """
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -189,6 +328,17 @@ class ConvoyTracker:
             convoy.metadata["handoffs"] = handoffs
 
             logger.info(f"Handed off convoy {convoy_id} from {from_agent} to {to_agent}")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    metadata_updates=metadata,
+                    assigned_to=convoy.assigned_agents,
+                )
+            else:
+                self._convoys[convoy_id] = convoy
+
             return convoy
 
     async def block_convoy(
@@ -209,7 +359,7 @@ class ConvoyTracker:
             Updated convoy or None if not found
         """
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -220,12 +370,23 @@ class ConvoyTracker:
             convoy.updated_at = datetime.utcnow()
 
             logger.info(f"Blocked convoy {convoy_id}: {reason}")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    status=self._to_nomic_status(convoy.status),
+                    metadata_updates=metadata,
+                )
+            else:
+                self._convoys[convoy_id] = convoy
+
             return convoy
 
     async def unblock_convoy(self, convoy_id: str) -> Convoy | None:
         """Resume a blocked convoy."""
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -237,12 +398,22 @@ class ConvoyTracker:
             convoy.updated_at = datetime.utcnow()
 
             logger.info(f"Unblocked convoy {convoy_id}")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    status=self._to_nomic_status(convoy.status),
+                    metadata_updates=metadata,
+                )
+            else:
+                self._convoys[convoy_id] = convoy
             return convoy
 
     async def submit_for_review(self, convoy_id: str) -> Convoy | None:
         """Submit a convoy for review."""
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -250,6 +421,16 @@ class ConvoyTracker:
             convoy.updated_at = datetime.utcnow()
 
             logger.info(f"Submitted convoy {convoy_id} for review")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    status=self._to_nomic_status(convoy.status),
+                    metadata_updates=metadata,
+                )
+            else:
+                self._convoys[convoy_id] = convoy
             return convoy
 
     async def complete_convoy(
@@ -268,7 +449,7 @@ class ConvoyTracker:
             Updated convoy or None if not found
         """
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -279,6 +460,17 @@ class ConvoyTracker:
             convoy.updated_at = datetime.utcnow()
 
             logger.info(f"Completed convoy {convoy_id}")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    status=self._to_nomic_status(convoy.status),
+                    metadata_updates=metadata,
+                    completed_at=convoy.completed_at.replace(tzinfo=timezone.utc),
+                )
+            else:
+                self._convoys[convoy_id] = convoy
             return convoy
 
     async def cancel_convoy(
@@ -288,7 +480,7 @@ class ConvoyTracker:
     ) -> Convoy | None:
         """Cancel a convoy."""
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -297,6 +489,18 @@ class ConvoyTracker:
             convoy.updated_at = datetime.utcnow()
 
             logger.info(f"Cancelled convoy {convoy_id}: {reason}")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    status=self._to_nomic_status(convoy.status),
+                    metadata_updates=metadata,
+                    error_message=reason,
+                    completed_at=datetime.now(timezone.utc),
+                )
+            else:
+                self._convoys[convoy_id] = convoy
             return convoy
 
     async def add_artifact(
@@ -323,7 +527,7 @@ class ConvoyTracker:
             Created artifact or None if convoy not found
         """
         async with self._lock:
-            convoy = self._convoys.get(convoy_id)
+            convoy = await self.get_convoy(convoy_id)
             if not convoy:
                 return None
 
@@ -344,6 +548,15 @@ class ConvoyTracker:
             convoy.updated_at = datetime.utcnow()
 
             logger.debug(f"Added artifact {artifact_type} to convoy {convoy_id}")
+            if self._use_nomic_store and self._nomic_manager:
+                await self._ensure_nomic_manager()
+                metadata = self._to_nomic_metadata(convoy)
+                await self._nomic_manager.update_convoy(
+                    convoy_id,
+                    metadata_updates=metadata,
+                )
+            else:
+                self._convoys[convoy_id] = convoy
             return artifact
 
     async def get_artifact(self, artifact_id: str) -> ConvoyArtifact | None:
@@ -352,7 +565,7 @@ class ConvoyTracker:
 
     async def list_artifacts(self, convoy_id: str) -> list[ConvoyArtifact]:
         """List artifacts for a convoy."""
-        convoy = self._convoys.get(convoy_id)
+        convoy = await self.get_convoy(convoy_id)
         if not convoy:
             return []
 
@@ -361,15 +574,16 @@ class ConvoyTracker:
     async def get_stats(self) -> dict[str, Any]:
         """Get convoy tracker statistics."""
         async with self._lock:
+            convoys = await self.list_convoys()
             by_status = {}
-            for convoy in self._convoys.values():
+            for convoy in convoys:
                 status = convoy.status.value
                 by_status[status] = by_status.get(status, 0) + 1
 
-            total_handoffs = sum(c.handoff_count for c in self._convoys.values())
+            total_handoffs = sum(c.handoff_count for c in convoys)
 
             return {
-                "convoys_total": len(self._convoys),
+                "convoys_total": len(convoys),
                 "convoys_by_status": by_status,
                 "artifacts_total": len(self._artifacts),
                 "total_handoffs": total_handoffs,

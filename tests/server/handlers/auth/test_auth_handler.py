@@ -11,6 +11,7 @@ Note: More comprehensive integration tests exist in tests/e2e/test_auth_e2e.py
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Dict
 from unittest.mock import MagicMock
@@ -19,6 +20,12 @@ from datetime import datetime, timezone
 import pytest
 
 from aragora.server.handlers.auth.handler import AuthHandler
+
+
+def maybe_await(result):
+    if asyncio.iscoroutine(result):
+        return asyncio.run(result)
+    return result
 
 
 # ===========================================================================
@@ -310,11 +317,13 @@ class TestMethodRouting:
         """Test invalid method returns 405."""
         request = make_mock_handler(command="DELETE")
 
-        result = auth_handler.handle(
-            path="/api/auth/login",
-            query_params={},
-            handler=request,
-            method="DELETE",
+        result = maybe_await(
+            auth_handler.handle(
+                path="/api/auth/login",
+                query_params={},
+                handler=request,
+                method="DELETE",
+            )
         )
         parsed = parse_result(result)
 
@@ -329,11 +338,13 @@ class TestMethodRouting:
             command="POST",
         )
 
-        result = auth_handler.handle(
-            path="/api/auth/login",
-            query_params={},
-            handler=request,
-            method="POST",
+        result = maybe_await(
+            auth_handler.handle(
+                path="/api/auth/login",
+                query_params={},
+                handler=request,
+                method="POST",
+            )
         )
         parsed = parse_result(result)
 

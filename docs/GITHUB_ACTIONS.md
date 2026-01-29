@@ -161,6 +161,8 @@ Require AI review before merge:
 # In your branch protection rules:
 # Settings → Branches → Add rule
 # - Require status checks: "AI Red Team Review"
+# - Recommended required checks: "Tests", "Lint", "Integration Tests"
+#   (Treat long-running workflows like Benchmarks, Security Scan, Deploy as informational)
 ```
 
 ### Skip Conditions

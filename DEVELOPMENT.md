@@ -92,6 +92,15 @@ Optional but recommended for local dev:
 ARAGORA_DATA_DIR=.nomic
 ```
 
+### Repo Hygiene (Recommended)
+
+Keep runtime artifacts out of the repo. Use `.nomic/` (via `ARAGORA_DATA_DIR`) and
+run the guard script before commits:
+
+```bash
+python scripts/guard_repo_clean.py
+```
+
 ## Running Tests
 
 ```bash

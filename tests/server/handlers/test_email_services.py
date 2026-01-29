@@ -116,7 +116,7 @@ class TestFollowUpHandlers:
             yield tracker
 
     @pytest.mark.asyncio
-    async def test_mark_followup_success(self, mock_tracker):
+    async def test_mark_followup_success(self, mock_tracker, admin_auth):
         """Should successfully mark email for follow-up."""
         mock_item = MagicMock()
         mock_item.id = "fu_123"
@@ -139,16 +139,20 @@ class TestFollowUpHandlers:
             "sent_at": datetime.now().isoformat(),
         }
 
-        result = parse_result(await handle_mark_followup(data, user_id="user_1"))
+        result = parse_result(
+            await handle_mark_followup(data, user_id="user_1", auth_context=admin_auth)
+        )
 
         assert result["success"] is True
         assert result["data"]["followup_id"] == "fu_123"
         assert result["data"]["status"] == "awaiting"
 
     @pytest.mark.asyncio
-    async def test_mark_followup_missing_required(self, mock_tracker):
+    async def test_mark_followup_missing_required(self, mock_tracker, admin_auth):
         """Should fail when missing required fields."""
-        result = parse_result(await handle_mark_followup({"email_id": "123"}))
+        result = parse_result(
+            await handle_mark_followup({"email_id": "123"}, auth_context=admin_auth)
+        )
 
         assert result["success"] is False or "error" in result
         assert "thread_id" in result.get("error", "")
@@ -180,7 +184,7 @@ class TestFollowUpHandlers:
         assert result["data"]["overdue_count"] == 0
 
     @pytest.mark.asyncio
-    async def test_resolve_followup_success(self, mock_tracker):
+    async def test_resolve_followup_success(self, mock_tracker, admin_auth):
         """Should resolve follow-up successfully."""
         mock_item = MagicMock()
         mock_item.id = "fu_123"
@@ -194,6 +198,7 @@ class TestFollowUpHandlers:
                 followup_id="fu_123",
                 data={"status": "received"},
                 user_id="user_1",
+                auth_context=admin_auth,
             )
         )
 
@@ -201,7 +206,7 @@ class TestFollowUpHandlers:
         assert result["data"]["status"] == "received"
 
     @pytest.mark.asyncio
-    async def test_resolve_followup_not_found(self, mock_tracker):
+    async def test_resolve_followup_not_found(self, mock_tracker, admin_auth):
         """Should return 404 when follow-up not found."""
         mock_tracker.resolve_followup = AsyncMock(return_value=None)
 
@@ -209,6 +214,7 @@ class TestFollowUpHandlers:
             await handle_resolve_followup(
                 followup_id="fu_invalid",
                 data={"status": "received"},
+                auth_context=admin_auth,
             )
         )
 
@@ -267,7 +273,7 @@ class TestSnoozeHandlers:
         assert result["data"]["recommended"] is not None
 
     @pytest.mark.asyncio
-    async def test_apply_snooze_success(self):
+    async def test_apply_snooze_success(self, admin_auth):
         """Should apply snooze successfully."""
         snooze_until = (datetime.now() + timedelta(hours=2)).isoformat()
 
@@ -276,6 +282,7 @@ class TestSnoozeHandlers:
                 email_id="email_123",
                 data={"snooze_until": snooze_until},
                 user_id="user_1",
+                auth_context=admin_auth,
             )
         )
 
@@ -283,12 +290,13 @@ class TestSnoozeHandlers:
         assert result["data"]["status"] == "snoozed"
 
     @pytest.mark.asyncio
-    async def test_apply_snooze_missing_time(self):
+    async def test_apply_snooze_missing_time(self, admin_auth):
         """Should fail without snooze_until."""
         result = parse_result(
             await handle_apply_snooze(
                 email_id="email_123",
                 data={},
+                auth_context=admin_auth,
             )
         )
 
@@ -296,19 +304,20 @@ class TestSnoozeHandlers:
         assert "snooze_until" in result.get("error", "")
 
     @pytest.mark.asyncio
-    async def test_apply_snooze_invalid_time(self):
+    async def test_apply_snooze_invalid_time(self, admin_auth):
         """Should fail with invalid time format."""
         result = parse_result(
             await handle_apply_snooze(
                 email_id="email_123",
                 data={"snooze_until": "invalid-date"},
+                auth_context=admin_auth,
             )
         )
 
         assert result["success"] is False or "error" in result
 
     @pytest.mark.asyncio
-    async def test_get_snoozed_emails(self):
+    async def test_get_snoozed_emails(self, admin_auth):
         """Should return snoozed emails list."""
         # First snooze an email
         snooze_until = (datetime.now() + timedelta(hours=2)).isoformat()
@@ -316,6 +325,7 @@ class TestSnoozeHandlers:
             email_id="email_test",
             data={"snooze_until": snooze_until},
             user_id="user_1",
+            auth_context=admin_auth,
         )
 
         result = parse_result(await handle_get_snoozed_emails(user_id="user_1"))
@@ -325,7 +335,7 @@ class TestSnoozeHandlers:
         assert "total" in result["data"]
 
     @pytest.mark.asyncio
-    async def test_cancel_snooze(self):
+    async def test_cancel_snooze(self, admin_auth):
         """Should cancel snooze."""
         # First snooze an email
         snooze_until = (datetime.now() + timedelta(hours=2)).isoformat()
@@ -333,12 +343,14 @@ class TestSnoozeHandlers:
             email_id="email_cancel_test",
             data={"snooze_until": snooze_until},
             user_id="user_1",
+            auth_context=admin_auth,
         )
 
         result = parse_result(
             await handle_cancel_snooze(
                 email_id="email_cancel_test",
                 user_id="user_1",
+                auth_context=admin_auth,
             )
         )
 
@@ -346,12 +358,13 @@ class TestSnoozeHandlers:
         assert result["data"]["status"] == "unsnooze"
 
     @pytest.mark.asyncio
-    async def test_cancel_snooze_not_found(self):
+    async def test_cancel_snooze_not_found(self, admin_auth):
         """Should return 404 when email not snoozed."""
         result = parse_result(
             await handle_cancel_snooze(
                 email_id="email_not_snoozed",
                 user_id="user_1",
+                auth_context=admin_auth,
             )
         )
 
@@ -386,7 +399,7 @@ class TestCategoryHandlers:
             yield categorizer
 
     @pytest.mark.asyncio
-    async def test_category_feedback_success(self, mock_categorizer):
+    async def test_category_feedback_success(self, mock_categorizer, admin_auth):
         """Should record category feedback."""
         mock_categorizer.record_feedback = AsyncMock()
 
@@ -398,6 +411,7 @@ class TestCategoryHandlers:
                     "correct_category": "projects",
                 },
                 user_id="user_1",
+                auth_context=admin_auth,
             )
         )
 
@@ -405,11 +419,12 @@ class TestCategoryHandlers:
         assert result["data"]["feedback_recorded"] is True
 
     @pytest.mark.asyncio
-    async def test_category_feedback_missing_fields(self, mock_categorizer):
+    async def test_category_feedback_missing_fields(self, mock_categorizer, admin_auth):
         """Should fail when missing required fields."""
         result = parse_result(
             await handle_category_feedback(
                 data={"email_id": "email_123"},
+                auth_context=admin_auth,
             )
         )
 
@@ -422,7 +437,7 @@ class TestProcessDueSnoozes:
     """Test snooze processing handlers."""
 
     @pytest.mark.asyncio
-    async def test_process_due_snoozes(self):
+    async def test_process_due_snoozes(self, admin_auth):
         """Should process due snoozes."""
         # Snooze with past time
         with patch(
@@ -437,7 +452,9 @@ class TestProcessDueSnoozes:
                 }
             },
         ):
-            result = parse_result(await handle_process_due_snoozes(user_id="user_1"))
+            result = parse_result(
+                await handle_process_due_snoozes(user_id="user_1", auth_context=admin_auth)
+            )
 
         assert result["success"] is True
         assert "processed" in result["data"]
@@ -456,7 +473,7 @@ class TestAutoDetectFollowups:
             yield tracker
 
     @pytest.mark.asyncio
-    async def test_auto_detect_followups(self, mock_tracker):
+    async def test_auto_detect_followups(self, mock_tracker, admin_auth):
         """Should auto-detect sent emails needing follow-up."""
         mock_item = MagicMock()
         mock_item.id = "fu_auto_123"
@@ -472,6 +489,7 @@ class TestAutoDetectFollowups:
             await handle_auto_detect_followups(
                 user_id="user_1",
                 days_back=7,
+                auth_context=admin_auth,
             )
         )
 

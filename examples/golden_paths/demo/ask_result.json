@@ -1,0 +1,18 @@
+{
+  "agent_failures": {},
+  "confidence": 1.0,
+  "consensus_reached": true,
+  "debate_id": "1e02b215-30a2-4d0d-b755-cac70f13faa5",
+  "duration_seconds": 0.05448174476623535,
+  "final_answer": "## Final Synthesis\n\n**Question:** Design a rate limiter for 1M requests/sec with audit-ready decisions.\n\n### Winning Position (demo)\n\nDemo critique for: Design a rate limiter for 1M requests/sec with audit-ready decisions.\n\nIssues:\n- Success metrics are underspecified.\n- Failure modes and rollback paths are missing.\n- Operational ownership and runbooks are unclear.\n\nSuggestions:\n- Define measurable SLOs and acceptance criteria.\n- Add a staged rollout with automated rollback checks.\n- Clarify on-call ownership and escalation paths.\nSeverity: 0.4\n\n### Other Perspectives\n\n",
+  "participants": [
+    "demo",
+    "demo",
+    "demo"
+  ],
+  "rounds_completed": 3,
+  "rounds_used": 3,
+  "status": "completed",
+  "task": "Design a rate limiter for 1M requests/sec with audit-ready decisions.",
+  "winner": "demo"
+}

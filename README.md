@@ -212,6 +212,12 @@ aragora ask "Implement a secure auth system" \
   --consensus majority
 ```
 
+Optional: run the golden-path harness (offline, demo agents).
+
+```bash
+python scripts/golden_paths.py --mode fast
+```
+
 > **See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for the complete setup and usage guide.**
 
 ### SDK Packages

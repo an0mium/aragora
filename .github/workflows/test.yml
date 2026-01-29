@@ -52,6 +52,8 @@ jobs:
 
       - name: Check version alignment
         run: python scripts/check_version_alignment.py
+      - name: Repo hygiene guard
+        run: python scripts/guard_repo_clean.py
 
       - name: Check OpenAPI spec is up to date
         run: |
@@ -161,6 +163,30 @@ jobs:
             --tb=short
         env:
           PYTHONPATH: .
+
+  golden-paths:
+    name: Golden Path Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: version-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run golden-path harness (fast)
+        run: |
+          python scripts/golden_paths.py --mode fast --output-dir /tmp/golden_paths
 
   aragora-py-tests:
     name: Python SDK (aragora-py)

@@ -1,6 +1,7 @@
 """Tests for Matrix Debates handler."""
 
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -385,9 +386,8 @@ class TestRateLimiting:
         with patch.object(handler, "get_auth_context", new_callable=AsyncMock) as mock_auth:
             mock_auth.return_value = mock_auth_context
             with patch.object(handler, "check_permission"):
-                # Exhaust rate limit (5 requests)
-                for _ in range(5):
-                    _matrix_limiter.is_allowed("127.0.0.1")
+                # Pre-fill rate limiter bucket to exceed limit
+                _matrix_limiter._buckets["127.0.0.1"] = [time.time()] * _matrix_limiter.rpm
 
                 result = await handler.handle_post(
                     mock_http_handler,

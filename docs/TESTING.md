@@ -625,6 +625,9 @@ def test_with_logging(caplog):
 # Run benchmarks
 pytest tests/benchmarks/ -v
 
+# Run task ROI/quality benchmark harness (offline demo mode)
+python benchmarks/task_bench.py --mode demo --profile fast
+
 # Run with timing info
 pytest tests/ --durations=10
 

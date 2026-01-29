@@ -216,7 +216,9 @@ class Coordinator:
 
         # Start work if agent provided
         if agent_id:
-            await self._convoy_tracker.start_convoy(convoy.id, agent_id)
+            updated = await self._convoy_tracker.start_convoy(convoy.id, agent_id)
+            if updated:
+                convoy = updated
 
         return convoy
 

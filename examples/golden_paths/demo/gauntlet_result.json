@@ -1,0 +1,119 @@
+{
+  "agents_used": [
+    "demo",
+    "demo",
+    "demo"
+  ],
+  "attack_summary": {
+    "by_category": {},
+    "coverage_score": 0.0,
+    "robustness_score": 1.0,
+    "success_rate": 0,
+    "successful_attacks": 0,
+    "total_attacks": 0
+  },
+  "completed_at": "2026-01-28T22:20:45.114272",
+  "confidence": 0.8999999999999999,
+  "config_used": {
+    "agents": [
+      "demo",
+      "demo",
+      "demo"
+    ],
+    "attack_categories": [
+      "logic"
+    ],
+    "attack_rounds": 2,
+    "attack_timeout": 60,
+    "attacks_per_category": 1,
+    "consensus_threshold": 0.7,
+    "criteria": {
+      "max_critical_findings": 0,
+      "max_high_findings": 2,
+      "min_confidence": 0.5,
+      "min_robustness_score": 0.7,
+      "min_verification_coverage": 0.0,
+      "require_consensus": false,
+      "require_formal_verification": false
+    },
+    "critical_threshold": 0,
+    "custom_scenarios": [],
+    "deep_audit_rounds": 4,
+    "description": "",
+    "domain": "general",
+    "enable_adversarial_probing": true,
+    "enable_deep_audit": false,
+    "enable_formal_verification": false,
+    "enable_scenario_analysis": true,
+    "generate_receipt": true,
+    "high_threshold": 2,
+    "input_type": "text",
+    "max_agents": 3,
+    "max_parallel_scenarios": 3,
+    "max_total_probes": 10,
+    "name": "Gauntlet Validation",
+    "output_dir": null,
+    "output_formats": [
+      "json",
+      "md"
+    ],
+    "probe_categories": [
+      "contradiction"
+    ],
+    "probe_timeout": 30,
+    "probes_per_category": 2,
+    "robustness_threshold": 0.6,
+    "run_scenario_matrix": true,
+    "save_artifacts": false,
+    "scenario_preset": "comprehensive",
+    "scenario_presets": [
+      "comprehensive"
+    ],
+    "scenario_timeout": 120,
+    "sign_receipt": true,
+    "tags": [],
+    "template_id": null,
+    "timeout_seconds": 300,
+    "vulnerability_rate_threshold": 0.2
+  },
+  "consensus_points": [],
+  "dissenting_views": [],
+  "duration_seconds": 30.587642,
+  "gauntlet_id": "gauntlet-bf8c9c445ecf",
+  "input_hash": "f19efca4d4d42686a5ef804b863ffc2d82807e442ad056f73e7a7d73f3bd0cb6",
+  "input_summary": "# Payment Webhook Service (Draft)\n\n## Goals\n- Accept payment webhooks from multiple providers.\n- Normalize events and write to a ledger table.\n- Expose an API for finance to query event status.\n\n## Constraints\n- Must be idempotent.\n- Must handle spikes (10k events/min).\n- Must log audit trails for compliance.\n\n## Open Questions\n- How do we validate webhook signatures consistently?\n- What is the retry/backoff strategy for provider outages?\n",
+  "probe_summary": {
+    "by_category": {},
+    "elo_penalty": 0.0,
+    "probes_run": 6,
+    "vulnerabilities_found": 0,
+    "vulnerability_rate": 0.0
+  },
+  "risk_summary": {
+    "critical": 0,
+    "high": 0,
+    "info": 0,
+    "low": 0,
+    "medium": 0,
+    "total": 0,
+    "weighted_score": 0
+  },
+  "scenario_summary": {
+    "avg_similarity": 1.0,
+    "conditional_patterns": {
+      "risk=high": [],
+      "risk=low": [],
+      "scale=large": [],
+      "scale=small": [],
+      "time=long": [],
+      "time=short": []
+    },
+    "outcome_category": "consistent",
+    "scenarios_run": 8,
+    "universal_conclusions": []
+  },
+  "started_at": "2026-01-28T22:20:14.526630",
+  "verdict": "pass",
+  "verdict_reasoning": "No vulnerabilities found; Strong robustness (100.0%); Consistent conclusions across scenarios",
+  "vulnerabilities": []
+}

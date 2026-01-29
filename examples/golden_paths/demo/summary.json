@@ -1,0 +1,8 @@
+{
+  "artifacts": {
+    "ask": "ask_result.json",
+    "gauntlet": "gauntlet_result.json",
+    "review": "review_result.json"
+  },
+  "mode": "full"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "review_sql_injection",
+  "kind": "review",
+  "title": "SQL injection diff",
+  "input": "diff --git a/app/users.py b/app/users.py\nindex 5a1c2b3..9d8e7f6 100644\n--- a/app/users.py\n+++ b/app/users.py\n@@ -14,7 +14,10 @@ def search_users(query):\n-    sql = f\"SELECT * FROM users WHERE name = '{query}'\"\n-    return db.execute(sql)\n+    # TODO: switch to parameterized queries\n+    sql = \"SELECT * FROM users WHERE name = '%s'\" % query\n+    return db.execute(sql)\n",
+  "expected_keywords": [
+    "sql injection",
+    "parameterized",
+    "input validation"
+  ],
+  "tags": ["code", "security"]
+}

@@ -21,9 +21,10 @@ from aragora.server.handlers.consensus import ConsensusHandler, _consensus_limit
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset the rate limiter before each test."""
-    if hasattr(_consensus_limiter, "_requests"):
-        _consensus_limiter._requests.clear()
-    yield
+    if hasattr(_consensus_limiter, "_buckets"):
+        _consensus_limiter._buckets.clear()
+    with patch("aragora.server.handlers.utils.rate_limit.RATE_LIMITING_DISABLED", False):
+        yield
 
 
 @pytest.fixture
@@ -274,7 +275,7 @@ class TestConsensusHandlerRateLimiting:
 
         # Save original state
         original_requests = (
-            _consensus_limiter._requests.copy() if hasattr(_consensus_limiter, "_requests") else {}
+            _consensus_limiter._buckets.copy() if hasattr(_consensus_limiter, "_buckets") else {}
         )
 
         try:
@@ -289,8 +290,8 @@ class TestConsensusHandlerRateLimiting:
                 assert r is not None
         finally:
             # Restore rate limiter state
-            if hasattr(_consensus_limiter, "_requests"):
-                _consensus_limiter._requests = original_requests
+            if hasattr(_consensus_limiter, "_buckets"):
+                _consensus_limiter._buckets = original_requests
 
 
 class TestConsensusHandlerIntegration:

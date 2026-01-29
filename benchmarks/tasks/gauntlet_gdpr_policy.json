@@ -1,0 +1,16 @@
+{
+  "id": "gauntlet_gdpr_policy",
+  "kind": "gauntlet",
+  "title": "GDPR retention policy",
+  "input": "# Data Retention Policy (Draft)\n\nWe store user data indefinitely to improve personalization. Users can request a copy of their data, but deletion is manual and handled quarterly.\n\nWe do not currently track retention schedules by data class.\n",
+  "expected_keywords": [
+    "retention",
+    "gdpr",
+    "delete",
+    "data subject",
+    "audit"
+  ],
+  "attack_categories": ["compliance", "gdpr"],
+  "probe_categories": ["contradiction"],
+  "tags": ["policy", "privacy"]
+}
